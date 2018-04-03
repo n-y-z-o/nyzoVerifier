@@ -1,69 +1,80 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.SignatureUtil;
+import co.nyzo.verifier.util.UpdateUtil;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Verifier {
 
-    private static Wallet wallet;
+    private static final AtomicBoolean alive = new AtomicBoolean(false);
+    private static byte[] privateSeed = null;
 
     public static void main(String[] args) {
         start();
     }
 
-    public static final File defaultWalletLocation = new File("/etc/nyzo/verifier_private_seed");
+    public static boolean isAlive() {
+        return alive.get();
+    }
 
-    public static Wallet getWallet() {
-        return wallet;
+    private static void loadPrivateSeed() {
+
+        final Path seedFile = Paths.get("/etc/nyzo/verifier_private_seed");
+        try {
+            List<String> lines = Files.readAllLines(seedFile);
+            if (lines != null && !lines.isEmpty()) {
+                String line = lines.get(0);
+                if (line.length() > 64) {
+                    System.out.println("line length is " + line.length());
+                    privateSeed = ByteUtil.byteArrayFromHexString(lines.get(0), 32);
+                }
+            }
+        } catch (Exception ignored) { }
+
+        if (privateSeed == null || ByteUtil.isAllZeros(privateSeed)) {
+            privateSeed = KeyUtil.generateSeed();
+            try {
+                Files.write(seedFile, Arrays.asList(ByteUtil.arrayAsStringWithDashes(privateSeed)));
+            } catch (Exception e) {
+                privateSeed = null;
+            }
+        }
     }
 
     public static void start() {
 
-        // Setup the verifier wallet.
-        Wallet wallet = Wallet.fromFile(defaultWalletLocation);
-        System.out.println("wallet from file is: " + wallet);
-        System.out.println("wallet location is: " + defaultWalletLocation.getAbsolutePath());
-        if (wallet == null) {
-            System.out.println("generating new wallet");
-            wallet = Wallet.generateNew();
-            wallet.toFile(defaultWalletLocation);
+        if (!alive.getAndSet(true)) {
+
+            loadPrivateSeed();
+            NodeManager.fetchNodeList(0);
+            MeshListener.start();
+
+            // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh
+            // and build the blockchain.
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    verifierMain();
+                    alive.set(false);
+                }
+            }).start();
         }
-        Verifier.wallet = wallet;
-
-        // If we do not want to run a seed node, get the list of network nodes.
-        if (!shouldRunAsSeed()) {
-            NodeManager.fetchNodeList();
-        }
-
-        // Start the listener for incoming connections. This will be the reactive side of the verifier, responding
-        // directly to network activity.
-        MeshListener.start();
-
-        // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh and
-        // build the blockchain.
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                verifierMain();
-            }
-        }).start();
-    }
-
-    public static boolean shouldRunAsSeed() {
-
-        return new File("/etc/nyzo/run_as_seed").exists();
     }
 
     private static void verifierMain() {
 
-        while (true) {
+        while (!UpdateUtil.shouldTerminate()) {
 
             long sleepTime = 1000L;
             try {
-                // Only run the active verifier if connected to the mesh or configured to start a new mesh.
-                if (NodeManager.connectedToMesh() || shouldRunAsSeed()) {
+                // Only run the active verifier if connected to the mesh and if a Genesis block is available.
+                if (NodeManager.connectedToMesh() && BlockManager.highestBlockFrozen() >= 0) {
 
                     // Get all of the current chain options. Add one block for each that is not caught up with the
                     // highest block open for processing.
@@ -117,10 +128,12 @@ public class Verifier {
     }
 
     public static byte[] getIdentifier() {
-        return wallet.getIdentifier();
+
+        return KeyUtil.identifierForSeed(privateSeed);
     }
 
     public static byte[] sign(byte[] bytesToSign) {
-        return SignatureUtil.signBytes(bytesToSign, wallet.getPrivateKey().getSeed());
+
+        return SignatureUtil.signBytes(bytesToSign, privateSeed);
     }
 }

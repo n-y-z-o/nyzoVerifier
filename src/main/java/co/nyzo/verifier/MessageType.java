@@ -4,6 +4,7 @@ import java.io.*;
 
 public enum MessageType {
 
+    // standard-operation messages
     Invalid0(0),
     NodeListRequest1(1),
     NodeListResponse2(2),
@@ -15,8 +16,26 @@ public enum MessageType {
     PreviousHashResponse8(8),
     NewBlock9(9),
     NewBlockAcknowledgement10(10),
+    BlockRequest11(11),
+    BlockResponse12(12),
+    TransactionPoolRequest13(13),
+    TransactionPoolResponse14(14),
+
+    // test messages
     Ping200(200),
     PingResponse201(201),
+
+    // maintenance messages
+    UpdateRequest300(300),
+    UpdateAcknowledgement301(301),
+
+    // bootstrapping messages
+    GenesisBlock500(500),
+    GenesisBlockAcknowledgement501(501),
+    SeedTransactionList502(502),
+    SeedTransactionAcknowledgement503(503),
+
+    // the highest allowable message number
     Unknown65535(65535);
 
     public static void main(String[] args) throws Exception {

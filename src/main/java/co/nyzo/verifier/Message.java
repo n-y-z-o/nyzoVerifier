@@ -280,6 +280,8 @@ public class Message {
             content = NodeJoinMessage.fromByteBuffer(buffer);
         } else if (type == MessageType.Transaction5) {
             content = Transaction.fromByteBuffer(buffer);
+        } else if (type == MessageType.TransactionPoolResponse14) {
+            content = TransactionPoolResponse.fromByteBuffer(buffer);
         }
 
         return content;

@@ -1,10 +1,7 @@
 package co.nyzo.verifier.util;
 
-import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.KeyUtil;
 import net.i2p.crypto.eddsa.EdDSAEngine;
-import net.i2p.crypto.eddsa.EdDSAPrivateKey;
-import net.i2p.crypto.eddsa.EdDSAPublicKey;
 import net.i2p.crypto.eddsa.EdDSASecurityProvider;
 import net.i2p.crypto.eddsa.spec.EdDSANamedCurveTable;
 import net.i2p.crypto.eddsa.spec.EdDSAParameterSpec;

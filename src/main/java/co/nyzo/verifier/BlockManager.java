@@ -4,6 +4,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockManager {
 
+    public static final byte[] genesisBlockVerifierIdentifier = ByteUtil.byteArrayFromHexString("302a300506032b65-" +
+            "700321006b32332d-4b28e6add7b8f86f-374045cafc645334", 32);
+
     private static final AtomicLong highestBlockFrozen = new AtomicLong(-1L);
 
     static {

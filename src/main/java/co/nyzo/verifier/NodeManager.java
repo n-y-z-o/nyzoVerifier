@@ -9,6 +9,14 @@ import java.util.*;
 
 public class NodeManager {
 
+    public static void main(String[] args) {
+
+        // This is a simple test of fetching the node list.
+        fetchNodeList(0);
+    }
+
+    private static final int maximumNumberOfSeedVerifiers = 10;
+
     // TODO: work out the details of multiple verifiers at a single IP address
 
     private static final List<Node> queue = new ArrayList<>();
@@ -92,10 +100,11 @@ public class NodeManager {
         }
     }
 
-    public static void fetchNodeList() {
+    public static void fetchNodeList(int index) {
 
         System.out.println("fetching node list");
-        Message.fetch("nyzo.co", MeshListener.standardPort, new Message(MessageType.NodeListRequest1, null), false,
+        String url = "verifier" + index + ".nyzo.co";
+        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeListRequest1, null), false,
                 new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
@@ -116,8 +125,8 @@ public class NodeManager {
                             }
                         }
 
-                        // If connected to the mesh, send node-join messages to all full nodes. Otherwise, wait 10
-                        // seconds and retry.
+                        // If connected to the mesh, send node-join messages to all full nodes and fetch the current
+                        // transaction pool. Otherwise, wait 10 seconds and retry.
                         if (connectedToMesh()) {
                             List<Node> queue = getQueue();
                             for (Node node : queue) {
@@ -128,6 +137,8 @@ public class NodeManager {
                                             nodeJoinMessage, true, null);
                                 }
                             }
+
+                            TransactionPool.fetchFromMesh();
                         } else {
                             new Thread(new Runnable() {
                                 @Override
@@ -135,7 +146,7 @@ public class NodeManager {
                                     try {
                                         Thread.sleep(10000L);
                                     } catch (Exception ignored) { }
-                                    fetchNodeList();
+                                    fetchNodeList((index + 1) % maximumNumberOfSeedVerifiers);
                                 }
                             }).start();
                         }

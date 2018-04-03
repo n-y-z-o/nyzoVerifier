@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.UpdateUtil;
 
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -9,10 +10,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MeshListener {
 
+    private static final AtomicBoolean alive = new AtomicBoolean(false);
+
+    public static boolean isAlive() {
+        return alive.get();
+    }
+
     public static final int standardPort = 9444;
 
     private static int port;
-    private static final AtomicBoolean started = new AtomicBoolean(false);
 
     public static int getPort() {
         return port;
@@ -20,7 +26,7 @@ public class MeshListener {
 
     public static void start() {
 
-        if (!started.getAndSet(true)) {
+        if (!alive.getAndSet(true)) {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -33,7 +39,7 @@ public class MeshListener {
                         NodeManager.updateNode(Verifier.getIdentifier(), IpUtil.myPublicIp(), port, true);
 
                         System.out.println("actual port is " + port);
-                        while (true) {
+                        while (!UpdateUtil.shouldTerminate()) {
                             Socket clientSocket = serverSocket.accept();
 
                             new Thread(new Runnable() {
@@ -56,8 +62,9 @@ public class MeshListener {
                                     }
                                 }
                             }).start();
-
                         }
+
+                        alive.set(false);
                     } catch (Exception ignored) {
                         ignored.printStackTrace();
                     }
@@ -95,6 +102,11 @@ public class MeshListener {
             } else if (messageType == MessageType.PreviousHashRequest7) {
 
                 response = new Message(MessageType.PreviousHashResponse8, new PreviousHashResponse());
+
+            } else if (messageType == MessageType.TransactionPoolRequest13) {
+
+                response = new Message(MessageType.TransactionPoolResponse14,
+                        new TransactionPoolResponse(TransactionPool.allTransactions()));
 
             } else if (messageType == MessageType.Ping200) {
 

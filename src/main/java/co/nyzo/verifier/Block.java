@@ -14,7 +14,7 @@ public class Block {
         nextPotentialGenesisTimestamp();
     }
 
-    public static final long genesisBlockStartTimestamp = 1521504000000L;
+    public static final long genesisBlockStartTimestamp = -1L;
     public static final long blockDuration = 5000L;
 
     public static final File dataRootDirectory = new File("/var/lib/nyzo");

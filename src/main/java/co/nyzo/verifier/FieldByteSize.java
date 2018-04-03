@@ -17,6 +17,7 @@ public class FieldByteSize {
     public static final int hash = 32;
     public static final int identifier = 32;
     public static final int nodeListLength = 4;
+    public static final int transactionPoolLength = 4;
     public static final int senderData = 32;
     public static final int signature = 64;
     public static final int stringLength = 2;

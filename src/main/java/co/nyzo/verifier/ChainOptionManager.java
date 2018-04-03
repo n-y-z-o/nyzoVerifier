@@ -14,8 +14,6 @@ public class ChainOptionManager {
         if (highestBlockFrozen >= 0) {
             Block block = Block.fromFile(highestBlockFrozen);
             options = new ArrayList<>(Arrays.asList(new ChainOption(Arrays.asList(block))));
-        } else if (Verifier.shouldRunAsSeed()) {
-
         }
     }
 

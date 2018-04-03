@@ -128,7 +128,7 @@ public class Transaction implements MessageObject {
 
     public static Transaction seedTransaction(long timestamp, long amount, byte[] receiverIdentifier,
                                               long previousHashHeight, byte[] previousBlockHash,
-                                              byte[] senderData, Wallet wallet) {
+                                              byte[] senderData, byte[] signerSeed) {
 
         Transaction transaction = new Transaction();
         transaction.type = typeSeed;
@@ -137,9 +137,9 @@ public class Transaction implements MessageObject {
         transaction.receiverIdentifier = receiverIdentifier;
         transaction.previousHashHeight = previousHashHeight;
         transaction.previousBlockHash = previousBlockHash;
-        transaction.senderIdentifier = wallet.getIdentifier();
+        transaction.senderIdentifier = KeyUtil.identifierForSeed(signerSeed);
         transaction.senderData = senderData;
-        transaction.signature = wallet.sign(transaction.getBytes(true));
+        transaction.signature = SignatureUtil.signBytes(transaction.getBytes(true), signerSeed);
 
         return transaction;
     }
@@ -164,7 +164,7 @@ public class Transaction implements MessageObject {
 
     public static Transaction standardTransaction(long timestamp, long amount, byte[] receiverIdentifier,
                                                   long previousHashHeight, byte[] previousBlockHash,
-                                                  byte[] senderData, Wallet wallet) {
+                                                  byte[] senderData, byte[] signerSeed) {
 
         Transaction transaction = new Transaction();
         transaction.type = typeStandard;
@@ -173,9 +173,9 @@ public class Transaction implements MessageObject {
         transaction.receiverIdentifier = receiverIdentifier;
         transaction.previousHashHeight = previousHashHeight;
         transaction.previousBlockHash = previousBlockHash;
-        transaction.senderIdentifier = wallet.getIdentifier();
+        transaction.senderIdentifier = KeyUtil.identifierForSeed(signerSeed);
         transaction.senderData = senderData;
-        transaction.signature = wallet.sign(transaction.getBytes(true));
+        transaction.signature = SignatureUtil.signBytes(transaction.getBytes(true), signerSeed);
 
         return transaction;
     }

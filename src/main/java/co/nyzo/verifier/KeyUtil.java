@@ -119,6 +119,26 @@ public class KeyUtil {
         return rv;
     }
 
+    public static byte[] generateSeed() {
+
+        byte[] seed = new byte[32];
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EdDSA", "EdDSA");
+            SecureRandom random = SecureRandom.getInstanceStrong();
+            EdDSAParameterSpec spec = EdDSANamedCurveTable.getByName("Ed25519");
+            keyPairGenerator.initialize(spec, random);
+            KeyPair pair = keyPairGenerator.generateKeyPair();
+
+            seed = ((EdDSAPrivateKey) pair.getPrivate()).getSeed();
+
+            // NOTE: may need to install haveged (sudo apt-get install haveged)
+        } catch (Exception reportOnly) {
+            System.err.println("problem generating seed: " + reportOnly.getMessage());
+        }
+
+        return seed;
+    }
+
     public static PrivateKey privateKeyFromSeed(byte[] seed) {
 
         PrivateKey key = null;
