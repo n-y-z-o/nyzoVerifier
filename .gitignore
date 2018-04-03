@@ -10,3 +10,6 @@
 *.iws
 *.iml
 *.ipr
+
+### Mac users ###
+.DS_Store
