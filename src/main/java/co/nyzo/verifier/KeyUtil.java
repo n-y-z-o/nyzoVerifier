@@ -168,7 +168,7 @@ public class KeyUtil {
         byte[] identifier = new byte[32];
         try {
             EdDSAPrivateKey privateKey = new EdDSAPrivateKey(new PKCS8EncodedKeySpec(KeyUtil.encodedFromSeed(seed)));
-            identifier = Arrays.copyOf(KeyUtil.encodedFromAByte(privateKey.getAbyte()), FieldByteSize.identifier);
+            identifier = Arrays.copyOf(privateKey.getAbyte(), FieldByteSize.identifier);
         } catch (Exception ignored) { }
 
         return identifier;
