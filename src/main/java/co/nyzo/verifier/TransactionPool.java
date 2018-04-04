@@ -55,7 +55,7 @@ public class TransactionPool {
 
     public static void fetchFromMesh() {
 
-        List<Node> availableNodes = new ArrayList<>(NodeManager.getQueue());
+        List<Node> availableNodes = new ArrayList<>(NodeManager.getNodePool());
         Random random = new Random();
         for (int i = 0; i < 5 && availableNodes.size() > 0; i++) {
             Node node = availableNodes.remove(random.nextInt(availableNodes.size()));

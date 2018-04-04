@@ -123,6 +123,9 @@ public class Message {
                     socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
 
                     OutputStream outputStream = socket.getOutputStream();
+                    System.out.println("message on send: " + message);
+                    System.out.println("message on send: " +
+                            ByteUtil.arrayAsStringNoDashes(message.getBytesForTransmission()));
                     outputStream.write(message.getBytesForTransmission());
 
                     response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
@@ -212,7 +215,9 @@ public class Message {
         if (content != null) {
             buffer.put(content.getBytes());
         }
+        System.out.println("sourceNodeIdentifier: " + sourceNodeIdentifier);
         buffer.put(sourceNodeIdentifier);
+        System.out.println("sourceNodeSignature: " + sourceNodeSignature);
         buffer.put(sourceNodeSignature);
         if (recipientIdentifiers.size() > 0) {
             buffer.putInt(recipientIdentifiers.size());

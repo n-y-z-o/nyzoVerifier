@@ -12,14 +12,14 @@ public class NodeManager {
     public static void main(String[] args) {
 
         // This is a simple test of fetching the node list.
-        fetchNodeList(0);
+        fetchNodeList(1);
     }
 
     private static final int maximumNumberOfSeedVerifiers = 10;
 
     // TODO: work out the details of multiple verifiers at a single IP address
 
-    private static final List<Node> queue = new ArrayList<>();
+    private static final List<Node> nodePool = new ArrayList<>();
     private static final Map<Integer, Node> ipAddressToNodeMap = new HashMap<>();
     private static final Map<ByteBuffer, Node> identifierToNodeMap = new HashMap<>();
 
@@ -29,13 +29,6 @@ public class NodeManager {
     // When a node joins the network, it broadcasts a node-has-joined message directly to every full node in the mesh.
     // The node-has-joined message contains only the identifier that the verifier wants to associate with the node.
     // The full node stores the timestamp, the IP address, and the identifier.
-
-    private static final Comparator<Node> ascendingTimestampComparator = new Comparator<Node>() {
-        @Override
-        public int compare(Node node1, Node node2) {
-            return ((Long) node1.getQueueTimestamp()).compareTo(node2.getQueueTimestamp());
-        }
-    };
 
     public static void updateNode(byte[] identifier, byte[] ipAddress, int port, boolean fullNode) {
 
@@ -47,6 +40,7 @@ public class NodeManager {
 
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
                 ipAddress.length == FieldByteSize.ipAddress && port > 0) {
+
             ByteBuffer identifierByteBuffer = ByteBuffer.wrap(identifier);
 
             // Get the existing node from the map.
@@ -63,8 +57,7 @@ public class NodeManager {
             // (5) If a different node was returned for each, remove the lower-ranked node and update the other.
             if (existingNodeForIp == null && existingNodeForIdentifier == null) {
                 Node newNode = new Node(identifier, ipAddress, port, fullNode);
-                int queueIndex = -1;
-                queue.add(newNode);
+                nodePool.add(newNode);
                 ipAddressToNodeMap.put(ipAddressAsInt, newNode);
                 identifierToNodeMap.put(identifierByteBuffer, newNode);
 
@@ -86,12 +79,12 @@ public class NodeManager {
                 existingNodeForIp.setPort(port);
             } else {  // found two different nodes
                 if (existingNodeForIp.getQueueTimestamp() < existingNodeForIdentifier.getQueueTimestamp()) {
-                    queue.remove(existingNodeForIdentifier);
+                    nodePool.remove(existingNodeForIdentifier);
                     existingNodeForIp.setIdentifier(identifier);
                     existingNodeForIp.setPort(port);
                     identifierToNodeMap.put(identifierByteBuffer, existingNodeForIp);
                 } else {
-                    queue.remove(existingNodeForIp);
+                    nodePool.remove(existingNodeForIp);
                     existingNodeForIdentifier.setIpAddress(ipAddress);
                     existingNodeForIdentifier.setPort(port);
                     ipAddressToNodeMap.put(ipAddressAsInt, existingNodeForIdentifier);
@@ -117,25 +110,27 @@ public class NodeManager {
                             }
                         } catch (Exception ignored) { }
 
-                        if (!nodes.isEmpty()) {
-                            // Ensure the list is sorted and add the nodes to the local list.
-                            for (Node node : nodes) {
-                                updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(), node.isFullNode(),
-                                        node.getQueueTimestamp());
-                            }
+                        // Add the nodes to the local list.
+                        for (Node node : nodes) {
+                            updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(), node.isFullNode(),
+                                    node.getQueueTimestamp());
                         }
 
                         // If connected to the mesh, send node-join messages to all full nodes and fetch the current
                         // transaction pool. Otherwise, wait 10 seconds and retry.
                         if (connectedToMesh()) {
-                            List<Node> queue = getQueue();
-                            for (Node node : queue) {
+                            List<Node> nodePool = getNodePool();
+                            for (Node node : nodePool) {
                                 if (node.isFullNode()) {
                                     Message nodeJoinMessage = new Message(MessageType.NodeJoin3,
                                             new NodeJoinMessage(MeshListener.getPort(), true));
                                     Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(),
                                             nodeJoinMessage, true, null);
                                 }
+                            }
+
+                            if (!identifierToNodeMap.containsKey(ByteBuffer.wrap(Verifier.getIdentifier()))) {
+                                System.out.println("need to re-fetch node pool");
                             }
 
                             TransactionPool.fetchFromMesh();
@@ -154,8 +149,8 @@ public class NodeManager {
                 });
     }
 
-    public static synchronized List<Node> getQueue() {
-        return new ArrayList<>(queue);
+    public static synchronized List<Node> getNodePool() {
+        return new ArrayList<>(nodePool);
     }
 
     public static boolean connectedToMesh() {
@@ -164,6 +159,6 @@ public class NodeManager {
         // TODO: this will include making sure we have a recent history of blocks
 
         // One node will be the verifier. If any more are present, we are connected to the mesh.
-        return queue.size() > 1;
+        return nodePool.size() > 1;
     }
 }

@@ -36,7 +36,7 @@ public class SignatureUtil {
 
     public static boolean signatureIsValid(byte[] signatureBytes, byte[] signedBytes, byte[] publicIdentifier) {
 
-        boolean signatureIsValid = false;
+        boolean signatureIsValid;
 
         try {
             Signature signature = new EdDSAEngine(MessageDigest.getInstance(spec.getHashAlgorithm()));
@@ -46,7 +46,10 @@ public class SignatureUtil {
             signature.update(signedBytes);
             signatureIsValid = signature.verify(signatureBytes);
 
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {
+
+            signatureIsValid = false;
+        }
 
         return signatureIsValid;
     }

@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.util.SignatureUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -12,8 +13,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Verifier {
 
+    public static final File dataRootDirectory = new File("/var/lib/nyzo");
+
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
+
+    static {
+        loadPrivateSeed();
+    }
 
     public static void main(String[] args) {
         start();
@@ -25,7 +32,10 @@ public class Verifier {
 
     private static void loadPrivateSeed() {
 
-        final Path seedFile = Paths.get("/etc/nyzo/verifier_private_seed");
+        dataRootDirectory.mkdirs();
+
+        final Path seedFile = Paths.get(dataRootDirectory.getAbsolutePath() + "/verifier_private_seed");
+        System.out.println("seed file path is " + seedFile);
         try {
             List<String> lines = Files.readAllLines(seedFile);
             if (lines != null && !lines.isEmpty()) {
@@ -37,14 +47,17 @@ public class Verifier {
             }
         } catch (Exception ignored) { }
 
-        if (privateSeed == null || ByteUtil.isAllZeros(privateSeed)) {
+        if (privateSeed == null || ByteUtil.isAllZeros(privateSeed) || privateSeed.length != 32) {
             privateSeed = KeyUtil.generateSeed();
             try {
                 Files.write(seedFile, Arrays.asList(ByteUtil.arrayAsStringWithDashes(privateSeed)));
             } catch (Exception e) {
+                e.printStackTrace();
                 privateSeed = null;
             }
         }
+
+        System.out.println("private seed is " + ByteUtil.arrayAsStringWithDashes(privateSeed));
     }
 
     public static void start() {

@@ -17,8 +17,7 @@ public class Block {
     public static final long genesisBlockStartTimestamp = -1L;
     public static final long blockDuration = 5000L;
 
-    public static final File dataRootDirectory = new File("/var/lib/nyzo");
-    public static final File blockRootDirectory = new File(dataRootDirectory, "blocks");
+    public static final File blockRootDirectory = new File(Verifier.dataRootDirectory, "blocks");
     public static final long blocksPerDirectory = 100000L;
 
     private long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,

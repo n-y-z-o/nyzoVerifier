@@ -85,7 +85,7 @@ public class MeshListener {
             if (messageType == MessageType.NodeListRequest1) {
 
                 System.out.println("returning NodeListResponse");
-                response = new Message(MessageType.NodeListResponse2, new NodeListResponse(NodeManager.getQueue()));
+                response = new Message(MessageType.NodeListResponse2, new NodeListResponse(NodeManager.getNodePool()));
 
             } else if (messageType == MessageType.NodeJoin3) {
 
