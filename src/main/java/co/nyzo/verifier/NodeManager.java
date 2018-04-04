@@ -12,7 +12,7 @@ public class NodeManager {
     public static void main(String[] args) {
 
         // This is a simple test of fetching the node list.
-        fetchNodeList(1);
+        fetchNodeList(0);
     }
 
     private static final int maximumNumberOfSeedVerifiers = 10;
@@ -38,8 +38,11 @@ public class NodeManager {
     public static synchronized void updateNode(byte[] identifier, byte[] ipAddress, int port, boolean fullNode,
                                                long queueTimestamp) {
 
+        System.out.println("adding node " + ByteUtil.arrayAsStringWithDashes(identifier) + ", " +
+                IpUtil.addressAsString(ipAddress));
+
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
-                ipAddress.length == FieldByteSize.ipAddress && port > 0) {
+                ipAddress.length == FieldByteSize.ipAddress) {
 
             ByteBuffer identifierByteBuffer = ByteBuffer.wrap(identifier);
 
@@ -116,9 +119,9 @@ public class NodeManager {
                                     node.getQueueTimestamp());
                         }
 
-                        // If connected to the mesh, send node-join messages to all full nodes and fetch the current
-                        // transaction pool. Otherwise, wait 10 seconds and retry.
-                        if (connectedToMesh()) {
+                        // If we got nodes in the response, send node-join messages to all full nodes and fetch the
+                        // current transaction pool. Otherwise, wait 10 seconds and retry.
+                        if (!nodes.isEmpty()) {
                             List<Node> nodePool = getNodePool();
                             for (Node node : nodePool) {
                                 if (node.isFullNode()) {
@@ -129,8 +132,12 @@ public class NodeManager {
                                 }
                             }
 
+                            // If this node is not yet in the pool, re-fetch. This typically means that the entire
+                            // process (fetching, broadcasting join, getting the transaction pool) is done twice, but
+                            // the redundancy is not a problem and may actually help in some cases.
                             if (!identifierToNodeMap.containsKey(ByteBuffer.wrap(Verifier.getIdentifier()))) {
                                 System.out.println("need to re-fetch node pool");
+                                fetchNodeList(0);
                             }
 
                             TransactionPool.fetchFromMesh();

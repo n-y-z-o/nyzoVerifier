@@ -10,6 +10,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MeshListener {
 
+    public static void main(String[] args) {
+        start();
+    }
+
     private static final AtomicBoolean alive = new AtomicBoolean(false);
 
     public static boolean isAlive() {
