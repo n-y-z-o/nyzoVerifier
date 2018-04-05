@@ -164,20 +164,7 @@ public class Message {
         byte[] result = new byte[0];
         try {
             byte[] input = new byte[5000000];
-
-            int size = 0;
-            long timeout = System.currentTimeMillis() + 3000L;  // 3-second maximum wait
-            boolean reachedEndOfStream = false;
-            while (System.currentTimeMillis() < timeout && size < input.length && !reachedEndOfStream) {
-                int readLength = Math.min(inputStream.available(), input.length - size);
-                int readSize = inputStream.read(input, size, readLength);
-                if (readSize == -1) {
-                    reachedEndOfStream = true;
-                } else {
-                    size += readSize;
-                }
-            }
-
+            int size = inputStream.read(input);
             System.out.println("size is " + size);
             result = Arrays.copyOf(input, size);
         } catch (Exception ignore) { ignore.printStackTrace(); }
