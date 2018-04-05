@@ -219,6 +219,7 @@ public class Transaction implements MessageObject {
 
     @Override
     public byte[] getBytes() {
+
         return getBytes(false);
     }
 
@@ -385,7 +386,7 @@ public class Transaction implements MessageObject {
     }
 
     public boolean signatureIsValid() {
-        return true;
+        return SignatureUtil.signatureIsValid(signature, getBytes(true), senderIdentifier);
     }
 
     public boolean previousHashIsValid() {

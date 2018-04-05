@@ -115,6 +115,12 @@ public class MeshListener {
             } else if (messageType == MessageType.Ping200) {
 
                 response = new Message(MessageType.PingResponse201, new PingResponse());
+
+            } else if (messageType == MessageType.GenesisBlock500) {
+
+                Block genesisBlock = (Block) message.getContent();
+                response = new Message(MessageType.GenesisBlockAcknowledgement501,
+                        new GenesisBlockAcknowledgement(genesisBlock));
             }
         }
 

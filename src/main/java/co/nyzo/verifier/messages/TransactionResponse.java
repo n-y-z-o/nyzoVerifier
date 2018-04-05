@@ -4,6 +4,7 @@ import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 public class TransactionResponse implements MessageObject {
 
@@ -48,7 +49,7 @@ public class TransactionResponse implements MessageObject {
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.put(transactionAccepted ? (byte) 1 : (byte) 0);
-        byte[] messageBytes = message.getBytes();
+        byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
         buffer.putShort((short) messageBytes.length);
         buffer.put(messageBytes);
 

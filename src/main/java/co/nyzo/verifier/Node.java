@@ -12,6 +12,8 @@ public class Node {
     private long queueTimestamp;                  // this is the timestamp that determines queue placement -- it is
                                                   // the greater of the join timestamp and the timestamp of the last
                                                   // block that this verifier signed
+    private long lastSeenTimestamp;               // this is the last time we saw a message the originated with the
+                                                  // identifier of this node; it is used to remove nodes that drop
     private boolean fullNode;
 
     public Node(byte[] identifier, byte[] ipAddress, int port, boolean fullNode) {
@@ -20,6 +22,7 @@ public class Node {
         this.ipAddress = Arrays.copyOf(ipAddress, FieldByteSize.ipAddress);
         this.port = port;
         this.queueTimestamp = System.currentTimeMillis();
+        this.lastSeenTimestamp = System.currentTimeMillis();
         this.fullNode = fullNode;
     }
 
@@ -67,6 +70,14 @@ public class Node {
     // This method is used to send a node to the back of the queue after verifying a block.
     public void resetQueueTimestamp(long blockTimestamp) {
         this.queueTimestamp = blockTimestamp;
+    }
+
+    public long getLastSeenTimestamp() {
+        return lastSeenTimestamp;
+    }
+
+    public void resetLastSeenTimestamp() {
+        this.lastSeenTimestamp = System.currentTimeMillis();
     }
 
     @Override

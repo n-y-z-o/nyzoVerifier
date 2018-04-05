@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
 import java.io.File;
@@ -8,11 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
-public class Block {
+public class Block implements MessageObject {
 
-    public static void main(String[] args) {
-        nextPotentialGenesisTimestamp();
-    }
+    public static final byte[] genesisVerifier = ByteUtil.byteArrayFromHexString("302a300506032b65-" +
+            "700321006b32332d-4b28e6add7b8f86f-374045cafc645334", 32);
 
     public static final long genesisBlockStartTimestamp = -1L;
     public static final long blockDuration = 5000L;
@@ -52,7 +52,7 @@ public class Block {
 
         try {
             this.verifierIdentifier = Verifier.getIdentifier();
-            this.verifierSignature = Verifier.sign(byteArrayToSign());
+            this.verifierSignature = Verifier.sign(getBytes(false));
         } catch (Exception e) {
             this.verifierIdentifier = new byte[32];
             this.verifierSignature = new byte[64];
@@ -128,7 +128,12 @@ public class Block {
         return fees;
     }
 
-    private byte[] toByteArray(boolean includeSignature) {
+    public int getByteSize() {
+
+        return getByteSize(true);
+    }
+
+    public int getByteSize(boolean includeSignature) {
 
         int size = FieldByteSize.blockHeight +           // height
                 FieldByteSize.hash +                     // previous-block hash
@@ -142,6 +147,18 @@ public class Block {
         if (includeSignature) {
             size += FieldByteSize.identifier + FieldByteSize.signature;
         }
+
+        return size;
+    }
+
+    public byte[] getBytes() {
+
+        return getBytes(true);
+    }
+
+    private byte[] getBytes(boolean includeSignature) {
+
+        int size = getByteSize();
         System.out.println("size of block is " + size + " includeSignature=" + includeSignature);
 
         // Assemble the buffer.
@@ -167,23 +184,15 @@ public class Block {
         return array;
     }
 
-    public byte[] serialize() {
-
-        byte[] array = toByteArray(true);
-        System.out.println("array is " + ByteUtil.arrayAsStringWithDashes(array));
-        return array;
-    }
-
-    public byte[] byteArrayToSign() {
-
-        return toByteArray(false);
-    }
-
     public void sign(byte[] signerSeed) {
 
         this.verifierIdentifier = KeyUtil.identifierForSeed(signerSeed);
         System.out.println("verifier identifier " + ByteUtil.arrayAsStringWithDashes(this.verifierIdentifier));
-        this.verifierSignature = SignatureUtil.signBytes(byteArrayToSign(), signerSeed);
+        this.verifierSignature = SignatureUtil.signBytes(getBytes(false), signerSeed);
+    }
+
+    public boolean signatureIsValid() {
+        return SignatureUtil.signatureIsValid(verifierSignature, getBytes(false), verifierIdentifier);
     }
 
     public void writeToFile() {
@@ -196,7 +205,7 @@ public class Block {
                 File file = fileForBlockHeight(height);
                 file.getParentFile().mkdirs();
                 file.delete();
-                Files.write(Paths.get(file.getAbsolutePath()), serialize());
+                Files.write(Paths.get(file.getAbsolutePath()), getBytes());
 
                 BlockManager.setHighestBlockFrozen(height);
             } else {
@@ -359,20 +368,51 @@ public class Block {
         identifierToBalanceMap.put(identifierBuffer, balance);
     }
 
-    public static long nextPotentialGenesisTimestamp() {
+    public static boolean isValidGenesisBlock(Block block, StringBuilder error) {
 
-        long currentTime = System.currentTimeMillis();
-        long increment = 1000L * 60L;
-        long nextIncrement = (currentTime / increment) * increment + increment;
-
-        long minimumDelay = 1000L * 10L;
-        if (nextIncrement - currentTime < minimumDelay) {
-            nextIncrement += increment;
+        boolean valid = true;
+        if (block.getBlockHeight() != 0L) {
+            error.append("The block height is " + block.getBlockHeight() + ", but the only valid height for a " +
+                    "Genesis block is 0. ");
+            valid = false;
         }
 
-        System.out.println(String.format("next increment is in %.2f seconds",
-                (nextIncrement - currentTime) / 1000.0));
+        if (block.getTransactions().size() == 1) {
+            Transaction transaction = block.getTransactions().get(0);
+            if (transaction.getType() != Transaction.typeCoinGeneration) {
+                error.append("The only valid transaction type in the Genesis block is coin generation (type " +
+                        Transaction.typeCoinGeneration + "). The transaction in this block is of type " +
+                        transaction.getType() + ". ");
+                valid = false;
+            }
+            if (transaction.getAmount() != Transaction.micronyzosInSystem) {
+                error.append("The Genesis block transaction must be for exactly " +
+                        PrintUtil.printAmount(Transaction.micronyzosInSystem) + ". The transaction in this block is " +
+                        "for " + PrintUtil.printAmount(transaction.getAmount()) + ". ");
+                valid = false;
+            }
+        } else {
+            error.append("The Genesis block must have exactly 1 transaction. This block has " +
+                    block.getTransactions().size() + " transactions. ");
+            valid = false;
+        }
 
-        return nextIncrement;
+        if (!ByteUtil.arraysAreEqual(block.getVerifierIdentifier(), Block.genesisVerifier)) {
+            error.append("The Genesis block must be verified by " +
+                    ByteUtil.arrayAsStringWithDashes(Block.genesisVerifier) + ". This block was verified by " +
+                    ByteUtil.arrayAsStringWithDashes(block.getVerifierIdentifier()) + ". ");
+            valid = false;
+        }
+
+        if (!block.signatureIsValid()) {
+            error.append("The signature is not valid. ");
+            valid = false;
+        }
+
+        if (error.charAt(error.length() - 1) == ' ') {
+            error.deleteCharAt(error.length() - 1);
+        }
+
+        return valid;
     }
 }

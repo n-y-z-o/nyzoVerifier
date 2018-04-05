@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.TransactionPoolResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -60,13 +61,17 @@ public class TransactionPool {
         for (int i = 0; i < 5 && availableNodes.size() > 0; i++) {
             Node node = availableNodes.remove(random.nextInt(availableNodes.size()));
 
-            // String hostNameOrIp, int port, Message message, boolean retryIfFailed, MessageCallback messageCallback
             String ipAddress = IpUtil.addressAsString(node.getIpAddress());
             Message.fetch(ipAddress, node.getPort(), new Message(MessageType.TransactionPoolRequest13, null), false,
                     new MessageCallback() {
                         @Override
                         public void responseReceived(Message message) {
-
+                            TransactionPoolResponse response = (TransactionPoolResponse) message.getContent();
+                            if (response != null) {
+                                for (Transaction transaction : response.getTransactions()) {
+                                    addTransaction(transaction);
+                                }
+                            }
                         }
                     });
         }
