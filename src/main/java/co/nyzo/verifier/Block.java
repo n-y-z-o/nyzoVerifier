@@ -240,7 +240,11 @@ public class Block implements MessageObject {
 
     public static Block fromBytes(byte[] bytes) {
 
-        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        return fromByteBuffer(ByteBuffer.wrap(bytes));
+    }
+
+    public static Block fromByteBuffer(ByteBuffer buffer) {
+
         long blockHeight = buffer.getLong();
         byte[] previousBlockHash = new byte[FieldByteSize.hash];
         buffer.get(previousBlockHash);
