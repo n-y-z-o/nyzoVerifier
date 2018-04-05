@@ -11,8 +11,8 @@ import java.util.*;
 
 public class Block implements MessageObject {
 
-    public static final byte[] genesisVerifier = ByteUtil.byteArrayFromHexString("302a300506032b65-" +
-            "700321006b32332d-4b28e6add7b8f86f-374045cafc645334", 32);
+    public static final byte[] genesisVerifier = ByteUtil.byteArrayFromHexString("6b32332d4b28e6ad-" +
+            "d7b8f86f374045ca-fc6453344a1c47b6-feaf485f8c2e0d47", 32);
 
     public static final long genesisBlockStartTimestamp = -1L;
     public static final long blockDuration = 5000L;
@@ -139,6 +139,7 @@ public class Block implements MessageObject {
                 FieldByteSize.hash +                     // previous-block hash
                 FieldByteSize.rolloverTransactionFees +  // rollover transaction fees
                 FieldByteSize.timestamp +                // start timestamp
+                FieldByteSize.timestamp +                // verification timestamp
                 4 +                                      // number of transactions
                 FieldByteSize.hash;                      // digest hash
         for (Transaction transaction : transactions) {
@@ -168,9 +169,11 @@ public class Block implements MessageObject {
         buffer.put(previousBlockHash);
         buffer.put(rolloverTransactionFees);
         buffer.putLong(startTimestamp);
+        buffer.putLong(verificationTimestamp);
         buffer.putInt(transactions.size());
         for (Transaction transaction : transactions) {
-            System.out.println("putting transaction: " + ByteUtil.arrayAsStringWithDashes(transaction.getBytes()));
+            System.out.println("putting transaction (" + transaction.getBytes().length + "):" +
+                    ByteUtil.arrayAsStringWithDashes(transaction.getBytes()));
             buffer.put(transaction.getBytes());
         }
         buffer.put(balanceListHash);
@@ -250,7 +253,7 @@ public class Block implements MessageObject {
         buffer.get(previousBlockHash);
         byte rolloverTransactionFees = buffer.get();
         long startTimestamp = buffer.getLong();
-
+        long verificationTimestamp = buffer.getLong();
         int numberOfTransactions = buffer.getInt();
         System.out.println("need to read " + numberOfTransactions + " transactions");
         List<Transaction> transactions = new ArrayList<>();
@@ -413,7 +416,7 @@ public class Block implements MessageObject {
             valid = false;
         }
 
-        if (error.charAt(error.length() - 1) == ' ') {
+        if (error.length() > 0 && error.charAt(error.length() - 1) == ' ') {
             error.deleteCharAt(error.length() - 1);
         }
 

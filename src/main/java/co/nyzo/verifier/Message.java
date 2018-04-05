@@ -252,10 +252,12 @@ public class Message {
 
             System.out.println("source identifier from message: " +
                     ByteUtil.arrayAsStringWithDashes(sourceNodeIdentifier));
+            System.out.println("source signature from message: " + sourceNodeSignature);
 
             List<byte[]> recipientIdentifiers = new ArrayList<>();
             List<byte[]> recipientSignatures = new ArrayList<>();
             int numberOfRecipients = buffer.hasRemaining() ? buffer.getInt() : 0;
+            System.out.println("number of recipients: " + numberOfRecipients);
             for (int i = 0; i < numberOfRecipients; i++) {
                 byte[] recipientIdentifier = new byte[FieldByteSize.identifier];
                 buffer.get(recipientIdentifier);
@@ -278,6 +280,8 @@ public class Message {
 
     private static MessageObject processContent(MessageType type, ByteBuffer buffer) {
 
+        System.out.println("processing content for message type: " + type);
+
         MessageObject content = null;
         if (type == MessageType.NodeListResponse2) {
             content = NodeListResponse.fromByteBuffer(buffer);
@@ -289,6 +293,8 @@ public class Message {
             content = TransactionPoolResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.GenesisBlock500) {
             content = Block.fromByteBuffer(buffer);
+        } else if (type == MessageType.GenesisBlockAcknowledgement501) {
+            content = GenesisBlockAcknowledgement.fromByteBuffer(buffer);
         }
 
         return content;

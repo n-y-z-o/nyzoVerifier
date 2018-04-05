@@ -59,11 +59,14 @@ public class MeshListener {
                                         if (response != null) {
                                             clientSocket.getOutputStream().write(response.getBytesForTransmission());
                                         }
-                                        clientSocket.close();
 
                                     } catch (Exception e) {
                                         e.printStackTrace();
                                     }
+
+                                    try {
+                                        clientSocket.close();
+                                    } catch (Exception ignored) { }
                                 }
                             }).start();
                         }
@@ -82,46 +85,53 @@ public class MeshListener {
         // This is the single point of dispatch for responding to all received messages.
 
         Message response = null;
-        if (message != null && message.isValid()) {
-            MessageType messageType = message.getType();
-            System.out.println("message type is " + messageType);
 
-            if (messageType == MessageType.NodeListRequest1) {
+        try {
+            if (message != null && message.isValid()) {
+                MessageType messageType = message.getType();
+                System.out.println("message type is " + messageType);
 
-                System.out.println("returning NodeListResponse");
-                response = new Message(MessageType.NodeListResponse2, new NodeListResponse(NodeManager.getNodePool()));
+                if (messageType == MessageType.NodeListRequest1) {
 
-            } else if (messageType == MessageType.NodeJoin3) {
+                    System.out.println("returning NodeListResponse");
+                    response = new Message(MessageType.NodeListResponse2, new NodeListResponse(NodeManager.getNodePool()));
 
-                NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
-                NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
-                        nodeJoinMessage.getPort(), nodeJoinMessage.isFullNode());
-                response = new Message(MessageType.NodeJoinAcknowledgement4, null);
+                } else if (messageType == MessageType.NodeJoin3) {
 
-            } else if (messageType == MessageType.Transaction5) {
+                    NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
+                    NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
+                            nodeJoinMessage.getPort(), nodeJoinMessage.isFullNode());
+                    response = new Message(MessageType.NodeJoinAcknowledgement4, null);
 
-                response = new Message(MessageType.TransactionResponse6,
-                        new TransactionResponse((Transaction) message.getContent()));
+                } else if (messageType == MessageType.Transaction5) {
 
-            } else if (messageType == MessageType.PreviousHashRequest7) {
+                    response = new Message(MessageType.TransactionResponse6,
+                            new TransactionResponse((Transaction) message.getContent()));
 
-                response = new Message(MessageType.PreviousHashResponse8, new PreviousHashResponse());
+                } else if (messageType == MessageType.PreviousHashRequest7) {
 
-            } else if (messageType == MessageType.TransactionPoolRequest13) {
+                    response = new Message(MessageType.PreviousHashResponse8, new PreviousHashResponse());
 
-                response = new Message(MessageType.TransactionPoolResponse14,
-                        new TransactionPoolResponse(TransactionPool.allTransactions()));
+                } else if (messageType == MessageType.TransactionPoolRequest13) {
 
-            } else if (messageType == MessageType.Ping200) {
+                    response = new Message(MessageType.TransactionPoolResponse14,
+                            new TransactionPoolResponse(TransactionPool.allTransactions()));
 
-                response = new Message(MessageType.PingResponse201, new PingResponse());
+                } else if (messageType == MessageType.Ping200) {
 
-            } else if (messageType == MessageType.GenesisBlock500) {
+                    response = new Message(MessageType.PingResponse201, new PingResponse());
 
-                Block genesisBlock = (Block) message.getContent();
-                response = new Message(MessageType.GenesisBlockAcknowledgement501,
-                        new GenesisBlockAcknowledgement(genesisBlock));
+                } else if (messageType == MessageType.GenesisBlock500) {
+
+                    Block genesisBlock = (Block) message.getContent();
+                    response = new Message(MessageType.GenesisBlockAcknowledgement501,
+                            new GenesisBlockAcknowledgement(genesisBlock));
+                }
             }
+        } catch (Exception ignored) { }
+
+        if (response == null) {
+            response = new Message(MessageType.Error65534, null);
         }
 
         System.out.println("response message is " + response);

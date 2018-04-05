@@ -19,8 +19,13 @@ public class GenesisBlockAcknowledgement implements MessageObject {
             message = "Genesis block accepted";
         } else {
             blockAccepted = false;
-            message = "Genesis block not accepted (error=" + error;
+            message = "Genesis block not accepted (error=\"" + error + "\")";
         }
+    }
+
+    private GenesisBlockAcknowledgement(boolean blockAccepted, String message) {
+        this.blockAccepted = blockAccepted;
+        this.message = message;
     }
 
     public boolean isBlockAccepted() {
@@ -48,5 +53,25 @@ public class GenesisBlockAcknowledgement implements MessageObject {
         buffer.put(messageBytes);
 
         return array;
+    }
+
+    public static GenesisBlockAcknowledgement fromByteBuffer(ByteBuffer buffer) {
+
+        GenesisBlockAcknowledgement result = null;
+
+        try {
+            boolean blockAccepted = buffer.get() == 1;
+            short messageByteLength = buffer.getShort();
+            byte[] messageBytes = new byte[messageByteLength];
+            buffer.get(messageBytes);
+            String message = new String(messageBytes, StandardCharsets.UTF_8);
+
+            result = new GenesisBlockAcknowledgement(blockAccepted, message);
+
+        } catch (Exception ignored) {
+            ignored.printStackTrace();
+        }
+
+        return result;
     }
 }

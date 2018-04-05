@@ -35,7 +35,8 @@ public enum MessageType {
     SeedTransactionList502(502),
     SeedTransactionAcknowledgement503(503),
 
-    // the highest allowable message number
+    // the highest allowable message number is 65535
+    Error65534(65534),
     Unknown65535(65535);
 
     public static void main(String[] args) throws Exception {
