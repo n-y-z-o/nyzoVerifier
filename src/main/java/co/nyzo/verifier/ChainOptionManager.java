@@ -12,7 +12,7 @@ public class ChainOptionManager {
 
         long highestBlockFrozen = BlockManager.highestBlockFrozen();
         if (highestBlockFrozen >= 0) {
-            Block block = Block.fromFile(highestBlockFrozen);
+            Block block = BlockManager.frozenBlockForHeight(highestBlockFrozen);
             options = new ArrayList<>(Arrays.asList(new ChainOption(Arrays.asList(block))));
         }
     }
@@ -70,7 +70,7 @@ public class ChainOptionManager {
         // highest frozen block. The block manager is in charge of all blocks that are frozen, and the chain option
         // manager is in charge of all blocks that are not yet frozen.
         if (block.getBlockHeight() == BlockManager.highestBlockFrozen() + 1) {
-            block.writeToFile();
+            BlockManager.freezeBlock(block);
             ChainOptionManager.freezeAtBlock(block);
         } else {
             System.err.println("inconsistent state: trying to freezer block at height " + block.getBlockHeight() +

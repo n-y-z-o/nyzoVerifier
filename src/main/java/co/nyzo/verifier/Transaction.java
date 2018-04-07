@@ -91,10 +91,10 @@ public class Transaction implements MessageObject {
         return signature;
     }
 
-    private synchronized void assignPreviousBlockHash() {
+    private void assignPreviousBlockHash() {
 
-        previousHashHeight = PreviousHashManager.latestHashHeight();
-        previousBlockHash = PreviousHashManager.hashForHeight(previousHashHeight);
+        previousHashHeight = BlockManager.highestBlockFrozen();
+        previousBlockHash = BlockManager.frozenBlockForHeight(previousHashHeight).getHash();
     }
 
     public static Transaction coinGenerationTransaction(long timestamp, long amount, byte[] receiverIdentifier) {
@@ -279,7 +279,7 @@ public class Transaction implements MessageObject {
             transaction = coinGenerationTransaction(timestamp, amount, recipientIdentifier);
         } else if (type == typeSeed || type == typeStandard) {
             long previousHashHeight = buffer.getLong();
-            byte[] previousBlockHash = PreviousHashManager.hashForHeight(previousHashHeight);
+            byte[] previousBlockHash = BlockManager.frozenBlockForHeight(previousHashHeight).getHash();
 
             byte[] senderIdentifier = new byte[FieldByteSize.identifier];
             buffer.get(senderIdentifier);
@@ -346,7 +346,8 @@ public class Transaction implements MessageObject {
             }
 
             // Check that the previous-block hash is contained in the chain.
-            if (!PreviousHashManager.previousHashIsValid(previousHashHeight, previousBlockHash)) {
+            Block previousHashBlock = BlockManager.frozenBlockForHeight(previousHashHeight);
+            if (previousHashBlock == null || !ByteUtil.arraysAreEqual(previousHashBlock.getHash(), previousBlockHash)) {
                 valid = false;
                 validationError.append("The previous-block hash is invalid. ");
             }

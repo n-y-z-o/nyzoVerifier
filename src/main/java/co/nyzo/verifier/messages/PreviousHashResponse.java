@@ -1,8 +1,8 @@
 package co.nyzo.verifier.messages;
 
+import co.nyzo.verifier.BlockManager;
 import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.MessageObject;
-import co.nyzo.verifier.PreviousHashManager;
 
 import java.nio.ByteBuffer;
 
@@ -12,8 +12,8 @@ public class PreviousHashResponse implements MessageObject {
     private byte[] hash;
 
     public PreviousHashResponse() {
-        height = PreviousHashManager.latestHashHeight();
-        hash = PreviousHashManager.hashForHeight(height);
+        height = BlockManager.highestBlockFrozen();
+        hash = BlockManager.frozenBlockForHeight(height).getHash();
     }
 
     @Override

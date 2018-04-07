@@ -14,11 +14,8 @@ public class Block implements MessageObject {
     public static final byte[] genesisVerifier = ByteUtil.byteArrayFromHexString("6b32332d4b28e6ad-" +
             "d7b8f86f374045ca-fc6453344a1c47b6-feaf485f8c2e0d47", 32);
 
-    public static final long genesisBlockStartTimestamp = -1L;
+    public static long genesisBlockStartTimestamp = -1L;
     public static final long blockDuration = 5000L;
-
-    public static final File blockRootDirectory = new File(Verifier.dataRootDirectory, "blocks");
-    public static final long blocksPerDirectory = 100000L;
 
     private long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,
                                                    // which has a height of 0
@@ -198,49 +195,6 @@ public class Block implements MessageObject {
         return SignatureUtil.signatureIsValid(verifierSignature, getBytes(false), verifierIdentifier);
     }
 
-    public void writeToFile() {
-
-        try {
-            // Write the balance list to file first. Then we can assume a balance list will be available for each block
-            // in a file.
-            if (getBalanceList().writeToFile()) {
-
-                File file = fileForBlockHeight(height);
-                file.getParentFile().mkdirs();
-                file.delete();
-                Files.write(Paths.get(file.getAbsolutePath()), getBytes());
-
-                BlockManager.setHighestBlockFrozen(height);
-            } else {
-                System.err.println("unsuccessful writing balance list for block " + height);
-            }
-        } catch (Exception reportOnly) {
-            reportOnly.printStackTrace();
-            System.err.println("exception writing block to file " + reportOnly.getMessage());
-        }
-    }
-
-    public static Block fromFile(long height) {
-
-        File file = fileForBlockHeight(height);
-        Block block = null;
-        Exception e = new Exception();
-        StackTraceElement[] stackTrace = e.getStackTrace();
-        System.out.println("looking for file " + file.getAbsolutePath() + ": " + stackTrace[1]);
-        if (file.exists()) {
-            try {
-                byte[] fileBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath()));
-                System.out.println("byte array length: " + fileBytes.length);
-                block = fromBytes(fileBytes);
-                block.fromFile = true;
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
-            }
-        }
-
-        return block;
-    }
-
     public static Block fromBytes(byte[] bytes) {
 
         return fromByteBuffer(ByteBuffer.wrap(bytes));
@@ -270,18 +224,6 @@ public class Block implements MessageObject {
 
         return new Block(blockHeight, previousBlockHash, rolloverTransactionFees, startTimestamp, transactions,
                 balanceListHash, verifierIdentifier, verifierSignature);
-    }
-
-    public static File directoryForBlockHeight(long height) {
-
-        long directoryIndex = height / blocksPerDirectory;
-        return new File(blockRootDirectory, String.format("%05d", directoryIndex));
-    }
-
-    public static File fileForBlockHeight(long height) {
-
-        File directory = directoryForBlockHeight(height);
-        return new File(directory, String.format("%010d.nyzoblock", height));
     }
 
     public static BalanceList balanceListForNextBlock(Block previousBlock, List<Transaction> transactions,
@@ -421,5 +363,9 @@ public class Block implements MessageObject {
         }
 
         return valid;
+    }
+
+    public static void reset() {
+        genesisBlockStartTimestamp = -1L;
     }
 }

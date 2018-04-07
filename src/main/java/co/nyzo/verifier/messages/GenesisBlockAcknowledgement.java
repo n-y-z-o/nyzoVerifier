@@ -1,6 +1,8 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.util.FileUtil;
+import co.nyzo.verifier.util.UpdateUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -14,9 +16,9 @@ public class GenesisBlockAcknowledgement implements MessageObject {
 
         StringBuilder error = new StringBuilder();
         if (Block.isValidGenesisBlock(block, error)) {
-            // TODO: initiate reset on this genesis block here
             blockAccepted = true;
             message = "Genesis block accepted";
+            resetToGenesisBlock(block);
         } else {
             blockAccepted = false;
             message = "Genesis block not accepted (error=\"" + error + "\")";
@@ -73,5 +75,39 @@ public class GenesisBlockAcknowledgement implements MessageObject {
         }
 
         return result;
+    }
+
+    // Note for anyone reading old commits: this method was used to test live resetting to a new Genesis block to
+    // ensure the system was operating properly before release. If you want to start a new blockchain based on this
+    // codebase, we recommend doing something similar before you release publicly: get a small mesh running, and then
+    // send a new genesis block to the mesh and start over a few times to make sure the verifier queue forms properly
+    // at the beginning of the blockchain.
+    private static void resetToGenesisBlock(Block genesisBlock) {
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                // Flag that the system should terminate.
+                UpdateUtil.terminate();
+
+                // Wait for the verifier and mesh listener to terminate.
+                while (Verifier.isAlive() || MeshListener.isAlive()) {
+                    try {
+                        Thread.sleep(300L);
+                    } catch (Exception ignored) { }
+                }
+
+                // Delete the block directory and reset all classes that are storing state related to the current
+                // blockchain.
+                FileUtil.delete(BlockManager.blockRootDirectory);
+                BlockManager.reset();
+                BlockManagerMap.reset();
+                Block.reset();
+                TransactionPool.reset();
+
+                // Restart the verifier.
+                Verifier.start();
+            }
+        }).start();
     }
 }
