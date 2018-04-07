@@ -227,9 +227,6 @@ public class Transaction implements MessageObject {
 
         byte[] array = new byte[getByteSize(forSigning)];
 
-        System.out.println("array size: " + array.length);
-        System.out.println("receiver identifier length: " + receiverIdentifier.length);
-
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.put(type);
         buffer.putLong(timestamp);

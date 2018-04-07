@@ -107,6 +107,10 @@ public class Block implements MessageObject {
         return balanceList;
     }
 
+    public void setBalanceList(BalanceList balanceList) {
+        this.balanceList = balanceList;
+    }
+
     public byte[] getVerifierIdentifier() {
         return verifierIdentifier;
     }
@@ -169,15 +173,11 @@ public class Block implements MessageObject {
         buffer.putLong(verificationTimestamp);
         buffer.putInt(transactions.size());
         for (Transaction transaction : transactions) {
-            System.out.println("putting transaction (" + transaction.getBytes().length + "):" +
-                    ByteUtil.arrayAsStringWithDashes(transaction.getBytes()));
             buffer.put(transaction.getBytes());
         }
         buffer.put(balanceListHash);
         if (includeSignature) {
-            System.out.println("putting identifier: " + ByteUtil.arrayAsStringWithDashes(verifierIdentifier));
             buffer.put(verifierIdentifier);
-            System.out.println("putting signature: " + ByteUtil.arrayAsStringWithDashes(verifierSignature));
             buffer.put(verifierSignature);
         }
 

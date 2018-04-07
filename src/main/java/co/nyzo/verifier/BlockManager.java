@@ -22,9 +22,10 @@ public class BlockManager {
     private static final AtomicLong highestBlockFrozen = new AtomicLong(-1L);
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
+    private static boolean initialized = false;
 
     static {
-        determineHighestBlockFrozen();
+        initialize();
     }
 
     public static long highestBlockFrozen() {
@@ -59,7 +60,7 @@ public class BlockManager {
         return block;
     }
 
-    private static List<Block> blocksInFile(File file, boolean addBlocksToCache) {
+    public static List<Block> blocksInFile(File file, boolean addBlocksToCache) {
 
         List<Block> blocks = new ArrayList<>();
         Path path = Paths.get(file.getAbsolutePath());
@@ -70,8 +71,10 @@ public class BlockManager {
             for (int i = 0; i < numberOfBlocks; i++) {
                 blocks.add(Block.fromByteBuffer(buffer));
             }
-        } catch (Exception reportOnly) {
-            System.err.println("exception reading block file: " + reportOnly.getMessage());
+        } catch (Exception ignored) {
+            //System.out.println("in exception, file exists: " + file.exists());
+            //System.out.println("exception reading block file: " + reportOnly.getMessage());
+            //reportOnly.printStackTrace();
         }
 
         if (addBlocksToCache) {
@@ -83,7 +86,7 @@ public class BlockManager {
         return blocks;
     }
 
-    private static boolean writeBlocksToFile(List<Block> blocks, File file) {
+    public static boolean writeBlocksToFile(List<Block> blocks, File file) {
 
         boolean successful = false;
 
@@ -100,13 +103,15 @@ public class BlockManager {
         }
 
         try {
-            file.mkdirs();
+            file.getParentFile().mkdirs();
             file.delete();
             Files.write(Paths.get(file.getAbsolutePath()), bytes);
             successful = true;
         } catch (Exception reportOnly) {
             System.err.println("error writing blocks to file: " + reportOnly.getMessage());
         }
+
+        System.out.println("wrote blocks to file " + file.getAbsolutePath());
 
         return successful;
     }
@@ -150,10 +155,7 @@ public class BlockManager {
         long fileIndex = blockHeight / blocksPerFile;
         long directoryIndex = blockHeight / blocksPerFile / filesPerDirectory;
         File directory = new File(blockRootDirectory, String.format("%03d", directoryIndex));
-        File file = new File(directory, String.format("%06d.%s", fileIndex, extension));
-        System.out.println("file is " + file.getAbsolutePath());
-
-        return file;
+        return new File(directory, String.format("%06d.%s", fileIndex, extension));
     }
 
     private static File fileForBlockHeight(long blockHeight) {
@@ -172,7 +174,7 @@ public class BlockManager {
         // TODO
     }
 
-    private static void determineHighestBlockFrozen() {
+    private static void initialize() {
 
         new Thread(new Runnable() {
             @Override
@@ -180,11 +182,21 @@ public class BlockManager {
                 // Check the local filesystem first. If we have any locally stored blocks, we load them first.
                 boolean hasLocalChain = false;
                 if (fileForBlockHeight(0).exists()) {
+                    List<Block> blocksInGenesisFile = blocksInFile(fileForBlockHeight(0L), true);
+                    if (blocksInGenesisFile.size() > 0) {
+                        Block genesisBlock = blocksInGenesisFile.get(0);
+                        Block.genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
+                    }
+
+                    System.out.println(fileForBlockHeight(0).getAbsolutePath() + " exists " +
+                            fileForBlockHeight(0).exists());
                     long highestFileStartBlock = 0L;
                     while (fileForBlockHeight(highestFileStartBlock + BlockManager.blocksPerFile).exists()) {
                         highestFileStartBlock += BlockManager.blocksPerFile;
                     }
 
+                    System.out.println("file exists: " + fileForBlockHeight(highestFileStartBlock).getAbsolutePath() +
+                            ": " + fileForBlockHeight(highestFileStartBlock).exists());
                     System.out.println("highest file start block: " + highestFileStartBlock);
                     List<Block> blocks = blocksInFile(fileForBlockHeight(highestFileStartBlock), true);
                     if (blocks.size() > 0) {

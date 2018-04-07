@@ -87,13 +87,16 @@ public class GenesisBlockAcknowledgement implements MessageObject {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                // Flag that the system should terminate.
+                // Flag that the system should terminate and close the MeshListener socket.
                 UpdateUtil.terminate();
+                MeshListener.closeServerSocket();
 
                 // Wait for the verifier and mesh listener to terminate.
                 while (Verifier.isAlive() || MeshListener.isAlive()) {
                     try {
                         Thread.sleep(300L);
+                        System.out.println("waiting for termination: v=" + Verifier.isAlive() + ", m=" +
+                                MeshListener.isAlive());
                     } catch (Exception ignored) { }
                 }
 
@@ -105,8 +108,11 @@ public class GenesisBlockAcknowledgement implements MessageObject {
                 Block.reset();
                 TransactionPool.reset();
 
-                // Restart the verifier.
-                Verifier.start();
+                // Freeze the Genesis block.
+                BlockManager.freezeBlock(genesisBlock);
+
+                // Exit the application.
+                System.exit(0);
             }
         }).start();
     }

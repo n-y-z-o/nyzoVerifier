@@ -20,6 +20,8 @@ public enum MessageType {
     BlockResponse12(12),
     TransactionPoolRequest13(13),
     TransactionPoolResponse14(14),
+    HighestBlockFrozenRequest15(15),
+    HighestBlockFrozenResponse16(16),
 
     // test messages
     Ping200(200),

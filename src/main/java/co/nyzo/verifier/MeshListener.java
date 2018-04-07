@@ -22,6 +22,7 @@ public class MeshListener {
 
     public static final int standardPort = 9444;
 
+    private static ServerSocket serverSocket = null;
     private static int port;
 
     public static int getPort() {
@@ -35,7 +36,7 @@ public class MeshListener {
                 @Override
                 public void run() {
                     try {
-                        ServerSocket serverSocket = new ServerSocket(standardPort);
+                        serverSocket = new ServerSocket(standardPort);
                         port = serverSocket.getLocalPort();
 
                         // Now is the appropriate time to add this node to the verifier list. The verifier wallet was
@@ -71,13 +72,24 @@ public class MeshListener {
                             }).start();
                         }
 
-                        alive.set(false);
+                        closeServerSocket();
+
                     } catch (Exception ignored) {
                         ignored.printStackTrace();
                     }
+
+                    alive.set(false);
                 }
             }).start();
         }
+    }
+
+    public static void closeServerSocket() {
+
+        try {
+            serverSocket.close();
+        } catch (Exception ignored) { }
+        serverSocket = null;
     }
 
     public static Message response(Message message) {
@@ -117,15 +129,20 @@ public class MeshListener {
                     response = new Message(MessageType.TransactionPoolResponse14,
                             new TransactionPoolResponse(TransactionPool.allTransactions()));
 
+                } else if (messageType == MessageType.HighestBlockFrozenRequest15) {
+
+                    response = new Message(MessageType.HighestBlockFrozenResponse16,
+                            new HighestBlockFrozenResponse(BlockManager.highestBlockFrozen()));
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse());
 
                 } else if (messageType == MessageType.GenesisBlock500) {
 
-                    Block genesisBlock = (Block) message.getContent();
+                    BlockMessageObject genesisBlock = (BlockMessageObject) message.getContent();
                     response = new Message(MessageType.GenesisBlockAcknowledgement501,
-                            new GenesisBlockAcknowledgement(genesisBlock));
+                            new GenesisBlockAcknowledgement(genesisBlock.getBlock()));
                 }
             }
         } catch (Exception ignored) { }

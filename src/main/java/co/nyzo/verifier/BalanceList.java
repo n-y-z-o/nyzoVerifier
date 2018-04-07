@@ -105,19 +105,7 @@ public class BalanceList implements MessageObject {
                 System.out.println("byte array length: " + fileBytes.length);
 
                 ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
-                long blockHeight = buffer.getLong();
-                byte rolloverFees = buffer.get();
-
-                long numberOfPairs = buffer.getInt();
-                List<BalanceListItem> items = new ArrayList<>();
-                for (int i = 0; i < numberOfPairs; i++) {
-                    byte[] identifier = new byte[32];
-                    buffer.get(identifier);
-                    long balance = buffer.getLong();
-                    items.add(new BalanceListItem(identifier, balance));
-                }
-
-                balanceList = new BalanceList(blockHeight, rolloverFees, items);
+                balanceList = fromByteBuffer(buffer);
 
             } catch (Exception ignored) {
                 ignored.printStackTrace();
@@ -125,6 +113,23 @@ public class BalanceList implements MessageObject {
         }
 
         return balanceList;
+    }
+
+    public static BalanceList fromByteBuffer(ByteBuffer buffer) {
+
+        long blockHeight = buffer.getLong();
+        byte rolloverFees = buffer.get();
+
+        long numberOfPairs = buffer.getInt();
+        List<BalanceListItem> items = new ArrayList<>();
+        for (int i = 0; i < numberOfPairs; i++) {
+            byte[] identifier = new byte[32];
+            buffer.get(identifier);
+            long balance = buffer.getLong();
+            items.add(new BalanceListItem(identifier, balance));
+        }
+
+        return new BalanceList(blockHeight, rolloverFees, items);
     }
 
     @Override

@@ -291,8 +291,10 @@ public class Message {
             content = Transaction.fromByteBuffer(buffer);
         } else if (type == MessageType.TransactionPoolResponse14) {
             content = TransactionPoolResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.HighestBlockFrozenResponse16) {
+            content = HighestBlockFrozenResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.GenesisBlock500) {
-            content = Block.fromByteBuffer(buffer);
+            content = BlockMessageObject.fromByteBuffer(buffer);
         } else if (type == MessageType.GenesisBlockAcknowledgement501) {
             content = GenesisBlockAcknowledgement.fromByteBuffer(buffer);
         }

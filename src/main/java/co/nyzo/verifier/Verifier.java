@@ -64,6 +64,8 @@ public class Verifier {
 
         if (!alive.getAndSet(true)) {
 
+            System.out.println("starting verifier");
+
             loadPrivateSeed();
             NodeManager.fetchNodeList(0);
             MeshListener.start();
