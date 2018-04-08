@@ -1,7 +1,6 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.nio.ByteBuffer;
@@ -129,5 +128,10 @@ public class UpdateResponse implements MessageObject {
                 System.exit(0);
             }
         }).start();
+    }
+
+    @Override
+    public String toString() {
+        return "[UpdateResponse(" + (accepted ? "accepted" : "not accepted") + ", message=\"" + message + "\")]";
     }
 }

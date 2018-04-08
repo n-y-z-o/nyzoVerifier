@@ -111,8 +111,8 @@ public class Message {
     }
 
     public void sign(byte[] privateSeed) {
-        this.sourceNodeIdentifier = Verifier.getIdentifier();
-        this.sourceNodeSignature = Verifier.sign(getBytesForSigning());
+        this.sourceNodeIdentifier = KeyUtil.identifierForSeed(privateSeed);
+        this.sourceNodeSignature = SignatureUtil.signBytes(getBytesForSigning(), privateSeed);
     }
 
     public static void fetch(String hostNameOrIp, int port, Message message, boolean retryIfFailed,
@@ -298,6 +298,8 @@ public class Message {
             content = TransactionPoolResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.HighestBlockFrozenResponse16) {
             content = HighestBlockFrozenResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.UpdateResponse301) {
+                content = UpdateResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.GenesisBlock500) {
             content = BlockMessageObject.fromByteBuffer(buffer);
         } else if (type == MessageType.GenesisBlockResponse501) {
