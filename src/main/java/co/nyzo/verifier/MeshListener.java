@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.net.ServerSocket;
@@ -136,7 +137,8 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.Ping200) {
 
-                    response = new Message(MessageType.PingResponse201, new PingResponse());
+                    response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
+                            IpUtil.addressAsString(message.getSourceIpAddress()) + "!"));
 
                 } else if (messageType == MessageType.UpdateRequest300) {
 
