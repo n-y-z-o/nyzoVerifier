@@ -3,6 +3,7 @@ package co.nyzo.verifier.messages;
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.UpdateUtil;
 
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
@@ -122,7 +123,8 @@ public class UpdateResponse implements MessageObject {
                 }
 
                 // Pull the latest code and compile.
-
+                runProcess(new ProcessBuilder("git", "pull", "origin", "master"));
+                runProcess(new ProcessBuilder("./gradlew", "build"));
 
                 // Exit the application. The application will restart automatically.
                 System.exit(0);
@@ -133,5 +135,41 @@ public class UpdateResponse implements MessageObject {
     @Override
     public String toString() {
         return "[UpdateResponse(" + (accepted ? "accepted" : "not accepted") + ", message=\"" + message + "\")]";
+    }
+
+    private static void runProcess(ProcessBuilder processBuilder) {
+
+        try {
+            processBuilder.directory(new File("/home/ubuntu/nyzoVerifier/"));
+            Process process = processBuilder.start();
+            readStream(process.getInputStream(), System.out);
+            readStream(process.getErrorStream(), System.err);
+
+            while (process.isAlive()) {
+                try {
+                    Thread.sleep(1000L);
+                } catch (Exception e) {
+                }
+            }
+        } catch (Exception ignored) { }
+    }
+
+    private static void readStream(InputStream inputStream, PrintStream outputStream) {
+
+        BufferedReader outputReader = new BufferedReader(new InputStreamReader(inputStream));
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String line;
+                    while ((line = outputReader.readLine()) != null) {
+                        outputStream.println(line);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 }
