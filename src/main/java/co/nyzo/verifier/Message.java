@@ -110,6 +110,11 @@ public class Message {
         return sourceIpAddress;
     }
 
+    public void sign(byte[] privateSeed) {
+        this.sourceNodeIdentifier = Verifier.getIdentifier();
+        this.sourceNodeSignature = Verifier.sign(getBytesForSigning());
+    }
+
     public static void fetch(String hostNameOrIp, int port, Message message, boolean retryIfFailed,
                              MessageCallback messageCallback) {
 
@@ -295,7 +300,7 @@ public class Message {
             content = HighestBlockFrozenResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.GenesisBlock500) {
             content = BlockMessageObject.fromByteBuffer(buffer);
-        } else if (type == MessageType.GenesisBlockAcknowledgement501) {
+        } else if (type == MessageType.GenesisBlockResponse501) {
             content = GenesisBlockAcknowledgement.fromByteBuffer(buffer);
         }
 

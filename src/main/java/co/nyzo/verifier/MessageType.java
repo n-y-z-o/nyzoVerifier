@@ -29,13 +29,13 @@ public enum MessageType {
 
     // maintenance messages
     UpdateRequest300(300),
-    UpdateAcknowledgement301(301),
+    UpdateResponse301(301),
 
     // bootstrapping messages
     GenesisBlock500(500),
-    GenesisBlockAcknowledgement501(501),
+    GenesisBlockResponse501(501),
     SeedTransactionList502(502),
-    SeedTransactionAcknowledgement503(503),
+    SeedTransactionResponse503(503),
 
     // the highest allowable message number is 65535
     Error65534(65534),

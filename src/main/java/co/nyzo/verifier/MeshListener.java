@@ -138,14 +138,20 @@ public class MeshListener {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse());
 
+                } else if (messageType == MessageType.UpdateRequest300) {
+
+                    response = new Message(MessageType.UpdateResponse301, new UpdateResponse(message));
+
                 } else if (messageType == MessageType.GenesisBlock500) {
 
                     BlockMessageObject genesisBlock = (BlockMessageObject) message.getContent();
-                    response = new Message(MessageType.GenesisBlockAcknowledgement501,
+                    response = new Message(MessageType.GenesisBlockResponse501,
                             new GenesisBlockAcknowledgement(genesisBlock.getBlock()));
                 }
             }
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {
+            ignored.printStackTrace();
+        }
 
         if (response == null) {
             response = new Message(MessageType.Error65534, null);

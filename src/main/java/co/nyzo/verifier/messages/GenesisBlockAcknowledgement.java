@@ -40,7 +40,7 @@ public class GenesisBlockAcknowledgement implements MessageObject {
 
     @Override
     public int getByteSize() {
-        return FieldByteSize.booleanField +   // transactionAccepted
+        return FieldByteSize.booleanField +       // blockAccepted
                 FieldByteSize.string(message);    // message
     }
 
