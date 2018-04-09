@@ -57,10 +57,18 @@ public class BlockManager {
             byte[] fileBytes = Files.readAllBytes(path);
             ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
             int numberOfBlocks = buffer.getShort();
+            Block previousBlock = null;
             for (int i = 0; i < numberOfBlocks; i++) {
                 Block block = Block.fromByteBuffer(buffer);
-                block.setBalanceList(BalanceList.fromByteBuffer(buffer));
+                if (previousBlock == null) {
+                    block.setBalanceList(BalanceList.fromByteBuffer(buffer));
+                } else {
+                    block.setBalanceList(Block.balanceListForNextBlock(previousBlock, block.getTransactions(),
+                            block.getVerifierIdentifier()));
+                }
                 blocks.add(block);
+
+                previousBlock = block;
             }
         } catch (Exception ignored) { }
 
@@ -78,17 +86,23 @@ public class BlockManager {
         boolean successful = false;
 
         int size = 2;  // number of blocks
-        for (Block block : blocks) {
+        for (int i = 0; i < blocks.size(); i++) {
+            Block block = blocks.get(i);
             size += block.getByteSize();
-            size += block.getBalanceList().getByteSize();
+            if (i == 0) {
+                size += block.getBalanceList().getByteSize();
+            }
         }
 
         byte[] bytes = new byte[size];
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
         buffer.putShort((short) blocks.size());
-        for (Block block : blocks) {
+        for (int i = 0; i < blocks.size(); i++) {
+            Block block = blocks.get(i);
             buffer.put(block.getBytes());
-            buffer.put(block.getBalanceList().getBytes());
+            if (i == 0) {
+                buffer.put(block.getBalanceList().getBytes());
+            }
         }
 
         try {

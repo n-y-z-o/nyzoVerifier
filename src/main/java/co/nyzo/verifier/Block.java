@@ -104,6 +104,11 @@ public class Block implements MessageObject {
     }
 
     public void setBalanceList(BalanceList balanceList) {
+        if (!ByteUtil.arraysAreEqual(HashUtil.doubleSHA256(balanceList.getBytes()), balanceListHash)) {
+            System.err.println("balance list does not match hash!");
+            // TODO: turn this into an exception before release
+        }
+
         this.balanceList = balanceList;
     }
 
