@@ -13,12 +13,15 @@ public class BalanceList implements MessageObject {
 
     private long blockHeight;
     private byte rolloverFees;
+    private List<byte[]> previousVerifiers;
     private List<BalanceListItem> items;
 
-    public BalanceList(long blockHeight, byte rolloverFees, List<BalanceListItem> items) {
+    public BalanceList(long blockHeight, byte rolloverFees, List<byte[]> previousVerifiers,
+                       List<BalanceListItem> items) {
 
         this.blockHeight = blockHeight;
         this.rolloverFees = rolloverFees;
+        this.previousVerifiers = previousVerifiers;
         this.items = normalize(items);
     }
 
@@ -65,6 +68,10 @@ public class BalanceList implements MessageObject {
         return rolloverFees;
     }
 
+    public List<byte[]> getPreviousVerifiers() {
+        return new ArrayList<>(previousVerifiers);
+    }
+
     public List<BalanceListItem> getItems() {
         return items;
     }
@@ -73,6 +80,14 @@ public class BalanceList implements MessageObject {
 
         long blockHeight = buffer.getLong();
         byte rolloverFees = buffer.get();
+
+        int numberOfPreviousVerifiers = (int) Math.min(blockHeight, 9);
+        List<byte[]> previousVerifiers = new ArrayList<>();
+        for (int i = 0; i < numberOfPreviousVerifiers; i++) {
+            byte[] verifierIdentifier = new byte[FieldByteSize.identifier];
+            buffer.get(verifierIdentifier);
+            previousVerifiers.add(verifierIdentifier);
+        }
 
         long numberOfPairs = buffer.getInt();
         List<BalanceListItem> items = new ArrayList<>();
@@ -83,13 +98,16 @@ public class BalanceList implements MessageObject {
             items.add(new BalanceListItem(identifier, balance));
         }
 
-        return new BalanceList(blockHeight, rolloverFees, items);
+        return new BalanceList(blockHeight, rolloverFees, previousVerifiers, items);
     }
 
     @Override
     public int getByteSize() {
+        int numberOfPreviousVerifiers = (int) Math.min(blockHeight, 9);
+
         return FieldByteSize.blockHeight +
                 FieldByteSize.rolloverTransactionFees +
+                FieldByteSize.identifier * numberOfPreviousVerifiers +
                 FieldByteSize.balanceListLength +
                 (FieldByteSize.identifier + FieldByteSize.transactionAmount) * items.size();
     }
@@ -101,6 +119,9 @@ public class BalanceList implements MessageObject {
         ByteBuffer buffer = ByteBuffer.wrap(result);
         buffer.putLong(blockHeight);
         buffer.put(rolloverFees);
+        for (byte[] previousVerifier : previousVerifiers) {
+            buffer.put(previousVerifier);
+        }
         buffer.putInt(items.size());
         for (BalanceListItem item : items) {
             buffer.put(item.getIdentifier());

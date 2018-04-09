@@ -232,20 +232,29 @@ public class Block implements MessageObject {
 
         BalanceList result = null;
         try {
-            // For the Genesis block, start with an empty balance list and no rollover fees. For all others, start with
-            // the information from the previous block's balance list.
+            // For the Genesis block, start with an empty balance list, no rollover fees, and an empty list of previous
+            // verifiers. For all others, start with the information from the previous block's balance list.
             long blockHeight;
             List<BalanceListItem> previousBalanceItems;
             long previousRolloverFees;
+            List<byte[]> previousVerifiers;
             if (previousBlock == null) {
                 blockHeight = 0L;
                 previousBalanceItems = new ArrayList<>();
                 previousRolloverFees = 0L;
+                previousVerifiers = new ArrayList<>();
             } else {
                 blockHeight = previousBlock.getBlockHeight() + 1L;
                 BalanceList previousBalanceList = previousBlock.getBalanceList();
                 previousBalanceItems = previousBalanceList.getItems();
                 previousRolloverFees = previousBalanceList.getRolloverFees();
+
+                // Get the previous verifiers from the previous block. Add the newest and remove the oldest.
+                previousVerifiers = new ArrayList<>(previousBalanceList.getPreviousVerifiers());
+                previousVerifiers.add(previousBlock.getVerifierIdentifier());
+                if (previousVerifiers.size() > 9) {
+                    previousVerifiers.remove(0);
+                }
             }
 
             // Make a map of the identifiers to balances.
@@ -254,7 +263,7 @@ public class Block implements MessageObject {
                 identifierToBalanceMap.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());
             }
 
-            // Add all transactions.
+            // Add/subtract all transactions.
             long feesThisBlock = 0L;
             for (Transaction transaction : transactions) {
                 System.out.println("processing transaction of amount " + transaction.getAmount());
@@ -268,22 +277,14 @@ public class Block implements MessageObject {
                 }
             }
 
-            // Split the transaction fees among as many as the previous 10 verifiers. For blocks of height under 9,
-            // there will be fewer verifiers to share, so each gets a larger portion of fees (block 0 = 100%,
-            // block 1 = ½, block 2 = ⅓,... block 8 = 1/9, block 9 and above = 10%). Fee divisions are always rounded
-            // down, and the remainder is stored to be added to the fees for the next block.
-            List<byte[]> verifierIdentifiers = new ArrayList<>();
-            for (long i = blockHeight - 1; i >= 0 && i >= blockHeight - 9; i--) {
-                //verifierIdentifiers.add(verifierForBlock(i));
-            }
-            // TODO: add previous verifier identifiers
-            // TODO: we need to deal with both frozen and unfrozen (chain option) blocks properly
-            verifierIdentifiers.add(verifierIdentifier);
+            // Split the transaction fees among the current and previous verifiers.
+            List<byte[]> verifiers = new ArrayList<>(previousVerifiers);
+            verifiers.add(verifierIdentifier);
             long totalFees = feesThisBlock + previousRolloverFees;
-            long feesPerVerifier = totalFees / verifierIdentifiers.size();
+            long feesPerVerifier = totalFees / verifiers.size();
             if (feesPerVerifier > 0L) {
-                for (byte[] identifier : verifierIdentifiers) {
-                    adjustBalance(identifier, feesPerVerifier, identifierToBalanceMap);
+                for (byte[] verifier : verifiers) {
+                    adjustBalance(verifier, feesPerVerifier, identifierToBalanceMap);
                 }
             }
 
@@ -296,9 +297,9 @@ public class Block implements MessageObject {
                 }
             }
 
-            // Make the digest. The pairs are sorted in the constructor.
-            byte rolloverFees = (byte) (totalFees % verifierIdentifiers.size());
-            result = new BalanceList(blockHeight, rolloverFees, balanceItems);
+            // Make the balance list. The pairs are sorted in the constructor.
+            byte rolloverFees = (byte) (totalFees % verifiers.size());
+            result = new BalanceList(blockHeight, rolloverFees, previousVerifiers, balanceItems);
 
         } catch (Exception ignored) { ignored.printStackTrace(); }
 
