@@ -16,7 +16,6 @@ public class ChainInitializationManager {
             if (Block.isValidGenesisBlock(block, null)) {
                 BlockManager.freezeBlock(block);
                 System.out.println("GOT GENESIS BLOCK!!!");
-                System.exit(0);
             }
         }
     }

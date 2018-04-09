@@ -58,7 +58,9 @@ public class BlockManager {
             ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
             int numberOfBlocks = buffer.getShort();
             for (int i = 0; i < numberOfBlocks; i++) {
-                blocks.add(Block.fromByteBuffer(buffer));
+                Block block = Block.fromByteBuffer(buffer);
+                block.setBalanceList(BalanceList.fromByteBuffer(buffer));
+                blocks.add(block);
             }
         } catch (Exception ignored) { }
 
@@ -78,6 +80,7 @@ public class BlockManager {
         int size = 2;  // number of blocks
         for (Block block : blocks) {
             size += block.getByteSize();
+            size += block.getBalanceList().getByteSize();
         }
 
         byte[] bytes = new byte[size];
@@ -85,6 +88,7 @@ public class BlockManager {
         buffer.putShort((short) blocks.size());
         for (Block block : blocks) {
             buffer.put(block.getBytes());
+            buffer.put(block.getBalanceList().getBytes());
         }
 
         try {
@@ -105,24 +109,18 @@ public class BlockManager {
 
         if (block.getBlockHeight() == highestBlockFrozen() + 1L) {
             try {
-                // Write the balance list to file first so we will have a balance list in a file for each block in a
-                // file.
-                if (block.getBalanceList().writeToFile()) {
-                    File file = fileForBlockHeight(block.getBlockHeight());
-                    List<Block> blocksInFile = blocksInFile(file, true);
-                    int expectedNumberOfBlocksInFile = (int) (block.getBlockHeight() % blocksPerFile);
-                    if (blocksInFile.size() == expectedNumberOfBlocksInFile) {
-                        blocksInFile.add(block);
-                        writeBlocksToFile(blocksInFile, file);
-                        BlockManagerMap.addBlock(block);
-                        setHighestBlockFrozen(block.getBlockHeight());
-                    } else {
-                        System.err.println("unable to write block " + block.getBlockHeight());
-                    }
-
+                File file = fileForBlockHeight(block.getBlockHeight());
+                List<Block> blocksInFile = blocksInFile(file, true);
+                int expectedNumberOfBlocksInFile = (int) (block.getBlockHeight() % blocksPerFile);
+                if (blocksInFile.size() == expectedNumberOfBlocksInFile) {
+                    blocksInFile.add(block);
+                    writeBlocksToFile(blocksInFile, file);
+                    BlockManagerMap.addBlock(block);
+                    setHighestBlockFrozen(block.getBlockHeight());
                 } else {
-                    System.err.println("unsuccessful writing balance list for block " + block.getBlockHeight());
+                    System.err.println("unable to write block " + block.getBlockHeight());
                 }
+
             } catch (Exception reportOnly) {
                 reportOnly.printStackTrace();
                 System.err.println("exception writing block to file " + reportOnly.getMessage());

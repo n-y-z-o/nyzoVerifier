@@ -100,10 +100,6 @@ public class Block implements MessageObject {
 
     public BalanceList getBalanceList() {
 
-        // The balance list should only be null for blocks made from files.
-        if (balanceList == null && fromFile) {
-           balanceList = BalanceList.fromFile(height);
-        }
         return balanceList;
     }
 

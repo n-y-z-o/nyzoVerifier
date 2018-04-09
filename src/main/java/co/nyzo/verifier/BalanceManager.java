@@ -173,7 +173,11 @@ public class BalanceManager {
     private static Map<ByteBuffer, Long> balancesAtEndOfBlock(long blockHeight) {
 
         Map<ByteBuffer, Long> balances = new HashMap<>();
-        BalanceList balanceList = BalanceList.fromFile(blockHeight);
+        BalanceList balanceList = null;
+        Block block = BlockManager.frozenBlockForHeight(blockHeight);
+        if (block != null) {
+            balanceList = block.getBalanceList();
+        }
         if (balanceList != null) {
             for (BalanceListItem item : balanceList.getItems()) {
                 balances.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());

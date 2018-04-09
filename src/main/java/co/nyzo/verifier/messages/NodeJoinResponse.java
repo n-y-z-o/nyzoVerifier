@@ -73,7 +73,6 @@ public class NodeJoinResponse implements MessageObject {
             short numberOfBlocks = buffer.getShort();
             if (numberOfBlocks > 0) {
                 System.out.println("number of blocks is " + numberOfBlocks);
-                System.exit(0);
             }
             List<Block> blocks = new ArrayList<>();
             for (int i = 0; i < numberOfBlocks; i++) {

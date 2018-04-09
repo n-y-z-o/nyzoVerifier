@@ -69,52 +69,6 @@ public class BalanceList implements MessageObject {
         return items;
     }
 
-    public boolean writeToFile() {
-
-        boolean successful;
-        try {
-            File file = fileForBlockHeight(blockHeight);
-            System.out.println("file is " + file.getAbsolutePath());
-            file.getParentFile().mkdirs();
-            file.delete();
-            Files.write(Paths.get(file.getAbsolutePath()), getBytes());
-            successful = file.exists();
-        } catch (Exception ignored) {
-            successful = false;
-            ignored.printStackTrace();
-        }
-
-        return successful;
-    }
-
-    public static File fileForBlockHeight(long blockHeight) {
-
-        return BlockManager.fileForBlockHeight(blockHeight, "nyzobalancelist");
-    }
-
-    public static BalanceList fromFile(long height) {
-
-        File file = fileForBlockHeight(height);
-        BalanceList balanceList = null;
-        Exception e = new Exception();
-        StackTraceElement[] stackTrace = e.getStackTrace();
-        System.out.println("looking for file " + file.getAbsolutePath() + ": " + stackTrace[1]);
-        if (file.exists()) {
-            try {
-                byte[] fileBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath()));
-                System.out.println("byte array length: " + fileBytes.length);
-
-                ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
-                balanceList = fromByteBuffer(buffer);
-
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
-            }
-        }
-
-        return balanceList;
-    }
-
     public static BalanceList fromByteBuffer(ByteBuffer buffer) {
 
         long blockHeight = buffer.getLong();
