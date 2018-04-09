@@ -9,7 +9,7 @@ public enum MessageType {
     NodeListRequest1(1),
     NodeListResponse2(2),
     NodeJoin3(3),
-    NodeJoinAcknowledgement4(4),
+    NodeJoinResponse4(4),
     Transaction5(5),
     TransactionResponse6(6),
     PreviousHashRequest7(7),

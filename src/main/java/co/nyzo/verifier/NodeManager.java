@@ -98,13 +98,11 @@ public class NodeManager {
 
     public static void fetchNodeList(int index) {
 
-        System.out.println("fetching node list");
         String url = "verifier" + index + ".nyzo.co";
         Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeListRequest1, null), false,
                 new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
-                        System.out.println("return message in fetchNodeList is " + message);
                         List<Node> nodes = new ArrayList<>();
                         try {
                             if (message != null) {
@@ -122,7 +120,7 @@ public class NodeManager {
                         // If we got nodes in the response, send node-join messages to all full nodes and fetch the
                         // current transaction pool. Otherwise, wait 10 seconds and retry.
                         if (!nodes.isEmpty()) {
-                            List<Node> nodePool = getNodePool();
+                            List<Node> nodePool = getMesh();
                             for (Node node : nodePool) {
                                 if (node.isFullNode()) {
                                     Message nodeJoinMessage = new Message(MessageType.NodeJoin3,
@@ -156,16 +154,14 @@ public class NodeManager {
                 });
     }
 
-    public static synchronized List<Node> getNodePool() {
+    public static synchronized List<Node> getMesh() {
         return new ArrayList<>(nodePool);
     }
 
     public static boolean connectedToMesh() {
 
-        // TODO: make sure that we have all the data necessary to run as a proper verifier here
-        // TODO: this will include making sure we have a recent history of blocks
-
-        // One node will be the verifier. If any more are present, we are connected to the mesh.
+        // When we request the node list from another node, it will add this node to the list. So, the minimum number
+        // of nodes in a proper mesh is two.
         return nodePool.size() > 1;
     }
 }

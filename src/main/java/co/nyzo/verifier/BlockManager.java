@@ -13,20 +13,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockManager {
 
-    // TODO: In system initialization, get the latest block files from one other node, independently verify that part
-    // TODO: of the chain, then confirm the latest block hash with more than 50% of the network. If we can connect
-    // TODO: an already verified part of the chain back to a part of the chain we already know, do that instead.
-    // TODO: If we can easily go all the way back to the Genesis block, that's even better.   :)
+    static {
+        initialize();
+    }
 
     public static final File blockRootDirectory = new File(Verifier.dataRootDirectory, "blocks");
     private static final AtomicLong highestBlockFrozen = new AtomicLong(-1L);
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
-    private static boolean initialized = false;
-
-    static {
-        initialize();
-    }
 
     public static long highestBlockFrozen() {
         return highestBlockFrozen.get();
@@ -43,17 +37,12 @@ public class BlockManager {
                 loadBlockFromFile(blockHeight);
                 block = BlockManagerMap.blockForHeight(blockHeight);
 
-                if (block == null) {
-                    loadBlockFromNetwork(blockHeight);
-
-                    // Wait up to one second for the block to be fetched from the network.
-                    for (int i = 0; i < 10 && block == null; i++) {
-                        try {
-                            Thread.sleep(100L);
-                        } catch (Exception ignored) { }
-                        block = BlockManagerMap.blockForHeight(blockHeight);
-                    }
-                }
+                // We used to have block loading from the network here. This could cause some serious performance issues
+                // for verifiers, though, because we might have very large chains that need to be connected in order
+                // to establish the veracity of a block.  So, we will instead allow verifiers to be ignorant of certain
+                // parts of the chain. When a verifier starts, it will get the recent chain. If a transaction references
+                // a hash of a block that a verifier does not know, the verifier should omit that transaction from
+                // the block.
             }
         }
 
@@ -71,11 +60,7 @@ public class BlockManager {
             for (int i = 0; i < numberOfBlocks; i++) {
                 blocks.add(Block.fromByteBuffer(buffer));
             }
-        } catch (Exception ignored) {
-            //System.out.println("in exception, file exists: " + file.exists());
-            //System.out.println("exception reading block file: " + reportOnly.getMessage());
-            //reportOnly.printStackTrace();
-        }
+        } catch (Exception ignored) { }
 
         if (addBlocksToCache) {
             for (Block block : blocks) {
@@ -169,9 +154,9 @@ public class BlockManager {
         System.out.println("loaded " + blocks.size() + " blocks for file " + fileForBlockHeight(blockHeight).getName());
     }
 
-    private static void loadBlockFromNetwork(long blockHeight) {
+    private static void fetchBlockFromNetwork(long blockHeight) {
 
-        // TODO
+
     }
 
     private static void initialize() {
@@ -179,6 +164,7 @@ public class BlockManager {
         new Thread(new Runnable() {
             @Override
             public void run() {
+
                 // Check the local filesystem first. If we have any locally stored blocks, we load them first.
                 boolean hasLocalChain = false;
                 if (fileForBlockHeight(0).exists()) {
@@ -195,9 +181,6 @@ public class BlockManager {
                         highestFileStartBlock += BlockManager.blocksPerFile;
                     }
 
-                    System.out.println("file exists: " + fileForBlockHeight(highestFileStartBlock).getAbsolutePath() +
-                            ": " + fileForBlockHeight(highestFileStartBlock).exists());
-                    System.out.println("highest file start block: " + highestFileStartBlock);
                     List<Block> blocks = blocksInFile(fileForBlockHeight(highestFileStartBlock), true);
                     if (blocks.size() > 0) {
                         setHighestBlockFrozen(blocks.get(blocks.size() - 1).getBlockHeight());
@@ -205,7 +188,7 @@ public class BlockManager {
                     }
                 }
 
-                // Wait until we are connected to the mesh, then get the highest frozen block from the mesh.
+                // Wait until we are connected to the mesh to continue.
                 while (!NodeManager.connectedToMesh() && !UpdateUtil.shouldTerminate()) {
                     try {
                         Thread.sleep(1000L);
@@ -213,9 +196,14 @@ public class BlockManager {
                 }
 
                 if (NodeManager.connectedToMesh()) {
+
+                    // Get the Genesis block first. This will let us know what blocks should be frozen. We want to start
+                    // with the Genesis block, because we know the identifier of its verifier.
+
+
                     // Query up to five nodes to get the highest frozen block from the mesh.
                     long highestBlockAccordingToMesh = 0L;
-                    List<Node> nodes = NodeManager.getNodePool();
+                    List<Node> nodes = NodeManager.getMesh();
                     for (int i = 0; i < 5 && !nodes.isEmpty(); i++) {
                         //highestBlockAccordingToMesh = Math.max(highestBlockAccordingToMesh, )
                     }
@@ -258,5 +246,10 @@ public class BlockManager {
     public static void reset() {
 
         highestBlockFrozen.set(-1L);
+    }
+
+    public static boolean readyToProcess() {
+
+        return false;
     }
 }

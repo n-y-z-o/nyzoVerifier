@@ -124,18 +124,13 @@ public class Message {
                 Message response = null;
                 try {
                     Socket socket = new Socket();
-                    System.out.println("trying to connect to " + hostNameOrIp + ":" + port);
                     socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
 
                     OutputStream outputStream = socket.getOutputStream();
-                    System.out.println("message on send: " + message);
-                    System.out.println("message on send: " +
-                            ByteUtil.arrayAsStringNoDashes(message.getBytesForTransmission()));
                     outputStream.write(message.getBytesForTransmission());
 
                     response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
                     socket.close();
-                    System.out.println("response is " + response);
                 } catch (Exception reportOnly) {
                     System.err.println("Exception connecting to " + hostNameOrIp + ":" + port + ": " +
                             reportOnly.getMessage());
@@ -220,9 +215,7 @@ public class Message {
         if (content != null) {
             buffer.put(content.getBytes());
         }
-        System.out.println("sourceNodeIdentifier: " + sourceNodeIdentifier);
         buffer.put(sourceNodeIdentifier);
-        System.out.println("sourceNodeSignature: " + sourceNodeSignature);
         buffer.put(sourceNodeSignature);
         if (recipientIdentifiers.size() > 0) {
             buffer.putInt(recipientIdentifiers.size());
@@ -272,7 +265,6 @@ public class Message {
                 buffer.get(recipientSignature);
                 recipientSignatures.add(recipientSignature);
             }
-            System.out.println("buffer position is " + buffer.position());
 
             message = new Message(timestamp, type, content, sourceNodeIdentifier, sourceNodeSignature,
                     recipientIdentifiers, recipientSignatures, sourceIpAddress);
@@ -285,13 +277,13 @@ public class Message {
 
     private static MessageObject processContent(MessageType type, ByteBuffer buffer) {
 
-        System.out.println("processing content for message type: " + type);
-
         MessageObject content = null;
         if (type == MessageType.NodeListResponse2) {
             content = NodeListResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.NodeJoin3) {
             content = NodeJoinMessage.fromByteBuffer(buffer);
+        } else if (type == MessageType.NodeJoinResponse4) {
+            content = NodeJoinResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Transaction5) {
             content = Transaction.fromByteBuffer(buffer);
         } else if (type == MessageType.TransactionPoolResponse14) {

@@ -319,6 +319,10 @@ public class Block implements MessageObject {
 
     public static boolean isValidGenesisBlock(Block block, StringBuilder error) {
 
+        if (error == null) {
+            error = new StringBuilder();
+        }
+
         boolean valid = true;
         if (block.getBlockHeight() != 0L) {
             error.append("The block height is " + block.getBlockHeight() + ", but the only valid height for a " +

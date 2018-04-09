@@ -2,7 +2,6 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.net.ServerSocket;
@@ -55,9 +54,7 @@ public class MeshListener {
                                     try {
                                         Message message = Message.readFromStream(clientSocket.getInputStream(),
                                                 IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() + ""));
-                                        System.out.println("got message of type: " + message.getType());
                                         Message response = response(message);
-                                        System.out.println("response is " + response);
                                         if (response != null) {
                                             clientSocket.getOutputStream().write(response.getBytesForTransmission());
                                         }
@@ -107,14 +104,14 @@ public class MeshListener {
                 if (messageType == MessageType.NodeListRequest1) {
 
                     System.out.println("returning NodeListResponse");
-                    response = new Message(MessageType.NodeListResponse2, new NodeListResponse(NodeManager.getNodePool()));
+                    response = new Message(MessageType.NodeListResponse2, new NodeListResponse(NodeManager.getMesh()));
 
                 } else if (messageType == MessageType.NodeJoin3) {
 
                     NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
                             nodeJoinMessage.getPort(), nodeJoinMessage.isFullNode());
-                    response = new Message(MessageType.NodeJoinAcknowledgement4, null);
+                    response = new Message(MessageType.NodeJoinResponse4, new NodeJoinResponse());
 
                 } else if (messageType == MessageType.Transaction5) {
 

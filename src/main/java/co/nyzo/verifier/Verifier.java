@@ -56,8 +56,6 @@ public class Verifier {
                 privateSeed = null;
             }
         }
-
-        System.out.println("private seed is " + ByteUtil.arrayAsStringWithDashes(privateSeed));
     }
 
     public static void start() {
@@ -89,7 +87,7 @@ public class Verifier {
             long sleepTime = 1000L;
             try {
                 // Only run the active verifier if connected to the mesh and if a Genesis block is available.
-                if (NodeManager.connectedToMesh() && BlockManager.highestBlockFrozen() >= 0) {
+                if (NodeManager.connectedToMesh() && BlockManager.readyToProcess()) {
 
                     // Get all of the current chain options. Add one block for each that is not caught up with the
                     // highest block open for processing.
@@ -113,6 +111,9 @@ public class Verifier {
                         }
                     }
                 }
+
+                System.out.println("connected to mesh: " + NodeManager.connectedToMesh() + ", highest block frozen: " +
+                        BlockManager.highestBlockFrozen() + ", ready to process: " + BlockManager.readyToProcess());
 
             } catch (Exception ignored) { }
 

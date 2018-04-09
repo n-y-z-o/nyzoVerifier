@@ -2,12 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.TransactionPoolResponse;
 import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.UpdateUtil;
 
-import java.io.File;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 
 public class TransactionPool {
@@ -56,7 +51,7 @@ public class TransactionPool {
 
     public static void fetchFromMesh() {
 
-        List<Node> availableNodes = new ArrayList<>(NodeManager.getNodePool());
+        List<Node> availableNodes = new ArrayList<>(NodeManager.getMesh());
         Random random = new Random();
         for (int i = 0; i < 5 && availableNodes.size() > 0; i++) {
             Node node = availableNodes.remove(random.nextInt(availableNodes.size()));
