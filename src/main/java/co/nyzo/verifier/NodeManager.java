@@ -1,6 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NodeJoinMessage;
+import co.nyzo.verifier.messages.NodeJoinResponse;
 import co.nyzo.verifier.messages.NodeListResponse;
 import co.nyzo.verifier.util.IpUtil;
 
@@ -126,7 +127,13 @@ public class NodeManager {
                                     Message nodeJoinMessage = new Message(MessageType.NodeJoin3,
                                             new NodeJoinMessage(MeshListener.getPort(), true));
                                     Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(),
-                                            nodeJoinMessage, true, null);
+                                            nodeJoinMessage, true, new MessageCallback() {
+                                                @Override
+                                                public void responseReceived(Message message) {
+                                                    NodeJoinResponse response = (NodeJoinResponse) message.getContent();
+                                                    ChainInitializationManager.processNodeJoinResponse(response);
+                                                }
+                                            });
                                 }
                             }
 

@@ -1,5 +1,6 @@
 package co.nyzo.verifier.messages;
 
+import co.nyzo.verifier.BalanceList;
 import co.nyzo.verifier.Block;
 import co.nyzo.verifier.BlockManager;
 import co.nyzo.verifier.MessageObject;
@@ -44,7 +45,7 @@ public class NodeJoinResponse implements MessageObject {
 
         int size = Short.BYTES;
         for (Block block : blocks) {
-            size += block.getByteSize();
+            size += block.getByteSize() + block.getBalanceList().getByteSize();
         }
 
         return size;
@@ -58,6 +59,7 @@ public class NodeJoinResponse implements MessageObject {
         buffer.putShort((short) blocks.size());
         for (Block block : blocks) {
             buffer.put(block.getBytes());
+            buffer.put(block.getBalanceList().getBytes());
         }
 
         return array;
@@ -69,9 +71,15 @@ public class NodeJoinResponse implements MessageObject {
 
         try {
             short numberOfBlocks = buffer.getShort();
+            if (numberOfBlocks > 0) {
+                System.out.println("number of blocks is " + numberOfBlocks);
+                System.exit(0);
+            }
             List<Block> blocks = new ArrayList<>();
             for (int i = 0; i < numberOfBlocks; i++) {
-                blocks.add(Block.fromByteBuffer(buffer));
+                Block block = Block.fromByteBuffer(buffer);
+                block.setBalanceList(BalanceList.fromByteBuffer(buffer));
+                blocks.add(block);
             }
 
             result = new NodeJoinResponse(blocks);

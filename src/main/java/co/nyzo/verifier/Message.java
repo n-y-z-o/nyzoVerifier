@@ -277,6 +277,8 @@ public class Message {
 
     private static MessageObject processContent(MessageType type, ByteBuffer buffer) {
 
+        System.out.println("processing content of type " + type);
+
         MessageObject content = null;
         if (type == MessageType.NodeListResponse2) {
             content = NodeListResponse.fromByteBuffer(buffer);

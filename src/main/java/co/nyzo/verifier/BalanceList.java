@@ -89,7 +89,7 @@ public class BalanceList implements MessageObject {
 
     public static File fileForBlockHeight(long blockHeight) {
 
-        return BlockManager.fileForBlockHeight(blockHeight, "nyzoblock");
+        return BlockManager.fileForBlockHeight(blockHeight, "nyzobalancelist");
     }
 
     public static BalanceList fromFile(long height) {

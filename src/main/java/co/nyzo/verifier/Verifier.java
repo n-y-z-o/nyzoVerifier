@@ -112,7 +112,8 @@ public class Verifier {
                     }
                 }
 
-                System.out.println("connected to mesh: " + NodeManager.connectedToMesh() + ", highest block frozen: " +
+                System.out.println("connected to mesh: " + NodeManager.connectedToMesh() + "(" +
+                        NodeManager.getMesh().size() + "), highest block frozen: " +
                         BlockManager.highestBlockFrozen() + ", ready to process: " + BlockManager.readyToProcess());
 
             } catch (Exception ignored) { }
