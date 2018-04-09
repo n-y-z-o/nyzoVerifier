@@ -10,12 +10,15 @@ public class ChainInitializationManager {
 
         System.out.println("the node join response has " + response.getBlocks().size() + " blocks");
 
-        // First, try to get the Genesis block.
-        List<Block> blocks = response.getBlocks();
-        for (Block block : blocks) {
-            if (Block.isValidGenesisBlock(block, null)) {
-                BlockManager.freezeBlock(block);
-                System.out.println("GOT GENESIS BLOCK!!!");
+        // First, try to get the Genesis block if we don't have one already stored.
+        Block localGenesisBlock = BlockManager.frozenBlockForHeight(0L);
+        if (localGenesisBlock == null) {
+            List<Block> blocks = response.getBlocks();
+            for (Block block : blocks) {
+                if (Block.isValidGenesisBlock(block, null)) {
+                    BlockManager.freezeBlock(block);
+                    System.out.println("GOT GENESIS BLOCK!!!");
+                }
             }
         }
     }

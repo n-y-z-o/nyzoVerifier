@@ -107,27 +107,22 @@ public class BlockManager {
 
     public static synchronized void freezeBlock(Block block) {
 
-        if (block.getBlockHeight() == highestBlockFrozen() + 1L) {
-            try {
-                File file = fileForBlockHeight(block.getBlockHeight());
-                List<Block> blocksInFile = blocksInFile(file, true);
-                int expectedNumberOfBlocksInFile = (int) (block.getBlockHeight() % blocksPerFile);
-                if (blocksInFile.size() == expectedNumberOfBlocksInFile) {
-                    blocksInFile.add(block);
-                    writeBlocksToFile(blocksInFile, file);
-                    BlockManagerMap.addBlock(block);
-                    setHighestBlockFrozen(block.getBlockHeight());
-                } else {
-                    System.err.println("unable to write block " + block.getBlockHeight());
-                }
-
-            } catch (Exception reportOnly) {
-                reportOnly.printStackTrace();
-                System.err.println("exception writing block to file " + reportOnly.getMessage());
+        try {
+            File file = fileForBlockHeight(block.getBlockHeight());
+            List<Block> blocksInFile = blocksInFile(file, true);
+            int expectedNumberOfBlocksInFile = (int) (block.getBlockHeight() % blocksPerFile);
+            if (blocksInFile.size() == expectedNumberOfBlocksInFile) {
+                blocksInFile.add(block);
+                writeBlocksToFile(blocksInFile, file);
+                BlockManagerMap.addBlock(block);
+                setHighestBlockFrozen(block.getBlockHeight());
+            } else {
+                System.err.println("unable to write block " + block.getBlockHeight());
             }
-        } else {
-            System.err.println("the highest block frozen is " + highestBlockFrozen() + "; cannot write block " +
-                block.getBlockHeight());
+
+        } catch (Exception reportOnly) {
+            reportOnly.printStackTrace();
+            System.err.println("exception writing block to file " + reportOnly.getMessage());
         }
     }
 
@@ -213,7 +208,7 @@ public class BlockManager {
     public static void setHighestBlockFrozen(long height) {
 
         if (height < highestBlockFrozen.get()) {
-            System.err.println("Setting highest block frozen to a lesser value than is currently set.");
+            System.out.println("Setting highest block frozen to a lesser value than is currently set.");
         }
 
         highestBlockFrozen.set(height);

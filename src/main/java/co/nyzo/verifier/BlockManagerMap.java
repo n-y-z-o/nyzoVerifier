@@ -43,7 +43,12 @@ public class BlockManagerMap {
 
     public static Block blockForHeight(long blockHeight) {
         BlockManagerMap blockWrapper = blockMap.get(blockHeight);
-        Block block = blockWrapper == null ? null : blockWrapper.block;
+        Block block = null;
+        if (blockWrapper != null) {
+            block = blockWrapper.block;
+            blockWrapper.lastUsedTimestamp = System.currentTimeMillis();
+        }
+
         return block;
     }
 
