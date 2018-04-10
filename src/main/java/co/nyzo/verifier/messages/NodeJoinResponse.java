@@ -1,9 +1,6 @@
 package co.nyzo.verifier.messages;
 
-import co.nyzo.verifier.BalanceList;
-import co.nyzo.verifier.Block;
-import co.nyzo.verifier.BlockManager;
-import co.nyzo.verifier.MessageObject;
+import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -11,41 +8,60 @@ import java.util.List;
 
 public class NodeJoinResponse implements MessageObject {
 
-    private List<Block> blocks;
+    // TODO: change this class to provide the Genesis block, which is predictably small, and the heights and hashes of
+    // TODO: the five highest frozen blocks
+
+    private Block genesisBlock;
+    private List<Long> blockHeights;
+    private List<byte[]> blockHashes;
 
     public NodeJoinResponse() {
 
-        // This response returns the Genesis block and the five highest frozen blocks.
-        blocks = new ArrayList<>();
-
-        Block genesisBlock = BlockManager.frozenBlockForHeight(0);
-        if (genesisBlock != null) {
-            blocks.add(genesisBlock);
-        }
+        genesisBlock = BlockManager.frozenBlockForHeight(0);
 
         long highestBlockFrozen = BlockManager.highestBlockFrozen();
+        blockHeights = new ArrayList<>();
+        blockHashes = new ArrayList<>();
         for (long i = Math.max(1L, highestBlockFrozen - 4L); i <= highestBlockFrozen; i++) {
             Block block = BlockManager.frozenBlockForHeight(i);
             if (block != null) {
-                blocks.add(block);
+                blockHeights.add(block.getBlockHeight());
+                blockHashes.add(block.getHash());
             }
         }
     }
 
-    private NodeJoinResponse(List<Block> blocks) {
-        this.blocks = blocks;
+    private NodeJoinResponse(Block genesisBlock, List<Long> blockHeights, List<byte[]> blockHashes) {
+
+        this.genesisBlock = genesisBlock;
+        this.blockHeights = blockHeights;
+        this.blockHashes = blockHashes;
     }
 
-    public List<Block> getBlocks() {
-        return blocks;
+    public Block getGenesisBlock() {
+        return genesisBlock;
+    }
+
+    public List<Long> getBlockHeights() {
+        return new ArrayList<>(blockHeights);
+    }
+
+    public List<byte[]> getBlockHashes() {
+        return blockHashes;
     }
 
     @Override
     public int getByteSize() {
 
-        int size = Short.BYTES;
-        for (Block block : blocks) {
-            size += block.getByteSize() + block.getBalanceList().getByteSize();
+        int size;
+        if (genesisBlock == null) {
+            size = FieldByteSize.blockHeight;
+        } else {
+            int numberOfBlocks = blockHeights.size();
+
+            size = genesisBlock.getByteSize() +
+                    Byte.BYTES +  // list size
+                    numberOfBlocks * (FieldByteSize.blockHeight + FieldByteSize.hash);
         }
 
         return size;
@@ -56,10 +72,17 @@ public class NodeJoinResponse implements MessageObject {
 
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
-        buffer.putShort((short) blocks.size());
-        for (Block block : blocks) {
-            buffer.put(block.getBytes());
-            buffer.put(block.getBalanceList().getBytes());
+        if (genesisBlock == null) {
+            buffer.putLong(-1);
+        } else {
+            buffer.put(genesisBlock.getBytes());
+
+            int numberOfBlocks = blockHeights.size();
+            buffer.put((byte) numberOfBlocks);
+            for (int i = 0; i < numberOfBlocks; i++) {
+                buffer.putLong(blockHeights.get(i));
+                buffer.put(blockHashes.get(i));
+            }
         }
 
         return array;
@@ -70,21 +93,22 @@ public class NodeJoinResponse implements MessageObject {
         NodeJoinResponse result = null;
 
         try {
-            short numberOfBlocks = buffer.getShort();
-            if (numberOfBlocks > 0) {
-                System.out.println("number of blocks is " + numberOfBlocks);
-            }
-            List<Block> blocks = new ArrayList<>();
-            for (int i = 0; i < numberOfBlocks; i++) {
-                Block block = Block.fromByteBuffer(buffer);
-                block.setBalanceList(BalanceList.fromByteBuffer(buffer));
-                blocks.add(block);
+            Block genesisBlock = buffer.remaining() < 100 ? null : Block.fromByteBuffer(buffer);
+            List<Long> blockHeights = new ArrayList<>();
+            List<byte[]> blockHashes = new ArrayList<>();
+            if (genesisBlock != null) {
+                int numberOfBlocks = buffer.get();
+                for (int i = 0; i < numberOfBlocks; i++) {
+                    blockHeights.add(buffer.getLong());
+                    byte[] hash = new byte[FieldByteSize.hash];
+                    buffer.get(hash);
+                    blockHashes.add(hash);
+                }
             }
 
-            result = new NodeJoinResponse(blocks);
-        } catch (Exception ignored) {
-            ignored.printStackTrace();
-        }
+            result = new NodeJoinResponse(genesisBlock, blockHeights, blockHashes);
+
+        } catch (Exception ignored) { }
 
         return result;
     }
