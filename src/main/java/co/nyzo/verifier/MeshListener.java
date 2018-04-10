@@ -143,9 +143,9 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.GenesisBlock500) {
 
-                    BlockMessageObject genesisBlock = (BlockMessageObject) message.getContent();
+                    Block genesisBlock = (Block) message.getContent();
                     response = new Message(MessageType.GenesisBlockResponse501,
-                            new GenesisBlockAcknowledgement(genesisBlock.getBlock()));
+                            new GenesisBlockAcknowledgement(genesisBlock));
                 }
             }
         } catch (Exception ignored) {

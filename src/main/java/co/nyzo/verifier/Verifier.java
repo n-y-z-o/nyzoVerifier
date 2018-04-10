@@ -104,8 +104,9 @@ public class Verifier {
                             // Create the block.
                             Block nextBlock = createNextBlock(previousBlock);
 
-                            // Register the block with the chain option manager.
+                            // Broadcast the block and register the block with the chain option manager.
                             if (nextBlock != null) {
+                                Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                                 ChainOptionManager.registerBlock(nextBlock);
                             }
                         }
@@ -127,19 +128,25 @@ public class Verifier {
 
     private static Block createNextBlock(Block previousBlock) {
 
-        // Get the transactions for the block.
-        long blockHeight = previousBlock.getBlockHeight() + 1L;
-        List<Transaction> transactions = TransactionPool.transactionsForBlock(blockHeight);
+        // TODO: check cycle lengths to avoid producing a discontinuity
 
-        // TODO: only create block if it is acceptable for this node to create it
+        Block block = null;
+        if (previousBlock != null && !ByteUtil.arraysAreEqual(previousBlock.getVerifierIdentifier(),
+                Verifier.getIdentifier())) {
 
-        List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions, blockHeight);
+            // Get the transactions for the block.
+            long blockHeight = previousBlock.getBlockHeight() + 1L;
+            List<Transaction> transactions = TransactionPool.transactionsForBlock(blockHeight);
 
-        BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, approvedTransactions,
-                Verifier.getIdentifier());
-        long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
-        Block block = new Block(blockHeight, previousBlock.getHash(), balanceList.getRolloverFees(), startTimestamp,
-            approvedTransactions, HashUtil.doubleSHA256(balanceList.getBytes()), balanceList);
+            List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
+                    blockHeight);
+
+            BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, approvedTransactions,
+                    Verifier.getIdentifier());
+            long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
+            block = new Block(blockHeight, previousBlock.getHash(), balanceList.getRolloverFees(), startTimestamp,
+                    approvedTransactions, HashUtil.doubleSHA256(balanceList.getBytes()), balanceList);
+        }
 
         return block;
     }

@@ -115,6 +115,17 @@ public class Message {
         this.sourceNodeSignature = SignatureUtil.signBytes(getBytesForSigning(), privateSeed);
     }
 
+    public static void broadcast(Message message) {
+
+        // Send the message to up to six nodes.
+        List<Node> mesh = NodeManager.getMesh();
+        Random random = new Random();
+        for (int i = 0; i < 6 && mesh.size() > 0; i++) {
+            Node node = mesh.remove(random.nextInt(mesh.size()));
+            fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, null);
+        }
+    }
+
     public static void fetch(String hostNameOrIp, int port, Message message, boolean retryIfFailed,
                              MessageCallback messageCallback) {
 
@@ -297,7 +308,7 @@ public class Message {
         } else if (type == MessageType.UpdateResponse301) {
                 content = UpdateResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.GenesisBlock500) {
-            content = BlockMessageObject.fromByteBuffer(buffer);
+            content = Block.fromByteBuffer(buffer);
         } else if (type == MessageType.GenesisBlockResponse501) {
             content = GenesisBlockAcknowledgement.fromByteBuffer(buffer);
         }

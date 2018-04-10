@@ -257,6 +257,7 @@ public class BlockManager {
 
     public static boolean readyToProcess() {
 
-        return false;
+        // TODO: wait until we have determined the highest block available
+        return highestBlockFrozen() >= 0;
     }
 }
