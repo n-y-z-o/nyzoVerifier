@@ -8,9 +8,6 @@ import java.util.List;
 
 public class NodeJoinResponse implements MessageObject {
 
-    // TODO: change this class to provide the Genesis block, which is predictably small, and the heights and hashes of
-    // TODO: the five highest frozen blocks
-
     private Block genesisBlock;
     private List<Long> blockHeights;
     private List<byte[]> blockHashes;
