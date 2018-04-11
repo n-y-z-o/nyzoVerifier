@@ -109,8 +109,6 @@ public class GenesisBlockAcknowledgement implements MessageObject {
                 TransactionPool.reset();
 
                 // Freeze the Genesis block.
-                genesisBlock.setBalanceList(Block.balanceListForNextBlock(null, genesisBlock.getTransactions(),
-                        genesisBlock.getVerifierIdentifier()));
                 BlockManager.freezeBlock(genesisBlock);
 
                 // Exit the application.

@@ -119,32 +119,51 @@ public class BlockManager {
         return successful;
     }
 
-    public static synchronized void freezeBlock(Block block) {
+    public static void freezeBlock(Block block) {
 
-        try {
-            File file = fileForBlockHeight(block.getBlockHeight());
-            List<Block> blocksInFile = blocksInFile(file, true);
-            int expectedNumberOfBlocksInFile = (int) (block.getBlockHeight() % blocksPerFile);
-            if (blocksInFile.size() == expectedNumberOfBlocksInFile) {
-                blocksInFile.add(block);
-                writeBlocksToFile(blocksInFile, file);
-                BlockManagerMap.addBlock(block);
-                setHighestBlockFrozen(block.getBlockHeight());
-                BlockManagerMap.addBlock(block);
-            } else {
-                System.err.println("unable to write block " + block.getBlockHeight() + " : " + blocksInFile.size() +
-                        "!= " + expectedNumberOfBlocksInFile);
-                Throwable throwable = new Throwable();
-                StringBuilder stackTrace = new StringBuilder();
-                for (int i = 0; i < throwable.getStackTrace().length && i < 3; i++) {
-                    stackTrace.append(throwable.getStackTrace()[i] + " -- ");
-                }
-                System.err.println(stackTrace.toString());
+        // If the balance list is null, try to create it now.
+        if (block.getBalanceList() == null) {
+            Block previousBlock = null;
+            if (block.getBlockHeight() > 0L) {
+                previousBlock = BlockManager.frozenBlockForHeight(block.getBlockHeight() - 1);
             }
+            if (previousBlock != null || block.getBlockHeight() == 0L) {
+                block.setBalanceList(Block.balanceListForNextBlock(previousBlock, block.getTransactions(),
+                        block.getVerifierIdentifier()));
+            }
+        }
 
-        } catch (Exception reportOnly) {
-            reportOnly.printStackTrace();
-            System.err.println("exception writing block to file " + reportOnly.getMessage());
+        if (block.getBalanceList() == null) {
+            System.err.println("unable to freeze block " + block.getBalanceList() + " because its balance list is " +
+                    "null");
+        } else {
+            synchronized (BlockManager.class) {
+                try {
+                    File file = fileForBlockHeight(block.getBlockHeight());
+                    List<Block> blocksInFile = blocksInFile(file, true);
+                    int expectedNumberOfBlocksInFile = (int) (block.getBlockHeight() % blocksPerFile);
+                    if (blocksInFile.size() == expectedNumberOfBlocksInFile) {
+                        blocksInFile.add(block);
+                        writeBlocksToFile(blocksInFile, file);
+                        BlockManagerMap.addBlock(block);
+                        setHighestBlockFrozen(block.getBlockHeight());
+                        BlockManagerMap.addBlock(block);
+                    } else {
+                        System.err.println("unable to write block " + block.getBlockHeight() + " : " +
+                                blocksInFile.size() + " != " + expectedNumberOfBlocksInFile);
+                        Throwable throwable = new Throwable();
+                        StringBuilder stackTrace = new StringBuilder();
+                        for (int i = 0; i < throwable.getStackTrace().length && i < 3; i++) {
+                            stackTrace.append(throwable.getStackTrace()[i] + " -- ");
+                        }
+                        System.err.println(stackTrace.toString());
+                    }
+
+                } catch (Exception reportOnly) {
+                    reportOnly.printStackTrace();
+                    System.err.println("exception writing block to file " + reportOnly.getMessage());
+                }
+            }
         }
     }
 
