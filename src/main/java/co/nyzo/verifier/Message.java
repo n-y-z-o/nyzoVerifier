@@ -122,7 +122,12 @@ public class Message {
         Random random = new Random();
         for (int i = 0; i < 6 && mesh.size() > 0; i++) {
             Node node = mesh.remove(random.nextInt(mesh.size()));
-            fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, null);
+            fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
+                    System.out.println("broadcast response: " + message);
+                }
+            });
         }
     }
 
@@ -153,10 +158,10 @@ public class Message {
                             System.out.println("RETRYING");
                             fetch(hostNameOrIp, port, message, false, messageCallback);
                         } else {
-                            messageCallback.responseReceived(null);
+                            MessageQueue.add(messageCallback, null);
                         }
                     } else {
-                        messageCallback.responseReceived(response);
+                        MessageQueue.add(messageCallback, response);
                     }
                 }
             }

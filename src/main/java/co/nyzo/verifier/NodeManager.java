@@ -126,10 +126,12 @@ public class NodeManager {
                                 if (node.isFullNode()) {
                                     Message nodeJoinMessage = new Message(MessageType.NodeJoin3,
                                             new NodeJoinMessage(MeshListener.getPort(), true));
+                                    System.out.println("sending node-join message to " + nodeJoinMessage);
                                     Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(),
                                             nodeJoinMessage, true, new MessageCallback() {
                                                 @Override
                                                 public void responseReceived(Message message) {
+                                                    System.out.println("received node join response " + message);
                                                     NodeJoinResponse response = (NodeJoinResponse) message.getContent();
                                                     ChainInitializationManager.processNodeJoinResponse(response);
                                                 }

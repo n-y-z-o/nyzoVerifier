@@ -130,8 +130,16 @@ public class BlockManager {
                 writeBlocksToFile(blocksInFile, file);
                 BlockManagerMap.addBlock(block);
                 setHighestBlockFrozen(block.getBlockHeight());
+                BlockManagerMap.addBlock(block);
             } else {
-                System.err.println("unable to write block " + block.getBlockHeight());
+                System.err.println("unable to write block " + block.getBlockHeight() + " : " + blocksInFile.size() +
+                        "!= " + expectedNumberOfBlocksInFile);
+                Throwable throwable = new Throwable();
+                StringBuilder stackTrace = new StringBuilder();
+                for (int i = 0; i < throwable.getStackTrace().length && i < 3; i++) {
+                    stackTrace.append(throwable.getStackTrace()[i] + " -- ");
+                }
+                System.err.println(stackTrace.toString());
             }
 
         } catch (Exception reportOnly) {
