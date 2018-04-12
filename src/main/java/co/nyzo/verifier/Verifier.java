@@ -128,7 +128,12 @@ public class Verifier {
 
     private static Block createNextBlock(Block previousBlock) {
 
-        // TODO: check cycle lengths to avoid producing a discontinuity
+        // A block is frozen when:
+        // (1) it is signed by the ideal existing verifier and the previous block is frozen
+        // (2) it is signed by the ideal existing verifier, the previous block is signed by a new verifier, and the
+        //     block before previous is frozen
+        // (3) it is signed by ideal existing verifiers for the last three blocks and all other chain options are at
+        //     least three blocks behind
 
         Block block = null;
         if (previousBlock != null && !ByteUtil.arraysAreEqual(previousBlock.getVerifierIdentifier(),

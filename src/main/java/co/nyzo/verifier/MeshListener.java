@@ -118,9 +118,19 @@ public class MeshListener {
                     response = new Message(MessageType.TransactionResponse6,
                             new TransactionResponse((Transaction) message.getContent()));
 
+                    Message.forward(message);
+
                 } else if (messageType == MessageType.PreviousHashRequest7) {
 
                     response = new Message(MessageType.PreviousHashResponse8, new PreviousHashResponse());
+
+                } else if (messageType == MessageType.NewBlock9) {
+
+                    ChainOptionManager.registerBlock((Block) message.getContent());
+
+                    response = new Message(MessageType.NewBlockResponse10, null);
+
+                    Message.forward(message);
 
                 } else if (messageType == MessageType.TransactionPoolRequest13) {
 

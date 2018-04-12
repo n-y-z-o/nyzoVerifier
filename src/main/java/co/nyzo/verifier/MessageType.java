@@ -15,7 +15,7 @@ public enum MessageType {
     PreviousHashRequest7(7),
     PreviousHashResponse8(8),
     NewBlock9(9),
-    NewBlockAcknowledgement10(10),
+    NewBlockResponse10(10),
     BlockRequest11(11),
     BlockResponse12(12),
     TransactionPoolRequest13(13),

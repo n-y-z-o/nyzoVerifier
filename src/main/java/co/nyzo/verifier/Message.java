@@ -110,6 +110,18 @@ public class Message {
         return sourceIpAddress;
     }
 
+    public boolean alreadySentTo(byte[] identifier) {
+
+        boolean result = false;
+        for (int i = 0; i < recipientIdentifiers.size() && !result; i++) {
+            if (ByteUtil.arraysAreEqual(recipientIdentifiers.get(i), identifier)) {
+                result = true;
+            }
+        }
+
+        return result;
+    }
+
     public void sign(byte[] privateSeed) {
         this.sourceNodeIdentifier = KeyUtil.identifierForSeed(privateSeed);
         this.sourceNodeSignature = SignatureUtil.signBytes(getBytesForSigning(), privateSeed);
@@ -128,6 +140,21 @@ public class Message {
                     System.out.println("broadcast response: " + message);
                 }
             });
+        }
+    }
+
+    public static void forward(Message message) {
+
+        // Send the message to up to three nodes that have not yet received it.
+        List<Node> mesh = NodeManager.getMesh();
+        Random random = new Random();
+        int numberSent = 0;
+        while (numberSent < 3 && mesh.size() > 0) {
+            Node node = mesh.remove(random.nextInt(mesh.size()));
+            if (!message.alreadySentTo(node.getIdentifier())) {
+                numberSent++;
+                fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, null);
+            }
         }
     }
 

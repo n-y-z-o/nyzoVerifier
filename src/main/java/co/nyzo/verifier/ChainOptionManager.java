@@ -28,6 +28,12 @@ public class ChainOptionManager {
 
     public static synchronized void registerBlock(Block block) {
 
+        // Registering a block can have the following outcomes:
+        // (1) discarding the block because it is unsuitable or inferior to existing options
+        // (2) adding the block to an existing chain option
+        // (3) replacing a block in an existing chain option
+        // (4) adding the block to the new chain option
+
         if (options.isEmpty()) {
             loadOptions();
         }
