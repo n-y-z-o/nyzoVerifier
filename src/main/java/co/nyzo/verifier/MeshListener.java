@@ -95,7 +95,7 @@ public class MeshListener {
         // This is the single point of dispatch for responding to all received messages.
 
         Message response = null;
-
+        String errorMessage = "";
         try {
             if (message != null && message.isValid()) {
                 MessageType messageType = message.getType();
@@ -158,12 +158,12 @@ public class MeshListener {
                             new GenesisBlockAcknowledgement(genesisBlock));
                 }
             }
-        } catch (Exception ignored) {
-            ignored.printStackTrace();
+        } catch (Exception e) {
+            errorMessage = e.getMessage();
         }
 
         if (response == null) {
-            response = new Message(MessageType.Error65534, null);
+            response = new Message(MessageType.Error65534, new ErrorMessage(errorMessage));
         }
 
         System.out.println("response message is " + response);

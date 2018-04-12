@@ -343,6 +343,8 @@ public class Message {
             content = Block.fromByteBuffer(buffer);
         } else if (type == MessageType.GenesisBlockResponse501) {
             content = GenesisBlockAcknowledgement.fromByteBuffer(buffer);
+        } else if (type == MessageType.Error65534) {
+            content = ErrorMessage.fromByteBuffer(buffer);
         }
 
         return content;
