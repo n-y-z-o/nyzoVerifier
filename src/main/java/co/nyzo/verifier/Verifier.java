@@ -106,8 +106,10 @@ public class Verifier {
 
                             // Broadcast the block and register the block with the chain option manager.
                             if (nextBlock != null) {
-                                Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
-                                ChainOptionManager.registerBlock(nextBlock);
+                                boolean shouldBroadcastBlock = ChainOptionManager.registerBlock(nextBlock);
+                                if (shouldBroadcastBlock) {
+                                    Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                                }
                             }
                         }
                     }

@@ -134,10 +134,11 @@ public class Message {
         Random random = new Random();
         for (int i = 0; i < 6 && mesh.size() > 0; i++) {
             Node node = mesh.remove(random.nextInt(mesh.size()));
-            fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, new MessageCallback() {
+            final String ipAddress = IpUtil.addressAsString(node.getIpAddress());
+            fetch(ipAddress, node.getPort(), message, false, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
-                    System.out.println("broadcast response: " + message);
+                    System.out.println("broadcast response from " + ipAddress + ": " + message);
                 }
             });
         }
@@ -331,6 +332,8 @@ public class Message {
             content = NodeJoinResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Transaction5) {
             content = Transaction.fromByteBuffer(buffer);
+        } else if (type == MessageType.NewBlock9) {
+            content = Block.fromByteBuffer(buffer);
         } else if (type == MessageType.TransactionPoolResponse14) {
             content = TransactionPoolResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.HighestBlockFrozenResponse16) {

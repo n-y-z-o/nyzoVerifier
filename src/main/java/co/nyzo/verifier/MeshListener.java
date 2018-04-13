@@ -126,11 +126,13 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NewBlock9) {
 
-                    ChainOptionManager.registerBlock((Block) message.getContent());
+                    boolean shouldForwardBlock = ChainOptionManager.registerBlock((Block) message.getContent());
 
                     response = new Message(MessageType.NewBlockResponse10, null);
 
-                    Message.forward(message);
+                    if (shouldForwardBlock) {
+                        Message.forward(message);
+                    }
 
                 } else if (messageType == MessageType.TransactionPoolRequest13) {
 

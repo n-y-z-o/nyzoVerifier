@@ -13,14 +13,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockManager {
 
-    static {
-        initialize();
-    }
-
     public static final File blockRootDirectory = new File(Verifier.dataRootDirectory, "blocks");
     private static final AtomicLong highestBlockFrozen = new AtomicLong(-1L);
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
+
+    static {
+        initialize();
+    }
 
     public static long highestBlockFrozen() {
         return highestBlockFrozen.get();
@@ -195,55 +195,31 @@ public class BlockManager {
 
     private static void initialize() {
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        // This method only needs to load the locally stored blocks, and it can do so synchronously.
 
-                // Check the local filesystem first. If we have any locally stored blocks, we load them first.
-                boolean hasLocalChain = false;
-                if (fileForBlockHeight(0).exists()) {
-                    List<Block> blocksInGenesisFile = blocksInFile(fileForBlockHeight(0L), true);
-                    if (blocksInGenesisFile.size() > 0) {
-                        Block genesisBlock = blocksInGenesisFile.get(0);
-                        Block.genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
-                    }
+        System.out.println("looking for file " + fileForBlockHeight(0L).getAbsolutePath());
+        if (fileForBlockHeight(0).exists()) {
 
-                    System.out.println(fileForBlockHeight(0).getAbsolutePath() + " exists " +
-                            fileForBlockHeight(0).exists());
-                    long highestFileStartBlock = 0L;
-                    while (fileForBlockHeight(highestFileStartBlock + BlockManager.blocksPerFile).exists()) {
-                        highestFileStartBlock += BlockManager.blocksPerFile;
-                    }
+            System.out.println("Genesis block file exists");
 
-                    List<Block> blocks = blocksInFile(fileForBlockHeight(highestFileStartBlock), true);
-                    if (blocks.size() > 0) {
-                        setHighestBlockFrozen(blocks.get(blocks.size() - 1).getBlockHeight());
-                        hasLocalChain = true;
-                    }
-                }
-
-                // Wait until we are connected to the mesh to continue.
-                while (!NodeManager.connectedToMesh() && !UpdateUtil.shouldTerminate()) {
-                    try {
-                        Thread.sleep(1000L);
-                    } catch (Exception ignored) { }
-                }
-
-                if (NodeManager.connectedToMesh()) {
-
-                    // Get the Genesis block first. This will let us know what blocks should be frozen. We want to start
-                    // with the Genesis block, because we know the identifier of its verifier.
-
-
-                    // Query up to five nodes to get the highest frozen block from the mesh.
-                    long highestBlockAccordingToMesh = 0L;
-                    List<Node> nodes = NodeManager.getMesh();
-                    for (int i = 0; i < 5 && !nodes.isEmpty(); i++) {
-                        //highestBlockAccordingToMesh = Math.max(highestBlockAccordingToMesh, )
-                    }
-                }
+            // Load the Genesis block start timestamp.
+            List<Block> blocksInGenesisFile = blocksInFile(fileForBlockHeight(0L), true);
+            if (blocksInGenesisFile.size() > 0) {
+                Block genesisBlock = blocksInGenesisFile.get(0);
+                Block.genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
             }
-        }).start();
+
+            // Load the highest block available.
+            long highestFileStartBlock = 0L;
+            while (fileForBlockHeight(highestFileStartBlock + BlockManager.blocksPerFile).exists()) {
+                highestFileStartBlock += BlockManager.blocksPerFile;
+            }
+
+            List<Block> blocks = blocksInFile(fileForBlockHeight(highestFileStartBlock), true);
+            if (blocks.size() > 0) {
+                setHighestBlockFrozen(blocks.get(blocks.size() - 1).getBlockHeight());
+            }
+        }
     }
 
     public static void setHighestBlockFrozen(long height) {

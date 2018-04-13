@@ -26,7 +26,9 @@ public class ChainOptionManager {
         return new ArrayList<>(options);
     }
 
-    public static synchronized void registerBlock(Block block) {
+    public static synchronized boolean registerBlock(Block block) {
+
+        boolean shouldForwardBlock = true;
 
         // Registering a block can have the following outcomes:
         // (1) discarding the block because it is unsuitable or inferior to existing options
@@ -68,6 +70,8 @@ public class ChainOptionManager {
             System.err.println("attempted to register block at height " + block.getBlockHeight() + " when block " +
                 BlockManager.highestBlockFrozen() + " is frozen");
         }
+
+        return shouldForwardBlock;
     }
 
     private static synchronized void freezeBlock(Block block) {
