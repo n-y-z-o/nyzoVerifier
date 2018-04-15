@@ -11,7 +11,7 @@ public class ErrorMessage implements MessageObject {
     private String message;
 
     public ErrorMessage(String message) {
-        this.message = message;
+        this.message = message == null ? "* no message provided *" : message;
     }
 
     @Override
