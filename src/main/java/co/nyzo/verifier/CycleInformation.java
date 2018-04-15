@@ -22,4 +22,10 @@ public class CycleInformation {
     public boolean isNewVerifier() {
         return verifierIndexInCycle < 0;
     }
+
+    @Override
+    public String toString() {
+        return "[CycleInformation (cycleLength=" + cycleLength + ", verifierIndexInCycle=" +
+                verifierIndexInCycle + ")]";
+    }
 }

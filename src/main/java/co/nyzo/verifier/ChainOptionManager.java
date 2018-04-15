@@ -191,12 +191,25 @@ public class ChainOptionManager {
             Block blockToCheck = blockForHeightWithHash(blockHeight, nextBlockInChain.getPreviousBlockHash());
             if (blockToCheck == null) {
                 unableToProcess = true;
+                System.out.println("unable to get cycle information because block at height " + blockHeight +
+                        " is null");
             } else {
                 ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
                 if (identifiers.contains(identifier)) {
                     int cycleLength = (int) (block.getBlockHeight() - blockHeight - 1L);
                     int verifierIndexInCycle = verifierPreviousBlockHeight < 0 ? -1 :
                             (int) (verifierPreviousBlockHeight - blockHeight - 1L);
+                    cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle);
+                } else if (blockHeight == 0) {
+                    int cycleLength = (int) block.getBlockHeight();
+                    int verifierIndexInCycle;
+                    if (verifierPreviousBlockHeight > 0) {
+                        verifierIndexInCycle = (int) verifierPreviousBlockHeight;
+                    } else if (identifier.equals(newBlockVerifier)) {
+                        verifierIndexInCycle = 0;
+                    } else {
+                        verifierIndexInCycle = -1;
+                    }
                     cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle);
                 } else {
                     identifiers.add(identifier);
