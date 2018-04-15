@@ -123,6 +123,8 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NewBlock9) {
 
+                    System.out.println("message: " + message);
+                    System.out.println("message content (should be block): " + message.getContent());
                     boolean shouldForwardBlock = ChainOptionManager.registerBlock((Block) message.getContent());
 
                     response = new Message(MessageType.NewBlockResponse10, null);
@@ -160,6 +162,9 @@ public class MeshListener {
             }
         } catch (Exception e) {
             errorMessage = e.getMessage();
+            if (errorMessage == null) {
+                errorMessage = "Message from exception is null.";
+            }
         }
 
         if (response == null) {
