@@ -50,9 +50,12 @@ public class MeshListener {
                                     try {
                                         Message message = Message.readFromStream(clientSocket.getInputStream(),
                                                 IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() + ""));
-                                        Message response = response(message);
-                                        if (response != null) {
-                                            clientSocket.getOutputStream().write(response.getBytesForTransmission());
+                                        if (message != null) {
+                                            Message response = response(message);
+                                            if (response != null) {
+                                                clientSocket.getOutputStream().write(response
+                                                        .getBytesForTransmission());
+                                            }
                                         }
 
                                     } catch (Exception e) {
