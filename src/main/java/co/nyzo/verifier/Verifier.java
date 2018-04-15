@@ -4,9 +4,11 @@ import co.nyzo.verifier.util.SignatureUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -23,7 +25,27 @@ public class Verifier {
     }
 
     public static void main(String[] args) {
-        start();
+
+        if (args.length > 0) {
+            try {
+                List<String> arguments = new ArrayList<String>();
+                for (int i = 1; i < args.length; i++) {
+                    arguments.add(args[i]);
+                }
+
+                System.out.println("executing class " + args[0]);
+                Class classToRun = Class.forName(args[0]);
+                Method mainMethod = classToRun.getDeclaredMethod("main", String[].class);
+                mainMethod.invoke(classToRun, new Object[]{arguments.toArray(new String[0])});
+                System.out.println("fin.");
+            } catch (Exception e) {
+
+                System.out.println("unable to load class " + args[0]);
+            }
+
+        } else {
+            start();
+        }
     }
 
     public static boolean isAlive() {
