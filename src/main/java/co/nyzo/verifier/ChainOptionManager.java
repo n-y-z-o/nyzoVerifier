@@ -41,9 +41,9 @@ public class ChainOptionManager {
             loadOptions();
         }
 
-        if (block.getBlockHeight() > BlockManager.highestBlockFrozen()) {
+        CycleInformation cycleInformation = block.getCycleInformation();
+        if (block.getBlockHeight() > BlockManager.highestBlockFrozen() && cycleInformation != null) {
 
-            CycleInformation cycleInformation = block.getCycleInformation();
             boolean wouldCauseDiscontinuity = false;
             if (cycleInformation.isNewVerifier()) {
                 wouldCauseDiscontinuity = block.getBlockHeight() < BlockManager.nextNewVerifierMinimumHeight();
