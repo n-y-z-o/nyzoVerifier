@@ -163,7 +163,8 @@ public class MeshListener {
             response = new Message(MessageType.Error65534, new ErrorMessage(errorMessage));
         }
 
-        System.out.println("response message is " + response);
+        System.out.println("response message from " + IpUtil.addressAsString(message.getSourceIpAddress()) + " is " +
+                response);
 
         return response;
     }
