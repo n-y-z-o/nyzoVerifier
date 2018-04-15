@@ -161,6 +161,7 @@ public class MeshListener {
                 }
             }
         } catch (Exception e) {
+            e.printStackTrace();
             errorMessage = e.getMessage();
             if (errorMessage == null) {
                 errorMessage = "Message from exception is null.";
