@@ -7,16 +7,16 @@ import java.util.List;
 
 public class MessageQueue {
 
+    static {
+        start();
+    }
+
     private MessageCallback callback;
     private Message message;
 
     private MessageQueue(MessageCallback callback, Message message) {
         this.callback = callback;
         this.message = message;
-    }
-
-    static {
-        start();
     }
 
     private static final List<MessageQueue> queue = new ArrayList<>();
@@ -38,6 +38,8 @@ public class MessageQueue {
 
     private static void start() {
 
+        System.out.println("starting message queue");
+
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -50,6 +52,10 @@ public class MessageQueue {
                         } catch (Exception ignored) { }
                     } else {
                         try {
+                            Thread.sleep(10L);
+                        } catch (Exception ignored) { }
+
+                        try {
                             next.callback.responseReceived(next.message);
                         } catch (Exception ignored) {
                             System.err.println("exception processing message " + next.message + " (" +
@@ -59,6 +65,6 @@ public class MessageQueue {
 
                 }
             }
-        }).start();
+        }, "MessageQueue-dispatchLoop").start();
     }
 }

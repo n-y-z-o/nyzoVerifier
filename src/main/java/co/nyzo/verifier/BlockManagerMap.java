@@ -7,6 +7,10 @@ import java.util.Set;
 
 public class BlockManagerMap {
 
+    // This is a parameter we will likely need to revisit. It is here to prevent memory usage from getting out of
+    // control, but we need to keep more blocks in memory to determine verification cycle lengths as our mesh grows.
+    private static final long maximumBlocksInMap = 20000;
+
     private static Map<Long, BlockManagerMap> blockMap = new HashMap<>();
 
     private long lastUsedTimestamp;
@@ -24,7 +28,7 @@ public class BlockManagerMap {
         blockMap.put(block.getBlockHeight(), new BlockManagerMap(block));
 
         // Reduce the size of the map if it is too large.
-        if (blockMap.keySet().size() > 15000) {
+        if (blockMap.keySet().size() > maximumBlocksInMap) {
             long sumTimestamp = 0L;
             for (BlockManagerMap blockWrapper : blockMap.values()) {
                 sumTimestamp += blockWrapper.lastUsedTimestamp;

@@ -146,6 +146,9 @@ public class Message {
 
     public static void forward(Message message) {
 
+        System.out.println("forwarding message with " + message.recipientIdentifiers.size() + " recipient identifiers");
+        System.out.println("already seen message: " + message.messageAlreadySeen);
+
         // Send the message to up to three nodes that have not yet received it.
         List<Node> mesh = NodeManager.getMesh();
         Random random = new Random();
@@ -172,8 +175,10 @@ public class Message {
 
                     OutputStream outputStream = socket.getOutputStream();
                     outputStream.write(message.getBytesForTransmission());
+                    System.out.println("done writing to stream");
 
                     response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
+                    System.out.println("fetch(): response is " + response);
                     socket.close();
                 } catch (Exception reportOnly) {
                     System.err.println("Exception connecting to " + hostNameOrIp + ":" + port + ": " +
@@ -193,7 +198,7 @@ public class Message {
                     }
                 }
             }
-        }).start();
+        }, "Message-fetch-" + message).start();
     }
 
     public static Message readFromStream(InputStream inputStream, byte[] sourceIpAddress) {
@@ -208,6 +213,7 @@ public class Message {
         byte[] result = new byte[0];
         try {
             byte[] input = new byte[5000000];
+            System.out.println("input is " + input);
             int size = inputStream.read(input);
             System.out.println("size is " + size);
             result = Arrays.copyOf(input, size);

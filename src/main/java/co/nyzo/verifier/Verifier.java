@@ -76,7 +76,7 @@ public class Verifier {
                     verifierMain();
                     alive.set(false);
                 }
-            }).start();
+            }, "Verifier-mainLoop").start();
         }
     }
 
@@ -89,26 +89,34 @@ public class Verifier {
                 // Only run the active verifier if connected to the mesh and if a Genesis block is available.
                 if (NodeManager.connectedToMesh() && BlockManager.readyToProcess()) {
 
-                    // Get all of the current chain options. Add one block for each that is not caught up with the
-                    // highest block open for processing.
+                    // Get all of the current chain options. Only process the one with the highest overall score.
                     long highestBlockOpenForProcessing = BlockManager.highestBlockOpenForProcessing();
                     List<ChainOption> options = ChainOptionManager.currentOptions();
                     System.out.println("have " + options.size() + " chain option" + (options.size() == 1 ? "" : "s") +
                             " to extend");
+
+                    long highestChainScore = 0L;
                     for (ChainOption option : options) {
-                        Block previousBlock = option.getHighestBlock();
-                        if (previousBlock.getBlockHeight() < highestBlockOpenForProcessing) {
-                            System.out.println("need to extend block " + previousBlock.getBlockHeight() + " to reach " +
-                                highestBlockOpenForProcessing);
+                        highestChainScore = Math.max(option.getScore(), highestChainScore);
+                    }
 
-                            // Create the block.
-                            Block nextBlock = createNextBlock(previousBlock);
+                    for (ChainOption option : options) {
+                        if (option.getScore() == highestChainScore) {
+                            Block previousBlock = option.getHighestBlock();
+                            if (previousBlock.getBlockHeight() < highestBlockOpenForProcessing) {
+                                System.out.println("need to extend block " + previousBlock.getBlockHeight() +
+                                        " to reach " + highestBlockOpenForProcessing);
 
-                            // Broadcast the block and register the block with the chain option manager.
-                            if (nextBlock != null) {
-                                boolean shouldBroadcastBlock = ChainOptionManager.registerBlock(nextBlock);
-                                if (shouldBroadcastBlock) {
-                                    Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                                // Create the block.
+                                Block nextBlock = createNextBlock(previousBlock);
+                                System.out.println("next block is " + nextBlock);
+
+                                // Broadcast the block and register the block with the chain option manager.
+                                if (nextBlock != null) {
+                                    boolean shouldBroadcastBlock = ChainOptionManager.registerBlock(nextBlock);
+                                    if (shouldBroadcastBlock) {
+                                        Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                                    }
                                 }
                             }
                         }

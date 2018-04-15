@@ -5,8 +5,6 @@ import java.util.List;
 
 public class ChainOption {
 
-    // TODO: remove this class completely -- a chain option should be tracked as the final block in the option
-
     // All relevant methods in ChainOptionManager are synchronized on the class, so extra synchronization here is
     // unnecessary.
 
@@ -53,5 +51,17 @@ public class ChainOption {
         if (blocks.size() > 0) {
             blocks.remove(0);
         }
+    }
+
+    public long getScore() {
+
+        // TODO: implement this to return the sum verification cycle length
+        return 1L;
+    }
+
+    public Block blockAtHeight(long blockHeight) {
+
+        int index = (int) (blockHeight - blocks.get(0).getBlockHeight());
+        return index < blocks.size() ? blocks.get(index) : null;
     }
 }

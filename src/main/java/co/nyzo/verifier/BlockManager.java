@@ -1,7 +1,5 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.UpdateUtil;
-
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -15,6 +13,7 @@ public class BlockManager {
 
     public static final File blockRootDirectory = new File(Verifier.dataRootDirectory, "blocks");
     private static final AtomicLong highestBlockFrozen = new AtomicLong(-1L);
+    private static final AtomicLong nextNewVerifierMinimumHeight = new AtomicLong(-1L);
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
 
@@ -26,9 +25,13 @@ public class BlockManager {
         return highestBlockFrozen.get();
     }
 
+    public static long nextNewVerifierMinimumHeight() {
+        return nextNewVerifierMinimumHeight.get();
+    }
+
     public static Block frozenBlockForHeight(long blockHeight) {
 
-        // For a block that should be available, the map is checked first, then local files, then the network.
+        // For a block that should be available, the map is checked first, then local files.
         Block block = null;
         if (blockHeight <= highestBlockFrozen.get()) {
 
@@ -133,9 +136,11 @@ public class BlockManager {
             }
         }
 
-        if (block.getBalanceList() == null) {
-            System.err.println("unable to freeze block " + block.getBalanceList() + " because its balance list is " +
-                    "null");
+        BalanceList balanceList = block.getBalanceList();
+        CycleInformation cycleInformation = block.getCycleInformation();
+        if (balanceList == null || cycleInformation == null) {
+            System.err.println("unable to freeze block " + block.getBalanceList() + " because its balance list or " +
+                    "cycle information is null");
         } else {
             synchronized (BlockManager.class) {
                 try {
@@ -143,10 +148,15 @@ public class BlockManager {
                     List<Block> blocksInFile = blocksInFile(file, true);
                     int expectedNumberOfBlocksInFile = (int) (block.getBlockHeight() % blocksPerFile);
                     if (blocksInFile.size() == expectedNumberOfBlocksInFile) {
+                        setHighestBlockFrozen(block.getBlockHeight());
+                        if (cycleInformation.isNewVerifier()) {
+                            nextNewVerifierMinimumHeight.set(block.getBlockHeight() +
+                                    cycleInformation.getCycleLength() + 2);
+                        }
+
                         blocksInFile.add(block);
                         writeBlocksToFile(blocksInFile, file);
                         BlockManagerMap.addBlock(block);
-                        setHighestBlockFrozen(block.getBlockHeight());
                         BlockManagerMap.addBlock(block);
                     } else {
                         System.err.println("unable to write block " + block.getBlockHeight() + " : " +

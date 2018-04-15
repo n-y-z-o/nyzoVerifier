@@ -1,12 +1,16 @@
 package co.nyzo.verifier;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.nio.ByteBuffer;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ChainOptionManager {
 
+    // All chain options start with the highest frozen block.
+
     private static List<ChainOption> options = new ArrayList<>();
+
+    private static List<Block> orphanBlocks = new ArrayList<>();
 
     private static synchronized void loadOptions() {
 
@@ -28,50 +32,52 @@ public class ChainOptionManager {
 
     public static synchronized boolean registerBlock(Block block) {
 
-        boolean shouldForwardBlock = true;
-
-        // Registering a block can have the following outcomes:
-        // (1) discarding the block because it is unsuitable or inferior to existing options
-        // (2) adding the block to an existing chain option
-        // (3) replacing a block in an existing chain option
-        // (4) adding the block to the new chain option
+        boolean shouldForwardBlock = false;
+        AtomicBoolean blockIsOrphan = new AtomicBoolean(false);
+        AtomicBoolean blockIsDuplicate = new AtomicBoolean(false);
+        AtomicBoolean blockIsLowerQuality = new AtomicBoolean(false);
 
         if (options.isEmpty()) {
             loadOptions();
         }
 
-        // Only proceed if the block is past the last frozen block.
         if (block.getBlockHeight() > BlockManager.highestBlockFrozen()) {
 
-            // Find the chain to which this block belongs.
-            ChainOption matchingChain = matchingChain(block);
+            CycleInformation cycleInformation = block.getCycleInformation();
+            boolean wouldCauseDiscontinuity = false;
+            if (cycleInformation.isNewVerifier()) {
+                wouldCauseDiscontinuity = block.getBlockHeight() < BlockManager.nextNewVerifierMinimumHeight();
+            } else {
+                // Rule 3: A block's cycle length must be more than half of the greater of its verifier's previous
+                // two cycles (or previous cycle, if the verifier only has one previous cycle). Any block with a
+                // shorter cycle is considered a discontinuity in the chain.
+
+            }
+
+            ChainOption matchingChain = matchingChain(block, blockIsOrphan, blockIsDuplicate, blockIsLowerQuality);
             if (matchingChain == null) {
-                // TODO: If the block is a member of a chain we are not currently tracking, decide whether to start
-                // TODO: tracking the chain.
 
-            }
-
-            // Add the block to the chain.
-            if (matchingChain != null) {
-                matchingChain.appendBlock(block);
-
-                System.out.println("the matching chain now has " + matchingChain.getNumberOfBlocks() + " blocks");
-            }
-
-            // TODO: freeze any blocks based on the new state of the chain options
-            if (options.size() == 1) {
-                ChainOption option = options.get(0);
-                if (option.getNumberOfBlocks() > 5) {
-                    Block blockToFreeze = option.getFirstUnfrozen();
-                    freezeBlock(blockToFreeze);
+                if (blockIsOrphan.get()) {
+                    orphanBlocks.add(block);
+                    shouldForwardBlock = true;
                 }
+
+            } else {
+
+                matchingChain.appendBlock(block);
+                System.out.println("the matching chain now has " + matchingChain.getNumberOfBlocks() + " blocks");
+                shouldForwardBlock = true;
+
+                freezeBlockIfPossible();
             }
-        } else {
-            System.err.println("attempted to register block at height " + block.getBlockHeight() + " when block " +
-                BlockManager.highestBlockFrozen() + " is frozen");
         }
 
         return shouldForwardBlock;
+    }
+
+    private static synchronized void freezeBlockIfPossible() {
+
+
     }
 
     private static synchronized void freezeBlock(Block block) {
@@ -88,20 +94,38 @@ public class ChainOptionManager {
         }
     }
 
-    private static synchronized ChainOption matchingChain(Block block) {
+    private static synchronized ChainOption matchingChain(Block block, AtomicBoolean blockIsOrphan,
+                                                          AtomicBoolean blockIsDuplicate,
+                                                          AtomicBoolean blockIsLowerQuality) {
+
+        // Registering a block can have the following outcomes:
+        // (1) discarding the block because it is unsuitable or inferior to existing options
+        // (2) adding the block to an existing chain option
+        // (3) replacing a block in an existing chain option
+        // (4) adding the block to the new chain option
 
         if (options.isEmpty()) {
             loadOptions();
         }
 
-        // First, try to find the chain as an existing chain where we can do a simple append.
         ChainOption matchingChain = null;
         for (ChainOption option : options) {
             Block optionLastBlock = option.getHighestBlock();
             if (optionLastBlock.getBlockHeight() == block.getBlockHeight() - 1 &&
                     ByteUtil.arraysAreEqual(optionLastBlock.getHash(), block.getPreviousBlockHash())) {
                 matchingChain = option;
+
+                blockIsOrphan.set(false);
+                blockIsDuplicate.set(false);
+                blockIsLowerQuality.set(false);
             }
+        }
+
+        // TODO: handle replacement, duplicate, and orphan cases
+        if (matchingChain == null) {
+            blockIsDuplicate.set(true);
+            blockIsOrphan.set(false);
+            blockIsLowerQuality.set(false);
         }
 
         return matchingChain;
@@ -126,5 +150,67 @@ public class ChainOptionManager {
         }
     }
 
+    private static synchronized Block blockForHeightWithHash(long blockHeight, byte[] hash) {
+
+        if (options.isEmpty()) {
+            loadOptions();
+        }
+
+        Block block = null;
+        if (blockHeight <= BlockManager.highestBlockFrozen()) {
+            block = BlockManager.frozenBlockForHeight(blockHeight);
+        } else {
+            for (ChainOption option : options) {
+                Block blockToCheck = option.blockAtHeight(blockHeight);
+                if (ByteUtil.arraysAreEqual(hash, blockToCheck.getHash())) {
+                    block = blockToCheck;
+                }
+            }
+        }
+
+        return block;
+    }
+
+    public static synchronized CycleInformation cycleInformationForBlock(Block block) {
+
+        // We need to know:
+        // (1) the cycle length
+        // (2) whether the verifier of this block is in this cycle and, if so, where it is in the cycle
+
+        ByteBuffer newBlockVerifier = ByteBuffer.wrap(block.getVerifierIdentifier());
+
+        // Step backward through the chain until we find the beginning of the cycle.
+        CycleInformation cycleInformation = null;
+        Set<ByteBuffer> identifiers = new HashSet<>();
+        boolean unableToProcess = false;
+        Block nextBlockInChain = block;
+        long verifierPreviousBlockHeight = -1;
+        for (long blockHeight = block.getBlockHeight() - 1; blockHeight >= 0 && cycleInformation == null &&
+                !unableToProcess; blockHeight--) {
+
+            Block blockToCheck = blockForHeightWithHash(blockHeight, nextBlockInChain.getPreviousBlockHash());
+            if (blockToCheck == null) {
+                unableToProcess = true;
+            } else {
+                ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
+                if (identifiers.contains(identifier)) {
+                    int cycleLength = (int) (block.getBlockHeight() - blockHeight - 1L);
+                    int verifierIndexInCycle = verifierPreviousBlockHeight < 0 ? -1 :
+                            (int) (verifierPreviousBlockHeight - blockHeight - 1L);
+                    cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle);
+                } else {
+                    identifiers.add(identifier);
+                }
+
+                if (identifier.equals(newBlockVerifier)) {
+                    verifierPreviousBlockHeight = blockHeight;
+                }
+            }
+
+            nextBlockInChain = blockToCheck;
+        }
+
+        return cycleInformation;
+    }
 
 }

@@ -39,10 +39,6 @@ public class MeshListener {
                         serverSocket = new ServerSocket(standardPort);
                         port = serverSocket.getLocalPort();
 
-                        // Now is the appropriate time to add this node to the verifier list. The verifier wallet was
-                        // set before this mesh listener was started, and the IP address can be determined at any time.
-                        NodeManager.updateNode(Verifier.getIdentifier(), IpUtil.myPublicIp(), port, true);
-
                         System.out.println("actual port is " + port);
                         while (!UpdateUtil.shouldTerminate()) {
                             Socket clientSocket = serverSocket.accept();
@@ -67,18 +63,16 @@ public class MeshListener {
                                         clientSocket.close();
                                     } catch (Exception ignored) { }
                                 }
-                            }).start();
+                            }, "MeshListener-clientSocket").start();
                         }
 
                         closeServerSocket();
 
-                    } catch (Exception ignored) {
-                        ignored.printStackTrace();
-                    }
+                    } catch (Exception ignored) { }
 
                     alive.set(false);
                 }
-            }).start();
+            }, "MeshListener-serverSocket").start();
         }
     }
 
@@ -130,6 +124,7 @@ public class MeshListener {
 
                     response = new Message(MessageType.NewBlockResponse10, null);
 
+                    System.out.println("should forward block: " + shouldForwardBlock);
                     if (shouldForwardBlock) {
                         Message.forward(message);
                     }

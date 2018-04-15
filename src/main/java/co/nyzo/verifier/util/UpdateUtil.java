@@ -11,6 +11,7 @@ public class UpdateUtil {
 
     public static void terminate() {
 
+        System.out.println("termination requested");
         shouldTerminate = true;
     }
 }

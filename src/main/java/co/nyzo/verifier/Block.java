@@ -4,10 +4,7 @@ import co.nyzo.verifier.util.DebugUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
-import java.io.File;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 
 public class Block implements MessageObject {
@@ -33,9 +30,8 @@ public class Block implements MessageObject {
     private BalanceList balanceList;               // stored separately - the hash is stored in the block
     private byte[] verifierIdentifier;             // 32 bytes
     private byte[] verifierSignature;              // 64 bytes
-    private boolean fromFile = false;              // a flag to indicate whether this was read from a file; we have
-                                                   // strict rules about when we write blocks to files, so these blocks
-                                                   // are more thoroughly vetted than non-file blocks
+
+    private CycleInformation cycleInformation = null;
 
     public Block(long height, byte[] previousBlockHash, byte rolloverTransactionFees, long startTimestamp,
                  List<Transaction> transactions, byte[] balanceListHash, BalanceList balanceList) {
@@ -157,6 +153,15 @@ public class Block implements MessageObject {
         }
 
         return size;
+    }
+
+    public CycleInformation getCycleInformation() {
+
+        if (cycleInformation == null) {
+            cycleInformation = ChainOptionManager.cycleInformationForBlock(this);
+        }
+
+        return cycleInformation;
     }
 
     public byte[] getBytes() {

@@ -4,6 +4,7 @@ import co.nyzo.verifier.messages.NodeJoinMessage;
 import co.nyzo.verifier.messages.NodeJoinResponse;
 import co.nyzo.verifier.messages.NodeListResponse;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.UpdateUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -100,6 +101,7 @@ public class NodeManager {
     public static void fetchNodeList(int index) {
 
         String url = "verifier" + index + ".nyzo.co";
+        System.out.println("fetching node list from " + url);
         Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeListRequest1, null), false,
                 new MessageCallback() {
                     @Override
@@ -149,15 +151,18 @@ public class NodeManager {
 
                             TransactionPool.fetchFromMesh();
                         } else {
-                            new Thread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        Thread.sleep(10000L);
-                                    } catch (Exception ignored) { }
-                                    fetchNodeList((index + 1) % maximumNumberOfSeedVerifiers);
-                                }
-                            }).start();
+                            if (!UpdateUtil.shouldTerminate()) {
+                                new Thread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        try {
+                                            Thread.sleep(10000L);
+                                        } catch (Exception ignored) {
+                                        }
+                                        fetchNodeList((index + 1) % maximumNumberOfSeedVerifiers);
+                                    }
+                                }, "NpdeManager-fetchNodeListRetry").start();
+                            }
                         }
                     }
                 });
