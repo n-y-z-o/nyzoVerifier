@@ -30,6 +30,7 @@ public class Block implements MessageObject {
     private BalanceList balanceList;               // stored separately - the hash is stored in the block
     private byte[] verifierIdentifier;             // 32 bytes
     private byte[] verifierSignature;              // 64 bytes
+    private Block previousBlock;
 
     private CycleInformation cycleInformation = null;
 
@@ -43,6 +44,7 @@ public class Block implements MessageObject {
         this.transactions = new ArrayList<>(transactions);
         this.balanceListHash = balanceListHash;
         this.balanceList = balanceList;
+        this.previousBlock = null;
 
         try {
             this.verifierIdentifier = Verifier.getIdentifier();
@@ -65,6 +67,7 @@ public class Block implements MessageObject {
         this.balanceListHash = balanceListHash;
         this.verifierIdentifier = verifierIdentifier;
         this.verifierSignature = verifierSignature;
+        this.previousBlock = null;
     }
 
     public long getBlockHeight() {
@@ -97,20 +100,39 @@ public class Block implements MessageObject {
 
     public BalanceList getBalanceList() {
 
+        if (balanceList == null && previousBlock != null) {
+            setBalanceList(balanceListForNextBlock(previousBlock, transactions, verifierIdentifier));
+        }
+
         return balanceList;
     }
 
     public void setBalanceList(BalanceList balanceList) {
 
-        if (!ByteUtil.arraysAreEqual(HashUtil.doubleSHA256(balanceList.getBytes()), balanceListHash)) {
-            System.err.println("balance list does not match hash! (" + balanceList.getBlockHeight() + ") " +
-                    DebugUtil.callingMethod());
-            // TODO: turn this into an exception before release
-        } else {
-            System.out.println("balance list does match hash (" + balanceList.getBlockHeight() + ")");
+        if (balanceList != null) {
+            if (!ByteUtil.arraysAreEqual(HashUtil.doubleSHA256(balanceList.getBytes()), balanceListHash)) {
+                System.err.println("balance list does not match hash! (" + balanceList.getBlockHeight() + ") " +
+                        DebugUtil.callingMethod());
+            } else {
+                System.out.println("balance list does match hash (" + balanceList.getBlockHeight() + ")");
+                this.balanceList = balanceList;
+            }
         }
+    }
 
-        this.balanceList = balanceList;
+    public Block getPreviousBlock() {
+
+        return previousBlock;
+    }
+
+    public void setPreviousBlock(Block previousBlock) {
+
+        if (!ByteUtil.arraysAreEqual(previousBlock.getHash(), previousBlockHash)) {
+            System.err.println("previous block does not match hash!");
+        } else {
+            System.out.println("previous block does match hash (" + previousBlock.getBlockHeight() + ")");
+            this.previousBlock = previousBlock;
+        }
     }
 
     public byte[] getVerifierIdentifier() {

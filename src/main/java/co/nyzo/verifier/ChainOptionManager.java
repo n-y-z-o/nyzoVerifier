@@ -64,6 +64,8 @@ public class ChainOptionManager {
 
             } else {
 
+                Block previousBlock = matchingChain.getHighestBlock();
+                block.setPreviousBlock(previousBlock);
                 matchingChain.appendBlock(block);
                 System.out.println("the matching chain now has " + matchingChain.getNumberOfBlocks() + " blocks");
                 shouldForwardBlock = true;
