@@ -258,7 +258,6 @@ public class Block implements MessageObject {
 
         int size = FieldByteSize.blockHeight +           // height
                 FieldByteSize.hash +                     // previous-block hash
-                FieldByteSize.rolloverTransactionFees +  // rollover transaction fees
                 FieldByteSize.timestamp +                // start timestamp
                 FieldByteSize.timestamp +                // verification timestamp
                 4 +                                      // number of transactions

@@ -34,9 +34,9 @@ public class Verifier {
                 }
 
                 System.out.println("executing class " + args[0]);
-                Class classToRun = Class.forName(args[0]);
+                Class<?> classToRun = Class.forName(args[0]);
                 Method mainMethod = classToRun.getDeclaredMethod("main", String[].class);
-                mainMethod.invoke(classToRun, new Object[]{arguments.toArray(new String[0])});
+                mainMethod.invoke(classToRun, new Object[] { arguments.toArray(new String[0])});
                 System.out.println("fin.");
             } catch (Exception e) {
 
