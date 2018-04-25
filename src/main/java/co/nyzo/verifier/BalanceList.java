@@ -130,4 +130,9 @@ public class BalanceList implements MessageObject {
 
         return result;
     }
+
+    public byte[] getHash() {
+
+        return HashUtil.doubleSHA256(getBytes());
+    }
 }

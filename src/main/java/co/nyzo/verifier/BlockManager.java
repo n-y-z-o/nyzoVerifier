@@ -258,9 +258,9 @@ public class BlockManager {
 
     public static long highestBlockOpenForProcessing() {
 
-        // A block is considered open for processing 3 seconds after it completes, which is 8 seconds after it starts.
+        // A block is considered open for processing 2 seconds after it completes, which is 7 seconds after it starts.
         return Block.genesisBlockStartTimestamp > 0 ?
-                ((System.currentTimeMillis() - 8000L - Block.genesisBlockStartTimestamp) / Block.blockDuration) : -1;
+                ((System.currentTimeMillis() - 7000L - Block.genesisBlockStartTimestamp) / Block.blockDuration) : -1;
     }
 
     public static void reset() {

@@ -9,8 +9,16 @@ import java.util.*;
 
 public class Block implements MessageObject {
 
+    private enum DiscontinuityState {
+        Undetermined,
+        IsDiscontinuity,
+        IsNotDiscontinuity
+    }
+
     public static final byte[] genesisVerifier = ByteUtil.byteArrayFromHexString("6b32332d4b28e6ad-" +
             "d7b8f86f374045ca-fc6453344a1c47b6-feaf485f8c2e0d47", 32);
+
+    public static final byte[] genesisBlockHash = HashUtil.doubleSHA256(new byte[0]);
 
     public static long genesisBlockStartTimestamp = -1L;
     public static final long blockDuration = 5000L;
@@ -19,8 +27,6 @@ public class Block implements MessageObject {
                                                    // which has a height of 0
     private byte[] previousBlockHash;              // 32 bytes (this is the double-SHA-256 of the previous block
                                                    // signature)
-    private byte rolloverTransactionFees;          // 1 byte; remainder of transaction fees from previous block, in
-                                                   // micronyzos
     private long startTimestamp;                   // 8 bytes; 64-bit Unix timestamp of the start of the block, in
                                                    // milliseconds
     private long verificationTimestamp;            // 8 bytes; 64-bit Unix timestamp of when the verifier creates the
@@ -30,21 +36,24 @@ public class Block implements MessageObject {
     private BalanceList balanceList;               // stored separately - the hash is stored in the block
     private byte[] verifierIdentifier;             // 32 bytes
     private byte[] verifierSignature;              // 64 bytes
-    private Block previousBlock;
+    private Block previousBlock;                   // TODO: unset this periodically on old blocks to control memory use
+    private DiscontinuityState discontinuityState;
+
 
     private CycleInformation cycleInformation = null;
 
-    public Block(long height, byte[] previousBlockHash, byte rolloverTransactionFees, long startTimestamp,
-                 List<Transaction> transactions, byte[] balanceListHash, BalanceList balanceList) {
+    public Block(long height, byte[] previousBlockHash, long startTimestamp, List<Transaction> transactions,
+                 byte[] balanceListHash, BalanceList balanceList) {
 
         this.height = height;
         this.previousBlockHash = previousBlockHash;
-        this.rolloverTransactionFees = rolloverTransactionFees;
         this.startTimestamp = startTimestamp;
+        this.verificationTimestamp = System.currentTimeMillis();
         this.transactions = new ArrayList<>(transactions);
         this.balanceListHash = balanceListHash;
         this.balanceList = balanceList;
         this.previousBlock = null;
+        this.discontinuityState = height == 0 ? DiscontinuityState.IsNotDiscontinuity : DiscontinuityState.Undetermined;
 
         try {
             this.verifierIdentifier = Verifier.getIdentifier();
@@ -55,19 +64,20 @@ public class Block implements MessageObject {
         }
     }
 
-    private Block(long height, byte[] previousBlockHash, byte rolloverTransactionFees, long startTimestamp,
+    private Block(long height, byte[] previousBlockHash, long startTimestamp, long verificationTimestamp,
                   List<Transaction> transactions, byte[] balanceListHash, byte[] verifierIdentifier,
                   byte[] verifierSignature) {
 
         this.height = height;
         this.previousBlockHash = previousBlockHash;
-        this.rolloverTransactionFees = rolloverTransactionFees;
         this.startTimestamp = startTimestamp;
+        this.verificationTimestamp = verificationTimestamp;
         this.transactions = transactions;
         this.balanceListHash = balanceListHash;
         this.verifierIdentifier = verifierIdentifier;
         this.verifierSignature = verifierSignature;
         this.previousBlock = null;
+        this.discontinuityState = height == 0 ? DiscontinuityState.IsNotDiscontinuity : DiscontinuityState.Undetermined;
     }
 
     public long getBlockHeight() {
@@ -78,12 +88,12 @@ public class Block implements MessageObject {
         return previousBlockHash;
     }
 
-    public byte getRolloverTransactionFees() {
-        return rolloverTransactionFees;
-    }
-
     public long getStartTimestamp() {
         return startTimestamp;
+    }
+
+    public long getVerificationTimestamp() {
+        return verificationTimestamp;
     }
 
     public List<Transaction> getTransactions() {
@@ -127,10 +137,11 @@ public class Block implements MessageObject {
 
     public void setPreviousBlock(Block previousBlock) {
 
-        if (!ByteUtil.arraysAreEqual(previousBlock.getHash(), previousBlockHash)) {
-            System.err.println("previous block does not match hash!");
+        if (previousBlock == null) {
+            this.previousBlock = null;
+        } else if (!ByteUtil.arraysAreEqual(previousBlock.getHash(), previousBlockHash)) {
+            System.err.println("previous block DOES NOT match hash!");
         } else {
-            System.out.println("previous block does match hash (" + previousBlock.getBlockHeight() + ")");
             this.previousBlock = previousBlock;
         }
     }
@@ -142,6 +153,91 @@ public class Block implements MessageObject {
     public byte[] getVerifierSignature() {
         return verifierSignature;
     }
+
+    public DiscontinuityState getDiscontinuityState() {
+
+        if (discontinuityState == DiscontinuityState.Undetermined) {
+            determineDiscontinuityState();
+        }
+
+        return discontinuityState;
+    }
+
+    private void determineDiscontinuityState() {
+
+        // Note: this method will not determine the discontinuity state of the Genesis block. It is assigned in the
+        // constructor.
+
+        CycleInformation cycleInformation = getCycleInformation();
+        if (cycleInformation != null) {
+            if (cycleInformation.isNewVerifier()) {
+
+                // For a new verifier, find the previous new verifier and ensure that the difference is c + 2 from that
+                // verifier.
+                Block blockToCheck = getPreviousBlock();
+                while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
+                        discontinuityState == DiscontinuityState.Undetermined) {
+                    if (blockToCheck.getBlockHeight() == 0L) {
+                        discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                    } else if (blockToCheck.getCycleInformation().isNewVerifier()) {
+                        if (getBlockHeight() - blockToCheck.getBlockHeight() >
+                                blockToCheck.getCycleInformation().getCycleLength() + 2) {
+                            discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                        } else {
+                            discontinuityState = DiscontinuityState.IsDiscontinuity;
+                        }
+                    }
+                    blockToCheck = blockToCheck.getPreviousBlock();
+                }
+
+            } else {
+
+                // For an existing verifier, find the previous two locations of that verifier, or just the previous
+                // location if the verifier was new in its last location.
+                Block blockToCheck = getPreviousBlock();
+                Block previousBlockForVerifier = null;
+                while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
+                        discontinuityState == DiscontinuityState.Undetermined) {
+
+                    if (ByteUtil.arraysAreEqual(getVerifierIdentifier(), blockToCheck.getVerifierIdentifier())) {
+                        if (blockToCheck.getCycleInformation().isNewVerifier()) {
+                            if (getCycleInformation().getCycleLength() >
+                                    blockToCheck.getCycleInformation().getCycleLength() / 2) {
+                                discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                            } else {
+                                discontinuityState = DiscontinuityState.IsDiscontinuity;
+                            }
+                        } else if (previousBlockForVerifier != null) {
+                            long threshold = Math.max(blockToCheck.getCycleInformation().getCycleLength(),
+                                    previousBlockForVerifier.getCycleInformation().getCycleLength()) / 2;
+                            if (getCycleInformation().getCycleLength() > threshold) {
+                                discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                            } else {
+                                discontinuityState = DiscontinuityState.IsDiscontinuity;
+                            }
+                        } else {
+                            previousBlockForVerifier = blockToCheck;
+                        }
+                    } else if (blockToCheck.getBlockHeight() == 0L) {
+
+                        if (previousBlockForVerifier != null) {
+                            if (getCycleInformation().getCycleLength() >
+                                    previousBlockForVerifier.getCycleInformation().getCycleLength() / 2) {
+                                discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                            } else {
+                                discontinuityState = DiscontinuityState.IsDiscontinuity;
+                            }
+                        } else {
+                            discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                        }
+                    }
+
+                    blockToCheck = blockToCheck.getPreviousBlock();
+                }
+            }
+        }
+    }
+
 
     public long getTransactionFees() {
 
@@ -194,14 +290,12 @@ public class Block implements MessageObject {
     private byte[] getBytes(boolean includeSignature) {
 
         int size = getByteSize();
-        System.out.println("size of block is " + size + " includeSignature=" + includeSignature);
 
         // Assemble the buffer.
         byte[] array = new byte[size];
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.putLong(height);
         buffer.put(previousBlockHash);
-        buffer.put(rolloverTransactionFees);
         buffer.putLong(startTimestamp);
         buffer.putLong(verificationTimestamp);
         buffer.putInt(transactions.size());
@@ -220,8 +314,8 @@ public class Block implements MessageObject {
     public void sign(byte[] signerSeed) {
 
         this.verifierIdentifier = KeyUtil.identifierForSeed(signerSeed);
-        System.out.println("verifier identifier " + ByteUtil.arrayAsStringWithDashes(this.verifierIdentifier));
         this.verifierSignature = SignatureUtil.signBytes(getBytes(false), signerSeed);
+        this.verificationTimestamp = System.currentTimeMillis();
     }
 
     public boolean signatureIsValid() {
@@ -238,7 +332,6 @@ public class Block implements MessageObject {
         long blockHeight = buffer.getLong();
         byte[] previousBlockHash = new byte[FieldByteSize.hash];
         buffer.get(previousBlockHash);
-        byte rolloverTransactionFees = buffer.get();
         long startTimestamp = buffer.getLong();
         long verificationTimestamp = buffer.getLong();
         int numberOfTransactions = buffer.getInt();
@@ -255,7 +348,7 @@ public class Block implements MessageObject {
         byte[] verifierSignature = new byte[FieldByteSize.signature];
         buffer.get(verifierSignature);
 
-        return new Block(blockHeight, previousBlockHash, rolloverTransactionFees, startTimestamp, transactions,
+        return new Block(blockHeight, previousBlockHash, startTimestamp, verificationTimestamp, transactions,
                 balanceListHash, verifierIdentifier, verifierSignature);
     }
 
@@ -405,5 +498,41 @@ public class Block implements MessageObject {
 
     public static void reset() {
         genesisBlockStartTimestamp = -1L;
+    }
+
+    public long chainScore(long zeroBlockHeight) {
+
+        // This score is always relative to a provided block height. The zero block height has a score of zero, and
+        // each subsequent block affects the score as follows:
+        // - a new verifier subtracts 10 but adds the verifier's position in the queue
+        // - an existing verifier adds the verifier's position in the cycle multiplied by 10
+        // - a discontinuity adds a large penalty score
+
+        long score = 0L;
+        Block block = this;
+        while (block != null && block.getBlockHeight() > zeroBlockHeight && score < Long.MAX_VALUE) {
+            CycleInformation cycleInformation = block.getCycleInformation();
+            DiscontinuityState discontinuityState = block.getDiscontinuityState();
+            if (cycleInformation == null || discontinuityState == DiscontinuityState.Undetermined) {
+                score = Long.MAX_VALUE;  // unable to compute
+            } else {
+                if (discontinuityState == DiscontinuityState.IsDiscontinuity) {
+                    score += 1000000L;
+                } else if (cycleInformation.isNewVerifier()) {
+                    score -= 10L;
+                    // TODO: add the queue index of the new verifier
+                } else {
+                    score += cycleInformation.getVerifierIndexInCycle() * 10L;
+                }
+            }
+
+            block = block.getPreviousBlock();
+        }
+
+        if (block == null) {
+            score = Long.MAX_VALUE;
+        }
+
+        return score;
     }
 }

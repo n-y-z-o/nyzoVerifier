@@ -63,7 +63,6 @@ public class Verifier {
             if (lines != null && !lines.isEmpty()) {
                 String line = lines.get(0);
                 if (line.length() > 64) {
-                    System.out.println("line length is " + line.length());
                     privateSeed = ByteUtil.byteArrayFromHexString(lines.get(0), 32);
                 }
             }
@@ -106,40 +105,22 @@ public class Verifier {
 
         while (!UpdateUtil.shouldTerminate()) {
 
-            long sleepTime = 1000L;
+            long sleepTime = 10000L;
             try {
-                // Only run the active verifier if connected to the mesh and if a Genesis block is available.
+                // Only run the active verifier if connected to the mesh and if the block manager is ready.
                 if (NodeManager.connectedToMesh() && BlockManager.readyToProcess()) {
 
-                    // Get all of the current chain options. Only process the one with the highest overall score.
-                    long highestBlockOpenForProcessing = BlockManager.highestBlockOpenForProcessing();
-                    List<ChainOption> options = ChainOptionManager.currentOptions();
-                    System.out.println("have " + options.size() + " chain option" + (options.size() == 1 ? "" : "s") +
-                            " to extend");
+                    long endHeight = ChainOptionManager.highestBlockRegistered();
+                    long startHeight = endHeight - 2;
+                    for (long height = startHeight; height <= endHeight; height++) {
 
-                    long highestChainScore = 0L;
-                    for (ChainOption option : options) {
-                        highestChainScore = Math.max(option.getScore(), highestChainScore);
-                    }
-
-                    for (ChainOption option : options) {
-                        if (option.getScore() == highestChainScore) {
-                            Block previousBlock = option.getHighestBlock();
-                            if (previousBlock.getBlockHeight() < highestBlockOpenForProcessing) {
-                                System.out.println("need to extend block " + previousBlock.getBlockHeight() +
-                                        " to reach " + highestBlockOpenForProcessing);
-
-                                // Create the block.
-                                Block nextBlock = createNextBlock(previousBlock);
-                                System.out.println("next block is " + nextBlock);
-
-                                // Broadcast the block and register the block with the chain option manager.
-                                if (nextBlock != null) {
-                                    boolean shouldBroadcastBlock = ChainOptionManager.registerBlock(nextBlock);
-                                    if (shouldBroadcastBlock) {
-                                        Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
-                                    }
-                                }
+                        // Try to extend the lowest-scoring block.
+                        Block blockToExtend = ChainOptionManager.lowestScoredBlockForHeight(height);
+                        if (blockToExtend != null) {
+                            Block nextBlock = createNextBlock(blockToExtend);
+                            boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
+                            if (shouldTransmitBlock) {
+                                Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                             }
                         }
                     }
@@ -160,13 +141,6 @@ public class Verifier {
 
     private static Block createNextBlock(Block previousBlock) {
 
-        // A block is frozen when:
-        // (1) it is signed by the ideal existing verifier and the previous block is frozen
-        // (2) it is signed by the ideal existing verifier, the previous block is signed by a new verifier, and the
-        //     block before previous is frozen
-        // (3) it is signed by ideal existing verifiers for the last three blocks and all other chain options are at
-        //     least three blocks behind
-
         Block block = null;
         if (previousBlock != null && !ByteUtil.arraysAreEqual(previousBlock.getVerifierIdentifier(),
                 Verifier.getIdentifier())) {
@@ -181,8 +155,8 @@ public class Verifier {
             BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, approvedTransactions,
                     Verifier.getIdentifier());
             long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
-            block = new Block(blockHeight, previousBlock.getHash(), balanceList.getRolloverFees(), startTimestamp,
-                    approvedTransactions, HashUtil.doubleSHA256(balanceList.getBytes()), balanceList);
+            block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
+                    HashUtil.doubleSHA256(balanceList.getBytes()), balanceList);
         }
 
         return block;

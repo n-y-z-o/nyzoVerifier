@@ -2,230 +2,153 @@ package co.nyzo.verifier;
 
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ChainOptionManager {
 
-    // All chain options start with the highest frozen block.
-
-    private static List<ChainOption> options = new ArrayList<>();
-
-    private static List<Block> orphanBlocks = new ArrayList<>();
-
-    private static synchronized void loadOptions() {
-
-        long highestBlockFrozen = BlockManager.highestBlockFrozen();
-        if (highestBlockFrozen >= 0) {
-            Block block = BlockManager.frozenBlockForHeight(highestBlockFrozen);
-            options = new ArrayList<>(Arrays.asList(new ChainOption(Arrays.asList(block))));
-        }
-    }
-
-    public static synchronized List<ChainOption> currentOptions() {
-
-        if (options.isEmpty()) {
-            loadOptions();
-        }
-
-        return new ArrayList<>(options);
-    }
+    private static Map<Long, List<Block>> unfrozenBlocks = new HashMap<>();
 
     public static synchronized boolean registerBlock(Block block) {
 
         boolean shouldForwardBlock = false;
-        AtomicBoolean blockIsOrphan = new AtomicBoolean(false);
-        AtomicBoolean blockIsDuplicate = new AtomicBoolean(false);
-        AtomicBoolean blockIsLowerQuality = new AtomicBoolean(false);
 
-        if (options.isEmpty()) {
-            loadOptions();
+        long highestBlockRegistered = highestBlockRegistered();
+        long highestBlockFrozen = BlockManager.highestBlockFrozen();
+
+        // If the previous block is null, try to set it using information we have available.
+        if (block.getPreviousBlock() == null) {
+            long previousBlockHeight = block.getBlockHeight() - 1;
+            Block previousBlock = null;
+            if (previousBlockHeight <= highestBlockFrozen) {
+                previousBlock = BlockManager.frozenBlockForHeight(previousBlockHeight);
+            } else {
+                List<Block> blocksAtPreviousHeight = unfrozenBlocks.get(previousBlockHeight);
+                if (blocksAtPreviousHeight != null) {
+                    for (Block blockAtPreviousHeight : blocksAtPreviousHeight) {
+                        if (ByteUtil.arraysAreEqual(blockAtPreviousHeight.getHash(), block.getPreviousBlockHash())) {
+                            previousBlock = blockAtPreviousHeight;
+                        }
+                    }
+                }
+            }
+            block.setPreviousBlock(previousBlock);
         }
 
         CycleInformation cycleInformation = block.getCycleInformation();
-        if (block.getBlockHeight() > BlockManager.highestBlockFrozen() && cycleInformation != null) {
+        if (block.getBlockHeight() > highestBlockFrozen &&
+                cycleInformation != null) {
 
-            boolean wouldCauseDiscontinuity = false;
-            if (cycleInformation.isNewVerifier()) {
-                wouldCauseDiscontinuity = block.getBlockHeight() < BlockManager.nextNewVerifierMinimumHeight();
-            } else {
-                // Rule 3: A block's cycle length must be more than half of the greater of its verifier's previous
-                // two cycles (or previous cycle, if the verifier only has one previous cycle). Any block with a
-                // shorter cycle is considered a discontinuity in the chain.
+            // Nodes should only extend the lowest-scoring block at each level that was received in the appropriate
+            // time frame. This should quickly break inferior chains by removing preferred nodes from those chains and
+            // further increasing their scores.
 
-            }
+            // A block's verification timestamp must be at least two seconds after the verification timestamp of the
+            // previous block in the chain.
 
-            ChainOption matchingChain = matchingChain(block, blockIsOrphan, blockIsDuplicate, blockIsLowerQuality);
-            if (matchingChain == null) {
 
-                if (blockIsOrphan.get()) {
-                    orphanBlocks.add(block);
-                    shouldForwardBlock = true;
-                }
-
-            } else {
-
-                Block previousBlock = matchingChain.getHighestBlock();
-                block.setPreviousBlock(previousBlock);
-                matchingChain.appendBlock(block);
-                System.out.println("the matching chain now has " + matchingChain.getNumberOfBlocks() + " blocks");
-                shouldForwardBlock = true;
-
-                freezeBlockIfPossible();
-            }
         }
 
         return shouldForwardBlock;
     }
 
+    public static synchronized long highestBlockRegistered() {
+
+        long highestBlockRegistered = -1;
+        for (Long height : unfrozenBlocks.keySet()) {
+            highestBlockRegistered = Math.max(height, highestBlockRegistered);
+        }
+
+        return highestBlockRegistered;
+    }
+
     private static synchronized void freezeBlockIfPossible() {
 
+        long highestBlockFrozen = BlockManager.highestBlockFrozen();
+        long highestBlockRegistered = highestBlockRegistered();
 
+        // If a block is at least 3 back and is the only block on its level, it can be frozen.
     }
 
-    private static synchronized void freezeBlock(Block block) {
+    private static synchronized Block blockAtHeightForOption(long height, Block option) {
 
-        // These methods are managed and synchronized so that the options should always start one block beyond the
-        // highest frozen block. The block manager is in charge of all blocks that are frozen, and the chain option
-        // manager is in charge of all blocks that are not yet frozen.
-        if (block.getBlockHeight() == BlockManager.highestBlockFrozen() + 1) {
-            BlockManager.freezeBlock(block);
-            ChainOptionManager.freezeAtBlock(block);
-        } else {
-            System.err.println("inconsistent state: trying to freezer block at height " + block.getBlockHeight() +
-                    " when the highest block frozen is " + BlockManager.highestBlockFrozen());
-        }
-    }
-
-    private static synchronized ChainOption matchingChain(Block block, AtomicBoolean blockIsOrphan,
-                                                          AtomicBoolean blockIsDuplicate,
-                                                          AtomicBoolean blockIsLowerQuality) {
-
-        // Registering a block can have the following outcomes:
-        // (1) discarding the block because it is unsuitable or inferior to existing options
-        // (2) adding the block to an existing chain option
-        // (3) replacing a block in an existing chain option
-        // (4) adding the block to the new chain option
-
-        if (options.isEmpty()) {
-            loadOptions();
-        }
-
-        ChainOption matchingChain = null;
-        for (ChainOption option : options) {
-            Block optionLastBlock = option.getHighestBlock();
-            if (optionLastBlock.getBlockHeight() == block.getBlockHeight() - 1 &&
-                    ByteUtil.arraysAreEqual(optionLastBlock.getHash(), block.getPreviousBlockHash())) {
-                matchingChain = option;
-
-                blockIsOrphan.set(false);
-                blockIsDuplicate.set(false);
-                blockIsLowerQuality.set(false);
-            }
-        }
-
-        // TODO: handle replacement, duplicate, and orphan cases
-        if (matchingChain == null) {
-            blockIsDuplicate.set(true);
-            blockIsOrphan.set(false);
-            blockIsLowerQuality.set(false);
-        }
-
-        return matchingChain;
-    }
-
-    public static synchronized void freezeAtBlock(Block blockToFreeze) {
-
-        // This should remove one block at the beginning of each option. Then, any options not built off the frozen
-        // block are discarded.
-        for (int i = options.size() - 1; i >= 0; i--) {
-            ChainOption option = options.get(i);
-            Block lowestBlock = option.getLowestBlock();
-            while (lowestBlock != null && lowestBlock.getBlockHeight() < blockToFreeze.getBlockHeight()) {
-                option.removeLowestBlock();
-                lowestBlock = option.getLowestBlock();
-            }
-
-            if (lowestBlock == null || !ByteUtil.arraysAreEqual(lowestBlock.getHash(), blockToFreeze.getHash())) {
-                System.out.println("removing option at index " + i);
-                options.remove(i);
-            }
-        }
-    }
-
-    private static synchronized Block blockForHeightWithHash(long blockHeight, byte[] hash) {
-
-        if (options.isEmpty()) {
-            loadOptions();
-        }
-
-        Block block = null;
-        if (blockHeight <= BlockManager.highestBlockFrozen()) {
-            block = BlockManager.frozenBlockForHeight(blockHeight);
-        } else {
-            for (ChainOption option : options) {
-                Block blockToCheck = option.blockAtHeight(blockHeight);
-                if (ByteUtil.arraysAreEqual(hash, blockToCheck.getHash())) {
-                    block = blockToCheck;
-                }
-            }
+        Block block = option;
+        while (block != null && block.getBlockHeight() > height) {
+            block = block.getPreviousBlock();
         }
 
         return block;
     }
 
-    public static synchronized CycleInformation cycleInformationForBlock(Block block) {
+    private static synchronized Block getLowestUnfrozenBlock(Block option) {
 
-        // We need to know:
-        // (1) the cycle length
-        // (2) whether the verifier of this block is in this cycle and, if so, where it is in the cycle
+        return blockAtHeightForOption(BlockManager.highestBlockFrozen() + 1, option);
+    }
+
+    // TODO: make this an instance method of the block class
+    public static synchronized CycleInformation cycleInformationForBlock(Block block) {
 
         ByteBuffer newBlockVerifier = ByteBuffer.wrap(block.getVerifierIdentifier());
 
         // Step backward through the chain until we find the beginning of the cycle.
         CycleInformation cycleInformation = null;
         Set<ByteBuffer> identifiers = new HashSet<>();
-        boolean unableToProcess = false;
-        Block nextBlockInChain = block;
         long verifierPreviousBlockHeight = -1;
-        for (long blockHeight = block.getBlockHeight() - 1; blockHeight >= 0 && cycleInformation == null &&
-                !unableToProcess; blockHeight--) {
+        Block blockToCheck = block.getPreviousBlock();
+        while (blockToCheck != null && cycleInformation == null) {
 
-            Block blockToCheck = blockForHeightWithHash(blockHeight, nextBlockInChain.getPreviousBlockHash());
-            if (blockToCheck == null) {
-                unableToProcess = true;
-                System.out.println("unable to get cycle information because block at height " + blockHeight +
-                        " is null");
-            } else {
-                ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
-                if (identifiers.contains(identifier)) {
-                    int cycleLength = (int) (block.getBlockHeight() - blockHeight - 1L);
-                    int verifierIndexInCycle = verifierPreviousBlockHeight < 0 ? -1 :
-                            (int) (verifierPreviousBlockHeight - blockHeight - 1L);
-                    cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle);
-                } else if (blockHeight == 0) {
-                    int cycleLength = (int) block.getBlockHeight();
-                    int verifierIndexInCycle;
-                    if (verifierPreviousBlockHeight > 0) {
-                        verifierIndexInCycle = (int) verifierPreviousBlockHeight;
-                    } else if (identifier.equals(newBlockVerifier)) {
-                        verifierIndexInCycle = 0;
-                    } else {
-                        verifierIndexInCycle = -1;
-                    }
-                    cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle);
+            ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
+            if (identifiers.contains(identifier)) {
+                int cycleLength = (int) (block.getBlockHeight() - blockToCheck.getBlockHeight() - 1L);
+                int verifierIndexInCycle = verifierPreviousBlockHeight < 0 ? -1 :
+                        (int) (verifierPreviousBlockHeight - blockToCheck.getBlockHeight() - 1L);
+                cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle);
+            } else if (blockToCheck.getBlockHeight() == 0) {
+
+                // For purposes of calculation, new verifiers in the first cycle of the chain are treated as existing
+                // verifiers.
+                int cycleLength = (int) block.getBlockHeight();
+                int verifierIndexInCycle;
+                if (verifierPreviousBlockHeight > 0) {
+                    verifierIndexInCycle = (int) verifierPreviousBlockHeight;
+                } else if (identifier.equals(newBlockVerifier)) {
+                    verifierIndexInCycle = 0;
                 } else {
-                    identifiers.add(identifier);
+                    verifierIndexInCycle = 0;
                 }
-
-                if (identifier.equals(newBlockVerifier)) {
-                    verifierPreviousBlockHeight = blockHeight;
-                }
+                cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle);
+            } else {
+                identifiers.add(identifier);
             }
 
-            nextBlockInChain = blockToCheck;
+            if (identifier.equals(newBlockVerifier)) {
+                verifierPreviousBlockHeight = blockToCheck.getBlockHeight();
+            }
+
+            blockToCheck = blockToCheck.getPreviousBlock();
+        }
+
+        if (block.getBlockHeight() == 0) {
+            cycleInformation = new CycleInformation(0, 0);
         }
 
         return cycleInformation;
+    }
+
+    public static Block lowestScoredBlockForHeight(long blockHeight) {
+
+        long highestBlockFrozen = BlockManager.highestBlockFrozen();
+
+        Block lowestScoredBlock = null;
+        List<Block> blocks = unfrozenBlocks.get(blockHeight);
+        if (blocks != null) {
+            for (Block block : blocks) {
+                if (lowestScoredBlock == null ||
+                        block.chainScore(highestBlockFrozen) < lowestScoredBlock.chainScore(highestBlockFrozen)) {
+                    lowestScoredBlock = block;
+                }
+            }
+        }
+
+        return lowestScoredBlock;
     }
 
 }
