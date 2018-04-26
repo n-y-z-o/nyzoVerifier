@@ -338,7 +338,9 @@ public class Message {
         System.out.println("processing content of type " + type);
 
         MessageObject content = null;
-        if (type == MessageType.NodeListResponse2) {
+        if (type == MessageType.NodeListRequest1) {
+            content = NodeListRequest.fromByteBuffer(buffer);
+        } else if (type == MessageType.NodeListResponse2) {
             content = NodeListResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.NodeJoin3) {
             content = NodeJoinMessage.fromByteBuffer(buffer);
