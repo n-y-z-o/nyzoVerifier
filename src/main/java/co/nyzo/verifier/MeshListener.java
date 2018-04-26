@@ -95,12 +95,16 @@ public class MeshListener {
         String errorMessage = "";
         try {
             if (message != null && message.isValid()) {
+
                 MessageType messageType = message.getType();
                 System.out.println("message type is " + messageType);
 
                 if (messageType == MessageType.NodeListRequest1) {
 
                     System.out.println("returning NodeListResponse");
+                    NodeListRequest requestMessage = (NodeListRequest) message.getContent();
+                    NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
+                            requestMessage.getPort(), requestMessage.isFullNode());
                     response = new Message(MessageType.NodeListResponse2, new NodeListResponse(NodeManager.getMesh()));
 
                 } else if (messageType == MessageType.NodeJoin3) {

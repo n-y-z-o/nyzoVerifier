@@ -83,11 +83,16 @@ public class Verifier {
 
         if (!alive.getAndSet(true)) {
 
+            // Start the node listener and wait for it to start and for the port to be settled.
+            MeshListener.start();
+            try {
+                Thread.sleep(1000L);
+            } catch (Exception e) { }
+
             System.out.println("starting verifier");
 
             loadPrivateSeed();
             NodeManager.fetchNodeList(0);
-            MeshListener.start();
 
             // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh
             // and build the blockchain.
@@ -111,7 +116,7 @@ public class Verifier {
                 if (NodeManager.connectedToMesh() && BlockManager.readyToProcess()) {
 
                     long endHeight = ChainOptionManager.highestBlockRegistered();
-                    long startHeight = endHeight - 2;
+                    long startHeight = endHeight - 2;  // We will only extend from two back from the highest block.
                     for (long height = startHeight; height <= endHeight; height++) {
 
                         // Try to extend the lowest-scoring block.
@@ -119,6 +124,7 @@ public class Verifier {
                         if (blockToExtend != null) {
                             Block nextBlock = createNextBlock(blockToExtend);
                             boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
+                            System.out.println("should transmit block: " + shouldTransmitBlock + ", " + height);
                             if (shouldTransmitBlock) {
                                 Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                             }

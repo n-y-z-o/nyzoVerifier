@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NodeJoinMessage;
 import co.nyzo.verifier.messages.NodeJoinResponse;
+import co.nyzo.verifier.messages.NodeListRequest;
 import co.nyzo.verifier.messages.NodeListResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.UpdateUtil;
@@ -10,12 +11,6 @@ import java.nio.ByteBuffer;
 import java.util.*;
 
 public class NodeManager {
-
-    public static void main(String[] args) {
-
-        // This is a simple test of fetching the node list.
-        fetchNodeList(0);
-    }
 
     private static final int maximumNumberOfSeedVerifiers = 10;
 
@@ -102,7 +97,8 @@ public class NodeManager {
 
         String url = "verifier" + index + ".nyzo.co";
         System.out.println("fetching node list from " + url);
-        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeListRequest1, null), false,
+        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeListRequest1,
+                new NodeListRequest(MeshListener.getPort(), true)), false,
                 new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
