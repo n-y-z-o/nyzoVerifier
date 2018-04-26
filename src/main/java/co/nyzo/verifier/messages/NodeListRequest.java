@@ -40,15 +40,15 @@ public class NodeListRequest implements MessageObject {
         return array;
     }
 
-    public static NodeJoinMessage fromByteBuffer(ByteBuffer buffer) {
+    public static NodeListRequest fromByteBuffer(ByteBuffer buffer) {
 
-        NodeJoinMessage result = null;
+        NodeListRequest result = null;
 
         try {
             int port = buffer.getInt();
             boolean fullNode = buffer.get() == 1;
 
-            result = new NodeJoinMessage(port, fullNode);
+            result = new NodeListRequest(port, fullNode);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }
