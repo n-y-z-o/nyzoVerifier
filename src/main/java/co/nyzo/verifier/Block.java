@@ -120,12 +120,11 @@ public class Block implements MessageObject {
     public void setBalanceList(BalanceList balanceList) {
 
         if (balanceList != null) {
-            if (!ByteUtil.arraysAreEqual(HashUtil.doubleSHA256(balanceList.getBytes()), balanceListHash)) {
+            if (ByteUtil.arraysAreEqual(HashUtil.doubleSHA256(balanceList.getBytes()), balanceListHash)) {
+                this.balanceList = balanceList;
+            } else {
                 System.err.println("balance list does not match hash! (" + balanceList.getBlockHeight() + ") " +
                         DebugUtil.callingMethod());
-            } else {
-                System.out.println("balance list does match hash (" + balanceList.getBlockHeight() + ")");
-                this.balanceList = balanceList;
             }
         }
     }
@@ -334,7 +333,6 @@ public class Block implements MessageObject {
         long startTimestamp = buffer.getLong();
         long verificationTimestamp = buffer.getLong();
         int numberOfTransactions = buffer.getInt();
-        System.out.println("need to read " + numberOfTransactions + " transactions");
         List<Transaction> transactions = new ArrayList<>();
         for (int i = 0; i < numberOfTransactions; i++) {
             transactions.add(Transaction.fromByteBuffer(buffer));
@@ -390,7 +388,6 @@ public class Block implements MessageObject {
             // Add/subtract all transactions.
             long feesThisBlock = 0L;
             for (Transaction transaction : transactions) {
-                System.out.println("processing transaction of amount " + transaction.getAmount());
                 feesThisBlock += transaction.getFee();
                 if (transaction.getType() != Transaction.typeCoinGeneration) {
                     adjustBalance(transaction.getSenderIdentifier(), -transaction.getAmount(), identifierToBalanceMap);
@@ -432,8 +429,6 @@ public class Block implements MessageObject {
 
     private static void adjustBalance(byte[] identifier, long amount, Map<ByteBuffer, Long> identifierToBalanceMap) {
 
-        System.out.println("adjusting balance for identifier " + ByteUtil.arrayAsStringWithDashes(identifier) + " by " +
-                amount);
         ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
         Long balance = identifierToBalanceMap.get(identifierBuffer);
         if (balance == null) {

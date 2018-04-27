@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
+
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -114,10 +116,8 @@ public class BlockManager {
             Files.write(Paths.get(file.getAbsolutePath()), bytes);
             successful = true;
         } catch (Exception reportOnly) {
-            System.err.println("error writing blocks to file: " + reportOnly.getMessage());
+            System.err.println(PrintUtil.printException(reportOnly));
         }
-
-        System.out.println("wrote blocks to file " + file.getAbsolutePath());
 
         return successful;
     }
@@ -194,8 +194,7 @@ public class BlockManager {
 
     private static void loadBlockFromFile(long blockHeight) {
 
-        List<Block> blocks = blocksInFile(fileForBlockHeight(blockHeight), true);
-        System.out.println("loaded " + blocks.size() + " blocks for file " + fileForBlockHeight(blockHeight).getName());
+        blocksInFile(fileForBlockHeight(blockHeight), true);
     }
 
     private static void fetchBlockFromNetwork(long blockHeight) {
@@ -207,7 +206,6 @@ public class BlockManager {
 
         // This method only needs to load the locally stored blocks, and it can do so synchronously.
 
-        System.out.println("looking for file " + fileForBlockHeight(0L).getAbsolutePath());
         if (fileForBlockHeight(0).exists()) {
 
             System.out.println("Genesis block file exists");
@@ -235,7 +233,7 @@ public class BlockManager {
     public static void setHighestBlockFrozen(long height) {
 
         if (height < highestBlockFrozen.get()) {
-            System.out.println("Setting highest block frozen to a lesser value than is currently set.");
+            System.err.println("Setting highest block frozen to a lesser value than is currently set.");
         }
 
         highestBlockFrozen.set(height);

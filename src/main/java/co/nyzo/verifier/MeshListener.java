@@ -41,7 +41,6 @@ public class MeshListener {
                         port = serverSocket.getLocalPort();
 
                         long timeToStartPort = System.currentTimeMillis() - startTimestamp;
-                        System.out.println("actual port is " + port + ", took " + timeToStartPort + " ms to start");
                         while (!UpdateUtil.shouldTerminate()) {
                             Socket clientSocket = serverSocket.accept();
 
@@ -99,11 +98,9 @@ public class MeshListener {
             if (message != null && message.isValid()) {
 
                 MessageType messageType = message.getType();
-                System.out.println("message type is " + messageType);
 
                 if (messageType == MessageType.NodeListRequest1) {
 
-                    System.out.println("returning NodeListResponse");
                     NodeListRequest requestMessage = (NodeListRequest) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
                             requestMessage.getPort(), requestMessage.isFullNode());
@@ -129,13 +126,9 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NewBlock9) {
 
-                    System.out.println("message: " + message);
-                    System.out.println("message content (should be block): " + message.getContent());
                     boolean shouldForwardBlock = ChainOptionManager.registerBlock((Block) message.getContent());
 
                     response = new Message(MessageType.NewBlockResponse10, null);
-
-                    System.out.println("should forward block: " + shouldForwardBlock);
                     if (shouldForwardBlock) {
                         Message.forward(message);
                     }
