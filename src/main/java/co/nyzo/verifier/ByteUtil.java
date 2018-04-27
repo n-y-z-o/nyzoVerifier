@@ -64,15 +64,19 @@ public class ByteUtil {
     public static String arrayAsStringWithDashes(byte[] array) {
 
         StringBuilder result = new StringBuilder();
-        try {
-            for (int i = 0; i < array.length; i++) {
-                if (i % 8 == 7 && i < array.length - 1) {
-                    result.append(String.format("%02x-", array[i]));
-                } else {
-                    result.append(String.format("%02x", array[i]));
+        if (array == null) {
+            result.append("(null)");
+        } else {
+            try {
+                for (int i = 0; i < array.length; i++) {
+                    if (i % 8 == 7 && i < array.length - 1) {
+                        result.append(String.format("%02x-", array[i]));
+                    } else {
+                        result.append(String.format("%02x", array[i]));
+                    }
                 }
-            }
-        } catch (Exception ignored) { }
+            } catch (Exception ignored) { }
+        }
 
         return result.toString();
     }

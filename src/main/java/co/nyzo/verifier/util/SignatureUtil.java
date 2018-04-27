@@ -1,5 +1,6 @@
 package co.nyzo.verifier.util;
 
+import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.KeyUtil;
 import net.i2p.crypto.eddsa.EdDSAEngine;
 import net.i2p.crypto.eddsa.EdDSASecurityProvider;
@@ -29,7 +30,10 @@ public class SignatureUtil {
             signature.update(bytesToSign);
             signatureBytes = signature.sign();
 
-        } catch (Exception ignored) { }
+        } catch (Exception reportOnly) {
+            System.err.println("exception signing bytes of length " + (bytesToSign == null ? "(null)" :
+                    bytesToSign.length) + " with seed " + ByteUtil.arrayAsStringWithDashes(privateSeed));
+        }
 
         return signatureBytes;
     }
