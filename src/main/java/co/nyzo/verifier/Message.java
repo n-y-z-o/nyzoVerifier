@@ -174,40 +174,46 @@ public class Message {
     public static void fetch(String hostNameOrIp, int port, Message message, boolean retryIfFailed,
                              MessageCallback messageCallback) {
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Message response = null;
-                try {
-                    Socket socket = new Socket();
-                    socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
+        byte[] identifier = NodeManager.identifierForIpAddress(hostNameOrIp);
+        if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
 
-                    OutputStream outputStream = socket.getOutputStream();
-                    outputStream.write(message.getBytesForTransmission());
-                    System.out.println("done writing to stream");
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Message response = null;
+                    try {
+                        Socket socket = new Socket();
+                        socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
 
-                    response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
-                    System.out.println("fetch(): response is " + response);
-                    socket.close();
-                } catch (Exception reportOnly) {
-                    System.err.println("Exception sending message " + message.getType() + " to " + hostNameOrIp + ":" +
-                            port + ": " + PrintUtil.printException(reportOnly));
-                }
+                        OutputStream outputStream = socket.getOutputStream();
+                        outputStream.write(message.getBytesForTransmission());
+                        System.out.println("done writing to stream");
 
-                if (messageCallback != null) {
-                    if (response == null || !response.isValid()) {
-                        if (retryIfFailed) {
-                            System.out.println("RETRYING");
-                            fetch(hostNameOrIp, port, message, false, messageCallback);
+                        response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
+                        System.out.println("fetch(): response is " + response);
+                        socket.close();
+                    } catch (Exception reportOnly) {
+                        System.err.println("Exception sending message " + message.getType() + " to " + hostNameOrIp +
+                                ":" + port + ": " + PrintUtil.printException(reportOnly));
+                    }
+
+                    if (messageCallback != null) {
+                        if (response == null || !response.isValid()) {
+                            if (retryIfFailed) {
+                                System.out.println("RETRYING");
+                                fetch(hostNameOrIp, port, message, false, messageCallback);
+                            } else {
+                                MessageQueue.add(messageCallback, null);
+                            }
                         } else {
-                            MessageQueue.add(messageCallback, null);
+                            MessageQueue.add(messageCallback, response);
                         }
-                    } else {
-                        MessageQueue.add(messageCallback, response);
                     }
                 }
-            }
-        }, "Message-fetch-" + message).start();
+            }, "Message-fetch-" + message).start();
+        } else {
+            System.out.println("skipping sending of message to self");
+        }
     }
 
     public static Message readFromStream(InputStream inputStream, byte[] sourceIpAddress) {

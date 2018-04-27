@@ -157,7 +157,7 @@ public class NodeManager {
                                         }
                                         fetchNodeList((index + 1) % maximumNumberOfSeedVerifiers);
                                     }
-                                }, "NpdeManager-fetchNodeListRetry").start();
+                                }, "NodeManager-fetchNodeListRetry").start();
                             }
                         }
                     }
@@ -173,5 +173,19 @@ public class NodeManager {
         // When we request the node list from another node, it will add this node to the list. So, the minimum number
         // of nodes in a proper mesh is two.
         return nodePool.size() > 1;
+    }
+
+    public static byte[] identifierForIpAddress(String addressString) {
+
+        byte[] identifier = null;
+        try {
+            int addressValue = IpUtil.addressAsInt(IpUtil.addressFromString(addressString));
+            Node node = ipAddressToNodeMap.get(addressValue);
+            if (node != null) {
+                identifier = node.getIdentifier();
+            }
+        } catch (Exception ignored) { }
+
+        return identifier;
     }
 }

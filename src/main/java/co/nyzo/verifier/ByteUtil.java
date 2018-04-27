@@ -100,10 +100,15 @@ public class ByteUtil {
 
     public static boolean arraysAreEqual(byte[] array1, byte[] array2) {
 
-        boolean arraysAreEqual = array1.length == array2.length;
-        for (int i = 0; i < array1.length && arraysAreEqual; i++) {
-            if (array1[i] != array2[i]) {
-                arraysAreEqual = false;
+        boolean arraysAreEqual;
+        if (array1 == null || array2 == null) {
+            arraysAreEqual = array1 == null && array2 == null;
+        } else {
+            arraysAreEqual = array1.length == array2.length;
+            for (int i = 0; i < array1.length && arraysAreEqual; i++) {
+                if (array1[i] != array2[i]) {
+                    arraysAreEqual = false;
+                }
             }
         }
 
