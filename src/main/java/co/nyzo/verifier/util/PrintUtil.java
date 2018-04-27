@@ -40,9 +40,11 @@ public class PrintUtil {
         StringBuilder result = new StringBuilder("exception: ");
         if (exception != null) {
             result.append(exception.getMessage());
-            if (exception.getStackTrace().length > 0) {
-                StackTraceElement element = exception.getStackTrace()[0];
-                result.append("; ").append(element.getClassName()).append(":").append(element.getLineNumber());
+            String separator = "; ";
+            for (int i = 0; i < Math.min(4, exception.getStackTrace().length); i++) {
+                StackTraceElement element = exception.getStackTrace()[i];
+                result.append(separator).append(element.getClassName()).append(":").append(element.getLineNumber());
+                separator = ", ";
             }
         } else {
             result.append("[exception is null]");
