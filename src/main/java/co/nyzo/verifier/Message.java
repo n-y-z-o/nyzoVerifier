@@ -191,7 +191,7 @@ public class Message {
                     socket.close();
                 } catch (Exception reportOnly) {
                     System.err.println("Exception sending message " + message.getType() + " to " + hostNameOrIp + ":" +
-                            port + ": " + reportOnly.getMessage());
+                            port + ": " + PrintUtil.printException(reportOnly));
                 }
 
                 if (messageCallback != null) {
