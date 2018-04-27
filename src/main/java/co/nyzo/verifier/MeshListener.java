@@ -31,6 +31,7 @@ public class MeshListener {
 
     public static void start() {
 
+        final long startTimestamp = System.currentTimeMillis();
         if (!alive.getAndSet(true)) {
             new Thread(new Runnable() {
                 @Override
@@ -39,7 +40,8 @@ public class MeshListener {
                         serverSocket = new ServerSocket(standardPort);
                         port = serverSocket.getLocalPort();
 
-                        System.out.println("actual port is " + port);
+                        long timeToStartPort = System.currentTimeMillis() - startTimestamp;
+                        System.out.println("actual port is " + port + ", took " + timeToStartPort + " ms to start");
                         while (!UpdateUtil.shouldTerminate()) {
                             Socket clientSocket = serverSocket.accept();
 

@@ -15,7 +15,7 @@ public class ChainOptionManager {
         long highestBlockFrozen = BlockManager.highestBlockFrozen();
 
         // If the previous block is null, try to set it using information we have available.
-        if (block.getPreviousBlock() == null) {
+        if (block != null && block.getPreviousBlock() == null) {
             long previousBlockHeight = block.getBlockHeight() - 1;
             Block previousBlock = null;
             if (previousBlockHeight <= highestBlockFrozen) {
@@ -33,16 +33,40 @@ public class ChainOptionManager {
             block.setPreviousBlock(previousBlock);
         }
 
-        CycleInformation cycleInformation = block.getCycleInformation();
-        if (block.getBlockHeight() > highestBlockFrozen &&
-                cycleInformation != null) {
+        CycleInformation cycleInformation = block == null ? null : block.getCycleInformation();
+        if (block != null && block.getBlockHeight() > highestBlockFrozen && cycleInformation != null) {
 
-            // Nodes should only extend the lowest-scoring block at each level that was received in the appropriate
-            // time frame. This should quickly break inferior chains by removing preferred nodes from those chains and
-            // further increasing their scores.
+            // Keep the top 10 blocks at any height.
+            List<Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
+            if (blocksAtHeight == null) {
+                blocksAtHeight = new ArrayList<>();
+                unfrozenBlocks.put(block.getBlockHeight(), blocksAtHeight);
+            }
 
-            // A block's verification timestamp must be at least two seconds after the verification timestamp of the
-            // previous block in the chain.
+            // Prevent two blocks from the same identifier from being stored at any height.
+            boolean alreadyContainsBlock = false;
+            for (int i = 0; i < blocksAtHeight.size() && !alreadyContainsBlock; i++) {
+                if (ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getVerifierIdentifier(),
+                        block.getVerifierIdentifier())) {
+                    alreadyContainsBlock = true;
+                }
+            }
+
+            if (!alreadyContainsBlock) {
+                if (blocksAtHeight.size() < 10) {
+                    blocksAtHeight.add(block);
+                    shouldForwardBlock = true;
+                } else {
+                    Collections.sort(blocksAtHeight, new Comparator<Block>() {
+                        @Override
+                        public int compare(Block block1, Block block2) {
+                            return ((Long) block2.chainScore(highestBlockFrozen))
+                                    .compareTo(block1.chainScore(highestBlockFrozen));
+                        }
+                    });
+                    // TODO: complete this to only keep the top 10 lowest-scoring blocks
+                }
+            }
 
 
         }
@@ -135,20 +159,34 @@ public class ChainOptionManager {
 
     public static Block lowestScoredBlockForHeight(long blockHeight) {
 
-        long highestBlockFrozen = BlockManager.highestBlockFrozen();
-
         Block lowestScoredBlock = null;
-        List<Block> blocks = unfrozenBlocks.get(blockHeight);
-        if (blocks != null) {
-            for (Block block : blocks) {
-                if (lowestScoredBlock == null ||
-                        block.chainScore(highestBlockFrozen) < lowestScoredBlock.chainScore(highestBlockFrozen)) {
-                    lowestScoredBlock = block;
+        long highestBlockFrozen = BlockManager.highestBlockFrozen();
+        if (blockHeight <= highestBlockFrozen) {
+            lowestScoredBlock = BlockManager.frozenBlockForHeight(blockHeight);
+        } else {
+            List<Block> blocks = unfrozenBlocks.get(blockHeight);
+            if (blocks != null) {
+                for (Block block : blocks) {
+                    if (lowestScoredBlock == null ||
+                            block.chainScore(highestBlockFrozen) < lowestScoredBlock.chainScore(highestBlockFrozen)) {
+                        lowestScoredBlock = block;
+                    }
                 }
             }
         }
 
         return lowestScoredBlock;
+    }
+
+    public static int numberOfBlocksAtHeight(long height) {
+
+        int number = 0;
+        List<Block> blocks = unfrozenBlocks.get(height);
+        if (blocks != null) {
+            number = blocks.size();
+        }
+
+        return number;
     }
 
 }

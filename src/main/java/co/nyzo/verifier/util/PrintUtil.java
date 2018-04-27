@@ -34,4 +34,20 @@ public class PrintUtil {
         Date date = new Date(timestamp);
         return String.format("%d.%03d (%s UTC)", whole, fraction, dateFormat.format(date));
     }
+
+    public static String printException(Exception exception) {
+
+        StringBuilder result = new StringBuilder("exception: ");
+        if (exception != null) {
+            result.append(exception.getMessage());
+            if (exception.getStackTrace().length > 0) {
+                StackTraceElement element = exception.getStackTrace()[0];
+                result.append("; ").append(element.getClassName()).append(":").append(element.getLineNumber());
+            }
+        } else {
+            result.append("[exception is null]");
+        }
+
+        return result.toString();
+    }
 }

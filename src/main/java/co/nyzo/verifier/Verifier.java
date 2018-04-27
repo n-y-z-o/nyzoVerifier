@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -86,7 +87,7 @@ public class Verifier {
             // Start the node listener and wait for it to start and for the port to be settled.
             MeshListener.start();
             try {
-                Thread.sleep(1000L);
+                Thread.sleep(20L);
             } catch (Exception e) { }
 
             System.out.println("starting verifier");
@@ -110,33 +111,48 @@ public class Verifier {
 
         while (!UpdateUtil.shouldTerminate()) {
 
-            long sleepTime = 10000L;
+            long sleepTime = 5000L;
             try {
                 // Only run the active verifier if connected to the mesh and if the block manager is ready.
                 if (NodeManager.connectedToMesh() && BlockManager.readyToProcess()) {
 
-                    long endHeight = ChainOptionManager.highestBlockRegistered();
-                    long startHeight = endHeight - 2;  // We will only extend from two back from the highest block.
+                    long highestBlockFrozen = BlockManager.highestBlockFrozen();
+                    long endHeight = Math.max(ChainOptionManager.highestBlockRegistered(), highestBlockFrozen);
+                    long startHeight = Math.max(endHeight - 2, highestBlockFrozen);  // Only extend from two back.
                     for (long height = startHeight; height <= endHeight; height++) {
 
                         // Try to extend the lowest-scoring block.
                         Block blockToExtend = ChainOptionManager.lowestScoredBlockForHeight(height);
                         if (blockToExtend != null) {
                             Block nextBlock = createNextBlock(blockToExtend);
-                            boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
-                            System.out.println("should transmit block: " + shouldTransmitBlock + ", " + height);
-                            if (shouldTransmitBlock) {
-                                Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                            if (nextBlock != null) {
+                                boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
+                                System.out.println("should transmit block: " + shouldTransmitBlock + ", height=" +
+                                        nextBlock.getBlockHeight());
+                                if (shouldTransmitBlock) {
+                                    Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                                }
                             }
                         }
                     }
+
+                    StringBuilder status = new StringBuilder("status: ");
+                    String separator = "";
+                    for (long height = startHeight; height <= endHeight; height++) {
+                        status.append(separator).append("h=").append(height).append(",n=");
+                        status.append(ChainOptionManager.numberOfBlocksAtHeight(height));
+                        separator = ";";
+                    }
+                    System.out.println(status.toString());
                 }
 
                 System.out.println("connected to mesh: " + NodeManager.connectedToMesh() + "(" +
                         NodeManager.getMesh().size() + "), highest block frozen: " +
                         BlockManager.highestBlockFrozen() + ", ready to process: " + BlockManager.readyToProcess());
 
-            } catch (Exception ignored) { }
+            } catch (Exception reportOnly) {
+                System.err.println(PrintUtil.printException(reportOnly));
+            }
 
             // Sleep for a short time to avoid consuming too much computational power.
             try {
