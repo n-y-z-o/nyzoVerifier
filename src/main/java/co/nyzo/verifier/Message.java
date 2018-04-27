@@ -190,8 +190,8 @@ public class Message {
                     System.out.println("fetch(): response is " + response);
                     socket.close();
                 } catch (Exception reportOnly) {
-                    System.err.println("Exception connecting to " + hostNameOrIp + ":" + port + ": " +
-                            reportOnly.getMessage());
+                    System.err.println("Exception sending message " + message.getType() + " to " + hostNameOrIp + ":" +
+                            port + ": " + reportOnly.getMessage());
                 }
 
                 if (messageCallback != null) {
