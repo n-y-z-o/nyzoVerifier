@@ -11,5 +11,10 @@
 *.iml
 *.ipr
 
-### Mac users ###
+### Mac ###
 .DS_Store
+
+### Java ###
+classes/
+libs/
+tmp/
