@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
 import java.io.InputStream;
@@ -212,7 +213,10 @@ public class Message {
     public static Message readFromStream(InputStream inputStream, byte[] sourceIpAddress) {
 
         byte[] response = getResponse(inputStream);
-        System.out.println("response bytes are " + ByteUtil.arrayAsStringWithDashes(response));
+        if (response.length == 0) {
+            System.out.println("empty response from " + IpUtil.addressAsString(sourceIpAddress));
+        }
+
         return fromBytes(response, sourceIpAddress);
     }
 
@@ -221,10 +225,10 @@ public class Message {
         byte[] result = new byte[0];
         try {
             byte[] input = new byte[5000000];
-            System.out.println("input is " + input);
             int size = inputStream.read(input);
-            System.out.println("size is " + size);
-            result = Arrays.copyOf(input, size);
+            if (size > 0) {
+                result = Arrays.copyOf(input, size);
+            }
         } catch (Exception ignore) { ignore.printStackTrace(); }
 
         return result;
