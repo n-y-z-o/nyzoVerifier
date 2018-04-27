@@ -287,14 +287,10 @@ public class Message {
             }
         }
 
-        System.out.println("full message on send: " + ByteUtil.arrayAsStringWithDashes(result));
-
         return result;
     }
 
     public static Message fromBytes(byte[] bytes, byte[] sourceIpAddress) {
-
-        System.out.println("full message on receipt: " + ByteUtil.arrayAsStringWithDashes(bytes));
 
         Message message = null;
         try {
@@ -310,14 +306,9 @@ public class Message {
             byte[] sourceNodeSignature = new byte[FieldByteSize.signature];
             buffer.get(sourceNodeSignature);
 
-            System.out.println("source identifier from message: " +
-                    ByteUtil.arrayAsStringWithDashes(sourceNodeIdentifier));
-            System.out.println("source signature from message: " + sourceNodeSignature);
-
             List<byte[]> recipientIdentifiers = new ArrayList<>();
             List<byte[]> recipientSignatures = new ArrayList<>();
             int numberOfRecipients = buffer.hasRemaining() ? buffer.getInt() : 0;
-            System.out.println("number of recipients: " + numberOfRecipients);
             for (int i = 0; i < numberOfRecipients; i++) {
                 byte[] recipientIdentifier = new byte[FieldByteSize.identifier];
                 buffer.get(recipientIdentifier);
@@ -330,16 +321,14 @@ public class Message {
 
             message = new Message(timestamp, type, content, sourceNodeIdentifier, sourceNodeSignature,
                     recipientIdentifiers, recipientSignatures, sourceIpAddress);
-        } catch (Exception ignored) {
-            ignored.printStackTrace();
+        } catch (Exception reportOnly) {
+            System.err.println(PrintUtil.printException(reportOnly));
         }
 
         return message;
     }
 
     private static MessageObject processContent(MessageType type, ByteBuffer buffer) {
-
-        System.out.println("processing content of type " + type);
 
         MessageObject content = null;
         if (type == MessageType.NodeListRequest1) {

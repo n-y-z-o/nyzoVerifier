@@ -172,9 +172,7 @@ public class MeshListener {
             if (errorMessage == null) {
                 errorMessage = "Message from exception is null.";
             }
-        }
 
-        if (response == null) {
             response = new Message(MessageType.Error65534, new ErrorMessage(errorMessage));
         }
 
