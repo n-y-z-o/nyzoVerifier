@@ -282,6 +282,7 @@ public class Message {
         buffer.put(sourceNodeSignature);
         if (recipientIdentifiers.size() > 0) {
             buffer.putInt(recipientIdentifiers.size());
+            System.out.println("there are " + recipientIdentifiers.size() + " recipient identifiers");
             if (recipientIdentifiers.size() != recipientSignatures.size()) {
                 System.err.println("recipientIdentifiers.size()=" + recipientIdentifiers.size() +
                         ",recipientSignatures.size()=" + recipientSignatures.size());
