@@ -264,6 +264,9 @@ public class Message {
         // identifiers and signatures, content if present).
         int sizeBytes = FieldByteSize.timestamp + FieldByteSize.messageType + (FieldByteSize.identifier +
                 FieldByteSize.signature) * (recipientIdentifiers.size() + 1);
+        if (recipientIdentifiers.size() > 0) {
+            sizeBytes += FieldByteSize.recipientListLength;
+        }
         if (content != null) {
             sizeBytes += content.getByteSize();
         }
