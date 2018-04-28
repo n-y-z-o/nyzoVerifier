@@ -145,6 +145,9 @@ public class ChainOptionManager {
             }
         }
 
+        System.out.println("block " + ByteUtil.arrayAsStringWithDashes(block.getVerifierSignature()) + " at height " +
+                block.getBlockHeight() + " has chain height " + height);
+
         return height;
     }
 
