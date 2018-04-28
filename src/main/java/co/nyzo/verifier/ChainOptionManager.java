@@ -65,18 +65,20 @@ public class ChainOptionManager {
                 }
             }
 
-            // Check if the block is a duplicate verifier.
-            boolean alreadyContainsVerifier = false;
+            // Check if the block is a duplicate verifier on the same previous block.
+            boolean alreadyContainsVerifierOnSameChain = false;
             if (!alreadyContainsBlock) {
-                for (int i = 0; i < blocksAtHeight.size() && !alreadyContainsVerifier; i++) {
+                for (int i = 0; i < blocksAtHeight.size() && !alreadyContainsVerifierOnSameChain; i++) {
                     if (ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getVerifierIdentifier(),
-                            block.getVerifierIdentifier())) {
-                        alreadyContainsVerifier = true;
+                            block.getVerifierIdentifier()) &&
+                            ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getPreviousBlockHash(),
+                                    block.getPreviousBlockHash())) {
+                        alreadyContainsVerifierOnSameChain = true;
                     }
                 }
             }
 
-            if (!alreadyContainsBlock && !alreadyContainsVerifier) {
+            if (!alreadyContainsBlock && !alreadyContainsVerifierOnSameChain) {
                 if (blocksAtHeight.size() < 100) {
                     blocksAtHeight.add(block);
                     System.out.println("added block at height " + block.getBlockHeight() + " with signature " +
