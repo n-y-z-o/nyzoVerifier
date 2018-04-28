@@ -157,7 +157,6 @@ public class BlockManager {
                         blocksInFile.add(block);
                         writeBlocksToFile(blocksInFile, file);
                         BlockManagerMap.addBlock(block);
-                        BlockManagerMap.addBlock(block);
                     } else {
                         System.err.println("unable to write block " + block.getBlockHeight() + " : " +
                                 blocksInFile.size() + " != " + expectedNumberOfBlocksInFile);

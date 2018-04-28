@@ -5,14 +5,26 @@ import java.util.*;
 
 public class ChainOptionManager {
 
+    // TODO: make sure we handle all of these cases properly
+    // -- duplicate blocks (same signature)
+    // -- two blocks at the same height from same verifier that build off different blocks
+    // -- two blocks at the same height from same verifier that build off the same block (verifiers should not do this)
+
     private static Map<Long, List<Block>> unfrozenBlocks = new HashMap<>();
 
     public static synchronized boolean registerBlock(Block block) {
 
         boolean shouldForwardBlock = false;
 
-        long highestBlockRegistered = highestBlockRegistered();
+        // TODO: make separate rules for when we are preparing to process and when we are ready to process
+
+        long leadingEdgeHeight = leadingEdgeHeight();
         long highestBlockFrozen = BlockManager.highestBlockFrozen();
+
+        // A small extra protection to ensure we do not do anything with a block with an invalid signature.
+        if (!block.signatureIsValid()) {
+            block = null;
+        }
 
         // If the previous block is null, try to set it using information we have available.
         if (block != null && block.getPreviousBlock() == null) {
@@ -30,30 +42,33 @@ public class ChainOptionManager {
                     }
                 }
             }
+
             block.setPreviousBlock(previousBlock);
         }
 
         CycleInformation cycleInformation = block == null ? null : block.getCycleInformation();
         if (block != null && block.getBlockHeight() > highestBlockFrozen && cycleInformation != null) {
 
-            // Keep the top 10 blocks at any height.
+            // Keep the top 100 blocks at any height.
             List<Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
             if (blocksAtHeight == null) {
                 blocksAtHeight = new ArrayList<>();
                 unfrozenBlocks.put(block.getBlockHeight(), blocksAtHeight);
             }
 
-            // Prevent two blocks from the same identifier from being stored at any height.
+            // Check if the block is a duplicate (same signature).
             boolean alreadyContainsBlock = false;
             for (int i = 0; i < blocksAtHeight.size() && !alreadyContainsBlock; i++) {
-                if (ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getVerifierIdentifier(),
-                        block.getVerifierIdentifier())) {
+                if (ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getVerifierSignature(),
+                        block.getVerifierSignature())) {
                     alreadyContainsBlock = true;
                 }
             }
 
+            // Check if the block is the same verifier.
+
             if (!alreadyContainsBlock) {
-                if (blocksAtHeight.size() < 10) {
+                if (blocksAtHeight.size() < 100) {
                     blocksAtHeight.add(block);
                     shouldForwardBlock = true;
                 } else {
@@ -64,7 +79,7 @@ public class ChainOptionManager {
                                     .compareTo(block1.chainScore(highestBlockFrozen));
                         }
                     });
-                    // TODO: complete this to only keep the top 10 lowest-scoring blocks
+                    // TODO: complete this to only keep the top 100 lowest-scoring blocks
                 }
             }
 
@@ -74,37 +89,48 @@ public class ChainOptionManager {
         return shouldForwardBlock;
     }
 
-    public static synchronized long highestBlockRegistered() {
+    public static synchronized void freezeBlockIfPossible() {
 
-        long highestBlockRegistered = -1;
+        // We can freeze a block if it is 5 blocks or more back from the leading edge.
+        long leadingEdgeHeight = leadingEdgeHeight();
+        long frozenEdgeHeight = BlockManager.highestBlockFrozen();
+        if (frozenEdgeHeight < leadingEdgeHeight - 6) {
+            long heightToFreeze = frozenEdgeHeight + 1;
+            List<Block> blocksAtFreezeLevel = unfrozenBlocks.get(heightToFreeze);
+            if (blocksAtFreezeLevel.size() == 1) {
+                Block block = blocksAtFreezeLevel.get(0);
+                if (block.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity) {
+                    BlockManager.freezeBlock(block);
+
+                    // Remove all unfrozen blocks at or below the new frozen level.
+                    for (Long height : unfrozenBlocks.keySet()) {
+                        if (height <= heightToFreeze) {
+                            unfrozenBlocks.remove(height);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public static synchronized long leadingEdgeHeight() {
+
+        // The leading edge is defined as the greatest block height at which a valid block without a discontinuity
+        // exists.
+        long leadingEdgeHeight = -1;
         for (Long height : unfrozenBlocks.keySet()) {
-            highestBlockRegistered = Math.max(height, highestBlockRegistered);
+            if (leadingEdgeHeight < height) {
+                List<Block> blocksForHeight = unfrozenBlocks.get(height);
+                for (int i = 0; i < blocksForHeight.size() && leadingEdgeHeight < height; i++) {
+                    Block block = blocksForHeight.get(i);
+                    if (block.getCycleInformation() != null) {
+
+                    }
+                }
+            }
         }
 
-        return highestBlockRegistered;
-    }
-
-    private static synchronized void freezeBlockIfPossible() {
-
-        long highestBlockFrozen = BlockManager.highestBlockFrozen();
-        long highestBlockRegistered = highestBlockRegistered();
-
-        // If a block is at least 3 back and is the only block on its level, it can be frozen.
-    }
-
-    private static synchronized Block blockAtHeightForOption(long height, Block option) {
-
-        Block block = option;
-        while (block != null && block.getBlockHeight() > height) {
-            block = block.getPreviousBlock();
-        }
-
-        return block;
-    }
-
-    private static synchronized Block getLowestUnfrozenBlock(Block option) {
-
-        return blockAtHeightForOption(BlockManager.highestBlockFrozen() + 1, option);
+        return leadingEdgeHeight;
     }
 
     // TODO: make this an instance method of the block class
@@ -176,6 +202,11 @@ public class ChainOptionManager {
         }
 
         return lowestScoredBlock;
+    }
+
+    public static Set<Long> unfrozenBlockHeights() {
+
+        return new HashSet<>(unfrozenBlocks.keySet());
     }
 
     public static int numberOfBlocksAtHeight(long height) {

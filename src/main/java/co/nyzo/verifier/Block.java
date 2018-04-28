@@ -9,7 +9,7 @@ import java.util.*;
 
 public class Block implements MessageObject {
 
-    private enum DiscontinuityState {
+    public enum DiscontinuityState {
         Undetermined,
         IsDiscontinuity,
         IsNotDiscontinuity

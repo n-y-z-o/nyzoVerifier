@@ -175,6 +175,7 @@ public class Message {
                              MessageCallback messageCallback) {
 
         byte[] identifier = NodeManager.identifierForIpAddress(hostNameOrIp);
+        System.out.println("identifier is " + ByteUtil.arrayAsStringWithDashes(identifier) + " for " + hostNameOrIp);
         if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
 
             new Thread(new Runnable() {

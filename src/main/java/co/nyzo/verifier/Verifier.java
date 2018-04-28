@@ -117,7 +117,7 @@ public class Verifier {
                 if (NodeManager.connectedToMesh() && BlockManager.readyToProcess()) {
 
                     long highestBlockFrozen = BlockManager.highestBlockFrozen();
-                    long endHeight = Math.max(ChainOptionManager.highestBlockRegistered(), highestBlockFrozen);
+                    long endHeight = Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen);
                     long startHeight = Math.max(endHeight - 2, highestBlockFrozen);  // Only extend from two back.
                     for (long height = startHeight; height <= endHeight; height++) {
 
@@ -136,12 +136,14 @@ public class Verifier {
                         }
                     }
 
-                    StringBuilder status = new StringBuilder("status: ");
-                    String separator = "";
-                    for (long height = startHeight; height <= endHeight; height++) {
-                        status.append(separator).append("h=").append(height).append(",n=");
+                    ChainOptionManager.freezeBlockIfPossible();
+
+                    StringBuilder status = new StringBuilder("status: c=");
+                    status.append(NodeManager.connectedToMesh()).append("/").append(NodeManager.getMesh().size());
+                    status.append(",f=").append(BlockManager.highestBlockFrozen());
+                    for (Long height : ChainOptionManager.unfrozenBlockHeights()) {
+                        status.append(";h=").append(height).append(",n=");
                         status.append(ChainOptionManager.numberOfBlocksAtHeight(height));
-                        separator = ";";
                     }
                     System.out.println(status.toString());
                 }
