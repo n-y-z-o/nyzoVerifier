@@ -196,25 +196,29 @@ public class ChainOptionManager {
         return cycleInformation;
     }
 
-    public static Block lowestScoredBlockForHeight(long blockHeight) {
+    public static Block blockToExtendForHeight(long blockHeight) {
 
-        Block lowestScoredBlock = null;
+        Block blockToExtend = null;
         long highestBlockFrozen = BlockManager.highestBlockFrozen();
         if (blockHeight <= highestBlockFrozen) {
-            lowestScoredBlock = BlockManager.frozenBlockForHeight(blockHeight);
+            blockToExtend = BlockManager.frozenBlockForHeight(blockHeight);
         } else {
             List<Block> blocks = unfrozenBlocks.get(blockHeight);
             if (blocks != null) {
                 for (Block block : blocks) {
-                    if (lowestScoredBlock == null ||
-                            block.chainScore(highestBlockFrozen) < lowestScoredBlock.chainScore(highestBlockFrozen)) {
-                        lowestScoredBlock = block;
+                    if (blockToExtend == null ||
+                            block.chainScore(highestBlockFrozen) < blockToExtend.chainScore(highestBlockFrozen)) {
+                        blockToExtend = block;
+                    } else if (block.chainScore(highestBlockFrozen) == blockToExtend.chainScore(highestBlockFrozen)) {
+
+                        // This can only happen in the case of a new verifier.
+                        System.out.println("chain score is equal for two blocks");
                     }
                 }
             }
         }
 
-        return lowestScoredBlock;
+        return blockToExtend;
     }
 
     public static Set<Long> unfrozenBlockHeights() {

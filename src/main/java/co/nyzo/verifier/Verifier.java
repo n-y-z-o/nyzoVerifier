@@ -123,7 +123,7 @@ public class Verifier {
                     for (long height = startHeight; height <= endHeight; height++) {
 
                         // Try to extend the lowest-scoring block.
-                        Block blockToExtend = ChainOptionManager.lowestScoredBlockForHeight(height);
+                        Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
                         if (blockToExtend != null) {
                             Block nextBlock = createNextBlock(blockToExtend);
                             if (nextBlock != null) {
@@ -134,6 +134,8 @@ public class Verifier {
                                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                                 }
                             }
+                        } else {
+                            System.out.println("have no block to extend");
                         }
                     }
 
