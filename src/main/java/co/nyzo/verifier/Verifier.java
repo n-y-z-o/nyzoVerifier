@@ -181,6 +181,10 @@ public class Verifier {
             long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
             block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
                     HashUtil.doubleSHA256(balanceList.getBytes()), balanceList);
+
+            System.out.println("extended block " +
+                    ByteUtil.arrayAsStringWithDashes(previousBlock.getVerifierSignature()) + " to " +
+                            ByteUtil.arrayAsStringWithDashes(block.getVerifierSignature()));
         }
 
         return block;
