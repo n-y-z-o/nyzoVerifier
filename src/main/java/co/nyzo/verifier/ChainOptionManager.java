@@ -130,13 +130,15 @@ public class ChainOptionManager {
         while (!foundBreak) {
             List<Block> blocks = unfrozenBlocks.get(heightToCheck);
             boolean foundHash = false;
-            for (int i = 0; i < blocks.size() && !foundHash; i++) {
-                Block blockToCheck = blocks.get(i);
-                if (ByteUtil.arraysAreEqual(blockToCheck.getPreviousBlockHash(), hash)) {
-                    foundHash = true;
-                    height = heightToCheck;
-                    heightToCheck = height + 1;
-                    hash = blockToCheck.getHash();
+            if (blocks != null) {
+                for (int i = 0; i < blocks.size() && !foundHash; i++) {
+                    Block blockToCheck = blocks.get(i);
+                    if (ByteUtil.arraysAreEqual(blockToCheck.getPreviousBlockHash(), hash)) {
+                        foundHash = true;
+                        height = heightToCheck;
+                        heightToCheck = height + 1;
+                        hash = blockToCheck.getHash();
+                    }
                 }
             }
 
