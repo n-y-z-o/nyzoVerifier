@@ -130,14 +130,15 @@ public class ChainOptionManager {
 
         // The leading edge is defined as the greatest block height at which a valid block without a discontinuity
         // exists.
+
         long leadingEdgeHeight = -1;
         for (Long height : unfrozenBlocks.keySet()) {
-            if (leadingEdgeHeight < height) {
+            if (height > leadingEdgeHeight) {
                 List<Block> blocksForHeight = unfrozenBlocks.get(height);
                 for (int i = 0; i < blocksForHeight.size() && leadingEdgeHeight < height; i++) {
                     Block block = blocksForHeight.get(i);
-                    if (block.getCycleInformation() != null) {
-
+                    if (block.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity) {
+                        leadingEdgeHeight = height;
                     }
                 }
             }
