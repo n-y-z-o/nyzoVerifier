@@ -34,7 +34,7 @@ public class IpUtil {
 
     public static byte[] addressFromString(String addressString) {
 
-        System.out.println("trying to get IP address from string " + addressString);
+        addressString = addressString + ":";
 
         byte[] result = null;
         try {

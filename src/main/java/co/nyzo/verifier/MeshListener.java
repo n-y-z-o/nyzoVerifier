@@ -93,7 +93,6 @@ public class MeshListener {
         // This is the single point of dispatch for responding to all received messages.
 
         Message response = null;
-        String errorMessage = "";
         try {
             if (message != null && message.isValid()) {
 
@@ -161,16 +160,13 @@ public class MeshListener {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            errorMessage = e.getMessage();
+            String errorMessage = e.getMessage();
             if (errorMessage == null) {
                 errorMessage = "Message from exception is null.";
             }
 
             response = new Message(MessageType.Error65534, new ErrorMessage(errorMessage));
         }
-
-        String sourceString = message == null ? "null" : IpUtil.addressAsString(message.getSourceIpAddress());
-        System.out.println("response message for " + sourceString + " is " + response);
 
         return response;
     }
