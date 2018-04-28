@@ -189,6 +189,7 @@ public class Message {
                     } catch (Exception reportOnly) {
                         System.err.println("Exception sending message " + message.getType() + " to " + hostNameOrIp +
                                 ":" + port + ": " + PrintUtil.printException(reportOnly));
+                        reportOnly.printStackTrace();
                     }
 
                     if (messageCallback != null) {
