@@ -141,6 +141,7 @@ public class Verifier {
                         }
                     }
 
+                    ChainOptionManager.removeAbandonedChains();
                     ChainOptionManager.freezeBlockIfPossible();
 
                     StringBuilder status = new StringBuilder("status: c=");
