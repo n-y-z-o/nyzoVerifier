@@ -54,7 +54,10 @@ public class Message {
         // Verify the source signature.
         this.valid = SignatureUtil.signatureIsValid(sourceNodeSignature, getBytesForSigning(),
                 sourceNodeIdentifier);
-        System.out.println("message is valid: " + this.valid);
+        if (!this.valid) {
+            System.out.println("message from " + ByteUtil.arrayAsStringWithDashes(sourceNodeIdentifier) +
+                    " is not valid");
+        }
 
         // If the message is valid, verify the recipient signatures. Also, determine whether we have already seen this
         // message.
@@ -144,19 +147,11 @@ public class Message {
         for (int i = 0; i < 6 && mesh.size() > 0; i++) {
             Node node = mesh.remove(random.nextInt(mesh.size()));
             final String ipAddress = IpUtil.addressAsString(node.getIpAddress());
-            fetch(ipAddress, node.getPort(), message, false, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
-                    System.out.println("broadcast response from " + ipAddress + ": " + message);
-                }
-            });
+            fetch(ipAddress, node.getPort(), message, false, null);
         }
     }
 
     public static void forward(Message message) {
-
-        System.out.println("forwarding message with " + message.recipientIdentifiers.size() + " recipient identifiers");
-        System.out.println("already seen message: " + message.messageAlreadySeen);
 
         // Send the message to up to three nodes that have not yet received it.
         List<Node> mesh = NodeManager.getMesh();
@@ -188,10 +183,8 @@ public class Message {
 
                         OutputStream outputStream = socket.getOutputStream();
                         outputStream.write(message.getBytesForTransmission());
-                        System.out.println("done writing to stream");
 
                         response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
-                        System.out.println("fetch(): response is " + response);
                         socket.close();
                     } catch (Exception reportOnly) {
                         System.err.println("Exception sending message " + message.getType() + " to " + hostNameOrIp +

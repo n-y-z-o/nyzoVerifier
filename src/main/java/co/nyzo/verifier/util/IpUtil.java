@@ -59,8 +59,6 @@ public class IpUtil {
 
         } catch (Exception ignored) { }
 
-        System.out.println("IP address is " + IpUtil.addressAsString(result));
-
         return result;
     }
 
