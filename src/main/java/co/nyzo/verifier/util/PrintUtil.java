@@ -41,7 +41,7 @@ public class PrintUtil {
         if (exception != null) {
             result.append(exception.getMessage());
             String separator = "; ";
-            for (int i = 0; i < Math.min(4, exception.getStackTrace().length); i++) {
+            for (int i = 0; i < Math.min(7, exception.getStackTrace().length); i++) {
                 StackTraceElement element = exception.getStackTrace()[i];
                 result.append(separator).append(element.getClassName()).append(":").append(element.getLineNumber());
                 separator = ", ";
