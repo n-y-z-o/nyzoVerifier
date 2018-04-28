@@ -124,14 +124,14 @@ public class Message {
 
     public boolean alreadySentTo(byte[] identifier) {
 
-        boolean result = false;
-        for (int i = 0; i < recipientIdentifiers.size() && !result; i++) {
+        boolean alreadySentTo = ByteUtil.arraysAreEqual(sourceNodeIdentifier, identifier);
+        for (int i = 0; i < recipientIdentifiers.size() && !alreadySentTo; i++) {
             if (ByteUtil.arraysAreEqual(recipientIdentifiers.get(i), identifier)) {
-                result = true;
+                alreadySentTo = true;
             }
         }
 
-        return result;
+        return alreadySentTo;
     }
 
     public void sign(byte[] privateSeed) {
