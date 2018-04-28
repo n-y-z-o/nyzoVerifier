@@ -49,7 +49,7 @@ public class ChainOptionManager {
         CycleInformation cycleInformation = block == null ? null : block.getCycleInformation();
         if (block != null && block.getBlockHeight() > highestBlockFrozen && cycleInformation != null) {
 
-            // Keep the top 100 blocks at any height.
+            // Get the list of the block at this height.
             List<Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
             if (blocksAtHeight == null) {
                 blocksAtHeight = new ArrayList<>();
@@ -65,11 +65,14 @@ public class ChainOptionManager {
                 }
             }
 
-            // Check if the block is the same verifier.
+            // TODO: Check if the block is the same verifier.
+
 
             if (!alreadyContainsBlock) {
                 if (blocksAtHeight.size() < 100) {
                     blocksAtHeight.add(block);
+                    System.out.println("added block at height " + block.getBlockHeight() + " with signature " +
+                            ByteUtil.arrayAsStringWithDashes(block.getVerifierSignature()));
                     shouldForwardBlock = true;
                 } else {
                     Collections.sort(blocksAtHeight, new Comparator<Block>() {

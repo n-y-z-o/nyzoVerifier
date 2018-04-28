@@ -170,7 +170,6 @@ public class Message {
                              MessageCallback messageCallback) {
 
         byte[] identifier = NodeManager.identifierForIpAddress(hostNameOrIp);
-        System.out.println("identifier is " + ByteUtil.arrayAsStringWithDashes(identifier) + " for " + hostNameOrIp);
         if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
 
             new Thread(new Runnable() {
@@ -206,8 +205,6 @@ public class Message {
                     }
                 }
             }, "Message-fetch-" + message).start();
-        } else {
-            System.out.println("skipping sending of message to self");
         }
     }
 
