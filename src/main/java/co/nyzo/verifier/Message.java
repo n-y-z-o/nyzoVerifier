@@ -289,7 +289,9 @@ public class Message {
                 if (recipientIdentifiers.get(i) == null) {
                     System.err.println("recipient identifier " + i + " is null");
                 }
-                if (recipientSignatures.get(i) == null) {
+                if (recipientSignatures == null) {
+                    System.err.println("recipient signature array is null");
+                } else if (recipientSignatures.get(i) == null) {
                     System.err.println("recipient signature " + i + " is null");
                 }
                 buffer.put(recipientIdentifiers.get(i));
