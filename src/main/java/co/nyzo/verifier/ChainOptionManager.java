@@ -167,7 +167,7 @@ public class ChainOptionManager {
                     BlockManager.freezeBlock(block);
 
                     // Remove all unfrozen blocks at or below the new frozen level.
-                    for (Long height : unfrozenBlocks.keySet()) {
+                    for (Long height : new HashSet<>(unfrozenBlocks.keySet())) {
                         if (height <= heightToFreeze) {
                             unfrozenBlocks.remove(height);
                         }
