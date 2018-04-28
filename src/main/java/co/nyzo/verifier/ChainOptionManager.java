@@ -56,7 +56,7 @@ public class ChainOptionManager {
                 unfrozenBlocks.put(block.getBlockHeight(), blocksAtHeight);
             }
 
-            // Check if the block is a duplicate (same signature).
+            // Check if the block is a simple duplicate (same signature).
             boolean alreadyContainsBlock = false;
             for (int i = 0; i < blocksAtHeight.size() && !alreadyContainsBlock; i++) {
                 if (ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getVerifierSignature(),
@@ -65,10 +65,18 @@ public class ChainOptionManager {
                 }
             }
 
-            // TODO: Check if the block is the same verifier.
-
-
+            // Check if the block is a duplicate verifier.
+            boolean alreadyContainsVerifier = false;
             if (!alreadyContainsBlock) {
+                for (int i = 0; i < blocksAtHeight.size() && !alreadyContainsVerifier; i++) {
+                    if (ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getVerifierIdentifier(),
+                            block.getVerifierIdentifier())) {
+                        alreadyContainsVerifier = true;
+                    }
+                }
+            }
+
+            if (!alreadyContainsBlock && !alreadyContainsVerifier) {
                 if (blocksAtHeight.size() < 100) {
                     blocksAtHeight.add(block);
                     System.out.println("added block at height " + block.getBlockHeight() + " with signature " +
