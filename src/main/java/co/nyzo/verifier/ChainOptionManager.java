@@ -102,6 +102,52 @@ public class ChainOptionManager {
         return shouldForwardBlock;
     }
 
+    public static synchronized void removeAbandonedChains() {
+
+        // All blocks that do not extend to within 4 back of the leading edge can be removed.
+        long leadingEdgeHeight = leadingEdgeHeight();
+        long frozenEdgeHeight = BlockManager.highestBlockFrozen();
+        for (long height = leadingEdgeHeight - 5; height >= frozenEdgeHeight + 1; height--) {
+            List<Block> blocksAtHeight = unfrozenBlocks.get(height);
+            if (blocksAtHeight != null) {
+                for (int i = blocksAtHeight.size() - 1; i >= 0; i--) {
+                    Block block = blocksAtHeight.get(i);
+                    long chainHeight = chainHeightForBlock(block);
+                    if (chainHeight < leadingEdgeHeight - 4) {
+                        blocksAtHeight.remove(block);
+                    }
+                }
+            }
+        }
+    }
+
+    private static synchronized long chainHeightForBlock(Block block) {
+
+        long height = block.getBlockHeight();
+        long heightToCheck = height + 1;
+        byte[] hash = block.getHash();
+        boolean foundBreak = false;
+        while (!foundBreak) {
+            List<Block> blocks = unfrozenBlocks.get(heightToCheck);
+            boolean foundHash = false;
+            for (int i = 0; i < blocks.size() && !foundHash; i++) {
+                Block blockToCheck = blocks.get(i);
+                if (ByteUtil.arraysAreEqual(blockToCheck.getPreviousBlockHash(), hash)) {
+                    foundHash = true;
+                    height = heightToCheck;
+                    heightToCheck = height + 1;
+                    hash = blockToCheck.getHash();
+                }
+            }
+
+            if (!foundHash) {
+                foundBreak = true;
+            }
+        }
+
+        return height;
+    }
+
     public static synchronized void freezeBlockIfPossible() {
 
         // We can freeze a block if it is 5 blocks or more back from the leading edge.
