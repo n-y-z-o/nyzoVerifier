@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -15,7 +17,6 @@ public class BlockManager {
 
     public static final File blockRootDirectory = new File(Verifier.dataRootDirectory, "blocks");
     private static final AtomicLong highestBlockFrozen = new AtomicLong(-1L);
-    private static final AtomicLong nextNewVerifierMinimumHeight = new AtomicLong(-1L);
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
 
@@ -25,10 +26,6 @@ public class BlockManager {
 
     public static long highestBlockFrozen() {
         return highestBlockFrozen.get();
-    }
-
-    public static long nextNewVerifierMinimumHeight() {
-        return nextNewVerifierMinimumHeight.get();
     }
 
     public static Block frozenBlockForHeight(long blockHeight) {
@@ -54,7 +51,7 @@ public class BlockManager {
         return block;
     }
 
-    public static List<Block> blocksInFile(File file, boolean addBlocksToCache) {
+    public static List<Block> loadBlocksInFile(File file, boolean addBlocksToCache) {
 
         List<Block> blocks = new ArrayList<>();
         Path path = Paths.get(file.getAbsolutePath());
@@ -65,7 +62,7 @@ public class BlockManager {
             Block previousBlock = null;
             for (int i = 0; i < numberOfBlocks; i++) {
                 Block block = Block.fromByteBuffer(buffer);
-                if (previousBlock == null) {
+                if (previousBlock == null || (previousBlock.getBlockHeight() != block.getBlockHeight() - 1)) {
                     block.setBalanceList(BalanceList.fromByteBuffer(buffer));
                 } else {
                     block.setBalanceList(Block.balanceListForNextBlock(previousBlock, block.getTransactions(),
@@ -90,22 +87,32 @@ public class BlockManager {
 
         boolean successful = false;
 
+        // Sort the blocks on block height ascending.
+        Collections.sort(blocks, new Comparator<Block>() {
+            @Override
+            public int compare(Block block1, Block block2) {
+                return ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight());
+            }
+        });
+
         int size = 2;  // number of blocks
         for (int i = 0; i < blocks.size(); i++) {
             Block block = blocks.get(i);
             size += block.getByteSize();
-            if (i == 0) {
+
+            // For the first block and all blocks with gaps, include the balance list.
+            if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (blocks.get(i).getBlockHeight() - 1))) {
                 size += block.getBalanceList().getByteSize();
             }
         }
 
         byte[] bytes = new byte[size];
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
-        buffer.putShort((short) blocks.size());
+        buffer.putShort((short) blocks.size());  // number of blocks
         for (int i = 0; i < blocks.size(); i++) {
             Block block = blocks.get(i);
             buffer.put(block.getBytes());
-            if (i == 0) {
+            if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (blocks.get(i).getBlockHeight() - 1))) {
                 buffer.put(block.getBalanceList().getBytes());
             }
         }
@@ -144,29 +151,13 @@ public class BlockManager {
         } else {
             synchronized (BlockManager.class) {
                 try {
-                    File file = fileForBlockHeight(block.getBlockHeight());
-                    List<Block> blocksInFile = blocksInFile(file, true);
-                    int expectedNumberOfBlocksInFile = (int) (block.getBlockHeight() % blocksPerFile);
-                    if (blocksInFile.size() == expectedNumberOfBlocksInFile) {
-                        setHighestBlockFrozen(block.getBlockHeight());
-                        if (cycleInformation.isNewVerifier()) {
-                            nextNewVerifierMinimumHeight.set(block.getBlockHeight() +
-                                    cycleInformation.getCycleLength() + 2);
-                        }
+                    setHighestBlockFrozen(block.getBlockHeight());
 
-                        blocksInFile.add(block);
-                        writeBlocksToFile(blocksInFile, file);
-                        BlockManagerMap.addBlock(block);
-                    } else {
-                        System.err.println("unable to write block " + block.getBlockHeight() + " : " +
-                                blocksInFile.size() + " != " + expectedNumberOfBlocksInFile);
-                        Throwable throwable = new Throwable();
-                        StringBuilder stackTrace = new StringBuilder();
-                        for (int i = 0; i < throwable.getStackTrace().length && i < 3; i++) {
-                            stackTrace.append(throwable.getStackTrace()[i] + " -- ");
-                        }
-                        System.err.println(stackTrace.toString());
-                    }
+                    File file = fileForBlockHeight(block.getBlockHeight());
+                    List<Block> blocksInFile = loadBlocksInFile(file, true);
+                    blocksInFile.add(block);
+                    writeBlocksToFile(blocksInFile, file);
+                    BlockManagerMap.addBlock(block);
 
                 } catch (Exception reportOnly) {
                     reportOnly.printStackTrace();
@@ -193,12 +184,7 @@ public class BlockManager {
 
     private static void loadBlockFromFile(long blockHeight) {
 
-        blocksInFile(fileForBlockHeight(blockHeight), true);
-    }
-
-    private static void fetchBlockFromNetwork(long blockHeight) {
-
-
+        loadBlocksInFile(fileForBlockHeight(blockHeight), true);
     }
 
     private static void initialize() {
@@ -210,7 +196,7 @@ public class BlockManager {
             System.out.println("Genesis block file exists");
 
             // Load the Genesis block start timestamp.
-            List<Block> blocksInGenesisFile = blocksInFile(fileForBlockHeight(0L), true);
+            List<Block> blocksInGenesisFile = loadBlocksInFile(fileForBlockHeight(0L), true);
             if (blocksInGenesisFile.size() > 0) {
                 Block genesisBlock = blocksInGenesisFile.get(0);
                 Block.genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
@@ -222,7 +208,7 @@ public class BlockManager {
                 highestFileStartBlock += BlockManager.blocksPerFile;
             }
 
-            List<Block> blocks = blocksInFile(fileForBlockHeight(highestFileStartBlock), true);
+            List<Block> blocks = loadBlocksInFile(fileForBlockHeight(highestFileStartBlock), true);
             if (blocks.size() > 0) {
                 setHighestBlockFrozen(blocks.get(blocks.size() - 1).getBlockHeight());
             }
@@ -231,11 +217,12 @@ public class BlockManager {
 
     public static void setHighestBlockFrozen(long height) {
 
+        // Freezing a block under the frozen edge is allowed.
         if (height < highestBlockFrozen.get()) {
             System.err.println("Setting highest block frozen to a lesser value than is currently set.");
+        } else {
+            highestBlockFrozen.set(height);
         }
-
-        highestBlockFrozen.set(height);
     }
 
     public static long heightForTimestamp(long timestamp) {

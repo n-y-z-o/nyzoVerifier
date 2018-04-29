@@ -12,7 +12,7 @@ public class BlockReadTest {
         long blocksPerYear = 17280L * 365L;
         int numberThatExist = 0;
         int numberThatDoNotExist = 0;
-        for (int i = 0; i < blocksPerYear; i += 1000L) {
+        for (int i = 0; i < blocksPerYear * 10L; i += 1000L) {
             if (BlockManager.fileForBlockHeight(i, "yo").exists()) {
                 numberThatExist++;
             } else {

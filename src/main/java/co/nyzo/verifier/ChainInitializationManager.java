@@ -34,10 +34,17 @@ public class ChainInitializationManager {
             }
 
             // If consensus is reached on a hash, try to get the block from the network.
+            byte[] hash = response.getBlockHashes().get(i);
             boolean consensus = voteTally.vote(response.getBlockHashes().get(i));
             if (consensus && blockHeight > BlockManager.highestBlockFrozen()) {
                 System.out.println("*** need to get frozen block at height " + blockHeight + " from network ***");
+                getBlockFromNetwork(blockHeight, hash);
             }
         }
+    }
+
+    private static void getBlockFromNetwork(long blockHeight, byte[] hash) {
+
+
     }
 }
