@@ -11,6 +11,8 @@ public class ChainInitializationManager {
 
     public static synchronized void processNodeJoinResponse(NodeJoinResponse response) {
 
+        System.out.println("processing node-join response");
+
         // First, try to get the Genesis block if we don't have one already stored.
         Block localGenesisBlock = BlockManager.frozenBlockForHeight(0L);
         Block responseGenesisBlock = response.getGenesisBlock();

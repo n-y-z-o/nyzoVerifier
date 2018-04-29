@@ -22,6 +22,8 @@ public class FrozenBlockVoteTally {
         count++;
         votes.put(buffer, count);
 
+        System.out.println("count is now " + count + " for hash " + ByteUtil.arrayAsStringWithDashes(hash));
+
         return count >= NodeManager.numberOfNodesInMesh() / 2;
     }
 }
