@@ -130,14 +130,12 @@ public class Verifier {
                             Block nextBlock = createNextBlock(blockToExtend);
                             if (nextBlock != null) {
                                 boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
-                                System.out.println("should transmit block: " + shouldTransmitBlock + ", height=" +
-                                        nextBlock.getBlockHeight());
                                 if (shouldTransmitBlock) {
                                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                                 }
                             }
                         } else {
-                            System.out.println("have no block to extend");
+                            System.out.println("have no block to extend at height " + height);
                         }
                     }
 
