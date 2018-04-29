@@ -155,6 +155,11 @@ public class Verifier {
                     System.out.println(status.toString());
                 }
 
+                // If messages from the network have stopped, reconnect.
+                if (timestampAge() > 30L) {
+                    NodeManager.fetchNodeList(0);
+                }
+
             } catch (Exception reportOnly) {
                 System.err.println(PrintUtil.printException(reportOnly));
             }
