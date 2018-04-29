@@ -131,8 +131,7 @@ public class NodeManager {
                                                 @Override
                                                 public void responseReceived(Message message) {
                                                     System.out.println("received node join response " + message);
-                                                    NodeJoinResponse response = (NodeJoinResponse) message.getContent();
-                                                    ChainInitializationManager.processNodeJoinResponse(response);
+                                                    ChainInitializationManager.processNodeJoinResponse(message);
                                                 }
                                             });
                                 }

@@ -9,9 +9,10 @@ public class ChainInitializationManager {
 
     private static final Map<Long, FrozenBlockVoteTally> hashVotes = new HashMap<>();
 
-    public static synchronized void processNodeJoinResponse(NodeJoinResponse response) {
+    public static synchronized void processNodeJoinResponse(Message message) {
 
         System.out.println("processing node-join response");
+        NodeJoinResponse response = (NodeJoinResponse) message.getContent();
 
         // First, try to get the Genesis block if we don't have one already stored.
         Block localGenesisBlock = BlockManager.frozenBlockForHeight(0L);
@@ -33,9 +34,9 @@ public class ChainInitializationManager {
                 hashVotes.put(blockHeight, voteTally);
             }
 
-            // If consensus is reached on a hash, try to get the block from the network.
+            // Vote. If consensus is reached on a hash, try to get the block from the network.
             byte[] hash = response.getBlockHashes().get(i);
-            boolean consensus = voteTally.vote(response.getBlockHashes().get(i));
+            boolean consensus = voteTally.vote(message.getSourceNodeIdentifier(), response.getBlockHashes().get(i));
             if (consensus && blockHeight > BlockManager.highestBlockFrozen()) {
                 System.out.println("*** need to get frozen block at height " + blockHeight + " from network ***");
                 getBlockFromNetwork(blockHeight, hash);
