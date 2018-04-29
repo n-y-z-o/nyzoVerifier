@@ -21,8 +21,12 @@ public class ChainOptionManager {
         long leadingEdgeHeight = leadingEdgeHeight();
         long highestBlockFrozen = BlockManager.highestBlockFrozen();
 
-        // A small extra protection to ensure we do not do anything with a block with an invalid signature.
-        if (!block.signatureIsValid()) {
+        if (block.getBlockHeight() <= highestBlockFrozen) {
+            System.err.println("rejecting block that is behind the frozen edge");
+        }
+
+        // Reject all blocks with invalid signatures and all those at or behind the frozen edge.
+        if (!block.signatureIsValid() || block.getBlockHeight() <= highestBlockFrozen) {
             block = null;
         }
 
