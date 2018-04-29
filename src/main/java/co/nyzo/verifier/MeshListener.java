@@ -140,11 +140,6 @@ public class MeshListener {
                     response = new Message(MessageType.TransactionPoolResponse14,
                             new TransactionPoolResponse(TransactionPool.allTransactions()));
 
-                } else if (messageType == MessageType.HighestBlockFrozenRequest15) {
-
-                    response = new Message(MessageType.HighestBlockFrozenResponse16,
-                            new HighestBlockFrozenResponse(BlockManager.highestBlockFrozen()));
-
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +

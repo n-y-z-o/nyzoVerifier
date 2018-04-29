@@ -359,8 +359,6 @@ public class Message {
             content = Block.fromByteBuffer(buffer);
         } else if (type == MessageType.TransactionPoolResponse14) {
             content = TransactionPoolResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.HighestBlockFrozenResponse16) {
-            content = HighestBlockFrozenResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
