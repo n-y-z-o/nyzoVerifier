@@ -120,8 +120,6 @@ public class Verifier {
                     long highestBlockFrozen = BlockManager.highestBlockFrozen();
                     long endHeight = Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen);
                     long startHeight = Math.max(endHeight - 2, highestBlockFrozen);  // Only extend from two back.
-                    System.out.println("leading edge height=" + ChainOptionManager.leadingEdgeHeight() +
-                            ", start height=" + startHeight + ", end height=" + endHeight);
                     for (long height = startHeight; height <= endHeight; height++) {
 
                         // Try to extend the lowest-scoring block.
