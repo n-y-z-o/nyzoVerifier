@@ -32,6 +32,13 @@ public class ChainOptionManager {
             Block previousBlock = null;
             if (previousBlockHeight <= highestBlockFrozen) {
                 previousBlock = BlockManager.frozenBlockForHeight(previousBlockHeight);
+
+                // If the frozen block does not connect with the new block, reject the new block.
+                if (!ByteUtil.arraysAreEqual(previousBlock.getHash(), block.getPreviousBlockHash())) {
+                    System.err.println("The new block cannot connect with a block that is already frozen. Rejecting.");
+                    previousBlock = null;
+                    block = null;
+                }
             } else {
                 List<Block> blocksAtPreviousHeight = unfrozenBlocks.get(previousBlockHeight);
                 if (blocksAtPreviousHeight != null) {
@@ -43,7 +50,9 @@ public class ChainOptionManager {
                 }
             }
 
-            block.setPreviousBlock(previousBlock);
+            if (block != null) {
+                block.setPreviousBlock(previousBlock);
+            }
         }
 
         CycleInformation cycleInformation = block == null ? null : block.getCycleInformation();
