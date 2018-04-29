@@ -147,18 +147,17 @@ public class ChainOptionManager {
             }
         }
 
-        System.out.println("block " + ByteUtil.arrayAsStringWithDashes(block.getVerifierSignature()) + " at height " +
-                block.getBlockHeight() + " has chain height " + height);
-
         return height;
     }
 
-    public static synchronized void freezeBlockIfPossible() {
+    public static synchronized void freezeBlocks() {
 
         // We can freeze a block if it is 5 blocks or more back from the leading edge.
         long leadingEdgeHeight = leadingEdgeHeight();
         long frozenEdgeHeight = BlockManager.highestBlockFrozen();
-        if (frozenEdgeHeight < leadingEdgeHeight - 6) {
+        boolean shouldContinue = true;
+        while (frozenEdgeHeight < leadingEdgeHeight - 6 && shouldContinue) {
+            shouldContinue = false;
             long heightToFreeze = frozenEdgeHeight + 1;
             List<Block> blocksAtFreezeLevel = unfrozenBlocks.get(heightToFreeze);
             if (blocksAtFreezeLevel.size() == 1) {
@@ -172,6 +171,10 @@ public class ChainOptionManager {
                             unfrozenBlocks.remove(height);
                         }
                     }
+
+                    // Indicate that we should continue trying to freeze blocks.
+                    shouldContinue = true;
+                    frozenEdgeHeight = heightToFreeze;
                 }
             }
         }

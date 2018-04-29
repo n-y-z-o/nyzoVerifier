@@ -142,7 +142,7 @@ public class Verifier {
                     }
 
                     ChainOptionManager.removeAbandonedChains();
-                    ChainOptionManager.freezeBlockIfPossible();
+                    ChainOptionManager.freezeBlocks();
 
                     StringBuilder status = new StringBuilder("status: c=");
                     status.append(NodeManager.connectedToMesh()).append("/").append(NodeManager.getMesh().size());
