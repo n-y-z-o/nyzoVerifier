@@ -124,7 +124,8 @@ public class NodeManager {
                                 if (node.isFullNode()) {
                                     Message nodeJoinMessage = new Message(MessageType.NodeJoin3,
                                             new NodeJoinMessage(MeshListener.getPort(), true));
-                                    System.out.println("sending node-join message to " + nodeJoinMessage);
+                                    System.out.println("sending node-join message to " +
+                                            IpUtil.addressAsString(node.getIpAddress()));
                                     Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(),
                                             nodeJoinMessage, true, new MessageCallback() {
                                                 @Override

@@ -107,6 +107,7 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NodeJoin3) {
 
+                    System.out.println("received node-join message");
                     NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
                             nodeJoinMessage.getPort(), nodeJoinMessage.isFullNode());
