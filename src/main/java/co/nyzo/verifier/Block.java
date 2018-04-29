@@ -139,7 +139,8 @@ public class Block implements MessageObject {
         if (previousBlock == null) {
             this.previousBlock = null;
         } else if (!ByteUtil.arraysAreEqual(previousBlock.getHash(), previousBlockHash)) {
-            System.err.println("previous block DOES NOT match hash!");
+            System.err.println("previous block DOES NOT match hash! (previous block height=" +
+                    previousBlock.getBlockHeight() + ")");
         } else {
             this.previousBlock = previousBlock;
         }
