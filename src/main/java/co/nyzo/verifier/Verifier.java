@@ -146,17 +146,14 @@ public class Verifier {
 
                     StringBuilder status = new StringBuilder("status: c=");
                     status.append(NodeManager.connectedToMesh()).append("/").append(NodeManager.getMesh().size());
-                    status.append(",f=").append(BlockManager.highestBlockFrozen());
+                    status.append(";f=").append(BlockManager.highestBlockFrozen());
+                    status.append(";L=").append(ChainOptionManager.leadingEdgeHeight());
                     for (Long height : ChainOptionManager.unfrozenBlockHeights()) {
                         status.append(";h=").append(height).append(",n=");
                         status.append(ChainOptionManager.numberOfBlocksAtHeight(height));
                     }
                     System.out.println(status.toString());
                 }
-
-                System.out.println("connected to mesh: " + NodeManager.connectedToMesh() + "(" +
-                        NodeManager.getMesh().size() + "), highest block frozen: " +
-                        BlockManager.highestBlockFrozen() + ", ready to process: " + BlockManager.readyToProcess());
 
             } catch (Exception reportOnly) {
                 System.err.println(PrintUtil.printException(reportOnly));
@@ -187,10 +184,6 @@ public class Verifier {
             long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
             block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
                     HashUtil.doubleSHA256(balanceList.getBytes()), balanceList);
-
-            System.out.println("extended block " +
-                    ByteUtil.arrayAsStringWithDashes(previousBlock.getVerifierSignature()) + " to " +
-                            ByteUtil.arrayAsStringWithDashes(block.getVerifierSignature()));
         }
 
         return block;
