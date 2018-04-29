@@ -22,6 +22,9 @@ public class Verifier {
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
 
+    private static int recentMessageTimestampsIndex = 0;
+    private static final long[] recentMessageTimestamps = new long[10];
+
     static {
         loadPrivateSeed();
     }
@@ -148,6 +151,7 @@ public class Verifier {
                         status.append(";h=").append(height).append(",n=");
                         status.append(ChainOptionManager.numberOfBlocksAtHeight(height));
                     }
+                    status.append(";t=").append(timestampAge());
                     System.out.println(status.toString());
                 }
 
@@ -193,5 +197,16 @@ public class Verifier {
     public static byte[] sign(byte[] bytesToSign) {
 
         return SignatureUtil.signBytes(bytesToSign, privateSeed);
+    }
+
+    public static synchronized void registerMessage() {
+
+        recentMessageTimestamps[recentMessageTimestampsIndex] = System.currentTimeMillis();
+        recentMessageTimestampsIndex = (recentMessageTimestampsIndex + 1) % recentMessageTimestamps.length;
+    }
+
+    private static synchronized long timestampAge() {
+
+        return System.currentTimeMillis() - recentMessageTimestamps[recentMessageTimestampsIndex];
     }
 }

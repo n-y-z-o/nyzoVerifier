@@ -96,6 +96,8 @@ public class MeshListener {
         try {
             if (message != null && message.isValid()) {
 
+                Verifier.registerMessage();
+
                 MessageType messageType = message.getType();
 
                 if (messageType == MessageType.NodeListRequest1) {
