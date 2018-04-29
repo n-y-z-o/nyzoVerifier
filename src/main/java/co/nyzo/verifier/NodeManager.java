@@ -168,6 +168,11 @@ public class NodeManager {
         return new ArrayList<>(nodePool);
     }
 
+    public static int numberOfNodesInMesh() {
+
+        return nodePool.size();
+    }
+
     public static boolean connectedToMesh() {
 
         // When we request the node list from another node, it will add this node to the list. So, the minimum number
