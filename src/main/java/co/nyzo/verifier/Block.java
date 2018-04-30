@@ -263,7 +263,7 @@ public class Block implements MessageObject {
                 FieldByteSize.timestamp +                // start timestamp
                 FieldByteSize.timestamp +                // verification timestamp
                 4 +                                      // number of transactions
-                FieldByteSize.hash;                      // digest hash
+                FieldByteSize.hash;                      // balance-list hash
         for (Transaction transaction : transactions) {
             size += transaction.getByteSize();
         }
