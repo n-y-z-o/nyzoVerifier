@@ -146,8 +146,6 @@ public class Verifier {
                 Thread.sleep(3000);
             } catch (Exception ignored) { }
 
-            System.exit(1);
-
             // Try to join the
 
             // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh

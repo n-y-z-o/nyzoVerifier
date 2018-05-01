@@ -102,6 +102,7 @@ public class MeshListener {
 
                 if (messageType == MessageType.BootstrapRequest1) {
 
+                    // Update the node with the node manager so it will appear in the node list that it receives.
                     BootstrapRequest requestMessage = (BootstrapRequest) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
                             requestMessage.getPort(), requestMessage.isFullNode());
