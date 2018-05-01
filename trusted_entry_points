@@ -1,0 +1,4 @@
+# a hash sign starts a comment, which continues to the end of the line
+verifier1.nyzo.co:9444
+verifier2.nyzo.co:9444 # end-of-line comments are allowed, also
+#verifier3.nyzo.co:9444
