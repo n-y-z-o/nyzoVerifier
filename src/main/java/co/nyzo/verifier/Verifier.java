@@ -110,41 +110,48 @@ public class Verifier {
                 System.out.println("-" + entryPoint);
             }
 
-            // Send bootstrap requests to all trusted entry points.
-            Message bootstrapRequest = new Message(MessageType.BootstrapRequest1,
-                    new BootstrapRequest(MeshListener.getPort(), true));
-            for (String entryPoint : trustedEntryPoints) {
-                String[] split = entryPoint.split(":");
-                if (split.length == 2) {
-                    String host = split[0];
-                    int port = -1;
-                    try {
-                        port = Integer.parseInt(split[1]);
-                    } catch (Exception ignored) { }
-                    if (!host.isEmpty() && port > 0) {
-                        System.out.println("sending Bootstrap request to " + host + ":" + port);
-                        Message.fetch(host, port, bootstrapRequest, false, new MessageCallback() {
-                            @Override
-                            public void responseReceived(Message message) {
-                                if (message == null) {
-                                    System.out.println("Bootstrap response is null");
-                                } else {
-                                    BootstrapResponse response = (BootstrapResponse) message.getContent();
+            // Attempt to connect to the mesh. This should succeed on the first attempt, but it may take longer if we
+            // are starting a new mesh.
+            while (!NodeManager.connectedToMesh()) {
 
+                // Send bootstrap requests to all trusted entry points.
+                Message bootstrapRequest = new Message(MessageType.BootstrapRequest1,
+                        new BootstrapRequest(MeshListener.getPort(), true));
+                for (String entryPoint : trustedEntryPoints) {
+                    String[] split = entryPoint.split(":");
+                    if (split.length == 2) {
+                        String host = split[0];
+                        int port = -1;
+                        try {
+                            port = Integer.parseInt(split[1]);
+                        } catch (Exception ignored) {
+                        }
+                        if (!host.isEmpty() && port > 0) {
+                            System.out.println("sending Bootstrap request to " + host + ":" + port);
+                            Message.fetch(host, port, bootstrapRequest, false, new MessageCallback() {
+                                @Override
+                                public void responseReceived(Message message) {
+                                    if (message == null) {
+                                        System.out.println("Bootstrap response is null");
+                                    } else {
+                                        BootstrapResponse response = (BootstrapResponse) message.getContent();
 
-                                    System.out.println("Got Bootstrap response from " +
-                                            ByteUtil.arrayAsStringWithDashes(message.getSourceNodeIdentifier()));
+                                        System.out.println("Got Bootstrap response from " +
+                                                ByteUtil.arrayAsStringWithDashes(message.getSourceNodeIdentifier()) +
+                                                ":" + response);
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
                     }
                 }
-            }
 
-            // Wait 3 seconds for requests to return.
-            try {
-                Thread.sleep(3000);
-            } catch (Exception ignored) { }
+                // Wait 3 seconds for requests to return.
+                try {
+                    Thread.sleep(3000);
+                } catch (Exception ignored) {
+                }
+            }
 
             // Try to join the
 
