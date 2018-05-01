@@ -139,6 +139,12 @@ public class Verifier {
                                         System.out.println("Got Bootstrap response from " +
                                                 ByteUtil.arrayAsStringWithDashes(message.getSourceNodeIdentifier()) +
                                                 ":" + response);
+
+                                        // Add the nodes to the local list.
+                                        for (Node node : response.getMesh()) {
+                                            NodeManager.updateNode(node.getIdentifier(), node.getIpAddress(),
+                                                    node.getPort(), node.isFullNode(), node.getQueueTimestamp());
+                                        }
                                     }
                                 }
                             });
