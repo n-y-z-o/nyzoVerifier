@@ -12,7 +12,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Verifier {
@@ -26,6 +25,7 @@ public class Verifier {
     private static final long[] recentMessageTimestamps = new long[10];
 
     static {
+        // This ensures the seed is always available, even if this class is used from a test script.
         loadPrivateSeed();
     }
 
@@ -61,25 +61,27 @@ public class Verifier {
 
         dataRootDirectory.mkdirs();
 
-        final Path seedFile = Paths.get(dataRootDirectory.getAbsolutePath() + "/verifier_private_seed");
-        System.out.println("seed file path is " + seedFile);
-        try {
-            List<String> lines = Files.readAllLines(seedFile);
-            if (lines != null && !lines.isEmpty()) {
-                String line = lines.get(0);
-                if (line.length() > 64) {
-                    privateSeed = ByteUtil.byteArrayFromHexString(lines.get(0), 32);
-                }
-            }
-        } catch (Exception ignored) { }
-
-        if (privateSeed == null || ByteUtil.isAllZeros(privateSeed) || privateSeed.length != 32) {
-            privateSeed = KeyUtil.generateSeed();
+        if (privateSeed == null) {
+            final Path seedFile = Paths.get(dataRootDirectory.getAbsolutePath() + "/verifier_private_seed");
+            System.out.println("seed file path is " + seedFile);
             try {
-                Files.write(seedFile, Arrays.asList(ByteUtil.arrayAsStringWithDashes(privateSeed)));
-            } catch (Exception e) {
-                e.printStackTrace();
-                privateSeed = null;
+                List<String> lines = Files.readAllLines(seedFile);
+                if (lines != null && !lines.isEmpty()) {
+                    String line = lines.get(0);
+                    if (line.length() > 64) {
+                        privateSeed = ByteUtil.byteArrayFromHexString(lines.get(0), 32);
+                    }
+                }
+            } catch (Exception ignored) { }
+
+            if (privateSeed == null || ByteUtil.isAllZeros(privateSeed) || privateSeed.length != 32) {
+                privateSeed = KeyUtil.generateSeed();
+                try {
+                    Files.write(seedFile, Arrays.asList(ByteUtil.arrayAsStringWithDashes(privateSeed)));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    privateSeed = null;
+                }
             }
         }
     }
@@ -88,7 +90,10 @@ public class Verifier {
 
         if (!alive.getAndSet(true)) {
 
-            // Start the node listener and wait for it to start and for the port to be settled.
+            // Load the private seed. This seed is used to sign all messages, so this is done first.
+            loadPrivateSeed();
+
+            // Start the node listener and wait for it to start and for the port to settle.
             MeshListener.start();
             try {
                 Thread.sleep(20L);
@@ -96,8 +101,14 @@ public class Verifier {
 
             System.out.println("starting verifier");
 
-            loadPrivateSeed();
-            NodeManager.fetchNodeList(0);
+            // Load the list of trusted entry points.
+            List<String> trustedEntryPoints = getTrustedEntryPoints();
+            System.out.println("trusted entry points");
+            for (String entryPoint : trustedEntryPoints) {
+                System.out.println("-" + entryPoint);
+            }
+
+            // Send
 
             // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh
             // and build the blockchain.
@@ -109,6 +120,27 @@ public class Verifier {
                 }
             }, "Verifier-mainLoop").start();
         }
+    }
+
+    private static List<String> getTrustedEntryPoints() {
+
+        Path path = Paths.get(dataRootDirectory.getAbsolutePath() + "/trusted_entry_points");
+        List<String> entryPoints = new ArrayList<>();
+        try {
+            List<String> contentsOfFile = Files.readAllLines(path);
+            for (String line : contentsOfFile) {
+                line = line.trim();
+                int indexOfHash = line.indexOf("#");
+                if (indexOfHash >= 0) {
+                    line = line.substring(0, indexOfHash).trim();
+                }
+                if (!line.isEmpty()) {
+                    entryPoints.add(line);
+                }
+            }
+        } catch (Exception ignored) { }
+
+        return entryPoints;
     }
 
     private static void verifierMain() {

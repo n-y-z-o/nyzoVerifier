@@ -1,9 +1,8 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NodeJoinMessage;
-import co.nyzo.verifier.messages.NodeJoinResponse;
-import co.nyzo.verifier.messages.NodeListRequest;
-import co.nyzo.verifier.messages.NodeListResponse;
+import co.nyzo.verifier.messages.BootstrapRequest;
+import co.nyzo.verifier.messages.BootstrapResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -97,15 +96,15 @@ public class NodeManager {
 
         String url = "verifier" + index + ".nyzo.co";
         System.out.println("fetching node list from " + url);
-        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeListRequest1,
-                new NodeListRequest(MeshListener.getPort(), true)), false,
+        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.BootstrapRequest1,
+                new BootstrapRequest(MeshListener.getPort(), true)), false,
                 new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
                         List<Node> nodes = new ArrayList<>();
                         try {
                             if (message != null) {
-                                NodeListResponse response = (NodeListResponse) message.getContent();
+                                BootstrapResponse response = (BootstrapResponse) message.getContent();
                                 nodes = response.getNodes();
                             }
                         } catch (Exception ignored) { }

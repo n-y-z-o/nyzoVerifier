@@ -144,10 +144,9 @@ public class BlockManager {
         }
 
         BalanceList balanceList = block.getBalanceList();
-        CycleInformation cycleInformation = block.getCycleInformation();
-        if (balanceList == null || cycleInformation == null) {
-            System.err.println("unable to freeze block " + block.getBalanceList() + " because its balance list or " +
-                    "cycle information is null");
+        if (balanceList == null) {
+            System.err.println("unable to freeze block " + block.getBalanceList() + " because its balance list " +
+                    "is null");
         } else {
             synchronized (BlockManager.class) {
                 try {

@@ -26,11 +26,11 @@ public class NodeListMessageTest {
             Thread.sleep(1000L);
         } catch (Exception ignored) { }
 
-        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeListRequest1, null), false,
+        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.BootstrapRequest1, null), false,
                 new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
-                        System.out.println("return message in NodeListRequest1 is " + message);
+                        System.out.println("return message in BootstrapRequest1 is " + message);
                     }
                 });
     }

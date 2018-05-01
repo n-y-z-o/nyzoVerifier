@@ -6,8 +6,8 @@ public enum MessageType {
 
     // standard-operation messages
     Invalid0(0),
-    NodeListRequest1(1),
-    NodeListResponse2(2),
+    BootstrapRequest1(1),
+    BootstrapResponse2(2),
     NodeJoin3(3),
     NodeJoinResponse4(4),
     Transaction5(5),

@@ -100,12 +100,12 @@ public class MeshListener {
 
                 MessageType messageType = message.getType();
 
-                if (messageType == MessageType.NodeListRequest1) {
+                if (messageType == MessageType.BootstrapRequest1) {
 
-                    NodeListRequest requestMessage = (NodeListRequest) message.getContent();
+                    BootstrapRequest requestMessage = (BootstrapRequest) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
                             requestMessage.getPort(), requestMessage.isFullNode());
-                    response = new Message(MessageType.NodeListResponse2, new NodeListResponse(NodeManager.getMesh()));
+                    response = new Message(MessageType.BootstrapResponse2, new BootstrapResponse(NodeManager.getMesh()));
 
                 } else if (messageType == MessageType.NodeJoin3) {
 

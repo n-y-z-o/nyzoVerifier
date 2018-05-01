@@ -345,10 +345,10 @@ public class Message {
     private static MessageObject processContent(MessageType type, ByteBuffer buffer) {
 
         MessageObject content = null;
-        if (type == MessageType.NodeListRequest1) {
-            content = NodeListRequest.fromByteBuffer(buffer);
-        } else if (type == MessageType.NodeListResponse2) {
-            content = NodeListResponse.fromByteBuffer(buffer);
+        if (type == MessageType.BootstrapRequest1) {
+            content = BootstrapRequest.fromByteBuffer(buffer);
+        } else if (type == MessageType.BootstrapResponse2) {
+            content = BootstrapResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.NodeJoin3) {
             content = NodeJoinMessage.fromByteBuffer(buffer);
         } else if (type == MessageType.NodeJoinResponse4) {

@@ -5,12 +5,12 @@ import co.nyzo.verifier.MessageObject;
 
 import java.nio.ByteBuffer;
 
-public class NodeListRequest implements MessageObject {
+public class BootstrapRequest implements MessageObject {
 
     private int port;
     private boolean fullNode;
 
-    public NodeListRequest(int port, boolean fullNode) {
+    public BootstrapRequest(int port, boolean fullNode) {
 
         this.port = port;
         this.fullNode = fullNode;
@@ -40,15 +40,15 @@ public class NodeListRequest implements MessageObject {
         return array;
     }
 
-    public static NodeListRequest fromByteBuffer(ByteBuffer buffer) {
+    public static BootstrapRequest fromByteBuffer(ByteBuffer buffer) {
 
-        NodeListRequest result = null;
+        BootstrapRequest result = null;
 
         try {
             int port = buffer.getInt();
             boolean fullNode = buffer.get() == 1;
 
-            result = new NodeListRequest(port, fullNode);
+            result = new BootstrapRequest(port, fullNode);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }

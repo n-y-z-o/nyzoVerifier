@@ -8,11 +8,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-public class NodeListResponse implements MessageObject {
+public class BootstrapResponse implements MessageObject {
 
     private List<Node> nodes;
 
-    public NodeListResponse(List<Node> nodes) {
+    public BootstrapResponse(List<Node> nodes) {
         this.nodes = nodes;
     }
 
@@ -47,9 +47,9 @@ public class NodeListResponse implements MessageObject {
         return result;
     }
 
-    public static NodeListResponse fromByteBuffer(ByteBuffer buffer) {
+    public static BootstrapResponse fromByteBuffer(ByteBuffer buffer) {
 
-        NodeListResponse result = null;
+        BootstrapResponse result = null;
 
         try {
             List<Node> nodes = new ArrayList<>();
@@ -66,7 +66,7 @@ public class NodeListResponse implements MessageObject {
                 nodes.add(new Node(identifier, ipAddress, port, fullNode));
             }
 
-            result = new NodeListResponse(nodes);
+            result = new BootstrapResponse(nodes);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }
@@ -76,7 +76,7 @@ public class NodeListResponse implements MessageObject {
 
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder("[NodeListResponse(" + nodes.size() + "): {");
+        StringBuilder result = new StringBuilder("[BootstrapResponse(" + nodes.size() + "): {");
         String separator = "";
         for (int i = 0; i < nodes.size() && i < 5; i++) {
             result.append(separator + nodes.get(i).toString());
