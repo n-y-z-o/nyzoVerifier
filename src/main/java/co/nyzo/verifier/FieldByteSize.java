@@ -6,6 +6,7 @@ public class FieldByteSize {
 
     public static final int booleanField = 1;
     public static final int balanceListLength = 4;
+    public static final int hashListLength = 1;
     public static final int ipAddress = 4;
     public static final int port = 4;
     public static final int rolloverTransactionFees = 1;
@@ -18,9 +19,10 @@ public class FieldByteSize {
     public static final int hash = 32;
     public static final int identifier = 32;
     public static final int nodeListLength = 4;
-    public static final int transactionPoolLength = 4;
     public static final int signature = 64;
     public static final int stringLength = 2;
+    public static final int transactionPoolLength = 4;
+    public static final int unfrozenBlockPoolLength = 2;
 
     public static int string(String value) {
         return stringLength + (value == null ? 0 : value.getBytes(StandardCharsets.UTF_8).length);

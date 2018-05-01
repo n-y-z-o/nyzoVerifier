@@ -2,7 +2,6 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BlockRequest;
 import co.nyzo.verifier.messages.BlockResponse;
-import co.nyzo.verifier.messages.NodeJoinResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -16,6 +15,7 @@ public class ChainInitializationManager {
         runBlockFetchThread();
     }
 
+    /*
     public static synchronized void processNodeJoinResponse(Message message) {
 
         System.out.println("processing node-join response");
@@ -49,7 +49,7 @@ public class ChainInitializationManager {
                 getBlockFromNetwork(blockHeight, hash);
             }
         }
-    }
+    }*/
 
     private static synchronized void getBlockFromNetwork(long blockHeight, byte[] hash) {
 

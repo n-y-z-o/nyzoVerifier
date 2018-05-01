@@ -6,6 +6,6 @@ public class NodeFetchTest {
 
     public static void main(String[] args) {
 
-        NodeManager.fetchNodeList(1);
+        //NodeManager.fetchNodeList(1);
     }
 }

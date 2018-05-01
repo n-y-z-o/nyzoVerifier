@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.BootstrapRequest;
+import co.nyzo.verifier.messages.BootstrapResponse;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 import co.nyzo.verifier.util.UpdateUtil;
@@ -41,7 +43,7 @@ public class Verifier {
                 System.out.println("executing class " + args[0]);
                 Class<?> classToRun = Class.forName(args[0]);
                 Method mainMethod = classToRun.getDeclaredMethod("main", String[].class);
-                mainMethod.invoke(classToRun, new Object[] { arguments.toArray(new String[0])});
+                mainMethod.invoke(classToRun, new Object[] { arguments.toArray(new String[arguments.size()]) });
                 System.out.println("fin.");
             } catch (Exception e) {
 
@@ -108,7 +110,45 @@ public class Verifier {
                 System.out.println("-" + entryPoint);
             }
 
-            // Send
+            // Send bootstrap requests to all trusted entry points.
+            Message bootstrapRequest = new Message(MessageType.BootstrapRequest1,
+                    new BootstrapRequest(MeshListener.getPort(), true));
+            for (String entryPoint : trustedEntryPoints) {
+                String[] split = entryPoint.split(":");
+                if (split.length == 2) {
+                    String host = split[0];
+                    int port = -1;
+                    try {
+                        port = Integer.parseInt(split[1]);
+                    } catch (Exception ignored) { }
+                    if (!host.isEmpty() && port > 0) {
+                        System.out.println("sending Bootstrap request to " + host + ":" + port);
+                        Message.fetch(host, port, bootstrapRequest, false, new MessageCallback() {
+                            @Override
+                            public void responseReceived(Message message) {
+                                if (message == null) {
+                                    System.out.println("Bootstrap response is null");
+                                } else {
+                                    BootstrapResponse response = (BootstrapResponse) message.getContent();
+
+
+                                    System.out.println("Got Bootstrap response from " +
+                                            ByteUtil.arrayAsStringWithDashes(message.getSourceNodeIdentifier()));
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+
+            // Wait 3 seconds for requests to return.
+            try {
+                Thread.sleep(3000);
+            } catch (Exception ignored) { }
+
+            System.exit(1);
+
+            // Try to join the
 
             // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh
             // and build the blockchain.
@@ -189,7 +229,7 @@ public class Verifier {
 
                 // If messages from the network have stopped, reconnect.
                 if (timestampAge() > 30L) {
-                    NodeManager.fetchNodeList(0);
+                    //NodeManager.fetchNodeList(0);
                 }
 
             } catch (Exception reportOnly) {

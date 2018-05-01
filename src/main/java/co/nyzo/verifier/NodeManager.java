@@ -92,6 +92,7 @@ public class NodeManager {
         }
     }
 
+    /*
     public static void fetchNodeList(int index) {
 
         String url = "verifier" + index + ".nyzo.co";
@@ -161,7 +162,7 @@ public class NodeManager {
                         }
                     }
                 });
-    }
+    }*/
 
     public static synchronized List<Node> getMesh() {
         return new ArrayList<>(nodePool);

@@ -105,7 +105,8 @@ public class MeshListener {
                     BootstrapRequest requestMessage = (BootstrapRequest) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
                             requestMessage.getPort(), requestMessage.isFullNode());
-                    response = new Message(MessageType.BootstrapResponse2, new BootstrapResponse(NodeManager.getMesh()));
+
+                    response = new Message(MessageType.BootstrapResponse2, new BootstrapResponse());
 
                 } else if (messageType == MessageType.NodeJoin3) {
 
@@ -113,7 +114,6 @@ public class MeshListener {
                     NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
                             nodeJoinMessage.getPort(), nodeJoinMessage.isFullNode());
-                    response = new Message(MessageType.NodeJoinResponse4, new NodeJoinResponse());
 
                 } else if (messageType == MessageType.Transaction5) {
 

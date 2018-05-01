@@ -9,10 +9,10 @@ public class PingBroadcastTest {
 
     public static void main(String[] args) throws Exception {
 
-        NodeManager.fetchNodeList(1);
+        //NodeManager.fetchNodeList(1);
         Thread.sleep(1000L);
-        Message.broadcast(new Message(MessageType.Ping200, null));
+        //Message.broadcast(new Message(MessageType.Ping200, null));
         Thread.sleep(1000L);
-        UpdateUtil.terminate();
+        //UpdateUtil.terminate();
     }
 }

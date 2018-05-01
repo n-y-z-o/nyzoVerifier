@@ -351,8 +351,6 @@ public class Message {
             content = BootstrapResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.NodeJoin3) {
             content = NodeJoinMessage.fromByteBuffer(buffer);
-        } else if (type == MessageType.NodeJoinResponse4) {
-            content = NodeJoinResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Transaction5) {
             content = Transaction.fromByteBuffer(buffer);
         } else if (type == MessageType.NewBlock9) {

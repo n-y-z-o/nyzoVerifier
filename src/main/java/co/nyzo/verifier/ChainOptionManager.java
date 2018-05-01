@@ -260,7 +260,7 @@ public class ChainOptionManager {
         return cycleInformation;
     }
 
-    public static Block blockToExtendForHeight(long blockHeight) {
+    public static synchronized Block blockToExtendForHeight(long blockHeight) {
 
         Block blockToExtend = null;
         long highestBlockFrozen = BlockManager.highestBlockFrozen();
@@ -285,7 +285,7 @@ public class ChainOptionManager {
         return blockToExtend;
     }
 
-    public static Set<Long> unfrozenBlockHeights() {
+    public static synchronized Set<Long> unfrozenBlockHeights() {
 
         return new HashSet<>(unfrozenBlocks.keySet());
     }
@@ -301,4 +301,13 @@ public class ChainOptionManager {
         return number;
     }
 
+    public static synchronized List<Block> allUnfrozenBlocks() {
+
+        List<Block> allBlocks = new ArrayList<>();
+        for (List<Block> blocks : unfrozenBlocks.values()) {
+            allBlocks.addAll(blocks);
+        }
+
+        return allBlocks;
+    }
 }
