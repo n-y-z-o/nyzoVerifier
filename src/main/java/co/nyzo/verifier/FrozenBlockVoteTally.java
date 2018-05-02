@@ -18,8 +18,6 @@ public class FrozenBlockVoteTally {
 
     public boolean vote(byte[] identifier, byte[] hash) {
 
-        // TODO: consider only allowing verifiers in the latest cycle to vote
-
         ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
         ByteBuffer hashBuffer = ByteBuffer.wrap(hash);
         Integer count = votes.get(hashBuffer);

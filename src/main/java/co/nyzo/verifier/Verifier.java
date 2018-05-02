@@ -134,17 +134,7 @@ public class Verifier {
                                     if (message == null) {
                                         System.out.println("Bootstrap response is null");
                                     } else {
-                                        BootstrapResponse response = (BootstrapResponse) message.getContent();
-
-                                        System.out.println("Got Bootstrap response from " +
-                                                ByteUtil.arrayAsStringWithDashes(message.getSourceNodeIdentifier()) +
-                                                ":" + response);
-
-                                        // Add the nodes to the local list.
-                                        for (Node node : response.getMesh()) {
-                                            NodeManager.updateNode(node.getIdentifier(), node.getIpAddress(),
-                                                    node.getPort(), node.isFullNode(), node.getQueueTimestamp());
-                                        }
+                                        processBootstrapResponseMessage(message);
                                     }
                                 }
                             });
@@ -192,6 +182,23 @@ public class Verifier {
         } catch (Exception ignored) { }
 
         return entryPoints;
+    }
+
+    private static void processBootstrapResponseMessage(Message message) {
+
+        BootstrapResponse response = (BootstrapResponse) message.getContent();
+
+        System.out.println("Got Bootstrap response from " +
+                ByteUtil.arrayAsStringWithDashes(message.getSourceNodeIdentifier()) + ":" + response);
+
+        // Add the nodes to the node manager.
+        for (Node node : response.getMesh()) {
+            NodeManager.updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(), node.isFullNode(),
+                    node.getQueueTimestamp());
+        }
+
+        // Cast hash votes with the chain initialization manager.
+        ChainInitializationManager.processBootstrapResponseMessage(message);
     }
 
     private static void verifierMain() {
