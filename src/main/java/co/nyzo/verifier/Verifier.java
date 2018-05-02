@@ -197,6 +197,16 @@ public class Verifier {
                     node.getQueueTimestamp());
         }
 
+        // Add the transactions to the transaction pool.
+        for (Transaction transaction : response.getTransactionPool()) {
+            TransactionPool.addTransaction(transaction);
+        }
+
+        // Add the unfrozen blocks to the chain-option manager.
+        for (Block block : response.getUnfrozenBlockPool()) {
+            ChainOptionManager.registerBlock(block);
+        }
+
         // Cast hash votes with the chain initialization manager.
         ChainInitializationManager.processBootstrapResponseMessage(message);
     }

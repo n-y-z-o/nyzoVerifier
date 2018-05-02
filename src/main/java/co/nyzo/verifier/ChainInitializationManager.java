@@ -21,17 +21,6 @@ public class ChainInitializationManager {
         System.out.println("processing node-join response");
         BootstrapResponse response = (BootstrapResponse) message.getContent();
 
-        // First, try to get the Genesis block if we don't have one already stored.
-        /*
-        Block localGenesisBlock = BlockManager.frozenBlockForHeight(0L);
-        Block responseGenesisBlock = response.getGenesisBlock();
-        if (localGenesisBlock == null && responseGenesisBlock != null) {
-            if (Block.isValidGenesisBlock(responseGenesisBlock, null)) {
-                System.out.println("GOT GENESIS BLOCK FROM NETWORK!!!");
-                BlockManager.freezeBlock(responseGenesisBlock);
-            }
-        }*/
-
         // Accumulate votes for the hashes.
         int numberOfHashes = response.getFrozenBlockHashes().size();
         for (int i = 0; i < numberOfHashes; i++) {
