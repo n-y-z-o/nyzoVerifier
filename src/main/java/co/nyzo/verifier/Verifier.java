@@ -112,7 +112,9 @@ public class Verifier {
 
             // Attempt to connect to the mesh. This should succeed on the first attempt, but it may take longer if we
             // are starting a new mesh.
-            while (!NodeManager.connectedToMesh()) {
+            long consensusFrozenEdge = -1;
+            byte[] frozenEdgeHash = new byte[FieldByteSize.hash];
+            while (consensusFrozenEdge < 0) {
 
                 // Send bootstrap requests to all trusted entry points.
                 Message bootstrapRequest = new Message(MessageType.BootstrapRequest1,
@@ -147,9 +149,18 @@ public class Verifier {
                     Thread.sleep(3000);
                 } catch (Exception ignored) {
                 }
+
+                // Get the consensus frozen edge. If this can be determined, we can continue to the next step.
+                consensusFrozenEdge = ChainInitializationManager.frozenEdgeHeight(frozenEdgeHash);
+                System.out.println("consensus frozen edge height: " + consensusFrozenEdge);
             }
 
-            // Try to join the
+            // At this point, we have two options:
+            // - if the frozen edge of the local blockchain is close enough to the frozen edge of the consensus
+            //   blockchain, extend the local blockchain to the consensus blockchain by freezing blocks
+            // - if the frozen edge of the local blockchain is too far back, start with the frozen edge of the
+            //   consensus block chain and fetch backward to obtain two cycles
+
 
             // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh
             // and build the blockchain.

@@ -23,7 +23,7 @@ public class BootstrapResponse implements MessageObject {
         Block block = BlockManager.frozenBlockForHeight(height);
         long firstHashHeight = -1;
         while (frozenBlockHashes.size() < 5 && block != null) {
-            frozenBlockHashes.add(block.getHash());
+            frozenBlockHashes.add(0, block.getHash());
             firstHashHeight = block.getBlockHeight();
             height--;
             block = BlockManager.frozenBlockForHeight(height);
