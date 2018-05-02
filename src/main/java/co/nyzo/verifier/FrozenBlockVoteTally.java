@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
+
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,7 +31,7 @@ public class FrozenBlockVoteTally {
             identifiersThatHaveVoted.add(identifierBuffer);
             count++;
             votes.put(hashBuffer, count);
-            System.out.println("count is now " + count + " for hash " + ByteUtil.arrayAsStringWithDashes(hash));
+            System.out.println("count is now " + count + " for hash " + PrintUtil.compactPrintByteArray(hash));
         }
 
         return count >= NodeManager.numberOfNodesInMesh() / 2;

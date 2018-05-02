@@ -1,5 +1,6 @@
 package co.nyzo.verifier.util;
 
+import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.Transaction;
 
 import java.text.SimpleDateFormat;
@@ -51,5 +52,18 @@ public class PrintUtil {
         }
 
         return result.toString();
+    }
+
+    public static String compactPrintByteArray(byte[] array) {
+
+        String result;
+        if (array.length <= 4) {
+            result = ByteUtil.arrayAsStringNoDashes(array);
+        } else {
+            result = String.format("%02x%02x...%02x%02x", array[0], array[1], array[array.length - 2],
+                    array[array.length - 1]);
+        }
+
+        return result;
     }
 }
