@@ -186,9 +186,13 @@ public class Block implements MessageObject {
         // Note: this method will not determine the discontinuity state of the Genesis block. It is assigned in the
         // constructor.
 
+        System.out.println("determining discontinuity state");
+
         CycleInformation cycleInformation = getCycleInformation();
         if (cycleInformation != null) {
             if (cycleInformation.isNewVerifier()) {
+
+                System.out.println("new-verifier condition");
 
                 // For a new verifier, find the previous new verifier and ensure that the difference is c + 2 from that
                 // verifier.
@@ -218,6 +222,8 @@ public class Block implements MessageObject {
                 }
 
             } else {
+
+                System.out.println("existing-verifier condition");
 
                 // For an existing verifier, find the previous two locations of that verifier, or just the previous
                 // location if the verifier was new in its last location.
@@ -274,6 +280,8 @@ public class Block implements MessageObject {
                     blockToCheck = blockToCheck.getPreviousBlock();
                 }
             }
+        } else {
+            System.out.println("cycle information is null; unable to determine");
         }
     }
 
