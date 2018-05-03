@@ -170,6 +170,10 @@ public class Block implements MessageObject {
 
     public long getDiscontinuityDeterminationHeight() {
 
+        if (discontinuityState == DiscontinuityState.Undetermined) {
+            determineDiscontinuityState();
+        }
+
         return discontinuityDeterminationHeight;
     }
 
