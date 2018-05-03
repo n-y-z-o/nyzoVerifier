@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.BootstrapResponse;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ChainInitializationManager {
 
@@ -24,11 +25,12 @@ public class ChainInitializationManager {
             }
 
             byte[] hash = response.getFrozenBlockHashes().get(i);
-            voteTally.vote(message.getSourceNodeIdentifier(), hash);
+            long determinationHeight = response.getDiscontinuityDeterminationHeights().get(i);
+            voteTally.vote(message.getSourceNodeIdentifier(), hash, determinationHeight);
         }
     }
 
-    public static synchronized long frozenEdgeHeight(byte[] frozenEdgeHash) {
+    public static synchronized long frozenEdgeHeight(byte[] frozenEdgeHash, AtomicLong determinationHeight) {
 
         // Determine the maximum number of votes we have at any level. This determines our consensus threshold.
         int maximumVotesAtAnyLevel = 0;
@@ -42,7 +44,7 @@ public class ChainInitializationManager {
             for (long height : hashVotes.keySet()) {
                 if (height > maximumConsensusHeight) {
                     FrozenBlockVoteTally tally = hashVotes.get(height);
-                    if (tally.votesForWinner(frozenEdgeHash) > maximumVotesAtAnyLevel / 2) {
+                    if (tally.votesForWinner(frozenEdgeHash, determinationHeight) > maximumVotesAtAnyLevel / 2) {
                         maximumConsensusHeight = height;
                     }
                 }
@@ -57,13 +59,12 @@ public class ChainInitializationManager {
         long localFrozenEdge = BlockManager.highestBlockFrozen();
 
         List<Block> blocks = new ArrayList<>();
+        /*
         while (blocks.isEmpty() || blocks.get(blocks.size() - 1).getCycleInformation() == null) {
 
             List<Block> blocksFromNetwork = new ArrayList<>();
-        }
 
 
-        // TODO: FIRST TASK: send the discontinuity determination height in the bootstrap response and use it to
-        // TODO: help fetch blocks
+        }*/
     }
 }
