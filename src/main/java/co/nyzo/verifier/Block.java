@@ -174,6 +174,10 @@ public class Block implements MessageObject {
             determineDiscontinuityState();
         }
 
+        System.out.println("discontinuity state for block " + PrintUtil.compactPrintByteArray(getHash()) +
+                " at height " + height + " is " + discontinuityState + ", determination height is " +
+                discontinuityDeterminationHeight);
+
         return discontinuityDeterminationHeight;
     }
 
