@@ -11,8 +11,8 @@ public class ChainScoreTest {
 
         String[] verifiers =    { "A", "B", "C", "B", "C", "A", "C", "A", "C", "A", "B", "C", "A", "B", "C", "D", "D",
                 "A" };
-        long[] expectedScores = {   0,   0,   0,   1,   1,   0,   1,   1,   1,   1,   0,   0,   0,   0,   0,  -1,   2,
-                  1 };
+        long[] expectedScores = {   0,   0,   0,  10,  10,   0,  10,  10,  10,  10,   0,   0,   0,   0,   0, -10,  20,
+                1000020 };
 
         Block previousBlock = null;
         long genesisStartTimestamp = 1000000L;
