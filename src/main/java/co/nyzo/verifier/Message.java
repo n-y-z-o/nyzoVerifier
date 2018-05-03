@@ -166,6 +166,23 @@ public class Message {
         }
     }
 
+    public static void fetch(Message message, boolean retryIfFailed, MessageCallback messageCallback) {
+
+        Node node = null;
+        List<Node> mesh = NodeManager.getMesh();
+        Random random = new Random();
+        while (node == null && !mesh.isEmpty()) {
+            Node testNode = mesh.remove(random.nextInt(mesh.size()));
+            if (!ByteUtil.arraysAreEqual(testNode.getIdentifier(), Verifier.getIdentifier())) {
+                node = testNode;
+            }
+        }
+
+        if (node != null) {
+            fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, retryIfFailed, messageCallback);
+        }
+    }
+
     public static void fetch(String hostNameOrIp, int port, Message message, boolean retryIfFailed,
                              MessageCallback messageCallback) {
 

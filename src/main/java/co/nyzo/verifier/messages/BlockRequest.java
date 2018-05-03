@@ -8,22 +8,16 @@ import java.nio.ByteBuffer;
 public class BlockRequest implements MessageObject {
 
     private long blockHeight;
-    private byte[] blockHash;
     private boolean includeBalanceList;
 
-    public BlockRequest(long blockHeight, byte[] blockHash, boolean includeBalanceList) {
+    public BlockRequest(long blockHeight, boolean includeBalanceList) {
 
         this.blockHeight = blockHeight;
-        this.blockHash = blockHash;
         this.includeBalanceList = includeBalanceList;
     }
 
     public long getBlockHeight() {
         return blockHeight;
-    }
-
-    public byte[] getBlockHash() {
-        return blockHash;
     }
 
     public boolean includeBalanceList() {
@@ -32,7 +26,7 @@ public class BlockRequest implements MessageObject {
 
     @Override
     public int getByteSize() {
-        return FieldByteSize.blockHeight + FieldByteSize.hash + FieldByteSize.booleanField;
+        return FieldByteSize.blockHeight + FieldByteSize.booleanField;
     }
 
     @Override
@@ -41,7 +35,6 @@ public class BlockRequest implements MessageObject {
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.putLong(blockHeight);
-        buffer.put(blockHash);
         buffer.put(includeBalanceList ? (byte) 1 : (byte) 0);
 
         return array;
@@ -53,11 +46,9 @@ public class BlockRequest implements MessageObject {
 
         try {
             long blockHeight = buffer.getLong();
-            byte[] hash = new byte[FieldByteSize.hash];
-            buffer.get(hash);
             boolean includeBalanceList = buffer.get() == 1;
 
-            result = new BlockRequest(blockHeight, hash, includeBalanceList);
+            result = new BlockRequest(blockHeight, includeBalanceList);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }

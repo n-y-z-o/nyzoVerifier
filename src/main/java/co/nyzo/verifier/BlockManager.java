@@ -129,7 +129,7 @@ public class BlockManager {
         return successful;
     }
 
-    public static void freezeBlock(Block block) {
+    public static synchronized void freezeBlock(Block block) {
 
         // If the balance list is null, try to create it now.
         if (block.getBalanceList() == null) {

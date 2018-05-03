@@ -136,6 +136,12 @@ public class MeshListener {
                         Message.forward(message);
                     }
 
+                } else if (messageType == MessageType.BlockRequest11) {
+
+                    BlockRequest request = (BlockRequest) message.getContent();
+                    response = new Message(MessageType.BlockResponse12, new BlockResponse(request.getBlockHeight(),
+                            request.includeBalanceList()));
+
                 } else if (messageType == MessageType.TransactionPoolRequest13) {
 
                     response = new Message(MessageType.TransactionPoolResponse14,

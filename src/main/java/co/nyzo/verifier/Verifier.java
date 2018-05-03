@@ -146,9 +146,9 @@ public class Verifier {
                     }
                 }
 
-                // Wait 3 seconds for requests to return.
+                // Wait 2 seconds for requests to return.
                 try {
-                    Thread.sleep(3000);
+                    Thread.sleep(2000);
                 } catch (Exception ignored) {
                 }
 
@@ -161,7 +161,8 @@ public class Verifier {
             // If the consensus frozen edge is higher than the local frozen edge, fetch the necessary blocks to start
             // verifying.
             if (consensusFrozenEdge > BlockManager.highestBlockFrozen()) {
-                ChainInitializationManager.fetchChainToHeight(consensusFrozenEdge);
+                long startBlock = Math.max(BlockManager.highestBlockFrozen(), determinationHeight.get());
+                ChainInitializationManager.fetchChainSection(startBlock, consensusFrozenEdge, frozenEdgeHash);
             }
 
             // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh

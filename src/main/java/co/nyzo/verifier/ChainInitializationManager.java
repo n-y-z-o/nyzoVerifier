@@ -1,6 +1,9 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.BlockRequest;
+import co.nyzo.verifier.messages.BlockResponse;
 import co.nyzo.verifier.messages.BootstrapResponse;
+import co.nyzo.verifier.util.UpdateUtil;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,17 +57,33 @@ public class ChainInitializationManager {
         return maximumConsensusHeight;
     }
 
-    public static void fetchChainToHeight(long consensusFrozenEdge) {
+    public static void fetchChainSection(long startBlock, long endBlock, byte[] startBlockHash) {
 
         long localFrozenEdge = BlockManager.highestBlockFrozen();
 
         List<Block> blocks = new ArrayList<>();
-        /*
-        while (blocks.isEmpty() || blocks.get(blocks.size() - 1).getCycleInformation() == null) {
+        while (BlockManager.highestBlockFrozen() < endBlock && !UpdateUtil.shouldTerminate()) {
 
-            List<Block> blocksFromNetwork = new ArrayList<>();
+            long requestBlockHeight = Math.max(startBlock, BlockManager.highestBlockFrozen() + 1);
+            boolean fetchBalanceList = startBlock > BlockManager.highestBlockFrozen() + 1;
 
+            Message message = new Message(MessageType.BlockRequest11, new BlockRequest(requestBlockHeight,
+                    fetchBalanceList));
+            Message.fetch(message, false, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
 
-        }*/
+                    BlockResponse response = (BlockResponse) message.getContent();
+                    System.out.println("got " + blocks.size() + " blocks in response");
+                    for (Block block : response.getBlocks()) {
+
+                    }
+                }
+            });
+
+            try {
+                Thread.sleep(2000);
+            } catch (Exception ignored) { }
+        }
     }
 }

@@ -6,6 +6,7 @@ public class FieldByteSize {
 
     public static final int booleanField = 1;
     public static final int balanceListLength = 4;
+    public static final int frozenBlockListLength = 2;
     public static final int hashListLength = 1;
     public static final int ipAddress = 4;
     public static final int port = 4;
