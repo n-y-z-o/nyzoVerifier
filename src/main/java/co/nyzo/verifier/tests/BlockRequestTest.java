@@ -5,6 +5,7 @@ import co.nyzo.verifier.Message;
 import co.nyzo.verifier.MessageCallback;
 import co.nyzo.verifier.MessageType;
 import co.nyzo.verifier.messages.BlockRequest;
+import co.nyzo.verifier.messages.BlockResponse;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -23,6 +24,13 @@ public class BlockRequestTest {
             public void responseReceived(Message message) {
                 System.out.println("received response");
                 receivedResponse.set(true);
+
+                if (message == null) {
+                    System.out.println("message is null");
+                } else {
+                    BlockResponse response = (BlockResponse) message.getContent();
+                    System.out.println("response has " + response.getBlocks().size() + " blocks");
+                }
             }
         });
 

@@ -33,6 +33,8 @@ public class BlockResponse implements MessageObject {
             blockHeight++;
         }
 
+        System.out.println("built list of " + blocks.size() + " for request block size of " + startBlockHeight);
+
         this.initialBalanceList = initialBalanceList;
         this.blocks = blocks;
     }

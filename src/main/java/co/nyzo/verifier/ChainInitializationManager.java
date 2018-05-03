@@ -59,8 +59,6 @@ public class ChainInitializationManager {
 
     public static void fetchChainSection(long startBlock, long endBlock, byte[] startBlockHash) {
 
-        long localFrozenEdge = BlockManager.highestBlockFrozen();
-
         List<Block> blocks = new ArrayList<>();
         while (BlockManager.highestBlockFrozen() < endBlock && !UpdateUtil.shouldTerminate()) {
 
@@ -74,7 +72,8 @@ public class ChainInitializationManager {
                 public void responseReceived(Message message) {
 
                     BlockResponse response = (BlockResponse) message.getContent();
-                    System.out.println("got " + blocks.size() + " blocks in response");
+                    System.out.println("got " + blocks.size() + " blocks in response, requested block height was " +
+                            requestBlockHeight);
                     for (Block block : response.getBlocks()) {
 
                     }
