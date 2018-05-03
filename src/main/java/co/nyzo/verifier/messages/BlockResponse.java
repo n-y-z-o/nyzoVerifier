@@ -33,7 +33,6 @@ public class BlockResponse implements MessageObject {
             blockHeight++;
         }
 
-
         this.initialBalanceList = initialBalanceList;
         this.blocks = blocks;
     }
@@ -97,7 +96,7 @@ public class BlockResponse implements MessageObject {
             }
 
             List<Block> blocks = new ArrayList<>();
-            int numberOfBlocks = buffer.getShort();
+            int numberOfBlocks = buffer.getShort() & 0xffff;
             for (int i = 0; i < numberOfBlocks; i++) {
                 blocks.add(Block.fromByteBuffer(buffer));
             }

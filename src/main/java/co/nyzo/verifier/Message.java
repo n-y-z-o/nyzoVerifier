@@ -5,6 +5,8 @@ import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.*;
@@ -239,8 +241,9 @@ public class Message {
 
         byte[] result = new byte[0];
         try {
+            BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
             byte[] input = new byte[5000000];
-            int size = inputStream.read(input);
+            int size = bufferedInputStream.read(input);
             if (size > 0) {
                 result = Arrays.copyOf(input, size);
             }
@@ -372,6 +375,10 @@ public class Message {
             content = Transaction.fromByteBuffer(buffer);
         } else if (type == MessageType.NewBlock9) {
             content = Block.fromByteBuffer(buffer);
+        } else if (type == MessageType.BlockRequest11) {
+            content = BlockRequest.fromByteBuffer(buffer);
+        }  else if (type == MessageType.BlockResponse12) {
+            content = BlockResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.TransactionPoolResponse14) {
             content = TransactionPoolResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
