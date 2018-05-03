@@ -155,12 +155,11 @@ public class Verifier {
                 System.out.println("consensus frozen edge height: " + consensusFrozenEdge);
             }
 
-            // At this point, we have two options:
-            // - if the frozen edge of the local blockchain is close enough to the frozen edge of the consensus
-            //   blockchain, extend the local blockchain to the consensus blockchain by freezing blocks
-            // - if the frozen edge of the local blockchain is too far back, start with the frozen edge of the
-            //   consensus block chain and fetch backward to obtain two cycles
-
+            // If the consensus frozen edge is higher than the local frozen edge, fetch the necessary blocks to start
+            // verifying.
+            if (consensusFrozenEdge > BlockManager.highestBlockFrozen()) {
+                ChainInitializationManager.fetchChainToHeight(consensusFrozenEdge);
+            }
 
             // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh
             // and build the blockchain.

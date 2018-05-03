@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
+
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -91,7 +93,7 @@ public class ChainOptionManager {
                 if (blocksAtHeight.size() < 100) {
                     blocksAtHeight.add(block);
                     System.out.println("added block at height " + block.getBlockHeight() + " with signature " +
-                            ByteUtil.arrayAsStringWithDashes(block.getVerifierSignature()));
+                            PrintUtil.compactPrintByteArray(block.getVerifierSignature()));
                     shouldForwardBlock = true;
                 } else {
                     Collections.sort(blocksAtHeight, new Comparator<Block>() {

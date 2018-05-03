@@ -52,8 +52,18 @@ public class ChainInitializationManager {
         return maximumConsensusHeight;
     }
 
-    public static synchronized byte[] consensusHashForHeight() {
+    public static void fetchChainToHeight(long consensusFrozenEdge) {
 
-        return null;
+        long localFrozenEdge = BlockManager.highestBlockFrozen();
+
+        List<Block> blocks = new ArrayList<>();
+        while (blocks.isEmpty() || blocks.get(blocks.size() - 1).getCycleInformation() == null) {
+
+            List<Block> blocksFromNetwork = new ArrayList<>();
+        }
+
+
+        // TODO: FIRST TASK: send the discontinuity determination height in the bootstrap response and use it to
+        // TODO: help fetch blocks
     }
 }

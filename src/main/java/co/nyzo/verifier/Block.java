@@ -38,6 +38,7 @@ public class Block implements MessageObject {
     private byte[] verifierSignature;              // 64 bytes
     private Block previousBlock;                   // TODO: unset this periodically on old blocks to control memory use
     private DiscontinuityState discontinuityState;
+    private long discontinuityDeterminationHeight;
 
 
     private CycleInformation cycleInformation = null;
@@ -54,6 +55,7 @@ public class Block implements MessageObject {
         this.balanceList = balanceList;
         this.previousBlock = null;
         this.discontinuityState = height == 0 ? DiscontinuityState.IsNotDiscontinuity : DiscontinuityState.Undetermined;
+        this.discontinuityDeterminationHeight = height == 0 ? 0 : -1;
 
         try {
             this.verifierIdentifier = Verifier.getIdentifier();
@@ -78,6 +80,7 @@ public class Block implements MessageObject {
         this.verifierSignature = verifierSignature;
         this.previousBlock = null;
         this.discontinuityState = height == 0 ? DiscontinuityState.IsNotDiscontinuity : DiscontinuityState.Undetermined;
+        this.discontinuityDeterminationHeight = height == 0 ? 0 : -1;
     }
 
     public long getBlockHeight() {
@@ -165,6 +168,11 @@ public class Block implements MessageObject {
         return discontinuityState;
     }
 
+    public long getDiscontinuityDeterminationHeight() {
+
+        return discontinuityDeterminationHeight;
+    }
+
     private void determineDiscontinuityState() {
 
         // Note: this method will not determine the discontinuity state of the Genesis block. It is assigned in the
@@ -181,10 +189,12 @@ public class Block implements MessageObject {
                         discontinuityState == DiscontinuityState.Undetermined) {
                     if (blockToCheck.getBlockHeight() == 0L) {
                         discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                        discontinuityDeterminationHeight = 0;
                     } else if (blockToCheck.getCycleInformation().isNewVerifier()) {
                         if (getBlockHeight() - blockToCheck.getBlockHeight() >
                                 blockToCheck.getCycleInformation().getCycleLength() + 2) {
                             discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                            discontinuityDeterminationHeight = blockToCheck.getBlockHeight();
                         } else {
                             discontinuityState = DiscontinuityState.IsDiscontinuity;
                         }
@@ -206,6 +216,7 @@ public class Block implements MessageObject {
                             if (getCycleInformation().getCycleLength() >
                                     blockToCheck.getCycleInformation().getCycleLength() / 2) {
                                 discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                                discontinuityDeterminationHeight = blockToCheck.getBlockHeight();
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
                             }
@@ -214,6 +225,7 @@ public class Block implements MessageObject {
                                     previousBlockForVerifier.getCycleInformation().getCycleLength()) / 2;
                             if (getCycleInformation().getCycleLength() > threshold) {
                                 discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                                discontinuityDeterminationHeight = blockToCheck.getBlockHeight();
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
                             }
@@ -226,11 +238,13 @@ public class Block implements MessageObject {
                             if (getCycleInformation().getCycleLength() >
                                     previousBlockForVerifier.getCycleInformation().getCycleLength() / 2) {
                                 discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                                discontinuityDeterminationHeight = 0L;
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
                             }
                         } else {
                             discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                            discontinuityDeterminationHeight = 0L;
                         }
                     }
 
