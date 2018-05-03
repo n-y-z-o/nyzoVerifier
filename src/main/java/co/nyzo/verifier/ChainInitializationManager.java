@@ -59,7 +59,6 @@ public class ChainInitializationManager {
 
     public static void fetchChainSection(long startBlock, long endBlock, byte[] startBlockHash) {
 
-        List<Block> blocks = new ArrayList<>();
         while (BlockManager.highestBlockFrozen() < endBlock && !UpdateUtil.shouldTerminate()) {
 
             long requestBlockHeight = Math.max(startBlock, BlockManager.highestBlockFrozen() + 1);
@@ -72,10 +71,19 @@ public class ChainInitializationManager {
                 public void responseReceived(Message message) {
 
                     BlockResponse response = (BlockResponse) message.getContent();
-                    System.out.println("got " + blocks.size() + " blocks in response, requested block height was " +
-                            requestBlockHeight);
+                    System.out.println("got " + response.getBlocks().size() + " blocks in response, requested block " +
+                            "height was " + requestBlockHeight);
                     for (Block block : response.getBlocks()) {
-
+                        if (block.getBlockHeight() == startBlock) {
+                            if (fetchBalanceList && response.getInitialBalanceList() != null) {
+                                block.setBalanceList(response.getInitialBalanceList());
+                                BlockManager.freezeBlock(block, startBlockHash);
+                            } else {
+                                BlockManager.freezeBlock(block);
+                            }
+                        } else {
+                            BlockManager.freezeBlock(block);
+                        }
                     }
                 }
             });

@@ -129,26 +129,36 @@ public class BlockManager {
         return successful;
     }
 
-    public static synchronized void freezeBlock(Block block) {
+    public static void freezeBlock(Block block) {
 
-        // If the balance list is null, try to create it now.
-        if (block.getBalanceList() == null) {
-            Block previousBlock = null;
-            if (block.getBlockHeight() > 0L) {
-                previousBlock = BlockManager.frozenBlockForHeight(block.getBlockHeight() - 1);
-            }
-            if (previousBlock != null || block.getBlockHeight() == 0L) {
-                block.setBalanceList(Block.balanceListForNextBlock(previousBlock, block.getTransactions(),
-                        block.getVerifierIdentifier()));
-            }
+        Block previousBlock = BlockManager.frozenBlockForHeight(block.getBlockHeight() - 1);
+        if (previousBlock != null) {
+            freezeBlock(block, previousBlock.getHash());
         }
+    }
 
-        BalanceList balanceList = block.getBalanceList();
-        if (balanceList == null) {
-            System.err.println("unable to freeze block " + block.getBalanceList() + " because its balance list " +
-                    "is null");
-        } else {
-            synchronized (BlockManager.class) {
+    public static synchronized void freezeBlock(Block block, byte[] previousBlockHash) {
+
+        // Only continue if the block's previous hash is correct and the block has not yet been frozen.
+        if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) &&
+                block.getBlockHeight() > highestBlockFrozen()) {
+            // If the balance list is null, try to create it now.
+            if (block.getBalanceList() == null) {
+                Block previousBlock = null;
+                if (block.getBlockHeight() > 0L) {
+                    previousBlock = BlockManager.frozenBlockForHeight(block.getBlockHeight() - 1);
+                }
+                if (previousBlock != null || block.getBlockHeight() == 0L) {
+                    block.setBalanceList(Block.balanceListForNextBlock(previousBlock, block.getTransactions(),
+                            block.getVerifierIdentifier()));
+                }
+            }
+
+            BalanceList balanceList = block.getBalanceList();
+            if (balanceList == null) {
+                System.err.println("unable to freeze block " + block.getBalanceList() + " because its balance list " +
+                        "is null");
+            } else {
                 try {
                     setHighestBlockFrozen(block.getBlockHeight());
 
