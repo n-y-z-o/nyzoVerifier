@@ -207,6 +207,13 @@ public class Block implements MessageObject {
                             discontinuityState = DiscontinuityState.IsDiscontinuity;
                         }
                     }
+                    if (blockToCheck.getPreviousBlock() == null) {
+                        System.out.println("previous block is null, new verifier condition, stopping at height " +
+                            blockToCheck.getBlockHeight());
+                    } else if (blockToCheck.getPreviousBlock().getCycleInformation() == null) {
+                        System.out.println("previous block cycle information is null, new verifier condition, " +
+                                "stopping at height " + blockToCheck.getBlockHeight());
+                    }
                     blockToCheck = blockToCheck.getPreviousBlock();
                 }
 
@@ -254,6 +261,14 @@ public class Block implements MessageObject {
                             discontinuityState = DiscontinuityState.IsNotDiscontinuity;
                             discontinuityDeterminationHeight = 0L;
                         }
+                    }
+
+                    if (blockToCheck.getPreviousBlock() == null) {
+                        System.out.println("previous block is null, old verifier condition, stopping at height " +
+                                blockToCheck.getBlockHeight());
+                    } else if (blockToCheck.getPreviousBlock().getCycleInformation() == null) {
+                        System.out.println("previous block cycle information is null, old verifier condition, " +
+                                "stopping at height " + blockToCheck.getBlockHeight());
                     }
 
                     blockToCheck = blockToCheck.getPreviousBlock();
