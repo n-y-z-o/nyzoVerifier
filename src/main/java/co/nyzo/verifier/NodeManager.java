@@ -19,6 +19,9 @@ public class NodeManager {
     private static final Map<Integer, Node> ipAddressToNodeMap = new HashMap<>();
     private static final Map<ByteBuffer, Node> identifierToNodeMap = new HashMap<>();
 
+    private static final int consecutiveFailuresBeforeRemoval = 8;
+    private static final Map<String, Integer> nodeConnectionFailureMap = new HashMap<>();
+
     // full node: a node that accepts incoming connections
     // client node: a node that does not accept incoming connections
 
@@ -192,5 +195,43 @@ public class NodeManager {
         } catch (Exception ignored) { }
 
         return identifier;
+    }
+
+    public static void markFailedConnection(String hostNameOrIp, int port) {
+
+        String key = hostNameOrIp + "___" + port;
+        Integer count = nodeConnectionFailureMap.get(key);
+        if (count == null) {
+            count = 1;
+        } else {
+            count++;
+        }
+
+        if (count < consecutiveFailuresBeforeRemoval) {
+            nodeConnectionFailureMap.put(key, count);
+        } else {
+            nodeConnectionFailureMap.remove(count);
+            removeNodeFromMesh(hostNameOrIp);
+        }
+    }
+
+    public static void markSuccessfulConnection(String hostNameOrIp, int port) {
+
+        String key = hostNameOrIp + "___" + port;
+        nodeConnectionFailureMap.remove(key);
+    }
+
+    private static synchronized void removeNodeFromMesh(String hostNameOrIp) {
+
+        byte[] ipAddress = IpUtil.addressFromString(hostNameOrIp);
+        if (ipAddress != null) {
+            Integer ipAddressValue = IpUtil.addressAsInt(ipAddress);
+            Node node = ipAddressToNodeMap.remove(ipAddressValue);
+            if (node != null) {
+                nodePool.remove(node);
+                identifierToNodeMap.remove(node.getIdentifier());
+                System.out.println("removed node at " + hostNameOrIp + " from mesh");
+            }
+        }
     }
 }

@@ -198,8 +198,10 @@ public class Message {
                     Socket socket = new Socket();
                     try {
                         socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
+                        NodeManager.markSuccessfulConnection(hostNameOrIp, port);
                     } catch (Exception ignored) {
                         System.out.println("unable to open socket to " + hostNameOrIp + ":" + port);
+                        NodeManager.markFailedConnection(hostNameOrIp, port);
                         socket = null;
                     }
 
