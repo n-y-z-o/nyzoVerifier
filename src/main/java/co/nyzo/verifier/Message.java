@@ -246,6 +246,7 @@ public class Message {
         if (response.length == 0) {
             System.out.println("empty response from " + IpUtil.addressAsString(sourceIpAddress));
         }
+        System.out.println("got response of size: " + response.length);
 
         return fromBytes(response, sourceIpAddress);
     }
@@ -255,11 +256,35 @@ public class Message {
         byte[] result = new byte[0];
         try {
             BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
-            byte[] input = new byte[5000000];
-            int size = bufferedInputStream.read(input);
-            if (size > 0) {
-                result = Arrays.copyOf(input, size);
+            byte[] lengthBytes = new byte[4];
+            bufferedInputStream.read(lengthBytes);
+            int messageLength = ByteBuffer.wrap(lengthBytes).getInt();
+
+            result = new byte[messageLength - 4];
+            int totalBytesRead = 0;
+            boolean readFailure = false;
+            int waitCycles = 0;
+            while (totalBytesRead < result.length && !readFailure && waitCycles < 10) {
+                int numberOfBytesRead = bufferedInputStream.read(result, totalBytesRead,
+                        result.length - totalBytesRead);
+                if (numberOfBytesRead < 0) {
+                    readFailure = true;
+                } else {
+                    if (numberOfBytesRead == 0) {
+                        waitCycles++;
+                    }
+                    totalBytesRead += numberOfBytesRead;
+                }
+
+                try {
+                    Thread.sleep(10);
+                } catch (Exception ignore) { }
             }
+
+            if (totalBytesRead < result.length) {
+                System.err.println("only read " + totalBytesRead + " of " + result.length);
+            }
+
         } catch (Exception ignore) { ignore.printStackTrace(); }
 
         return result;
@@ -292,8 +317,8 @@ public class Message {
 
         // Determine the size (timestamp, type, source-node identifier, source-node signature, recipient-node
         // identifiers and signatures, content if present).
-        int sizeBytes = FieldByteSize.timestamp + FieldByteSize.messageType + (FieldByteSize.identifier +
-                FieldByteSize.signature) * (recipientIdentifiers.size() + 1);
+        int sizeBytes = FieldByteSize.messageLength + FieldByteSize.timestamp + FieldByteSize.messageType +
+                (FieldByteSize.identifier + FieldByteSize.signature) * (recipientIdentifiers.size() + 1);
         if (recipientIdentifiers.size() > 0) {
             sizeBytes += FieldByteSize.recipientListLength;
         }
@@ -304,6 +329,9 @@ public class Message {
         // Make the buffer.
         byte[] result = new byte[sizeBytes];
         ByteBuffer buffer = ByteBuffer.wrap(result);
+
+        // Add the size.
+        buffer.putInt(sizeBytes);
 
         // Add the data.
         buffer.putLong(timestamp);
@@ -344,6 +372,8 @@ public class Message {
         MessageType type = null;
         try {
             ByteBuffer buffer = ByteBuffer.wrap(bytes);
+
+            // The size is discarded before this method, so it is not read here.
 
             long timestamp = buffer.getLong();
             typeValue = buffer.getShort() & 0xffff;

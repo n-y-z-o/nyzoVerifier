@@ -9,6 +9,7 @@ public class FieldByteSize {
     public static final int frozenBlockListLength = 2;
     public static final int hashListLength = 1;
     public static final int ipAddress = 4;
+    public static final int messageLength = 4;
     public static final int port = 4;
     public static final int rolloverTransactionFees = 1;
     public static final int transactionType = 1;
