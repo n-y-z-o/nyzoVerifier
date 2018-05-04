@@ -18,7 +18,7 @@ public class BlockResponse implements MessageObject {
         int totalByteSize = 0;
         boolean foundNullBlock = false;
         long blockHeight = endBlockHeight;
-        while (totalByteSize < 50000 && !foundNullBlock) {
+        while (totalByteSize < 50000 && !foundNullBlock && blockHeight >= startBlockHeight) {
             Block block = BlockManager.frozenBlockForHeight(blockHeight);
             if (block == null) {
                 foundNullBlock = true;
