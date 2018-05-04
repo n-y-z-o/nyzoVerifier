@@ -80,9 +80,8 @@ public class FrozenBlockVoteTally {
             }
         }
 
-        System.out.println("have " + votesForWinner + " votes for winner " +
-                PrintUtil.compactPrintByteArray(winnerHash) + " at height " + blockHeight +
-                " with determination height " + determinationHeight.get());
+        System.out.println(votesForWinner + " votes for winner " + PrintUtil.compactPrintByteArray(winnerHash) +
+                ", height " + blockHeight + ", determination height " + determinationHeight.get());
         return votesForWinner;
     }
 }

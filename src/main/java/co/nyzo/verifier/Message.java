@@ -327,12 +327,14 @@ public class Message {
     public static Message fromBytes(byte[] bytes, byte[] sourceIpAddress) {
 
         Message message = null;
+        int typeValue = 0;
+        MessageType type = null;
         try {
             ByteBuffer buffer = ByteBuffer.wrap(bytes);
 
             long timestamp = buffer.getLong();
-            int typeValue = buffer.getShort() & 0xffff;
-            MessageType type = MessageType.forValue(typeValue);
+            typeValue = buffer.getShort() & 0xffff;
+            type = MessageType.forValue(typeValue);
             MessageObject content = processContent(type, buffer);
 
             byte[] sourceNodeIdentifier = new byte[FieldByteSize.identifier];
@@ -356,7 +358,8 @@ public class Message {
             message = new Message(timestamp, type, content, sourceNodeIdentifier, sourceNodeSignature,
                     recipientIdentifiers, recipientSignatures, sourceIpAddress);
         } catch (Exception reportOnly) {
-            System.err.println(PrintUtil.printException(reportOnly));
+            System.err.println("problem getting message from bytes, message type is " + typeValue + ", " +
+                    type + ", " + PrintUtil.printException(reportOnly));
         }
 
         return message;
