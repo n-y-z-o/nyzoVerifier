@@ -195,19 +195,27 @@ public class Message {
                 @Override
                 public void run() {
                     Message response = null;
+                    Socket socket = new Socket();
                     try {
-                        Socket socket = new Socket();
                         socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
+                    } catch (Exception ignored) {
+                        System.out.println("unable to open socket to " + hostNameOrIp + ":" + port);
+                    }
 
+                    try {
                         OutputStream outputStream = socket.getOutputStream();
                         outputStream.write(message.getBytesForTransmission());
 
                         response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
-                        socket.close();
                     } catch (Exception reportOnly) {
                         System.err.println("Exception sending message " + message.getType() + " to " + hostNameOrIp +
                                 ":" + port + ": " + PrintUtil.printException(reportOnly));
-                        reportOnly.printStackTrace();
+                    }
+
+                    try {
+                        socket.close();
+                    } catch (Exception ignored) {
+                        System.out.println("unable to close socket to " + hostNameOrIp + ":" + port);
                     }
 
                     if (messageCallback != null) {
