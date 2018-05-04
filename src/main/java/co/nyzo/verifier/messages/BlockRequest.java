@@ -7,17 +7,23 @@ import java.nio.ByteBuffer;
 
 public class BlockRequest implements MessageObject {
 
-    private long blockHeight;
+    private long startHeight;
+    private long endHeight;
     private boolean includeBalanceList;
 
-    public BlockRequest(long blockHeight, boolean includeBalanceList) {
+    public BlockRequest(long startHeight, long endHeight, boolean includeBalanceList) {
 
-        this.blockHeight = blockHeight;
+        this.startHeight = startHeight;
+        this.endHeight = endHeight;
         this.includeBalanceList = includeBalanceList;
     }
 
-    public long getBlockHeight() {
-        return blockHeight;
+    public long getStartHeight() {
+        return startHeight;
+    }
+
+    public long getEndHeight() {
+        return endHeight;
     }
 
     public boolean includeBalanceList() {
@@ -26,7 +32,7 @@ public class BlockRequest implements MessageObject {
 
     @Override
     public int getByteSize() {
-        return FieldByteSize.blockHeight + FieldByteSize.booleanField;
+        return FieldByteSize.blockHeight * 2 + FieldByteSize.booleanField;
     }
 
     @Override
@@ -34,7 +40,8 @@ public class BlockRequest implements MessageObject {
 
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
-        buffer.putLong(blockHeight);
+        buffer.putLong(startHeight);
+        buffer.putLong(endHeight);
         buffer.put(includeBalanceList ? (byte) 1 : (byte) 0);
 
         return array;
@@ -45,10 +52,11 @@ public class BlockRequest implements MessageObject {
         BlockRequest result = null;
 
         try {
-            long blockHeight = buffer.getLong();
+            long startHeight = buffer.getLong();
+            long endHeight = buffer.getLong();
             boolean includeBalanceList = buffer.get() == 1;
 
-            result = new BlockRequest(blockHeight, includeBalanceList);
+            result = new BlockRequest(startHeight, endHeight, includeBalanceList);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }

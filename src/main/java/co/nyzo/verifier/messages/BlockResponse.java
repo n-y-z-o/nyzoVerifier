@@ -11,26 +11,26 @@ public class BlockResponse implements MessageObject {
     private BalanceList initialBalanceList;
     private List<Block> blocks;
 
-    public BlockResponse(long startBlockHeight, boolean includeInitialBalanceList) {
+    public BlockResponse(long startBlockHeight, long endBlockHeight, boolean includeInitialBalanceList) {
 
         BalanceList initialBalanceList = null;
         List<Block> blocks = new ArrayList<>();
         int totalByteSize = 0;
         boolean foundNullBlock = false;
-        long blockHeight = startBlockHeight;
+        long blockHeight = endBlockHeight;
         while (totalByteSize < 50000 && !foundNullBlock) {
             Block block = BlockManager.frozenBlockForHeight(blockHeight);
             if (block == null) {
                 foundNullBlock = true;
             } else {
-                blocks.add(block);
+                blocks.add(0, block);
                 totalByteSize += block.getByteSize();
                 if (blockHeight == startBlockHeight && includeInitialBalanceList) {
                     initialBalanceList = block.getBalanceList();
                 }
             }
 
-            blockHeight++;
+            blockHeight--;
         }
 
         System.out.println("built list of " + blocks.size() + " for request block size of " + startBlockHeight);
@@ -101,6 +101,7 @@ public class BlockResponse implements MessageObject {
             int numberOfBlocks = buffer.getShort() & 0xffff;
             System.out.println("fromByteBuffer(): adding " + numberOfBlocks + " blocks");
             for (int i = 0; i < numberOfBlocks; i++) {
+                System.out.println("adding block " + i);
                 blocks.add(Block.fromByteBuffer(buffer));
             }
             System.out.println("fromByteBuffer(): got " + blocks.size() + " blocks");

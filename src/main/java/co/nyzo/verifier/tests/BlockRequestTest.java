@@ -17,7 +17,7 @@ public class BlockRequestTest {
         MeshListener.start();
 
         AtomicBoolean receivedResponse = new AtomicBoolean(false);
-        Message message = new Message(MessageType.BlockRequest11, new BlockRequest(573, true));
+        Message message = new Message(MessageType.BlockRequest11, new BlockRequest(573, 575, true));
         System.out.println("message byte length: " + message.getBytesForTransmission().length);
         Message.fetch("localhost", 9444, message, false, new MessageCallback() {
             @Override
