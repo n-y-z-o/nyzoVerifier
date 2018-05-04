@@ -200,22 +200,25 @@ public class Message {
                         socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
                     } catch (Exception ignored) {
                         System.out.println("unable to open socket to " + hostNameOrIp + ":" + port);
+                        socket = null;
                     }
 
-                    try {
-                        OutputStream outputStream = socket.getOutputStream();
-                        outputStream.write(message.getBytesForTransmission());
+                    if (socket != null) {
+                        try {
+                            OutputStream outputStream = socket.getOutputStream();
+                            outputStream.write(message.getBytesForTransmission());
 
-                        response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
-                    } catch (Exception reportOnly) {
-                        System.err.println("Exception sending message " + message.getType() + " to " + hostNameOrIp +
-                                ":" + port + ": " + PrintUtil.printException(reportOnly));
-                    }
+                            response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
+                        } catch (Exception reportOnly) {
+                            System.err.println("Exception sending message " + message.getType() + " to " +
+                                    hostNameOrIp + ":" + port + ": " + PrintUtil.printException(reportOnly));
+                        }
 
-                    try {
-                        socket.close();
-                    } catch (Exception ignored) {
-                        System.out.println("unable to close socket to " + hostNameOrIp + ":" + port);
+                        try {
+                            socket.close();
+                        } catch (Exception ignored) {
+                            System.out.println("unable to close socket to " + hostNameOrIp + ":" + port);
+                        }
                     }
 
                     if (messageCallback != null) {
