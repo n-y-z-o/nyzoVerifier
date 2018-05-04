@@ -137,6 +137,11 @@ public class ChainInitializationManager {
                 BlockManager.freezeBlock(block);
             }
         }
+
+        // Now the the blocks are saved, we should be able to determine the discontinuity state of the end block.
+        Block endBlock = BlockManager.frozenBlockForHeight(endHeight);
+        System.out.println("end block discontinuity state: " + endBlock.getDiscontinuityState());
+        System.out.println("end block discontinuity height: " + endBlock.getDiscontinuityDeterminationHeight());
     }
 
     private static Map<Long, Block> blockMap(List<Block> blocks) {

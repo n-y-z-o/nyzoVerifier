@@ -208,6 +208,12 @@ public class Block implements MessageObject {
                         }
                     }
                     blockToCheck = blockToCheck.getPreviousBlock();
+
+                    if (blockToCheck == null) {
+                        System.out.println("new verifier, block is null -- unable to determine state");
+                    } else if (blockToCheck.getCycleInformation() == null) {
+                        System.out.println("new verifier, cycle is null -- unable to determine state");
+                    }
                 }
 
             } else {
@@ -224,7 +230,8 @@ public class Block implements MessageObject {
                             if (getCycleInformation().getCycleLength() >
                                     blockToCheck.getCycleInformation().getCycleLength() / 2) {
                                 discontinuityState = DiscontinuityState.IsNotDiscontinuity;
-                                discontinuityDeterminationHeight = blockToCheck.getBlockHeight();
+                                discontinuityDeterminationHeight = blockToCheck.getBlockHeight() -
+                                        blockToCheck.getCycleInformation().getCycleLength();
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
                             }
@@ -233,7 +240,8 @@ public class Block implements MessageObject {
                                     previousBlockForVerifier.getCycleInformation().getCycleLength()) / 2;
                             if (getCycleInformation().getCycleLength() > threshold) {
                                 discontinuityState = DiscontinuityState.IsNotDiscontinuity;
-                                discontinuityDeterminationHeight = blockToCheck.getBlockHeight();
+                                discontinuityDeterminationHeight = blockToCheck.getBlockHeight() -
+                                        blockToCheck.getCycleInformation().getCycleLength();
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
                             }
@@ -257,8 +265,17 @@ public class Block implements MessageObject {
                     }
 
                     blockToCheck = blockToCheck.getPreviousBlock();
+
+                    if (blockToCheck == null) {
+                        System.out.println("existing verifier, block is null -- unable to determine state");
+                    } else if (blockToCheck.getCycleInformation() == null) {
+                        System.out.println("existing verifier, cycle is null at height " +
+                                blockToCheck.getBlockHeight() + " -- unable to determine state");
+                    }
                 }
             }
+        } else {
+            System.out.println("cycle information is null");
         }
     }
 
