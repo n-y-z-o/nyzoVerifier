@@ -229,7 +229,8 @@ public class ChainOptionManager {
                 int cycleLength = (int) (block.getBlockHeight() - blockToCheck.getBlockHeight() - 1L);
                 int verifierIndexInCycle = verifierPreviousBlockHeight < 0 ? -1 :
                         (int) (verifierPreviousBlockHeight - blockToCheck.getBlockHeight() - 1L);
-                cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle);
+                cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle,
+                        blockToCheck.getBlockHeight());
             } else if (blockToCheck.getBlockHeight() == 0) {
 
                 // For purposes of calculation, new verifiers in the first cycle of the chain are treated as existing
@@ -243,7 +244,7 @@ public class ChainOptionManager {
                 } else {
                     verifierIndexInCycle = 0;
                 }
-                cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle);
+                cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle, 0L);
             } else {
                 identifiers.add(identifier);
             }
@@ -256,7 +257,7 @@ public class ChainOptionManager {
         }
 
         if (block.getBlockHeight() == 0) {
-            cycleInformation = new CycleInformation(0, 0);
+            cycleInformation = new CycleInformation(0, 0, 0);
         }
 
         return cycleInformation;

@@ -4,11 +4,13 @@ public class CycleInformation {
 
     private int cycleLength;
     private int verifierIndexInCycle;
+    private long determinationHeight;
 
-    public CycleInformation(int cycleLength, int verifierIndexInCycle) {
+    public CycleInformation(int cycleLength, int verifierIndexInCycle, long determinationHeight) {
 
         this.cycleLength = cycleLength;
         this.verifierIndexInCycle = verifierIndexInCycle;
+        this.determinationHeight = determinationHeight;
     }
 
     public int getCycleLength() {
@@ -19,6 +21,10 @@ public class CycleInformation {
         return verifierIndexInCycle;
     }
 
+    public long getDeterminationHeight() {
+        return determinationHeight;
+    }
+
     public boolean isNewVerifier() {
         return verifierIndexInCycle < 0;
     }
@@ -26,6 +32,6 @@ public class CycleInformation {
     @Override
     public String toString() {
         return "[CycleInformation (cycleLength=" + cycleLength + ", verifierIndexInCycle=" +
-                verifierIndexInCycle + ")]";
+                verifierIndexInCycle + ", determinationHeight=" + determinationHeight + ")]";
     }
 }

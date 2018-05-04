@@ -230,8 +230,8 @@ public class Block implements MessageObject {
                             if (getCycleInformation().getCycleLength() >
                                     blockToCheck.getCycleInformation().getCycleLength() / 2) {
                                 discontinuityState = DiscontinuityState.IsNotDiscontinuity;
-                                discontinuityDeterminationHeight = blockToCheck.getBlockHeight() -
-                                        blockToCheck.getCycleInformation().getCycleLength() - 1;
+                                discontinuityDeterminationHeight =
+                                        blockToCheck.getCycleInformation().getDeterminationHeight();
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
                             }
@@ -240,8 +240,8 @@ public class Block implements MessageObject {
                                     previousBlockForVerifier.getCycleInformation().getCycleLength()) / 2;
                             if (getCycleInformation().getCycleLength() > threshold) {
                                 discontinuityState = DiscontinuityState.IsNotDiscontinuity;
-                                discontinuityDeterminationHeight = blockToCheck.getBlockHeight() -
-                                        blockToCheck.getCycleInformation().getCycleLength() - 1;
+                                discontinuityDeterminationHeight =
+                                        blockToCheck.getCycleInformation().getDeterminationHeight();
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
                             }
