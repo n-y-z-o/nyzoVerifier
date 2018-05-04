@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.BlockRequest;
 import co.nyzo.verifier.messages.BlockResponse;
 import co.nyzo.verifier.messages.BootstrapResponse;
+import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.nio.ByteBuffer;
@@ -34,7 +35,7 @@ public class ChainInitializationManager {
         }
     }
 
-    public static synchronized long frozenEdgeHeight(byte[] frozenEdgeHash, AtomicLong determinationHeight) {
+    public static synchronized long frozenEdgeHeight(byte[] frozenEdgeHash, AtomicLong frozenEdgeDeterminationHeight) {
 
         // Determine the maximum number of votes we have at any level. This determines our consensus threshold.
         int maximumVotesAtAnyLevel = 0;
@@ -44,12 +45,16 @@ public class ChainInitializationManager {
 
         // Determine the highest level at which consensus has been reached.
         long maximumConsensusHeight = -1;
+        byte[] winnerHash = new byte[FieldByteSize.hash];
+        AtomicLong determinationHeight = new AtomicLong();
         if (maximumVotesAtAnyLevel > 0) {
             for (long height : hashVotes.keySet()) {
                 if (height > maximumConsensusHeight) {
                     FrozenBlockVoteTally tally = hashVotes.get(height);
-                    if (tally.votesForWinner(frozenEdgeHash, determinationHeight) > maximumVotesAtAnyLevel / 2) {
+                    if (tally.votesForWinner(winnerHash, determinationHeight) > maximumVotesAtAnyLevel / 2) {
                         maximumConsensusHeight = height;
+                        System.arraycopy(winnerHash, 0, frozenEdgeHash, 0, FieldByteSize.hash);
+                        frozenEdgeDeterminationHeight.set(determinationHeight.get());
                     }
                 }
             }
@@ -86,11 +91,15 @@ public class ChainInitializationManager {
                     boolean addedAllAvailable = false;
                     while (!addedAllAvailable) {
                         Block block = responseBlocks.get(height);
-                        byte[] requiredHash = height == endHeight ? endBlockHash :
-                                blocksToSave.get(height + 1).getPreviousBlockHash();
-                        if (!ByteUtil.arraysAreEqual(block.getHash(), requiredHash)) {
-                            block = null;
-                            System.out.println("discarded block at height " + height + " due to incorrect hash");
+                        if (block != null) {
+                            byte[] requiredHash = height == endHeight ? endBlockHash :
+                                    blocksToSave.get(height + 1).getPreviousBlockHash();
+                            if (!ByteUtil.arraysAreEqual(block.getHash(), requiredHash)) {
+                                System.out.println("discarded block at height " + height + " due to incorrect hash, " +
+                                        "hash=" + PrintUtil.compactPrintByteArray(block.getHash()) + ", required=" +
+                                        PrintUtil.compactPrintByteArray(requiredHash));
+                                block = null;
+                            }
                         }
 
                         if (block != null && height == startHeight && response.getInitialBalanceList() != null) {
