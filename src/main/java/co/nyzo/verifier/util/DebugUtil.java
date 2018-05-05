@@ -14,4 +14,22 @@ public class DebugUtil {
 
         return result;
     }
+
+    public static String callingMethods(int length) {
+
+        StringBuilder result = new StringBuilder("");
+
+        Throwable throwable = new Throwable();
+        StackTraceElement[] stackTrace = throwable.getStackTrace();
+        String separator = "";
+        for (int i = 2; i < 2 + length && i < stackTrace.length; i++) {
+            String filename = stackTrace[i].getFileName();
+            filename = filename.substring(0, filename.length() - 5);
+            result.append(separator).append(filename).append(".").append(stackTrace[i].getMethodName());
+            result.append("(").append(stackTrace[i].getLineNumber()).append(")");
+            separator = ",";
+        }
+
+        return result.toString();
+    }
 }

@@ -162,6 +162,7 @@ public class Verifier {
             // verifying.
             if (consensusFrozenEdge > BlockManager.highestBlockFrozen()) {
                 long startBlock = Math.max(BlockManager.highestBlockFrozen(), determinationHeight.get());
+                System.out.println("need to fetch chain section " + startBlock + " to " + consensusFrozenEdge);
                 ChainInitializationManager.fetchChainSection(startBlock, consensusFrozenEdge, frozenEdgeHash);
             }
 

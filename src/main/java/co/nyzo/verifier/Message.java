@@ -246,7 +246,6 @@ public class Message {
         if (response.length == 0) {
             System.out.println("empty response from " + IpUtil.addressAsString(sourceIpAddress));
         }
-        System.out.println("got response of size: " + response.length);
 
         return fromBytes(response, sourceIpAddress);
     }

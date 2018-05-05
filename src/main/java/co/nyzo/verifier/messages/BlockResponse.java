@@ -102,7 +102,6 @@ public class BlockResponse implements MessageObject {
             int numberOfBlocks = buffer.getShort() & 0xffff;
             System.out.println("fromByteBuffer(): adding " + numberOfBlocks + " blocks");
             for (int i = 0; i < numberOfBlocks; i++) {
-                System.out.println("adding block " + i);
                 blocks.add(Block.fromByteBuffer(buffer));
             }
             System.out.println("fromByteBuffer(): got " + blocks.size() + " blocks");

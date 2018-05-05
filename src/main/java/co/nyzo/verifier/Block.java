@@ -127,7 +127,7 @@ public class Block implements MessageObject {
                 this.balanceList = balanceList;
             } else {
                 System.err.println("balance list does not match hash! (" + balanceList.getBlockHeight() + ") " +
-                        DebugUtil.callingMethod());
+                        DebugUtil.callingMethods(3));
             }
         }
     }
@@ -188,6 +188,7 @@ public class Block implements MessageObject {
 
         CycleInformation cycleInformation = getCycleInformation();
         if (cycleInformation != null) {
+            long discontinuityDeterminationHeight = cycleInformation.getDeterminationHeight();
             if (cycleInformation.isNewVerifier()) {
 
                 // For a new verifier, find the previous new verifier and ensure that the difference is c + 2 from that
@@ -195,24 +196,31 @@ public class Block implements MessageObject {
                 Block blockToCheck = getPreviousBlock();
                 while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
                         discontinuityState == DiscontinuityState.Undetermined) {
+
+                    discontinuityDeterminationHeight = Math.min(discontinuityDeterminationHeight,
+                            blockToCheck.getCycleInformation().getDeterminationHeight());
+
                     if (blockToCheck.getBlockHeight() == 0L) {
                         discontinuityState = DiscontinuityState.IsNotDiscontinuity;
-                        discontinuityDeterminationHeight = 0;
+                        this.discontinuityDeterminationHeight = 0L;
                     } else if (blockToCheck.getCycleInformation().isNewVerifier()) {
                         if (getBlockHeight() - blockToCheck.getBlockHeight() >
                                 blockToCheck.getCycleInformation().getCycleLength() + 2) {
                             discontinuityState = DiscontinuityState.IsNotDiscontinuity;
-                            discontinuityDeterminationHeight = blockToCheck.getBlockHeight();
+                            this.discontinuityDeterminationHeight = discontinuityDeterminationHeight;
                         } else {
                             discontinuityState = DiscontinuityState.IsDiscontinuity;
+                            this.discontinuityDeterminationHeight = discontinuityDeterminationHeight;
                         }
                     }
                     blockToCheck = blockToCheck.getPreviousBlock();
 
                     if (blockToCheck == null) {
-                        System.out.println("new verifier, block is null -- unable to determine state");
+                        System.out.println("new verifier, block is null -- unable to determine state -- " +
+                                DebugUtil.callingMethods(3));
                     } else if (blockToCheck.getCycleInformation() == null) {
-                        System.out.println("new verifier, cycle is null -- unable to determine state");
+                        System.out.println("new verifier, cycle is null for height " + blockToCheck.getBlockHeight() +
+                                " -- unable to determine state -- " + DebugUtil.callingMethods(3));
                     }
                 }
 
@@ -225,25 +233,28 @@ public class Block implements MessageObject {
                 while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
                         discontinuityState == DiscontinuityState.Undetermined) {
 
+                    discontinuityDeterminationHeight = Math.min(discontinuityDeterminationHeight,
+                            blockToCheck.getCycleInformation().getDeterminationHeight());
+
                     if (ByteUtil.arraysAreEqual(getVerifierIdentifier(), blockToCheck.getVerifierIdentifier())) {
                         if (blockToCheck.getCycleInformation().isNewVerifier()) {
                             if (getCycleInformation().getCycleLength() >
                                     blockToCheck.getCycleInformation().getCycleLength() / 2) {
                                 discontinuityState = DiscontinuityState.IsNotDiscontinuity;
-                                discontinuityDeterminationHeight =
-                                        blockToCheck.getCycleInformation().getDeterminationHeight();
+                                this.discontinuityDeterminationHeight = discontinuityDeterminationHeight;
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
+                                this.discontinuityDeterminationHeight = discontinuityDeterminationHeight;
                             }
                         } else if (previousBlockForVerifier != null) {
                             long threshold = Math.max(blockToCheck.getCycleInformation().getCycleLength(),
                                     previousBlockForVerifier.getCycleInformation().getCycleLength()) / 2;
                             if (getCycleInformation().getCycleLength() > threshold) {
                                 discontinuityState = DiscontinuityState.IsNotDiscontinuity;
-                                discontinuityDeterminationHeight =
-                                        blockToCheck.getCycleInformation().getDeterminationHeight();
+                                this.discontinuityDeterminationHeight = discontinuityDeterminationHeight;
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
+                                this.discontinuityDeterminationHeight = discontinuityDeterminationHeight;
                             }
                         } else {
                             previousBlockForVerifier = blockToCheck;
@@ -257,6 +268,7 @@ public class Block implements MessageObject {
                                 discontinuityDeterminationHeight = 0L;
                             } else {
                                 discontinuityState = DiscontinuityState.IsDiscontinuity;
+                                discontinuityDeterminationHeight = 0L;
                             }
                         } else {
                             discontinuityState = DiscontinuityState.IsNotDiscontinuity;
@@ -267,10 +279,12 @@ public class Block implements MessageObject {
                     blockToCheck = blockToCheck.getPreviousBlock();
 
                     if (blockToCheck == null) {
-                        System.out.println("existing verifier, block is null -- unable to determine state");
+                        System.out.println("existing verifier, block is null -- unable to determine state -- " +
+                                DebugUtil.callingMethods(3));
                     } else if (blockToCheck.getCycleInformation() == null) {
                         System.out.println("existing verifier, cycle is null at height " +
-                                blockToCheck.getBlockHeight() + " -- unable to determine state");
+                                blockToCheck.getBlockHeight() + " -- unable to determine state -- " +
+                                DebugUtil.callingMethods(3));
                     }
                 }
             }
