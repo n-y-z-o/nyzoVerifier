@@ -18,8 +18,6 @@ public class ChainOptionManager {
 
         boolean shouldForwardBlock = false;
 
-        // TODO: make separate rules for when we are preparing to process and when we are ready to process
-
         long leadingEdgeHeight = leadingEdgeHeight();
         long highestBlockFrozen = BlockManager.highestBlockFrozen();
 
@@ -57,10 +55,9 @@ public class ChainOptionManager {
             }
         }
 
-        CycleInformation cycleInformation = block == null ? null : block.getCycleInformation();
-        if (block != null && block.getBlockHeight() > highestBlockFrozen && cycleInformation != null) {
+        if (block != null && block.getBlockHeight() > highestBlockFrozen) {
 
-            // Get the list of the block at this height.
+            // Get the list of the blocks at this height.
             List<Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
             if (blocksAtHeight == null) {
                 blocksAtHeight = new ArrayList<>();
@@ -90,24 +87,11 @@ public class ChainOptionManager {
             }
 
             if (!alreadyContainsBlock && !alreadyContainsVerifierOnSameChain) {
-                if (blocksAtHeight.size() < 100) {
-                    blocksAtHeight.add(block);
-                    System.out.println("added block at height " + block.getBlockHeight() + " with signature " +
-                            PrintUtil.compactPrintByteArray(block.getVerifierSignature()));
-                    shouldForwardBlock = true;
-                } else {
-                    Collections.sort(blocksAtHeight, new Comparator<Block>() {
-                        @Override
-                        public int compare(Block block1, Block block2) {
-                            return ((Long) block2.chainScore(highestBlockFrozen))
-                                    .compareTo(block1.chainScore(highestBlockFrozen));
-                        }
-                    });
-                    // TODO: complete this to only keep the top 100 lowest-scoring blocks
-                }
+                blocksAtHeight.add(block);
+                System.out.println("added block at height " + block.getBlockHeight() + " with signature " +
+                        PrintUtil.compactPrintByteArray(block.getVerifierSignature()));
+                shouldForwardBlock = true;
             }
-
-
         }
 
         return shouldForwardBlock;

@@ -115,6 +115,10 @@ public class Verifier {
                 System.out.println("-" + entryPoint);
             }
 
+            // Send node-list requests to all trusted entry points.
+
+
+
             // Attempt to connect to the mesh. This should succeed on the first attempt, but it may take longer if we
             // are starting a new mesh.
             long consensusFrozenEdge = -1;
