@@ -2,21 +2,21 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BootstrapRequest;
 import co.nyzo.verifier.messages.BootstrapResponse;
+import co.nyzo.verifier.messages.NodeJoinMessage;
+import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.File;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class Verifier {
 
@@ -27,6 +27,8 @@ public class Verifier {
 
     private static int recentMessageTimestampsIndex = 0;
     private static final long[] recentMessageTimestamps = new long[10];
+
+    private static Set<ByteBuffer> nodeJoinAcknowledgementsReceived = new HashSet<>();
 
     static {
         // This ensures the seed is always available, even if this class is used from a test script.
@@ -96,6 +98,7 @@ public class Verifier {
 
             // Load the private seed. This seed is used to sign all messages, so this is done first.
             loadPrivateSeed();
+            nodeJoinAcknowledgementsReceived.add(ByteBuffer.wrap(getIdentifier()));  // avoids send node-join to self
 
             // Start the node listener and wait for it to start and for the port to settle.
             MeshListener.start();
@@ -140,6 +143,7 @@ public class Verifier {
                                         System.out.println("Bootstrap response is null");
                                     } else {
                                         processBootstrapResponseMessage(message);
+                                        sendNodeJoinRequests();
                                     }
                                 }
                             });
@@ -177,6 +181,26 @@ public class Verifier {
                     alive.set(false);
                 }
             }, "Verifier-mainLoop").start();
+        }
+    }
+
+    private static void sendNodeJoinRequests() {
+
+        List<Node> mesh = NodeManager.getMesh();
+        Message message = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
+        for (Node node : mesh) {
+            ByteBuffer identifierBuffer = ByteBuffer.wrap(node.getIdentifier());
+            if (!nodeJoinAcknowledgementsReceived.contains(identifierBuffer)) {
+                Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false,
+                        new MessageCallback() {
+                    @Override
+                    public void responseReceived(Message message) {
+                        if (message != null) {
+                            nodeJoinAcknowledgementsReceived.add(ByteBuffer.wrap(message.getSourceNodeIdentifier()));
+                        }
+                    }
+                });
+            }
         }
     }
 

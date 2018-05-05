@@ -1,6 +1,7 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.FieldByteSize;
+import co.nyzo.verifier.MeshListener;
 import co.nyzo.verifier.MessageObject;
 import co.nyzo.verifier.Node;
 
@@ -12,6 +13,12 @@ public class NodeJoinMessage implements MessageObject {
 
     private int port;
     private boolean fullNode;
+
+    public NodeJoinMessage() {
+
+        this.port = MeshListener.getPort();
+        this.fullNode = true;
+    }
 
     public NodeJoinMessage(int port, boolean fullNode) {
 
