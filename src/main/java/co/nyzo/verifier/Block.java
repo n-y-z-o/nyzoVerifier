@@ -192,7 +192,10 @@ public class Block implements MessageObject {
             if (cycleInformation.isNewVerifier()) {
 
                 // For a new verifier, find the previous new verifier and ensure that the difference is c + 2 from that
-                // verifier.
+                // verifier. If a new verifier is not found far enough back in the chain, we are certain that there is
+                // no discontinuity. The c * 3 + 2 calculation is a safe over-approximation, considering that one block
+                // back, the cycle length could be roughly double the current cycle length and still not contain a
+                // discontinuity.
                 Block blockToCheck = getPreviousBlock();
                 while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
                         discontinuityState == DiscontinuityState.Undetermined) {
@@ -212,17 +215,21 @@ public class Block implements MessageObject {
                             discontinuityState = DiscontinuityState.IsDiscontinuity;
                             this.discontinuityDeterminationHeight = discontinuityDeterminationHeight;
                         }
+                    } else if (getBlockHeight() - blockToCheck.getBlockHeight() >
+                            blockToCheck.getCycleInformation().getCycleLength() * 3 + 2) {
+                        discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                        this.discontinuityDeterminationHeight = discontinuityDeterminationHeight;
                     }
                     blockToCheck = blockToCheck.getPreviousBlock();
 
                     if (discontinuityState == DiscontinuityState.Undetermined) {
                         if (blockToCheck == null) {
-                            System.out.println("new verifier, block is null -- unable to determine state -- " +
-                                    DebugUtil.callingMethods(3));
+                            System.out.println("new verifier, block is null -- unable to determine state for block " +
+                                    height + " -- " + DebugUtil.callingMethods(3));
                         } else if (blockToCheck.getCycleInformation() == null) {
                             System.out.println("new verifier, cycle is null for height " +
-                                    blockToCheck.getBlockHeight() + " -- unable to determine state -- " +
-                                    DebugUtil.callingMethods(3));
+                                    blockToCheck.getBlockHeight() + " -- unable to determine state for block " +
+                                    height + " -- " + DebugUtil.callingMethods(3));
                         }
                     }
                 }
@@ -283,16 +290,19 @@ public class Block implements MessageObject {
 
                     if (discontinuityState == DiscontinuityState.Undetermined) {
                         if (blockToCheck == null) {
-                            System.out.println("existing verifier, block is null -- unable to determine state -- " +
-                                    DebugUtil.callingMethods(3));
+                            System.out.println("existing verifier, block is null -- unable to determine state for " +
+                                    "height " + height + " -- " + DebugUtil.callingMethods(3));
                         } else if (blockToCheck.getCycleInformation() == null) {
                             System.out.println("existing verifier, cycle is null at height " +
-                                    blockToCheck.getBlockHeight() + " -- unable to determine state -- " +
-                                    DebugUtil.callingMethods(3));
+                                    blockToCheck.getBlockHeight() + " -- unable to determine state for height " +
+                                    height + " -- " + DebugUtil.callingMethods(3));
                         }
                     }
                 }
             }
+
+            this.discontinuityDeterminationHeight = getCycleInformation().getCycleLength() * 4;
+
         } else {
             System.out.println("cycle information is null");
         }
