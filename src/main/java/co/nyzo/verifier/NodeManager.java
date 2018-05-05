@@ -210,7 +210,7 @@ public class NodeManager {
         if (count < consecutiveFailuresBeforeRemoval) {
             nodeConnectionFailureMap.put(key, count);
         } else {
-            nodeConnectionFailureMap.remove(count);
+            nodeConnectionFailureMap.remove(key);
             removeNodeFromMesh(hostNameOrIp);
         }
     }
