@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FrozenBlockVoteTally {
 
@@ -16,23 +16,23 @@ public class FrozenBlockVoteTally {
     private Set<ByteBuffer> identifiersThatHaveVoted;
     private Map<ByteBuffer, Integer> voteMap;
     private Map<ByteBuffer, byte[]> hashLookup;
-    private Map<ByteBuffer, Long> determinationHeightLookup;
+    private Map<ByteBuffer, Integer> cycleLengthLookup;
 
     public FrozenBlockVoteTally(long blockHeight) {
         this.blockHeight = blockHeight;
         this.identifiersThatHaveVoted = new HashSet<>();
         this.voteMap = new HashMap<>();
         this.hashLookup = new HashMap<>();
-        this.determinationHeightLookup = new HashMap<>();
+        this.cycleLengthLookup = new HashMap<>();
     }
 
-    public void vote(byte[] identifier, byte[] hash, long determinationHeight) {
+    public void vote(byte[] identifier, byte[] hash, int cycleLength) {
 
         ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
         if (!identifiersThatHaveVoted.contains(identifierBuffer)) {
             identifiersThatHaveVoted.add(identifierBuffer);
 
-            ByteBuffer voteKey = voteKey(hash, determinationHeight);
+            ByteBuffer voteKey = voteKey(hash, cycleLength);
             Integer count = voteMap.get(voteKey);
             if (count == null) {
                 count = 0;
@@ -43,16 +43,16 @@ public class FrozenBlockVoteTally {
             System.out.println("count is now " + count + " for hash " + PrintUtil.compactPrintByteArray(hash) +
                     " at height " + blockHeight);
             hashLookup.put(voteKey, hash);
-            determinationHeightLookup.put(voteKey, determinationHeight);
+            cycleLengthLookup.put(voteKey, cycleLength);
         }
     }
 
-    private static ByteBuffer voteKey(byte[] hash, long determinationHeight) {
+    private static ByteBuffer voteKey(byte[] hash, int cycleLength) {
 
-        byte[] array = new byte[FieldByteSize.hash + FieldByteSize.blockHeight];
+        byte[] array = new byte[FieldByteSize.hash + FieldByteSize.cycleLength];
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.put(hash);
-        buffer.putLong(determinationHeight);
+        buffer.putInt(cycleLength);
 
         return buffer;
     }
@@ -68,7 +68,7 @@ public class FrozenBlockVoteTally {
         return totalVotes;
     }
 
-    public int votesForWinner(byte[] winnerHash, AtomicLong determinationHeight) {
+    public int votesForWinner(byte[] winnerHash, AtomicInteger cycleLength) {
 
         int votesForWinner = -1;
         for (ByteBuffer voteKey : voteMap.keySet()) {
@@ -76,12 +76,12 @@ public class FrozenBlockVoteTally {
             if (votes > votesForWinner) {
                 votesForWinner = votes;
                 System.arraycopy(hashLookup.get(voteKey), 0, winnerHash, 0, FieldByteSize.hash);
-                determinationHeight.set(determinationHeightLookup.get(voteKey));
+                cycleLength.set(cycleLengthLookup.get(voteKey));
             }
         }
 
         System.out.println(votesForWinner + " votes for winner " + PrintUtil.compactPrintByteArray(winnerHash) +
-                ", height " + blockHeight + ", determination height " + determinationHeight.get());
+                ", height " + blockHeight + ", cycle length " + cycleLength.get());
         return votesForWinner;
     }
 }

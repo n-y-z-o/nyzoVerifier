@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Verifier {
@@ -115,7 +116,7 @@ public class Verifier {
             // are starting a new mesh.
             long consensusFrozenEdge = -1;
             byte[] frozenEdgeHash = new byte[FieldByteSize.hash];
-            AtomicLong determinationHeight = new AtomicLong(-1L);
+            AtomicInteger frozenEdgeCycleLength = new AtomicInteger(-1);
             while (consensusFrozenEdge < 0) {
 
                 // Send bootstrap requests to all trusted entry points.
@@ -153,15 +154,16 @@ public class Verifier {
                 }
 
                 // Get the consensus frozen edge. If this can be determined, we can continue to the next step.
-                consensusFrozenEdge = ChainInitializationManager.frozenEdgeHeight(frozenEdgeHash, determinationHeight);
-                System.out.println("consensus frozen edge height: " + consensusFrozenEdge + ", determination height " +
-                        determinationHeight.get());
+                consensusFrozenEdge = ChainInitializationManager.frozenEdgeHeight(frozenEdgeHash, frozenEdgeCycleLength);
+                System.out.println("consensus frozen edge height: " + consensusFrozenEdge + ", cycle length " +
+                        frozenEdgeCycleLength.get());
             }
 
             // If the consensus frozen edge is higher than the local frozen edge, fetch the necessary blocks to start
             // verifying.
             if (consensusFrozenEdge > BlockManager.highestBlockFrozen()) {
-                long startBlock = Math.max(BlockManager.highestBlockFrozen(), determinationHeight.get());
+                long startBlock = Math.max(BlockManager.highestBlockFrozen(), consensusFrozenEdge -
+                        4 * frozenEdgeCycleLength.get());
                 System.out.println("need to fetch chain section " + startBlock + " to " + consensusFrozenEdge);
                 ChainInitializationManager.fetchChainSection(startBlock, consensusFrozenEdge, frozenEdgeHash);
             }

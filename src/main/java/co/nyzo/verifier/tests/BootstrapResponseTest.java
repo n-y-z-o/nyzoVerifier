@@ -7,6 +7,6 @@ public class BootstrapResponseTest {
     public static void main(String[] args) {
 
         BootstrapResponse response = new BootstrapResponse();
-        System.out.println("discontinuity determination heights: " + response.getDiscontinuityDeterminationHeights());
+        System.out.println("cycle lengths: " + response.getCycleLengths());
     }
 }

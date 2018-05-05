@@ -11,7 +11,7 @@ public class BootstrapResponse implements MessageObject {
     private List<Node> mesh;
     private long firstHashHeight;
     private List<byte[]> frozenBlockHashes;
-    private List<Long> discontinuityDeterminationHeights;
+    private List<Integer> cycleLengths;
     private List<Transaction> transactionPool;
     private List<Block> unfrozenBlockPool;
 
@@ -20,33 +20,33 @@ public class BootstrapResponse implements MessageObject {
         this.mesh = NodeManager.getMesh();
 
         List<byte[]> frozenBlockHashes = new ArrayList<>();
-        List<Long> discontinuityDeterminationHeights = new ArrayList<>();
+        List<Integer> cycleLengths = new ArrayList<>();
         long height = BlockManager.highestBlockFrozen();
         Block block = BlockManager.frozenBlockForHeight(height);
         long firstHashHeight = -1;
-        while (frozenBlockHashes.size() < 5 && block != null && block.getDiscontinuityDeterminationHeight() >= 0) {
+        while (frozenBlockHashes.size() < 5 && block != null && block.getCycleInformation() != null) {
             frozenBlockHashes.add(0, block.getHash());
-            discontinuityDeterminationHeights.add(0, block.getDiscontinuityDeterminationHeight());
+            cycleLengths.add(0, block.getCycleInformation().getCycleLength());
             firstHashHeight = block.getBlockHeight();
             height--;
             block = BlockManager.frozenBlockForHeight(height);
         }
         this.firstHashHeight = firstHashHeight;
         this.frozenBlockHashes = frozenBlockHashes;
-        this.discontinuityDeterminationHeights = discontinuityDeterminationHeights;
+        this.cycleLengths = cycleLengths;
 
         this.transactionPool = TransactionPool.allTransactions();
         this.unfrozenBlockPool = ChainOptionManager.allUnfrozenBlocks();
     }
 
     public BootstrapResponse(List<Node> mesh, long firstHashHeight, List<byte[]> frozenBlockHashes,
-                             List<Long> discontinuityDeterminationHeights, List<Transaction> transactionPool,
+                             List<Integer> cycleLengths, List<Transaction> transactionPool,
                              List<Block> unfrozenBlockPool) {
 
         this.mesh = mesh;
         this.firstHashHeight = firstHashHeight;
         this.frozenBlockHashes = frozenBlockHashes;
-        this.discontinuityDeterminationHeights = discontinuityDeterminationHeights;
+        this.cycleLengths = cycleLengths;
         this.transactionPool = transactionPool;
         this.unfrozenBlockPool = unfrozenBlockPool;
     }
@@ -63,8 +63,8 @@ public class BootstrapResponse implements MessageObject {
         return frozenBlockHashes;
     }
 
-    public List<Long> getDiscontinuityDeterminationHeights() {
-        return discontinuityDeterminationHeights;
+    public List<Integer> getCycleLengths() {
+        return cycleLengths;
     }
 
     public List<Transaction> getTransactionPool() {
@@ -85,9 +85,9 @@ public class BootstrapResponse implements MessageObject {
         // first hash height
         byteSize += FieldByteSize.blockHeight;
 
-        // frozen block hashes and discontinuity determination heights
+        // frozen block hashes and cycle lengths
         byteSize += FieldByteSize.hashListLength + frozenBlockHashes.size() * (FieldByteSize.hash +
-                FieldByteSize.blockHeight);
+                FieldByteSize.cycleLength);
 
         // transaction pool
         byteSize += FieldByteSize.transactionPoolLength;
@@ -124,12 +124,12 @@ public class BootstrapResponse implements MessageObject {
         // first hash height
         buffer.putLong(firstHashHeight);
 
-        // frozen block hashes and discontinuity determination heights
+        // frozen block hashes and cycle lengths
         int numberOfBlocks = frozenBlockHashes.size();
         buffer.put((byte) numberOfBlocks);
         for (int i = 0; i < numberOfBlocks; i++) {
             buffer.put(frozenBlockHashes.get(i));
-            buffer.putLong(discontinuityDeterminationHeights.get(i));
+            buffer.putInt(cycleLengths.get(i));
         }
 
         // transaction pool
@@ -172,12 +172,12 @@ public class BootstrapResponse implements MessageObject {
             // frozen block hashes and discontinuity determination heights
             byte numberOfHashes = buffer.get();
             List<byte[]> frozenBlockHashes = new ArrayList<>();
-            List<Long> discontinuityDeterminationHeights = new ArrayList<>();
+            List<Integer> cycleLengths = new ArrayList<>();
             for (int i = 0; i < numberOfHashes; i++) {
                 byte[] hash = new byte[FieldByteSize.hash];
                 buffer.get(hash);
                 frozenBlockHashes.add(hash);
-                discontinuityDeterminationHeights.add(buffer.getLong());
+                cycleLengths.add(buffer.getInt());
             }
 
             // transaction pool
@@ -194,8 +194,8 @@ public class BootstrapResponse implements MessageObject {
                 unfrozenBlockPool.add(Block.fromByteBuffer(buffer));
             }
 
-            result = new BootstrapResponse(mesh, firstHashHeight, frozenBlockHashes, discontinuityDeterminationHeights,
-                    transactionPool, unfrozenBlockPool);
+            result = new BootstrapResponse(mesh, firstHashHeight, frozenBlockHashes, cycleLengths, transactionPool,
+                    unfrozenBlockPool);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }

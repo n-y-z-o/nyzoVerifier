@@ -8,6 +8,7 @@ import co.nyzo.verifier.util.UpdateUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class ChainInitializationManager {
@@ -30,12 +31,12 @@ public class ChainInitializationManager {
             }
 
             byte[] hash = response.getFrozenBlockHashes().get(i);
-            long determinationHeight = response.getDiscontinuityDeterminationHeights().get(i);
-            voteTally.vote(message.getSourceNodeIdentifier(), hash, determinationHeight);
+            int cycleLength = response.getCycleLengths().get(i);
+            voteTally.vote(message.getSourceNodeIdentifier(), hash, cycleLength);
         }
     }
 
-    public static synchronized long frozenEdgeHeight(byte[] frozenEdgeHash, AtomicLong frozenEdgeDeterminationHeight) {
+    public static synchronized long frozenEdgeHeight(byte[] frozenEdgeHash, AtomicInteger frozenEdgeCycleLength) {
 
         // Determine the maximum number of votes we have at any level. This determines our consensus threshold.
         int maximumVotesAtAnyLevel = 0;
@@ -46,15 +47,15 @@ public class ChainInitializationManager {
         // Determine the highest level at which consensus has been reached.
         long maximumConsensusHeight = -1;
         byte[] winnerHash = new byte[FieldByteSize.hash];
-        AtomicLong determinationHeight = new AtomicLong();
+        AtomicInteger cycleLength = new AtomicInteger();
         if (maximumVotesAtAnyLevel > 0) {
             for (long height : hashVotes.keySet()) {
                 if (height > maximumConsensusHeight) {
                     FrozenBlockVoteTally tally = hashVotes.get(height);
-                    if (tally.votesForWinner(winnerHash, determinationHeight) > maximumVotesAtAnyLevel / 2) {
+                    if (tally.votesForWinner(winnerHash, cycleLength) > maximumVotesAtAnyLevel / 2) {
                         maximumConsensusHeight = height;
                         System.arraycopy(winnerHash, 0, frozenEdgeHash, 0, FieldByteSize.hash);
-                        frozenEdgeDeterminationHeight.set(determinationHeight.get());
+                        frozenEdgeCycleLength.set(cycleLength.get());
                     }
                 }
             }
@@ -141,9 +142,8 @@ public class ChainInitializationManager {
         // Now the the blocks are saved, we should be able to determine the discontinuity state of the end block.
         Block endBlock = BlockManager.frozenBlockForHeight(endHeight);
         System.out.println("end block (" + endBlock.getBlockHeight() + ") discontinuity state: " +
-                endBlock.getDiscontinuityState());
-        System.out.println("end block (" + endBlock.getBlockHeight() + ") discontinuity height: " +
-                endBlock.getDiscontinuityDeterminationHeight());
+                endBlock.getDiscontinuityState() + ", cycle length: " +
+                endBlock.getCycleInformation().getCycleLength());
     }
 
     private static Map<Long, Block> blockMap(List<Block> blocks) {
