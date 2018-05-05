@@ -267,12 +267,13 @@ public class Verifier {
 
                     long highestBlockFrozen = BlockManager.highestBlockFrozen();
                     long endHeight = Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen);
-                    long startHeight = Math.max(endHeight - 2, highestBlockFrozen);  // Only extend from two back.
+                    long startHeight = Math.max(endHeight - 2, highestBlockFrozen);
                     for (long height = startHeight; height <= endHeight; height++) {
 
                         // Try to extend the lowest-scoring block.
                         Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
-                        if (blockToExtend != null) {
+                        if (blockToExtend != null && blockToExtend.getDiscontinuityState() ==
+                                Block.DiscontinuityState.IsNotDiscontinuity) {
                             Block nextBlock = createNextBlock(blockToExtend);
                             if (nextBlock != null) {
                                 boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
