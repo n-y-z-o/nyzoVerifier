@@ -215,12 +215,15 @@ public class Block implements MessageObject {
                     }
                     blockToCheck = blockToCheck.getPreviousBlock();
 
-                    if (blockToCheck == null) {
-                        System.out.println("new verifier, block is null -- unable to determine state -- " +
-                                DebugUtil.callingMethods(3));
-                    } else if (blockToCheck.getCycleInformation() == null) {
-                        System.out.println("new verifier, cycle is null for height " + blockToCheck.getBlockHeight() +
-                                " -- unable to determine state -- " + DebugUtil.callingMethods(3));
+                    if (discontinuityState == DiscontinuityState.Undetermined) {
+                        if (blockToCheck == null) {
+                            System.out.println("new verifier, block is null -- unable to determine state -- " +
+                                    DebugUtil.callingMethods(3));
+                        } else if (blockToCheck.getCycleInformation() == null) {
+                            System.out.println("new verifier, cycle is null for height " +
+                                    blockToCheck.getBlockHeight() + " -- unable to determine state -- " +
+                                    DebugUtil.callingMethods(3));
+                        }
                     }
                 }
 
@@ -278,13 +281,15 @@ public class Block implements MessageObject {
 
                     blockToCheck = blockToCheck.getPreviousBlock();
 
-                    if (blockToCheck == null) {
-                        System.out.println("existing verifier, block is null -- unable to determine state -- " +
-                                DebugUtil.callingMethods(3));
-                    } else if (blockToCheck.getCycleInformation() == null) {
-                        System.out.println("existing verifier, cycle is null at height " +
-                                blockToCheck.getBlockHeight() + " -- unable to determine state -- " +
-                                DebugUtil.callingMethods(3));
+                    if (discontinuityState == DiscontinuityState.Undetermined) {
+                        if (blockToCheck == null) {
+                            System.out.println("existing verifier, block is null -- unable to determine state -- " +
+                                    DebugUtil.callingMethods(3));
+                        } else if (blockToCheck.getCycleInformation() == null) {
+                            System.out.println("existing verifier, cycle is null at height " +
+                                    blockToCheck.getBlockHeight() + " -- unable to determine state -- " +
+                                    DebugUtil.callingMethods(3));
+                        }
                     }
                 }
             }

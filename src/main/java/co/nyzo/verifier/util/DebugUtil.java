@@ -22,7 +22,7 @@ public class DebugUtil {
         Throwable throwable = new Throwable();
         StackTraceElement[] stackTrace = throwable.getStackTrace();
         String separator = "";
-        for (int i = 2; i < 2 + length && i < stackTrace.length; i++) {
+        for (int i = 1; i < 1 + length && i < stackTrace.length; i++) {
             String filename = stackTrace[i].getFileName();
             filename = filename.substring(0, filename.length() - 5);
             result.append(separator).append(filename).append(".").append(stackTrace[i].getMethodName());
