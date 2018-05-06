@@ -26,35 +26,6 @@ public class ChainOptionManager {
             block = null;
         }
 
-        // If the previous block is null, try to set it using information we have available.
-        if (block != null && block.getPreviousBlock() == null) {
-            long previousBlockHeight = block.getBlockHeight() - 1;
-            Block previousBlock = null;
-            if (previousBlockHeight <= highestBlockFrozen) {
-                previousBlock = BlockManager.frozenBlockForHeight(previousBlockHeight);
-
-                // If the frozen block does not connect with the new block, reject the new block.
-                if (!ByteUtil.arraysAreEqual(previousBlock.getHash(), block.getPreviousBlockHash())) {
-                    System.err.println("The new block cannot connect with a block that is already frozen. Rejecting.");
-                    previousBlock = null;
-                    block = null;
-                }
-            } else {
-                List<Block> blocksAtPreviousHeight = unfrozenBlocks.get(previousBlockHeight);
-                if (blocksAtPreviousHeight != null) {
-                    for (Block blockAtPreviousHeight : blocksAtPreviousHeight) {
-                        if (ByteUtil.arraysAreEqual(blockAtPreviousHeight.getHash(), block.getPreviousBlockHash())) {
-                            previousBlock = blockAtPreviousHeight;
-                        }
-                    }
-                }
-            }
-
-            if (block != null) {
-                block.setPreviousBlock(previousBlock);
-            }
-        }
-
         if (block != null && block.getBlockHeight() > highestBlockFrozen) {
 
             // Get the list of the blocks at this height.
@@ -296,5 +267,20 @@ public class ChainOptionManager {
         }
 
         return allBlocks;
+    }
+
+    public static synchronized Block unfrozenBlockAtHeight(long height, byte[] hash) {
+
+        Block block = null;
+        List<Block> blocksAtHeight = unfrozenBlocks.get(height);
+        if (blocksAtHeight != null) {
+            for (Block blockToCheck : blocksAtHeight) {
+                if (ByteUtil.arraysAreEqual(blockToCheck.getHash(), hash)) {
+                    block = blockToCheck;
+                }
+            }
+        }
+
+        return block;
     }
 }

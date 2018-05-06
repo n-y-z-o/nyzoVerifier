@@ -29,7 +29,6 @@ public class ChainScoreTest {
             Block block = new Block(height, previousBlockHash, startTimestamp, transactions, balanceList.getHash(),
                     balanceList);
             block.sign(verifierSeed);
-            block.setPreviousBlock(previousBlock);
 
             previousBlock = block;
 

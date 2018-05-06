@@ -36,7 +36,6 @@ public class Block implements MessageObject {
     private BalanceList balanceList;               // stored separately - the hash is stored in the block
     private byte[] verifierIdentifier;             // 32 bytes
     private byte[] verifierSignature;              // 64 bytes
-    private Block previousBlock;                   // TODO: unset this periodically on old blocks to control memory use
     private DiscontinuityState discontinuityState;
 
     private CycleInformation cycleInformation = null;
@@ -51,7 +50,6 @@ public class Block implements MessageObject {
         this.transactions = new ArrayList<>(transactions);
         this.balanceListHash = balanceListHash;
         this.balanceList = balanceList;
-        this.previousBlock = null;
         this.discontinuityState = height == 0 ? DiscontinuityState.IsNotDiscontinuity : DiscontinuityState.Undetermined;
 
         try {
@@ -75,7 +73,6 @@ public class Block implements MessageObject {
         this.balanceListHash = balanceListHash;
         this.verifierIdentifier = verifierIdentifier;
         this.verifierSignature = verifierSignature;
-        this.previousBlock = null;
         this.discontinuityState = height == 0 ? DiscontinuityState.IsNotDiscontinuity : DiscontinuityState.Undetermined;
     }
 
@@ -109,6 +106,7 @@ public class Block implements MessageObject {
 
     public BalanceList getBalanceList() {
 
+        Block previousBlock = getPreviousBlock();
         if (balanceList == null && previousBlock != null) {
             setBalanceList(balanceListForNextBlock(previousBlock, transactions, verifierIdentifier));
         }
@@ -130,25 +128,17 @@ public class Block implements MessageObject {
 
     public Block getPreviousBlock() {
 
-        if (previousBlock == null && getBlockHeight() - 1 <= BlockManager.highestBlockFrozen()) {
-            setPreviousBlock(BlockManager.frozenBlockForHeight(getBlockHeight() - 1));
+        Block previousBlock = null;
+        if (getBlockHeight() <= BlockManager.highestBlockFrozen() + 1) {
+            Block frozenBlock = BlockManager.frozenBlockForHeight(height - 1);
+            if (ByteUtil.arraysAreEqual(frozenBlock.getHash(), previousBlockHash)) {
+                previousBlock = frozenBlock;
+            }
+        } else {
+            previousBlock = ChainOptionManager.unfrozenBlockAtHeight(height - 1, previousBlockHash);
         }
 
         return previousBlock;
-    }
-
-    public void setPreviousBlock(Block previousBlock) {
-
-        if (previousBlock == null) {
-            this.previousBlock = null;
-        } else if (!ByteUtil.arraysAreEqual(previousBlock.getHash(), previousBlockHash)) {
-            System.err.println("previous block DOES NOT match hash! previous block height=" +
-                    previousBlock.getBlockHeight() + ", block height=" + this.getBlockHeight() +
-                    ", previousBlockHash=" + ByteUtil.arrayAsStringWithDashes(previousBlockHash) +
-                    ", previousBlock.hash=" + ByteUtil.arrayAsStringWithDashes(previousBlockHash));
-        } else {
-            this.previousBlock = previousBlock;
-        }
     }
 
     public byte[] getVerifierIdentifier() {
