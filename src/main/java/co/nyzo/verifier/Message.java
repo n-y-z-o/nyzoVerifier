@@ -108,14 +108,6 @@ public class Message {
         return sourceNodeSignature;
     }
 
-    public List<byte[]> getRecipientIdentifiers() {
-        return recipientIdentifiers;
-    }
-
-    public List<byte[]> getRecipientSignatures() {
-        return recipientSignatures;
-    }
-
     public boolean isValid() {
         return valid;
     }
