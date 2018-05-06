@@ -95,85 +95,8 @@ public class NodeManager {
         }
     }
 
-    /*
-    public static void fetchNodeList(int index) {
-
-        String url = "verifier" + index + ".nyzo.co";
-        System.out.println("fetching node list from " + url);
-        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.BootstrapRequest1,
-                new BootstrapRequest(MeshListener.getPort(), true)), false,
-                new MessageCallback() {
-                    @Override
-                    public void responseReceived(Message message) {
-                        List<Node> nodes = new ArrayList<>();
-                        try {
-                            if (message != null) {
-                                BootstrapResponse response = (BootstrapResponse) message.getContent();
-                                nodes = response.getNodes();
-                            }
-                        } catch (Exception ignored) { }
-
-                        // Add the nodes to the local list.
-                        for (Node node : nodes) {
-                            updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(), node.isFullNode(),
-                                    node.getQueueTimestamp());
-                        }
-
-                        // If we got nodes in the response, send node-join messages to all full nodes and fetch the
-                        // current transaction pool. Otherwise, wait 10 seconds and retry.
-                        if (!nodes.isEmpty()) {
-                            List<Node> nodePool = getMesh();
-                            for (Node node : nodePool) {
-                                if (node.isFullNode()) {
-                                    Message nodeJoinMessage = new Message(MessageType.NodeJoin3,
-                                            new NodeJoinMessage(MeshListener.getPort(), true));
-                                    System.out.println("sending node-join message to " +
-                                            IpUtil.addressAsString(node.getIpAddress()));
-                                    Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(),
-                                            nodeJoinMessage, true, new MessageCallback() {
-                                                @Override
-                                                public void responseReceived(Message message) {
-                                                    System.out.println("received node join response " + message);
-                                                    ChainInitializationManager.processNodeJoinResponse(message);
-                                                }
-                                            });
-                                }
-                            }
-
-                            // If this node is not yet in the pool, re-fetch. This typically means that the entire
-                            // process (fetching, broadcasting join, getting the transaction pool) is done twice, but
-                            // the redundancy is not a problem and may actually help in some cases.
-                            if (!identifierToNodeMap.containsKey(ByteBuffer.wrap(Verifier.getIdentifier()))) {
-                                System.out.println("need to re-fetch node pool");
-                                fetchNodeList(0);
-                            }
-
-                            TransactionPool.fetchFromMesh();
-                        } else {
-                            if (!UpdateUtil.shouldTerminate()) {
-                                new Thread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        try {
-                                            Thread.sleep(10000L);
-                                        } catch (Exception ignored) {
-                                        }
-                                        fetchNodeList((index + 1) % maximumNumberOfSeedVerifiers);
-                                    }
-                                }, "NodeManager-fetchNodeListRetry").start();
-                            }
-                        }
-                    }
-                });
-    }*/
-
     public static synchronized List<Node> getMesh() {
         return new ArrayList<>(nodePool);
-    }
-
-    public static int numberOfNodesInMesh() {
-
-        return nodePool.size();
     }
 
     public static boolean connectedToMesh() {
