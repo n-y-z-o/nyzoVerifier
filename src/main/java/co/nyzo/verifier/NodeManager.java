@@ -145,15 +145,21 @@ public class NodeManager {
             }
 
             // This is a good place to remove verifiers that no longer need to be in the inactive map.
-            Set<ByteBuffer> identifiersInMap = new HashSet<>(ipAddressToNodeMapInactive.keySet());
-            for (ByteBuffer identifier : identifiersInMap) {
-                if (!BlockManager.verifierPresentInPreviousTwoCycles(identifier.array())) {
-                    ipAddressToNodeMapInactive.remove(identifier);
-                    System.out.println("removed inactive node in cleanup");
-                }
-            }
+            cleanInactiveMap();
         } else {
             System.out.println("not adding to inactive because node is null");
+        }
+    }
+
+    private static synchronized void cleanInactiveMap() {
+
+        Set<ByteBuffer> addressesInMap = new HashSet<>(ipAddressToNodeMapInactive.keySet());
+        for (ByteBuffer address : addressesInMap) {
+            Node node = ipAddressToNodeMapInactive.get(address);
+            if (node != null && !BlockManager.verifierPresentInPreviousTwoCycles(node.getIdentifier())) {
+                ipAddressToNodeMapInactive.remove(address);
+                System.out.println("removed inactive node in cleanup");
+            }
         }
     }
 
