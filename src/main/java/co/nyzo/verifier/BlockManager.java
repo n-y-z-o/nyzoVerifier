@@ -264,7 +264,22 @@ public class BlockManager {
 
     public static synchronized boolean verifierPresentInPreviousTwoCycles(byte[] identifier) {
 
-        return verifiersInPreviousTwoCycles.contains(ByteBuffer.wrap(identifier));
+        StringBuilder message = new StringBuilder("verifier ").append(PrintUtil.compactPrintByteArray(identifier));
+        boolean present = verifiersInPreviousTwoCycles.contains(ByteBuffer.wrap(identifier));
+        if (present) {
+            message.append(" is present in [");
+        } else {
+            message.append(" is NOT present in [");
+        }
+        String separator = "";
+        for (ByteBuffer verifier : verifiersInPreviousTwoCycles) {
+            message.append(separator).append(PrintUtil.compactPrintByteArray(verifier.array()));
+            separator = ", ";
+        }
+        message.append("]");
+        System.out.println(message.toString());
+
+        return present;
     }
 
     private static synchronized void updateVerifiersInPreviousTwoCycles(Block block) {
