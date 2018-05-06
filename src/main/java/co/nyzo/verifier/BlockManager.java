@@ -137,7 +137,7 @@ public class BlockManager {
 
     public static synchronized void freezeBlock(Block block, byte[] previousBlockHash) {
 
-        // Only continue if the block's previous hash is correct and the block has not yet been frozen.
+        // Only continue if the block's previous hash is correct and the block is past the frozen edge.
         if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) &&
                 block.getBlockHeight() > highestBlockFrozen()) {
 
@@ -264,22 +264,7 @@ public class BlockManager {
 
     public static synchronized boolean verifierPresentInPreviousTwoCycles(byte[] identifier) {
 
-        StringBuilder message = new StringBuilder("verifier ").append(PrintUtil.compactPrintByteArray(identifier));
-        boolean present = verifiersInPreviousTwoCycles.contains(ByteBuffer.wrap(identifier));
-        if (present) {
-            message.append(" is present in [");
-        } else {
-            message.append(" is NOT present in [");
-        }
-        String separator = "";
-        for (ByteBuffer verifier : verifiersInPreviousTwoCycles) {
-            message.append(separator).append(PrintUtil.compactPrintByteArray(verifier.array()));
-            separator = ", ";
-        }
-        message.append("]");
-        System.out.println(message.toString());
-
-        return present;
+        return verifiersInPreviousTwoCycles.contains(ByteBuffer.wrap(identifier));
     }
 
     private static synchronized void updateVerifiersInPreviousTwoCycles(Block block) {
@@ -304,9 +289,5 @@ public class BlockManager {
         }
 
         verifiersInPreviousTwoCycles.addAll(verifierCounts.keySet());
-        System.out.println("verifiers in previous two cycles:");
-        for (ByteBuffer identifier : verifiersInPreviousTwoCycles) {
-            System.out.println("- " + PrintUtil.compactPrintByteArray(identifier.array()));
-        }
     }
 }
