@@ -17,7 +17,7 @@ public class NodeManager {
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new HashMap<>();
     private static final Map<ByteBuffer, Node> ipAddressToNodeMapInactive = new HashMap<>();
 
-    private static final int consecutiveFailuresBeforeRemoval = 8;
+    private static final int consecutiveFailuresBeforeRemoval = 1;
     private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
 
     public static void updateNode(byte[] identifier, byte[] ipAddress, int port, boolean fullNode) {
