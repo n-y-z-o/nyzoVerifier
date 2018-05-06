@@ -8,25 +8,19 @@ import java.nio.ByteBuffer;
 public class BootstrapRequest implements MessageObject {
 
     private int port;
-    private boolean fullNode;
 
-    public BootstrapRequest(int port, boolean fullNode) {
+    public BootstrapRequest(int port) {
 
         this.port = port;
-        this.fullNode = fullNode;
     }
 
     public int getPort() {
         return port;
     }
 
-    public boolean isFullNode() {
-        return fullNode;
-    }
-
     @Override
     public int getByteSize() {
-        return FieldByteSize.port + FieldByteSize.booleanField;
+        return FieldByteSize.port;
     }
 
     @Override
@@ -35,7 +29,6 @@ public class BootstrapRequest implements MessageObject {
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.putInt(port);
-        buffer.put(fullNode ? (byte) 1 : (byte) 0);
 
         return array;
     }
@@ -46,9 +39,8 @@ public class BootstrapRequest implements MessageObject {
 
         try {
             int port = buffer.getInt();
-            boolean fullNode = buffer.get() == 1;
 
-            result = new BootstrapRequest(port, fullNode);
+            result = new BootstrapRequest(port);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }

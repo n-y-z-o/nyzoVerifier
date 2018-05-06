@@ -13,8 +13,8 @@ public class NodeListMessageTest {
         System.out.println("sending initial fetch");
         String url = "verifier1.nyzo.co";
 
-        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeJoin3,
-                new NodeJoinMessage(9444, false)), false,
+        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeJoin3, new NodeJoinMessage(9444)),
+                false,
                 new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {

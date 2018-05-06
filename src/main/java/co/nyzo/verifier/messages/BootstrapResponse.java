@@ -79,8 +79,7 @@ public class BootstrapResponse implements MessageObject {
     public int getByteSize() {
 
         // mesh
-        int byteSize = FieldByteSize.nodeListLength + mesh.size() *
-                (FieldByteSize.identifier + FieldByteSize.ipAddress + FieldByteSize.port + FieldByteSize.booleanField);
+        int byteSize = FieldByteSize.nodeListLength + mesh.size() * Node.getByteSizeStatic();
 
         // first hash height
         byteSize += FieldByteSize.blockHeight;
@@ -115,10 +114,7 @@ public class BootstrapResponse implements MessageObject {
         // mesh
         buffer.putInt(mesh.size());
         for (Node node : mesh) {
-            buffer.put(node.getIdentifier());
-            buffer.put(node.getIpAddress());
-            buffer.putInt(node.getPort());
-            buffer.put(node.isFullNode() ? (byte) 1 : (byte) 0);
+            buffer.put(node.getBytes());
         }
 
         // first hash height
@@ -156,14 +152,7 @@ public class BootstrapResponse implements MessageObject {
             int meshSize = buffer.getInt();
             List<Node> mesh = new ArrayList<>();
             for (int i = 0; i < meshSize; i++) {
-                byte[] identifier = new byte[FieldByteSize.identifier];
-                buffer.get(identifier);
-                byte[] ipAddress = new byte[FieldByteSize.ipAddress];
-                buffer.get(ipAddress);
-                int port = buffer.getInt();
-                boolean fullNode = buffer.get() == 1;
-
-                mesh.add(new Node(identifier, ipAddress, port, fullNode));
+                mesh.add(Node.fromByteBuffer(buffer));
             }
 
             // first hash height

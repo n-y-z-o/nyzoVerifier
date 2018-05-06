@@ -2,46 +2,39 @@ package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.MessageObject;
+import co.nyzo.verifier.Node;
 import co.nyzo.verifier.Transaction;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TransactionPoolResponse implements MessageObject {
+public class MeshResponse implements MessageObject {
 
-    private List<Transaction> transactions;
+    private List<Node> mesh;
 
-    public TransactionPoolResponse(List<Transaction> transactions) {
-        this.transactions = transactions;
+    public MeshResponse(List<Node> mesh) {
+        this.mesh = mesh;
     }
 
-    public List<Transaction> getTransactions() {
-        return transactions;
+    public List<Node> getMesh() {
+        return mesh;
     }
 
     @Override
     public int getByteSize() {
 
-        int size = FieldByteSize.transactionPoolLength;
-        for (Transaction transaction : transactions) {
-            size += transaction.getByteSize();
-        }
-
-        return size;
+        return FieldByteSize.nodeListLength + mesh.size() * (Node.getByteSizeStatic());
     }
 
     @Override
     public byte[] getBytes() {
 
-        int size = getByteSize();
-        System.out.println("byte size of transaction pool response: " + size);
-        System.out.println("transaction pool size: " + transactions.size());
-        byte[] result = new byte[size];
+        byte[] result = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(result);
-        buffer.putInt(transactions.size());
-        for (Transaction transaction : transactions) {
-            buffer.put(transaction.getBytes());
+        buffer.putInt(mesh.size());
+        for (Node node : mesh) {
+            buffer.put(node.getBytes());
         }
 
         return result;
@@ -69,13 +62,13 @@ public class TransactionPoolResponse implements MessageObject {
 
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder("[TransactionPoolResponse(" + transactions.size() + "): {");
+        StringBuilder result = new StringBuilder("[MeshResponse(" + mesh.size() + "): {");
         String separator = "";
-        for (int i = 0; i < transactions.size() && i < 5; i++) {
-            result.append(separator + transactions.get(i).toString());
+        for (int i = 0; i < mesh.size() && i < 5; i++) {
+            result.append(separator).append(mesh.get(i).toString());
             separator = ",";
         }
-        if (transactions.size() > 5) {
+        if (mesh.size() > 5) {
             result.append("...");
         }
         result.append("}]");

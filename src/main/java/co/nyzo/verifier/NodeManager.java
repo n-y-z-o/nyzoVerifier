@@ -18,13 +18,12 @@ public class NodeManager {
     private static final int consecutiveFailuresBeforeRemoval = 1;
     private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
 
-    public static void updateNode(byte[] identifier, byte[] ipAddress, int port, boolean fullNode) {
+    public static void updateNode(byte[] identifier, byte[] ipAddress, int port) {
 
-        updateNode(identifier, ipAddress, port, fullNode, 0);
+        updateNode(identifier, ipAddress, port, 0);
     }
 
-    public static synchronized void updateNode(byte[] identifier, byte[] ipAddress, int port, boolean fullNode,
-                                               long queueTimestamp) {
+    public static synchronized void updateNode(byte[] identifier, byte[] ipAddress, int port, long queueTimestamp) {
 
         System.out.println("adding node " + PrintUtil.compactPrintByteArray(identifier) + ", " +
                 IpUtil.addressAsString(ipAddress));
@@ -50,7 +49,7 @@ public class NodeManager {
 
             if (existingNode == null) {
                 // This is the simple case. If no other verifier is at this IP, add the verifier.
-                Node node = new Node(identifier, ipAddress, port, fullNode);
+                Node node = new Node(identifier, ipAddress, port);
                 if (queueTimestamp > 0) {
                     node.setQueueTimestamp(queueTimestamp);
                 }
@@ -63,7 +62,7 @@ public class NodeManager {
                 // likely to have manipulation. This is allowed, but only if the existing verifier at this IP did not
                 // verify a block in the previous two cycles.
                 if (!BlockManager.verifierPresentInPreviousTwoCycles(existingNode.getIdentifier())) {
-                    Node node = new Node(identifier, ipAddress, port, fullNode);
+                    Node node = new Node(identifier, ipAddress, port);
                     if (queueTimestamp > 0) {
                         node.setQueueTimestamp(queueTimestamp);
                     }

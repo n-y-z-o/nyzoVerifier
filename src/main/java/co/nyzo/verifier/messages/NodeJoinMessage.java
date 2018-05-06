@@ -12,31 +12,24 @@ import java.util.List;
 public class NodeJoinMessage implements MessageObject {
 
     private int port;
-    private boolean fullNode;
 
     public NodeJoinMessage() {
 
         this.port = MeshListener.getPort();
-        this.fullNode = true;
     }
 
-    public NodeJoinMessage(int port, boolean fullNode) {
+    public NodeJoinMessage(int port) {
 
         this.port = port;
-        this.fullNode = fullNode;
     }
 
     public int getPort() {
         return port;
     }
 
-    public boolean isFullNode() {
-        return fullNode;
-    }
-
     @Override
     public int getByteSize() {
-        return FieldByteSize.port + FieldByteSize.booleanField;
+        return FieldByteSize.port;
     }
 
     @Override
@@ -45,7 +38,6 @@ public class NodeJoinMessage implements MessageObject {
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.putInt(port);
-        buffer.put(fullNode ? (byte) 1 : (byte) 0);
 
         return array;
     }
@@ -56,9 +48,8 @@ public class NodeJoinMessage implements MessageObject {
 
         try {
             int port = buffer.getInt();
-            boolean fullNode = buffer.get() == 1;
 
-            result = new NodeJoinMessage(port, fullNode);
+            result = new NodeJoinMessage(port);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }

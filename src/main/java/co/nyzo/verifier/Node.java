@@ -1,29 +1,25 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.TransactionPoolResponse;
 import co.nyzo.verifier.util.IpUtil;
 
+import java.nio.ByteBuffer;
 import java.util.*;
 
-public class Node {
+public class Node implements MessageObject {
 
     private byte[] identifier;                    // wallet public key (32 bytes)
     private byte[] ipAddress;                     // IPv4 address, stored as bytes to keep memory predictable (4 bytes)
     private int port;                             // port number
     private long queueTimestamp;                  // this is the timestamp that determines queue placement -- it is
-                                                  // the greater of the join timestamp and the timestamp of the last
-                                                  // block that this verifier signed
-    private long lastSeenTimestamp;               // this is the last time we saw a message the originated with the
-                                                  // identifier of this node; it is used to remove nodes that drop
-    private boolean fullNode;
+                                                  // when the verifier joined the mesh
 
-    public Node(byte[] identifier, byte[] ipAddress, int port, boolean fullNode) {
+    public Node(byte[] identifier, byte[] ipAddress, int port) {
 
         this.identifier = Arrays.copyOf(identifier, FieldByteSize.identifier);
         this.ipAddress = Arrays.copyOf(ipAddress, FieldByteSize.ipAddress);
         this.port = port;
         this.queueTimestamp = System.currentTimeMillis();
-        this.lastSeenTimestamp = System.currentTimeMillis();
-        this.fullNode = fullNode;
     }
 
     public byte[] getIdentifier() {
@@ -38,10 +34,6 @@ public class Node {
         return ipAddress;
     }
 
-    public void setIpAddress(byte[] ipAddress) {
-        this.ipAddress = ipAddress;
-    }
-
     public int getPort() {
         return port;
     }
@@ -54,30 +46,49 @@ public class Node {
         return queueTimestamp;
     }
 
-    public boolean isFullNode() {
-        return fullNode;
-    }
-
-    public void setFullNode(boolean fullNode) {
-        this.fullNode = fullNode;
-    }
-
-    // This method is used to set an initial queue timestamp when a node list is provided by another node
+    // This method is used to set an initial queue timestamp when a node list is provided by another node or when
+    // constructed from a byte buffer.
     public void setQueueTimestamp(long queueTimestamp) {
         this.queueTimestamp = queueTimestamp;
     }
 
-    // This method is used to send a node to the back of the queue after verifying a block.
-    public void resetQueueTimestamp(long blockTimestamp) {
-        this.queueTimestamp = blockTimestamp;
+    public static int getByteSizeStatic() {
+
+        return FieldByteSize.identifier + FieldByteSize.ipAddress + FieldByteSize.port + FieldByteSize.timestamp;
     }
 
-    public long getLastSeenTimestamp() {
-        return lastSeenTimestamp;
+    @Override
+    public int getByteSize() {
+
+        return getByteSizeStatic();
     }
 
-    public void resetLastSeenTimestamp() {
-        this.lastSeenTimestamp = System.currentTimeMillis();
+    @Override
+    public byte[] getBytes() {
+
+        byte[] result = new byte[getByteSize()];
+        ByteBuffer buffer = ByteBuffer.wrap(result);
+        buffer.put(identifier);
+        buffer.put(ipAddress);
+        buffer.putInt(port);
+        buffer.putLong(queueTimestamp);
+
+        return result;
+    }
+
+    public static Node fromByteBuffer(ByteBuffer buffer) {
+
+        byte[] identifier = new byte[FieldByteSize.identifier];
+        buffer.get(identifier);
+        byte[] ipAddress = new byte[FieldByteSize.ipAddress];
+        buffer.get(ipAddress);
+        int port = buffer.getInt();
+        long queueTimestamp = buffer.getLong();
+
+        Node node = new Node(identifier, ipAddress, port);
+        node.setQueueTimestamp(queueTimestamp);
+
+        return node;
     }
 
     @Override

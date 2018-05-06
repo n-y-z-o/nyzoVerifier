@@ -128,7 +128,7 @@ public class Verifier {
 
                 // Send bootstrap requests to all trusted entry points.
                 Message bootstrapRequest = new Message(MessageType.BootstrapRequest1,
-                        new BootstrapRequest(MeshListener.getPort(), true));
+                        new BootstrapRequest(MeshListener.getPort()));
                 for (String entryPoint : trustedEntryPoints) {
                     String[] split = entryPoint.split(":");
                     if (split.length == 2) {
@@ -238,8 +238,7 @@ public class Verifier {
 
         // Add the nodes to the node manager.
         for (Node node : response.getMesh()) {
-            NodeManager.updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(), node.isFullNode(),
-                    node.getQueueTimestamp());
+            NodeManager.updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(), node.getQueueTimestamp());
         }
 
         // Add the transactions to the transaction pool.

@@ -105,7 +105,7 @@ public class MeshListener {
                     // Update the node with the node manager so it will appear in the node list that it receives.
                     BootstrapRequest requestMessage = (BootstrapRequest) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
-                            requestMessage.getPort(), requestMessage.isFullNode());
+                            requestMessage.getPort());
 
                     response = new Message(MessageType.BootstrapResponse2, new BootstrapResponse());
 
@@ -114,7 +114,7 @@ public class MeshListener {
                     System.out.println("received node-join message");
                     NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
-                            nodeJoinMessage.getPort(), nodeJoinMessage.isFullNode());
+                            nodeJoinMessage.getPort());
 
                     response = new Message(MessageType.NodeJoinResponse4, null);
 
