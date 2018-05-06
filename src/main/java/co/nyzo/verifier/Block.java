@@ -134,7 +134,7 @@ public class Block implements MessageObject {
         if (getBlockHeight() > 0L) {
             if (getBlockHeight() <= BlockManager.highestBlockFrozen() + 1) {
                 Block frozenBlock = BlockManager.frozenBlockForHeight(height - 1);
-                if (ByteUtil.arraysAreEqual(frozenBlock.getHash(), previousBlockHash)) {
+                if (frozenBlock != null && ByteUtil.arraysAreEqual(frozenBlock.getHash(), previousBlockHash)) {
                     previousBlock = frozenBlock;
                 }
             } else {
