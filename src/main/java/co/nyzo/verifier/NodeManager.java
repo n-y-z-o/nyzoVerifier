@@ -15,6 +15,7 @@ public class NodeManager {
     // TODO: add additional protections to avoid multiple verifiers at a single IP address
 
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new HashMap<>();
+    private static final Map<ByteBuffer, Node> ipAddressToNodeMapInactive = new HashMap<>();
 
     private static final int consecutiveFailuresBeforeRemoval = 8;
     private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
@@ -35,8 +36,20 @@ public class NodeManager {
 
             // This logic enforces much of the one-verifier-per-IP rule.
 
+            // First, try to get the node from the active map.
             ByteBuffer ipAddressBuffer = ByteBuffer.wrap(ipAddress);
             Node existingNode = ipAddressToNodeMap.get(ipAddressBuffer);
+
+            // If the node is not in the active map, try to get it from the inactive map. If present, add it back
+            // to the active map.
+            if (existingNode == null) {
+                existingNode = ipAddressToNodeMapInactive.remove(ipAddressBuffer);
+                if (existingNode != null) {
+                    ipAddressToNodeMap.put(ipAddressBuffer, existingNode);
+                    System.out.println("moved verifier from inactive to active");
+                }
+            }
+
             if (existingNode == null) {
                 // This is the simple case. If no other verifier is at this IP, add the verifier.
                 Node node = new Node(identifier, ipAddress, port, fullNode);
@@ -120,6 +133,27 @@ public class NodeManager {
 
     private static synchronized void removeNodeFromMesh(ByteBuffer addressBuffer) {
 
-        ipAddressToNodeMap.remove(addressBuffer);
+        // If a node has verified in the past two cycles, we keep a record of it in the inactive map. This protects
+        // against the verifier jumping in and out of the network to allow multiple verifiers at the same IP address.
+        Node node = ipAddressToNodeMap.remove(addressBuffer);
+        if (node != null) {
+            if (BlockManager.verifierPresentInPreviousTwoCycles(node.getIdentifier())) {
+                ipAddressToNodeMapInactive.put(addressBuffer, node);
+            }
+
+            // This is a good place to remove verifiers that no longer need to be in the inactive map.
+            Set<ByteBuffer> identifiersInMap = new HashSet<>(ipAddressToNodeMapInactive.keySet());
+            for (ByteBuffer identifier : identifiersInMap) {
+                if (!BlockManager.verifierPresentInPreviousTwoCycles(identifier.array())) {
+                    ipAddressToNodeMapInactive.remove(identifier);
+                    System.out.println("removed inactive node in cleanup");
+                }
+            }
+        }
+    }
+
+    // This method is temporary, for testing.
+    public static int numberOfInactiveNodes() {
+        return ipAddressToNodeMapInactive.size();
     }
 }

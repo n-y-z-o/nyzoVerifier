@@ -291,6 +291,7 @@ public class Verifier {
 
                     StringBuilder status = new StringBuilder("status: c=");
                     status.append(NodeManager.connectedToMesh()).append("/").append(NodeManager.getMesh().size());
+                    status.append("/").append(NodeManager.numberOfInactiveNodes());
                     status.append(";f=").append(BlockManager.highestBlockFrozen());
                     status.append(";L=").append(ChainOptionManager.leadingEdgeHeight());
                     for (Long height : ChainOptionManager.unfrozenBlockHeights()) {
