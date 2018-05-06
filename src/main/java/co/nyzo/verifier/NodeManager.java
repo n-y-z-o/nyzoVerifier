@@ -12,7 +12,7 @@ import java.util.*;
 
 public class NodeManager {
 
-    // TODO: work out the details of multiple verifiers at a single IP address
+    // TODO: add additional protections to avoid multiple verifiers at a single IP address
 
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new HashMap<>();
 
@@ -33,9 +33,32 @@ public class NodeManager {
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
                 ipAddress.length == FieldByteSize.ipAddress) {
 
+            // This logic enforces much of the one-verifier-per-IP rule.
+
             ByteBuffer ipAddressBuffer = ByteBuffer.wrap(ipAddress);
-            Node node = new Node(identifier, ipAddress, port, fullNode);
-            ipAddressToNodeMap.put(ipAddressBuffer, node);
+            Node existingNode = ipAddressToNodeMap.get(ipAddressBuffer);
+            if (existingNode == null) {
+                // This is the simple case. If no other verifier is at this IP, add the verifier.
+                Node node = new Node(identifier, ipAddress, port, fullNode);
+                if (queueTimestamp > 0) {
+                    node.setQueueTimestamp(queueTimestamp);
+                }
+                ipAddressToNodeMap.put(ipAddressBuffer, node);
+            } else if (ByteUtil.arraysAreEqual(identifier, existingNode.getIdentifier())) {
+                // If the identifiers are the same, update the port.
+                existingNode.setPort(port);
+            } else {
+                // This is the case of a new verifier taking over an existing IP address. This is where we are most
+                // likely to have manipulation. This is allowed, but only if the existing verifier at this IP did not
+                // verify a block in the previous two cycles.
+                if (!BlockManager.verifierPresentInPreviousTwoCycles(existingNode.getIdentifier())) {
+                    Node node = new Node(identifier, ipAddress, port, fullNode);
+                    if (queueTimestamp > 0) {
+                        node.setQueueTimestamp(queueTimestamp);
+                    }
+                    ipAddressToNodeMap.put(ipAddressBuffer, node);
+                }
+            }
         }
     }
 

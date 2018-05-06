@@ -7,10 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockManager {
@@ -19,6 +16,7 @@ public class BlockManager {
     private static final AtomicLong highestBlockFrozen = new AtomicLong(-1L);
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
+    private static final Set<ByteBuffer> verifiersInPreviousTwoCycles = new HashSet<>();
 
     static {
         initialize();
@@ -142,6 +140,7 @@ public class BlockManager {
         // Only continue if the block's previous hash is correct and the block has not yet been frozen.
         if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) &&
                 block.getBlockHeight() > highestBlockFrozen()) {
+
             // If the balance list is null, try to create it now.
             if (block.getBalanceList() == null) {
                 Block previousBlock = null;
@@ -167,6 +166,8 @@ public class BlockManager {
                     blocksInFile.add(block);
                     writeBlocksToFile(blocksInFile, file);
                     BlockManagerMap.addBlock(block);
+
+                    updateVerifiersInPreviousTwoCycles(block);
 
                 } catch (Exception reportOnly) {
                     reportOnly.printStackTrace();
@@ -261,9 +262,30 @@ public class BlockManager {
         highestBlockFrozen.set(-1L);
     }
 
-    public static boolean readyToProcess() {
+    public static synchronized boolean verifierPresentInPreviousTwoCycles(byte[] identifier) {
 
-        // TODO: wait until we have determined the highest block available
-        return highestBlockFrozen() >= 0;
+        return verifiersInPreviousTwoCycles.contains(ByteBuffer.wrap(identifier));
+    }
+
+    private static synchronized void updateVerifiersInPreviousTwoCycles(Block block) {
+
+        verifiersInPreviousTwoCycles.clear();
+        Map<ByteBuffer, Integer> verifierCounts = new HashMap<>();
+        boolean foundTwoCycles = false;
+        Block previousBlock = block.getPreviousBlock();
+        while (previousBlock != null && !foundTwoCycles) {
+
+            ByteBuffer identifierBuffer = ByteBuffer.wrap(previousBlock.getVerifierIdentifier());
+            Integer verifierCount = verifierCounts.get(identifierBuffer);
+            if (verifierCount == null) {
+                verifierCounts.put(identifierBuffer, 1);
+            } else if (verifierCount == 1) {
+                verifierCounts.put(identifierBuffer, 2);
+            } else {
+                foundTwoCycles = true;
+            }
+        }
+
+        verifiersInPreviousTwoCycles.addAll(verifierCounts.keySet());
     }
 }

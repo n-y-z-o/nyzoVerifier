@@ -262,8 +262,8 @@ public class Verifier {
 
             long sleepTime = 5000L;
             try {
-                // Only run the active verifier if connected to the mesh and if the block manager is ready.
-                if (NodeManager.connectedToMesh() && BlockManager.readyToProcess()) {
+                // Only run the active verifier if connected to the mesh.
+                if (NodeManager.connectedToMesh()) {
 
                     long highestBlockFrozen = BlockManager.highestBlockFrozen();
                     long endHeight = Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen);

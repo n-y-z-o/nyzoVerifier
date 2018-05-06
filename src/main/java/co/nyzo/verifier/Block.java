@@ -131,13 +131,15 @@ public class Block implements MessageObject {
     public Block getPreviousBlock() {
 
         Block previousBlock = null;
-        if (getBlockHeight() <= BlockManager.highestBlockFrozen() + 1) {
-            Block frozenBlock = BlockManager.frozenBlockForHeight(height - 1);
-            if (ByteUtil.arraysAreEqual(frozenBlock.getHash(), previousBlockHash)) {
-                previousBlock = frozenBlock;
+        if (getBlockHeight() > 0L) {
+            if (getBlockHeight() <= BlockManager.highestBlockFrozen() + 1) {
+                Block frozenBlock = BlockManager.frozenBlockForHeight(height - 1);
+                if (ByteUtil.arraysAreEqual(frozenBlock.getHash(), previousBlockHash)) {
+                    previousBlock = frozenBlock;
+                }
+            } else {
+                previousBlock = ChainOptionManager.unfrozenBlockAtHeight(height - 1, previousBlockHash);
             }
-        } else {
-            previousBlock = ChainOptionManager.unfrozenBlockAtHeight(height - 1, previousBlockHash);
         }
 
         return previousBlock;
