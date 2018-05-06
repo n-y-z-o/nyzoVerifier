@@ -4,6 +4,7 @@ import co.nyzo.verifier.messages.NodeJoinMessage;
 import co.nyzo.verifier.messages.BootstrapRequest;
 import co.nyzo.verifier.messages.BootstrapResponse;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.nio.ByteBuffer;
@@ -37,7 +38,7 @@ public class NodeManager {
     public static synchronized void updateNode(byte[] identifier, byte[] ipAddress, int port, boolean fullNode,
                                                long queueTimestamp) {
 
-        System.out.println("adding node " + ByteUtil.arrayAsStringWithDashes(identifier) + ", " +
+        System.out.println("adding node " + PrintUtil.compactPrintByteArray(identifier) + ", " +
                 IpUtil.addressAsString(ipAddress));
 
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
@@ -58,6 +59,9 @@ public class NodeManager {
             // (4) If the node returned for both was the same, update the port.
             // (5) If a different node was returned for each, remove the lower-ranked node and update the other.
             if (existingNodeForIp == null && existingNodeForIdentifier == null) {
+                System.out.println("adding new node for " + PrintUtil.compactPrintByteArray(identifier) + ", " +
+                        IpUtil.addressAsString(ipAddress));
+
                 Node newNode = new Node(identifier, ipAddress, port, fullNode);
                 nodePool.add(newNode);
                 ipAddressToNodeMap.put(ipAddressAsInt, newNode);
@@ -70,16 +74,27 @@ public class NodeManager {
                     newNode.setQueueTimestamp(queueTimestamp);
                 }
             } else if (existingNodeForIdentifier == null) {
+                System.out.println("updating IP for " + PrintUtil.compactPrintByteArray(identifier) + ", " +
+                        IpUtil.addressAsString(ipAddress));
+
                 existingNodeForIp.setIdentifier(identifier);
                 existingNodeForIp.setPort(port);
                 identifierToNodeMap.put(identifierByteBuffer, existingNodeForIp);
             } else if (existingNodeForIp == null) {
+                System.out.println("updating identifier for " + PrintUtil.compactPrintByteArray(identifier) + ", " +
+                        IpUtil.addressAsString(ipAddress));
+
                 existingNodeForIdentifier.setIpAddress(ipAddress);
                 existingNodeForIdentifier.setPort(port);
                 ipAddressToNodeMap.put(ipAddressAsInt, existingNodeForIdentifier);
             } else if (existingNodeForIp == existingNodeForIdentifier) {
+                System.out.println("updating port for " + PrintUtil.compactPrintByteArray(identifier) + ", " +
+                        IpUtil.addressAsString(ipAddress));
+
                 existingNodeForIp.setPort(port);
             } else {  // found two different nodes
+                System.out.println("found two different nodes");
+
                 if (existingNodeForIp.getQueueTimestamp() < existingNodeForIdentifier.getQueueTimestamp()) {
                     nodePool.remove(existingNodeForIdentifier);
                     existingNodeForIp.setIdentifier(identifier);
