@@ -12,8 +12,6 @@ import java.util.*;
 
 public class NodeManager {
 
-    // TODO: add additional protections to avoid multiple verifiers at a single IP address
-
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new HashMap<>();
     private static final Map<ByteBuffer, Node> ipAddressToNodeMapInactive = new HashMap<>();
 
