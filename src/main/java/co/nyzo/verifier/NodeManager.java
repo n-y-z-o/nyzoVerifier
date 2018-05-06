@@ -139,6 +139,9 @@ public class NodeManager {
         if (node != null) {
             if (BlockManager.verifierPresentInPreviousTwoCycles(node.getIdentifier())) {
                 ipAddressToNodeMapInactive.put(addressBuffer, node);
+            } else {
+                System.out.println("not adding to inactive because " +
+                        PrintUtil.compactPrintByteArray(node.getIdentifier()) + " is not a recent verifier");
             }
 
             // This is a good place to remove verifiers that no longer need to be in the inactive map.
@@ -149,6 +152,8 @@ public class NodeManager {
                     System.out.println("removed inactive node in cleanup");
                 }
             }
+        } else {
+            System.out.println("not adding to inactive because node is null");
         }
     }
 
