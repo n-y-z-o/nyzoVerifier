@@ -287,5 +287,9 @@ public class BlockManager {
         }
 
         verifiersInPreviousTwoCycles.addAll(verifierCounts.keySet());
+        System.out.println("verifiers in previous two cycles:");
+        for (ByteBuffer identifier : verifiersInPreviousTwoCycles) {
+            System.out.println("- " + PrintUtil.compactPrintByteArray(identifier.array()));
+        }
     }
 }
