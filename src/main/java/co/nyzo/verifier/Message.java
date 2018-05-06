@@ -342,20 +342,7 @@ public class Message {
         buffer.put(sourceNodeSignature);
         if (recipientIdentifiers.size() > 0) {
             buffer.putInt(recipientIdentifiers.size());
-            System.out.println("there are " + recipientIdentifiers.size() + " recipient identifiers");
-            if (recipientIdentifiers.size() != recipientSignatures.size()) {
-                System.err.println("recipientIdentifiers.size()=" + recipientIdentifiers.size() +
-                        ",recipientSignatures.size()=" + recipientSignatures.size());
-            }
             for (int i = 0; i < recipientIdentifiers.size(); i++) {  // these arrays are the same size
-                if (recipientIdentifiers.get(i) == null) {
-                    System.err.println("recipient identifier " + i + " is null");
-                }
-                if (recipientSignatures == null) {
-                    System.err.println("recipient signature array is null");
-                } else if (recipientSignatures.get(i) == null) {
-                    System.err.println("recipient signature " + i + " is null");
-                }
                 buffer.put(recipientIdentifiers.get(i));
                 buffer.put(recipientSignatures.get(i));
             }
