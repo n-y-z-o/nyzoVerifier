@@ -284,6 +284,8 @@ public class BlockManager {
             } else {
                 foundTwoCycles = true;
             }
+
+            previousBlock = previousBlock.getPreviousBlock();
         }
 
         verifiersInPreviousTwoCycles.addAll(verifierCounts.keySet());
