@@ -405,6 +405,8 @@ public class Message {
             content = BlockResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.TransactionPoolResponse14) {
             content = TransactionPoolResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.MeshResponse16) {
+            content = MeshResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {

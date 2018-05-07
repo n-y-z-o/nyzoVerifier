@@ -149,6 +149,10 @@ public class MeshListener {
                     response = new Message(MessageType.TransactionPoolResponse14,
                             new TransactionPoolResponse(TransactionPool.allTransactions()));
 
+                } else if (messageType == MessageType.MeshRequest15) {
+
+                    response = new Message(MessageType.MeshResponse16, new MeshResponse(NodeManager.getMesh()));
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
