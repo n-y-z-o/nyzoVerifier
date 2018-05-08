@@ -202,7 +202,8 @@ public class Message {
                             OutputStream outputStream = socket.getOutputStream();
                             outputStream.write(message.getBytesForTransmission());
 
-                            response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress());
+                            response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress(),
+                                    message.getType());
                         } catch (Exception reportOnly) {
                             System.err.println("Exception sending message " + message.getType() + " to " +
                                     hostNameOrIp + ":" + port + ": " + PrintUtil.printException(reportOnly));
@@ -232,11 +233,12 @@ public class Message {
         }
     }
 
-    public static Message readFromStream(InputStream inputStream, byte[] sourceIpAddress) {
+    public static Message readFromStream(InputStream inputStream, byte[] sourceIpAddress, MessageType sourceType) {
 
         byte[] response = getResponse(inputStream);
         if (response.length == 0) {
-            System.out.println("empty response from " + IpUtil.addressAsString(sourceIpAddress));
+            System.out.println("empty response from " + IpUtil.addressAsString(sourceIpAddress) + " for message of " +
+                    "type " + sourceType);
         }
 
         return fromBytes(response, sourceIpAddress);

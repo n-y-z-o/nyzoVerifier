@@ -38,6 +38,7 @@ public enum MessageType {
     SeedTransactionResponse503(503),
 
     // the highest allowable message number is 65535
+    IncomingRequest65533(65533),
     Error65534(65534),
     Unknown65535(65535);
 
