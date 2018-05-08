@@ -278,7 +278,7 @@ public class Message {
                 System.err.println("only read " + totalBytesRead + " of " + result.length);
             }
 
-        } catch (Exception ignore) { ignore.printStackTrace(); }
+        } catch (Exception ignore) { }
 
         return result;
     }

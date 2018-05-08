@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BootstrapRequest;
 import co.nyzo.verifier.messages.BootstrapResponse;
+import co.nyzo.verifier.messages.MeshResponse;
 import co.nyzo.verifier.messages.NodeJoinMessage;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
@@ -109,18 +110,37 @@ public class Verifier {
             System.out.println("starting verifier");
 
             // Load the list of trusted entry points.
-            List<String> trustedEntryPoints = getTrustedEntryPoints();
+            List<TrustedEntryPoint> trustedEntryPoints = getTrustedEntryPoints();
             System.out.println("trusted entry points");
-            for (String entryPoint : trustedEntryPoints) {
+            for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
                 System.out.println("-" + entryPoint);
             }
 
-            // Send node-list requests to all trusted entry points.
+            // Send mesh requests to all trusted entry points.
+            Message meshRequest = new Message(MessageType.MeshRequest15, null);
+            for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
+                Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, false, new MessageCallback() {
+                    @Override
+                    public void responseReceived(Message message) {
 
+                        // Add the nodes to the mesh and send node-join requests.
+                        MeshResponse response = (MeshResponse) message.getContent();
+                        for (Node node : response.getMesh()) {
+                            NodeManager.updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(),
+                                    node.getQueueTimestamp());
+                        }
+                        sendNodeJoinRequests();
+                    }
+                });
+            }
 
+            // Wait two seconds for the node-join requests to reach other nodes so we start receiving blocks.
+            try {
+                Thread.sleep(2000L);
+            } catch (Exception ignored) { }
 
-            // Attempt to connect to the mesh. This should succeed on the first attempt, but it may take longer if we
-            // are starting a new mesh.
+            // Attempt to jump into the blockchain. This should succeed on the first attempt, but it may take longer if
+            // we are starting a new mesh.
             long consensusFrozenEdge = -1;
             byte[] frozenEdgeHash = new byte[FieldByteSize.hash];
             AtomicInteger frozenEdgeCycleLength = new AtomicInteger(-1);
@@ -129,18 +149,11 @@ public class Verifier {
                 // Send bootstrap requests to all trusted entry points.
                 Message bootstrapRequest = new Message(MessageType.BootstrapRequest1,
                         new BootstrapRequest(MeshListener.getPort()));
-                for (String entryPoint : trustedEntryPoints) {
-                    String[] split = entryPoint.split(":");
-                    if (split.length == 2) {
-                        String host = split[0];
-                        int port = -1;
-                        try {
-                            port = Integer.parseInt(split[1]);
-                        } catch (Exception ignored) {
-                        }
-                        if (!host.isEmpty() && port > 0) {
-                            System.out.println("sending Bootstrap request to " + host + ":" + port);
-                            Message.fetch(host, port, bootstrapRequest, false, new MessageCallback() {
+                for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
+
+                    System.out.println("sending Bootstrap request to " + entryPoint);
+                    Message.fetch(entryPoint.getHost(), entryPoint.getPort(), bootstrapRequest, false,
+                            new MessageCallback() {
                                 @Override
                                 public void responseReceived(Message message) {
                                     if (message == null) {
@@ -150,9 +163,7 @@ public class Verifier {
                                         sendNodeJoinRequests();
                                     }
                                 }
-                            });
-                        }
-                    }
+                    });
                 }
 
                 // Wait 2 seconds for requests to return.
@@ -208,10 +219,10 @@ public class Verifier {
         }
     }
 
-    private static List<String> getTrustedEntryPoints() {
+    private static List<TrustedEntryPoint> getTrustedEntryPoints() {
 
         Path path = Paths.get(dataRootDirectory.getAbsolutePath() + "/trusted_entry_points");
-        List<String> entryPoints = new ArrayList<>();
+        List<TrustedEntryPoint> entryPoints = new ArrayList<>();
         try {
             List<String> contentsOfFile = Files.readAllLines(path);
             for (String line : contentsOfFile) {
@@ -220,8 +231,9 @@ public class Verifier {
                 if (indexOfHash >= 0) {
                     line = line.substring(0, indexOfHash).trim();
                 }
-                if (!line.isEmpty()) {
-                    entryPoints.add(line);
+                TrustedEntryPoint entryPoint = TrustedEntryPoint.fromString(line);
+                if (entryPoint != null) {
+                    entryPoints.add(entryPoint);
                 }
             }
         } catch (Exception ignored) { }
