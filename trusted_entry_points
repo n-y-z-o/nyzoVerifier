@@ -1,5 +1,5 @@
 # a hash sign starts a comment, which continues to the end of the line
 35.160.253.59:9444  # verifier0.nyzo.co
 35.155.202.36:9444  # verifier1.nyzo.co
-54.70.48.200:9444  # verifier2.nyzo.co
-#verifier3.nyzo.co:9444
+54.70.48.200:9444   # verifier2.nyzo.co
+34.212.50.171:9444  # verifier3.nyzo.co
