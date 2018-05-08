@@ -1,15 +1,23 @@
 package co.nyzo.verifier.util;
 
 import co.nyzo.verifier.ByteUtil;
+import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.KeyUtil;
 import net.i2p.crypto.eddsa.EdDSAEngine;
 import net.i2p.crypto.eddsa.EdDSASecurityProvider;
 import net.i2p.crypto.eddsa.spec.EdDSANamedCurveTable;
 import net.i2p.crypto.eddsa.spec.EdDSAParameterSpec;
 
+import java.nio.ByteBuffer;
 import java.security.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 
 public class SignatureUtil {
+
+    private static final Map<ByteBuffer, Signature> seedToSignatureMap = new HashMap<>();
+    private static final Map<ByteBuffer, Signature> identifierToSignatureMap = new HashMap<>();
 
     public static final EdDSAParameterSpec spec;
 
@@ -23,9 +31,14 @@ public class SignatureUtil {
         byte[] signatureBytes = null;
 
         try {
-            Signature signature = new EdDSAEngine(MessageDigest.getInstance(spec.getHashAlgorithm()));
-            PrivateKey privateKey = KeyUtil.privateKeyFromSeed(privateSeed);
-            signature.initSign(privateKey);
+            ByteBuffer seedBuffer = ByteBuffer.wrap(privateSeed);
+            Signature signature = seedToSignatureMap.get(seedBuffer);
+            if (signature == null) {
+                signature = new EdDSAEngine(MessageDigest.getInstance(spec.getHashAlgorithm()));
+                PrivateKey privateKey = KeyUtil.privateKeyFromSeed(privateSeed);
+                signature.initSign(privateKey);
+                seedToSignatureMap.put(seedBuffer, signature);
+            }
 
             signature.update(bytesToSign);
             signatureBytes = signature.sign();
@@ -43,9 +56,22 @@ public class SignatureUtil {
         boolean signatureIsValid;
 
         try {
-            Signature signature = new EdDSAEngine(MessageDigest.getInstance(spec.getHashAlgorithm()));
-            PublicKey publicKey = KeyUtil.publicKeyFromIdentifier(publicIdentifier);
-            signature.initVerify(publicKey);
+            ByteBuffer identifierBuffer = ByteBuffer.wrap(publicIdentifier);
+            Signature signature = identifierToSignatureMap.get(identifierBuffer);
+            if (signature == null) {
+                signature = new EdDSAEngine(MessageDigest.getInstance(spec.getHashAlgorithm()));
+                PublicKey publicKey = KeyUtil.publicKeyFromIdentifier(publicIdentifier);
+                signature.initVerify(publicKey);
+                identifierToSignatureMap.put(identifierBuffer, signature);
+
+                // If the map has gotten too big, remove an element from it.
+                if (identifierToSignatureMap.size() > 4) {  // very small size for testing
+                    ByteBuffer key = identifierToSignatureMap.keySet().iterator().next();
+                    identifierToSignatureMap.remove(key);
+                    System.out.println("removed element from identifier map to keep size at " +
+                            identifierToSignatureMap.size());
+                }
+            }
 
             signature.update(signedBytes);
             signatureIsValid = signature.verify(signatureBytes);

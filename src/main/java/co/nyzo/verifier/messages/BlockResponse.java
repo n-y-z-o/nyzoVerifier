@@ -100,11 +100,9 @@ public class BlockResponse implements MessageObject {
 
             List<Block> blocks = new ArrayList<>();
             int numberOfBlocks = buffer.getShort() & 0xffff;
-            System.out.println("fromByteBuffer(): adding " + numberOfBlocks + " blocks");
             for (int i = 0; i < numberOfBlocks; i++) {
                 blocks.add(Block.fromByteBuffer(buffer));
             }
-            System.out.println("fromByteBuffer(): got " + blocks.size() + " blocks");
 
             result = new BlockResponse(initialBalanceList, blocks);
         } catch (Exception ignored) {

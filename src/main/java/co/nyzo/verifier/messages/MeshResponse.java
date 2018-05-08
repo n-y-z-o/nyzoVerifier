@@ -3,7 +3,6 @@ package co.nyzo.verifier.messages;
 import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.MessageObject;
 import co.nyzo.verifier.Node;
-import co.nyzo.verifier.Transaction;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -40,19 +39,19 @@ public class MeshResponse implements MessageObject {
         return result;
     }
 
-    public static TransactionPoolResponse fromByteBuffer(ByteBuffer buffer) {
+    public static MeshResponse fromByteBuffer(ByteBuffer buffer) {
 
-        TransactionPoolResponse result = null;
+        MeshResponse result = null;
 
         try {
-            List<Transaction> transactions = new ArrayList<>();
+            List<Node> mesh = new ArrayList<>();
 
-            int numberOfTransactions = buffer.getInt();
-            for (int i = 0; i < numberOfTransactions; i++) {
-                transactions.add(Transaction.fromByteBuffer(buffer));
+            int numberOfNodes = buffer.getInt();
+            for (int i = 0; i < numberOfNodes; i++) {
+                mesh.add(Node.fromByteBuffer(buffer));
             }
 
-            result = new TransactionPoolResponse(transactions);
+            result = new MeshResponse(mesh);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }
