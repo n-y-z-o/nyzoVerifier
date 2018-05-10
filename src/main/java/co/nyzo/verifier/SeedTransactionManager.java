@@ -1,98 +1,156 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.UpdateUtil;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 
 public class SeedTransactionManager {
 
-    private static final long blocksPerDay = 12 * 60 * 24;
-    private static final long startHeight = blocksPerDay;  // start one day after the blockchain starts
-    private static final long numberOfTransactions = blocksPerDay * 365;  // one year of seed transactions
+    public static final long blocksPerFile = 1000L;
+    private static long lastBlockRequested = 0L;
 
-    public static void main(String[] args) {
+    public static final long blocksPerDay = 12 * 60 * 24;
+    public static final long startHeight = 12 * 60;  // start one hour after the blockchain starts
+    public static final long transactionsPerYear = blocksPerDay * 365;  // one year of seed transactions
+    public static final long totalSeedTransactions = transactionsPerYear + blocksPerDay * 20;
+    public static final long highestSeedHeight = startHeight + totalSeedTransactions;
 
-        generateTransactions(new byte[FieldByteSize.seed], Transaction.micronyzosInSystem / 5L,
-                BlockManager.frozenBlockForHeight(0L));
+    private static final Map<Long, Transaction> transactionMap = new HashMap<>();
+
+    public static void start() {
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                try {
+                    Thread.sleep(100L);
+                } catch (Exception e) { }
+
+                while (!UpdateUtil.shouldTerminate() &&
+                        lastBlockRequested < highestSeedHeight + blocksPerFile * 3L) {
+
+                    long currentFileIndex = lastBlockRequested / blocksPerFile;
+
+                    // Ensure that we have both the current file and the next file and load them into memory.
+                    for (long fileIndex = currentFileIndex; fileIndex < currentFileIndex + 2; fileIndex++) {
+                        File file = fileForIndex(fileIndex);
+                        if (!file.exists()) {
+                            fetchFile(file);
+                            loadFile(file);
+                        }
+                    }
+
+                    // If the previous file exists, delete it.
+                    File previousFile = fileForIndex(currentFileIndex - 1);
+                    if (previousFile.exists()) {
+                        previousFile.delete();
+                    }
+
+                    // Remove any items from the map below the last-requested height.
+                    Set<Long> keys = transactionMap.keySet();
+                    for (Long key : keys) {
+                        if (key < lastBlockRequested) {
+                            transactionMap.remove(key);
+                        }
+                    }
+
+                    // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
+                    for (int i = 0; i < 15; i++) {
+                        if (!UpdateUtil.shouldTerminate()) {
+                            try {
+                                Thread.sleep(2000L);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+                }
+
+                System.out.println("exiting SeedTransactionManager thread");
+            }
+        }, "SeedTransactionManager").start();
     }
 
-    private static void generateTransactions(byte[] signerSeed, long targetFees, Block genesisBlock) {
+    private static File fileForIndex(long index) {
 
-        byte[] identifier = KeyUtil.identifierForSeed(signerSeed);
-        long previousHashHeight = 0L;
-        long genesisBlockTimestamp = genesisBlock.getStartTimestamp();
-        byte[] genesisBlockHash = genesisBlock.getHash();
+        return new File(Verifier.dataRootDirectory, String.format("%06d.nyzotransaction", index));
+    }
 
-        List<Transaction> transactions = new ArrayList<>();
+    private static String s3UrlForFile(File file) {
 
-        long remainingFees = targetFees;
-        long feesForMonth = 0L;
-        long[] breakpointHeights = breakpointHeights();  // these are the "months", which are 30/31 day periods
+        return "https://s3-us-west-2.amazonaws.com/nyzo/" + file.getName();
+    }
 
-        long previousFee = 0L;
-        int month = 0;
-        int indexInMonth = 0;
-        double[] percentages = { 12.9, 12.4, 11.8, 11.1, 10.3, 9.4, 8.4, 7.3, 6.1, 4.8, 3.4, 1.9 };
-        long processStartTime = System.currentTimeMillis();
-        for (long i = 0; i < numberOfTransactions; i++) {
+    private static void fetchFile(File file) {
 
-            long height = startHeight + i;
-            long timestamp = genesisBlockTimestamp + height * Block.blockDuration + 1000L;
-            double multiplier = percentages[month] * 400.0 / 100.0 / blocksPerDay / 30.390005;
-            long transactionAmount = Math.max((long) (targetFees * multiplier), 1L);
-            if (month == 11 && indexInMonth < 439040) {
-                transactionAmount += 400L;
+        try {
+
+            URL url = new URL(s3UrlForFile(file));
+            ReadableByteChannel channel = Channels.newChannel(url.openStream());
+            FileOutputStream outputStream = new FileOutputStream(file);
+            outputStream.getChannel().transferFrom(channel, 0, Long.MAX_VALUE);
+
+        } catch (Exception ignored) {
+            ignored.printStackTrace();
+        }
+    }
+
+    private static void loadFile(File file) {
+
+        Path path = Paths.get(file.getAbsolutePath());
+        boolean successful;
+        try {
+            byte[] fileBytes = Files.readAllBytes(path);
+            ByteBuffer byteBuffer = ByteBuffer.wrap(fileBytes);
+            int numberOfTransactions = byteBuffer.getInt();
+
+            // Read the transactions. Only add transactions with valid heights and signatures to the map.
+            Map<Long, Transaction> transactionsInFile = new HashMap<>();
+            for (int i = 0; i < numberOfTransactions; i++) {
+                long height = byteBuffer.getLong();
+                Transaction transaction = Transaction.fromByteBuffer(byteBuffer);
+                if (height > 0 && transaction.signatureIsValid()) {
+                    transactionsInFile.put(height, transaction);
+                }
             }
-            byte[] senderData = new byte[FieldByteSize.hash];
 
-            Transaction transaction = Transaction.seedTransaction(timestamp, transactionAmount, identifier,
-                    previousHashHeight, genesisBlockHash, senderData, signerSeed);
-            long fee = transaction.getFee();
-            if (fee > previousFee) {
-                System.out.println(fee + " > " + previousFee);
+            successful = transactionsInFile.size() == numberOfTransactions;
+            if (successful) {
+                transactionMap.putAll(transactionsInFile);
             }
-            previousFee = fee;
-            remainingFees -= fee;
-            feesForMonth += fee;
-            indexInMonth++;
-
-            if (i == breakpointHeights[month]) {
-                month++;
-                System.out.println("after transaction " + pad(i) + ", remaining fees=" +
-                        PrintUtil.printAmount(remainingFees) + String.format(", %.2f%%", feesForMonth * 100.0 /
-                        targetFees) + " of fees distributed this month, took " +
-                        ((System.currentTimeMillis() - processStartTime) / 1000) + " seconds to process");
-                feesForMonth = 0L;
-                indexInMonth = 0;
-            }
+        } catch (Exception e) {
+            successful = false;
         }
 
-        System.out.println("after last transaction remaining fees=" + PrintUtil.printAmount(remainingFees));
-
-    }
-
-    private static long[] breakpointHeights() {
-
-        long[] heights = new long[12];
-
-        long offset = 0L;
-        for (int i = 0; i < 11; i++) {
-            offset += i % 2 == 1 ? 31 : 30;
-            heights[i] = offset * blocksPerDay - 1;
+        if (!successful) {
+            // If we have any problems at all, delete the file so it can be downloaded again on the next pass.
+            try {
+                file.delete();
+            } catch (Exception ignored) { }
         }
-        heights[11] = numberOfTransactions - 1;
-
-        return heights;
     }
 
-    private static String pad(long value) {
+    public static Transaction transactionForBlock(long blockHeight) {
 
-        String result = value + "";
-        while (result.length() < 8) {
-            result = " " + result;
-        }
-
-        return result;
+        // This method will only return one transaction per block. There is not an explicit limitation on one seed
+        // transaction per block, but we are only generating one per block in the initial seed transactions. So,
+        // this is only a simplification based on our data, not a limitation of the system, and other seed transactions
+        // could potentially be passed around the network.
+        lastBlockRequested = blockHeight;
+        return transactionMap.get(blockHeight);
     }
+
+
 }

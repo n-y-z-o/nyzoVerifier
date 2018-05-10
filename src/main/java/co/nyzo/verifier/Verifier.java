@@ -101,11 +101,17 @@ public class Verifier {
             loadPrivateSeed();
             nodeJoinAcknowledgementsReceived.add(ByteBuffer.wrap(getIdentifier()));  // avoids send node-join to self
 
+            // Start the seed transaction manager. This loads all the seed transactions in the background.
+            SeedTransactionManager.start();
+
             // Start the node listener and wait for it to start and for the port to settle.
             MeshListener.start();
             try {
                 Thread.sleep(20L);
             } catch (Exception e) { }
+
+            // Ensure that the Genesis block is loaded.
+
 
             System.out.println("starting verifier");
 
