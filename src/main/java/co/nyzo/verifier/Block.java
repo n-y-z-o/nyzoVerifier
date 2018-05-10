@@ -20,7 +20,6 @@ public class Block implements MessageObject {
 
     public static final byte[] genesisBlockHash = HashUtil.doubleSHA256(new byte[0]);
 
-    public static long genesisBlockStartTimestamp = -1L;
     public static final long blockDuration = 5000L;
 
     private long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,
@@ -519,10 +518,6 @@ public class Block implements MessageObject {
         }
 
         return valid;
-    }
-
-    public static void reset() {
-        genesisBlockStartTimestamp = -1L;
     }
 
     public long chainScore(long zeroBlockHeight) {

@@ -17,6 +17,7 @@ public class BlockManager {
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
     private static final Set<ByteBuffer> verifiersInPreviousTwoCycles = new HashSet<>();
+    private static long genesisBlockStartTimestamp = -1L;
 
     static {
         initialize();
@@ -24,6 +25,10 @@ public class BlockManager {
 
     public static long highestBlockFrozen() {
         return highestBlockFrozen.get();
+    }
+
+    public static long genesisBlockStartTimestamp() {
+        return genesisBlockStartTimestamp;
     }
 
     public static Block frozenBlockForHeight(long blockHeight) {
@@ -209,7 +214,7 @@ public class BlockManager {
             List<Block> blocksInGenesisFile = loadBlocksInFile(fileForBlockHeight(0L), true);
             if (blocksInGenesisFile.size() > 0) {
                 Block genesisBlock = blocksInGenesisFile.get(0);
-                Block.genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
+                genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
             }
 
             // Load the highest block available.
@@ -237,29 +242,24 @@ public class BlockManager {
 
     public static long heightForTimestamp(long timestamp) {
 
-        return (timestamp - Block.genesisBlockStartTimestamp) / Block.blockDuration;
+        return (timestamp - genesisBlockStartTimestamp) / Block.blockDuration;
     }
 
     public static long startTimestampForHeight(long blockHeight) {
 
-        return Block.genesisBlockStartTimestamp + blockHeight * Block.blockDuration;
+        return genesisBlockStartTimestamp + blockHeight * Block.blockDuration;
     }
 
     public static long endTimestampForHeight(long blockHeight) {
 
-        return Block.genesisBlockStartTimestamp + (blockHeight + 1L) * Block.blockDuration;
+        return genesisBlockStartTimestamp + (blockHeight + 1L) * Block.blockDuration;
     }
 
     public static long highestBlockOpenForProcessing() {
 
         // A block is considered open for processing 2 seconds after it completes, which is 7 seconds after it starts.
-        return Block.genesisBlockStartTimestamp > 0 ?
-                ((System.currentTimeMillis() - 7000L - Block.genesisBlockStartTimestamp) / Block.blockDuration) : -1;
-    }
-
-    public static void reset() {
-
-        highestBlockFrozen.set(-1L);
+        return genesisBlockStartTimestamp > 0 ?
+                ((System.currentTimeMillis() - 7000L - genesisBlockStartTimestamp) / Block.blockDuration) : -1;
     }
 
     public static synchronized boolean verifierPresentInPreviousTwoCycles(byte[] identifier) {

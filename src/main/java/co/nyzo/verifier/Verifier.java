@@ -9,9 +9,15 @@ import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -111,7 +117,7 @@ public class Verifier {
             } catch (Exception e) { }
 
             // Ensure that the Genesis block is loaded.
-
+            loadGenesisBlock();
 
             System.out.println("starting verifier");
 
@@ -202,6 +208,42 @@ public class Verifier {
                     alive.set(false);
                 }
             }, "Verifier-mainLoop").start();
+        }
+    }
+
+    private static void loadGenesisBlock() {
+
+        System.out.println("highest block frozen: " + BlockManager.highestBlockFrozen());
+        System.out.println("Genesis block start timestamp: " + BlockManager.genesisBlockStartTimestamp());
+
+        Block genesisBlock = BlockManager.frozenBlockForHeight(0);
+        while (genesisBlock == null) {
+            try {
+
+                URL url = new URL("https://s3-us-west-2.amazonaws.com/nyzo/genesis");
+                ReadableByteChannel channel = Channels.newChannel(url.openStream());
+                byte[] array = new byte[2048];
+                ByteBuffer buffer = ByteBuffer.wrap(array);
+                while (channel.read(buffer) > 0);
+                channel.close();
+
+                buffer.rewind();
+                genesisBlock = Block.fromByteBuffer(buffer);
+
+            } catch (Exception ignored) {
+                ignored.printStackTrace();
+            }
+
+            // The verifier cannot start without a Genesis block. If there was a problem, sleep for two seconds and
+            // try again.
+            if (genesisBlock == null) {
+                try {
+                    Thread.sleep(2000L);
+                } catch (Exception ignored) {
+                }
+            } else {
+                BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash());
+            }
         }
     }
 

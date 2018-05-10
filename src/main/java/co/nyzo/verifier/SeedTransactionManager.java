@@ -101,6 +101,8 @@ public class SeedTransactionManager {
             ReadableByteChannel channel = Channels.newChannel(url.openStream());
             FileOutputStream outputStream = new FileOutputStream(file);
             outputStream.getChannel().transferFrom(channel, 0, Long.MAX_VALUE);
+            channel.close();
+            outputStream.close();
 
         } catch (Exception ignored) {
             ignored.printStackTrace();

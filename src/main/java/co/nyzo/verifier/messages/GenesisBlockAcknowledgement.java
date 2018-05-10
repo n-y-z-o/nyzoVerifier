@@ -100,16 +100,8 @@ public class GenesisBlockAcknowledgement implements MessageObject {
                     } catch (Exception ignored) { }
                 }
 
-                // Delete the block directory and reset all classes that are storing state related to the current
-                // blockchain.
+                // Delete the block directory.
                 FileUtil.delete(BlockManager.blockRootDirectory);
-                BlockManager.reset();
-                BlockManagerMap.reset();
-                Block.reset();
-                TransactionPool.reset();
-
-                // Freeze the Genesis block.
-                BlockManager.freezeBlock(genesisBlock);
 
                 // Exit the application.
                 System.exit(0);

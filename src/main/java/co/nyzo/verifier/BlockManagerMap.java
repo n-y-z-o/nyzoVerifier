@@ -55,8 +55,4 @@ public class BlockManagerMap {
 
         return block;
     }
-
-    public static synchronized void reset() {
-        blockMap.clear();
-    }
 }
