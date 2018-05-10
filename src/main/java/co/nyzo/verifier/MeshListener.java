@@ -1,8 +1,11 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
+import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
+import co.nyzo.verifier.webSupport.AccountEventManager;
 
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -163,11 +166,21 @@ public class MeshListener {
 
                     response = new Message(MessageType.UpdateResponse301, new UpdateResponse(message));
 
-                } else if (messageType == MessageType.GenesisBlock500) {
+                } else if (messageType == MessageType.ResetRequest500) {
 
-                    Block genesisBlock = (Block) message.getContent();
-                    response = new Message(MessageType.GenesisBlockResponse501,
-                            new GenesisBlockAcknowledgement(genesisBlock));
+                    boolean success = ByteUtil.arraysAreEqual(message.getSourceNodeIdentifier(), Block.genesisVerifier);
+                    String responseMessage;
+                    if (success) {
+                        responseMessage = "reset request accepted";
+                        UpdateUtil.reset();
+                    } else {
+                        responseMessage = "source node identifier, " +
+                                PrintUtil.compactPrintByteArray(message.getSourceNodeIdentifier()) + ", is not the " +
+                                "Genesis verifier, " + PrintUtil.compactPrintByteArray(Block.genesisVerifier);
+                    }
+
+                    response = new Message(MessageType.ResetResponse501, new BooleanMessageResponse(success,
+                            responseMessage));
                 }
             }
         } catch (Exception e) {

@@ -172,6 +172,10 @@ public class BlockManager {
                     writeBlocksToFile(blocksInFile, file);
                     BlockManagerMap.addBlock(block);
 
+                    if (block.getBlockHeight() == 0L) {
+                        genesisBlockStartTimestamp = block.getStartTimestamp();
+                    }
+
                     updateVerifiersInPreviousTwoCycles(block);
 
                 } catch (Exception reportOnly) {

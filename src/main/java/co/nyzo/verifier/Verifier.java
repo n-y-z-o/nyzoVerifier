@@ -213,9 +213,6 @@ public class Verifier {
 
     private static void loadGenesisBlock() {
 
-        System.out.println("highest block frozen: " + BlockManager.highestBlockFrozen());
-        System.out.println("Genesis block start timestamp: " + BlockManager.genesisBlockStartTimestamp());
-
         Block genesisBlock = BlockManager.frozenBlockForHeight(0);
         while (genesisBlock == null) {
             try {

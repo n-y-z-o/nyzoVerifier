@@ -32,10 +32,8 @@ public enum MessageType {
     UpdateResponse301(301),
 
     // bootstrapping messages
-    GenesisBlock500(500),
-    GenesisBlockResponse501(501),
-    SeedTransactionList502(502),
-    SeedTransactionResponse503(503),
+    ResetRequest500(500),
+    ResetResponse501(501),
 
     // the highest allowable message number is 65535
     IncomingRequest65533(65533),
