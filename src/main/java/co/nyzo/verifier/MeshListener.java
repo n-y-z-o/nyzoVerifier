@@ -5,7 +5,6 @@ import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
-import co.nyzo.verifier.webSupport.AccountEventManager;
 
 import java.net.ServerSocket;
 import java.net.Socket;
