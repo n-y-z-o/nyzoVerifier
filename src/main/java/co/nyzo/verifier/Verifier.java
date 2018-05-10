@@ -31,6 +31,7 @@ public class Verifier {
 
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
+    private static int version = -1;
 
     private static int recentMessageTimestampsIndex = 0;
     private static final long[] recentMessageTimestamps = new long[10];
@@ -106,6 +107,10 @@ public class Verifier {
             // Load the private seed. This seed is used to sign all messages, so this is done first.
             loadPrivateSeed();
             nodeJoinAcknowledgementsReceived.add(ByteBuffer.wrap(getIdentifier()));  // avoids send node-join to self
+
+            // Load the version number. This is not required for proper operation, but it is helpful to know which
+            // nodes are running which versions of the software.
+            loadVersion();
 
             // Start the seed transaction manager. This loads all the seed transactions in the background.
             SeedTransactionManager.start();
@@ -416,5 +421,16 @@ public class Verifier {
     private static synchronized long timestampAge() {
 
         return System.currentTimeMillis() - recentMessageTimestamps[recentMessageTimestampsIndex];
+    }
+
+    private static void loadVersion() {
+
+        try {
+            version = Integer.parseInt(Files.readAllLines(Paths.get("/home/ubuntu/nyzoVerifier/version")).get(0));
+        } catch (Exception ignored) { }
+    }
+
+    public static int getVersion() {
+        return version;
     }
 }

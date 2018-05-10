@@ -160,7 +160,7 @@ public class MeshListener {
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
-                            IpUtil.addressAsString(message.getSourceIpAddress()) + "!"));
+                            IpUtil.addressAsString(message.getSourceIpAddress()) + "! v=" + Verifier.getVersion()));
 
                 } else if (messageType == MessageType.UpdateRequest300) {
 
