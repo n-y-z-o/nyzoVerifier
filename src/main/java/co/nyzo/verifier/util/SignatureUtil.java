@@ -65,11 +65,9 @@ public class SignatureUtil {
                 identifierToSignatureMap.put(identifierBuffer, signature);
 
                 // If the map has gotten too big, remove an element from it.
-                if (identifierToSignatureMap.size() > 4) {  // very small size for testing
+                if (identifierToSignatureMap.size() > 20000) {
                     ByteBuffer key = identifierToSignatureMap.keySet().iterator().next();
                     identifierToSignatureMap.remove(key);
-                    System.out.println("removed element from identifier map to keep size at " +
-                            identifierToSignatureMap.size());
                 }
             }
 
