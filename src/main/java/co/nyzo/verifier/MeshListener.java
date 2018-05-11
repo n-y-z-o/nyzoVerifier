@@ -30,7 +30,14 @@ public class MeshListener {
     private static ServerSocket statusSocket = null;
     private static int port;
 
-    private static byte[] statusBytes = "Hello from the status port!\n".getBytes(StandardCharsets.UTF_8);
+    private static byte[] statusBytes =
+            ("HTTP/1.1 200 OK\r\n" +
+                    "Content-Type: text/plain; charset=utf-8\r\n" +
+                    "Cache-Control: no-cache\r\n" +
+                    "Connection: Close\r\n" +
+                    "Content-Length: 28\r\n" +
+                    "\r\n" +
+                    "Hello from the status port!\r\n").getBytes(StandardCharsets.UTF_8);
 
     public static int getPort() {
         return port;
@@ -38,7 +45,6 @@ public class MeshListener {
 
     public static void start() {
 
-        final long startTimestamp = System.currentTimeMillis();
         if (!alive.getAndSet(true)) {
             new Thread(new Runnable() {
                 @Override
@@ -47,10 +53,23 @@ public class MeshListener {
                         statusSocket = new ServerSocket(statusPort);
 
                         while (!UpdateUtil.shouldTerminate()) {
+
                             try {
                                 Socket clientSocket = statusSocket.accept();
-                                clientSocket.getOutputStream().write(statusBytes);
-                                clientSocket.close();
+                                new Thread(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        try {
+                                            clientSocket.getOutputStream().write(statusBytes);
+                                        } catch (Exception ignored) { }
+
+                                        try {
+                                            Thread.sleep(3L);
+                                            clientSocket.close();
+                                        } catch (Exception ignored) { }
+                                    }
+                                }, "MeshListener-statusClientSocket").start();
                             } catch (Exception ignored) {
                             }
                         }
@@ -67,35 +86,37 @@ public class MeshListener {
                         serverSocket = new ServerSocket(standardPort);
                         port = serverSocket.getLocalPort();
 
-                        long timeToStartPort = System.currentTimeMillis() - startTimestamp;
                         while (!UpdateUtil.shouldTerminate()) {
-                            Socket clientSocket = serverSocket.accept();
 
-                            new Thread(new Runnable() {
-                                @Override
-                                public void run() {
+                            try {
+                                Socket clientSocket = serverSocket.accept();
+                                new Thread(new Runnable() {
+                                    @Override
+                                    public void run() {
 
-                                    try {
-                                        Message message = Message.readFromStream(clientSocket.getInputStream(),
-                                                IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() + ""),
-                                                MessageType.IncomingRequest65533);
-                                        if (message != null) {
-                                            Message response = response(message);
-                                            if (response != null) {
-                                                clientSocket.getOutputStream().write(response
-                                                        .getBytesForTransmission());
+                                        try {
+                                            Message message = Message.readFromStream(clientSocket.getInputStream(),
+                                                    IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() + ""),
+                                                    MessageType.IncomingRequest65533);
+                                            if (message != null) {
+                                                Message response = response(message);
+                                                if (response != null) {
+                                                    clientSocket.getOutputStream().write(response
+                                                            .getBytesForTransmission());
+                                                }
                                             }
+
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
                                         }
 
-                                    } catch (Exception e) {
-                                        e.printStackTrace();
+                                        try {
+                                            Thread.sleep(3L);
+                                            clientSocket.close();
+                                        } catch (Exception ignored) { }
                                     }
-
-                                    try {
-                                        clientSocket.close();
-                                    } catch (Exception ignored) { }
-                                }
-                            }, "MeshListener-clientSocket").start();
+                                }, "MeshListener-clientSocket").start();
+                            } catch (Exception ignored) { }
                         }
 
                         closeSockets();
@@ -234,6 +255,20 @@ public class MeshListener {
     public static void updateStatus() {
 
         StatusResponse response = new StatusResponse();
-        statusBytes = response.getBytes();
+        StringBuilder responseString = new StringBuilder();
+        for (String line : response.getLines()) {
+            responseString.append(line).append("\r\n");
+        }
+
+        int contentLength = responseString.toString().getBytes(StandardCharsets.UTF_8).length;
+        StringBuilder headerString = new StringBuilder();
+        headerString.append("HTTP/1.1 200 OK\r\n");
+        headerString.append("Content-Type: text/plain; charset=utf-8\r\n");
+        headerString.append("Cache-Control: no-cache\r\n");
+        headerString.append("Connection: Close\r\n");
+        headerString.append("Content-Length: ").append(contentLength).append("\r\n\r\n");
+        headerString.append(responseString);
+
+        statusBytes = headerString.toString().getBytes(StandardCharsets.UTF_8);
     }
 }

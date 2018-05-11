@@ -33,6 +33,10 @@ public class StatusResponse implements MessageObject {
         this.lines = lines;
     }
 
+    public List<String> getLines() {
+        return lines;
+    }
+
     @Override
     public int getByteSize() {
         int byteSize = 1;  // list size
