@@ -32,6 +32,7 @@ public class Verifier {
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
     private static int version = -1;
+    private static String nickname = "";
 
     private static int recentMessageTimestampsIndex = 0;
     private static final long[] recentMessageTimestamps = new long[10];
@@ -111,6 +112,9 @@ public class Verifier {
             // Load the version number. This is not required for proper operation, but it is helpful to know which
             // nodes are running which versions of the software.
             loadVersion();
+
+            // Load the nickname. This is purely for display purposes.
+            loadNickname();
 
             // Start the seed transaction manager. This loads all the seed transactions in the background.
             SeedTransactionManager.start();
@@ -350,22 +354,7 @@ public class Verifier {
                     ChainOptionManager.removeAbandonedChains();
                     ChainOptionManager.freezeBlocks();
 
-                    StringBuilder status = new StringBuilder("status: c=");
-                    status.append(NodeManager.connectedToMesh()).append("/").append(NodeManager.getMesh().size());
-                    status.append("/").append(NodeManager.numberOfInactiveNodes());
-                    status.append(";f=").append(BlockManager.highestBlockFrozen());
-                    status.append(";L=").append(ChainOptionManager.leadingEdgeHeight());
-                    for (Long height : ChainOptionManager.unfrozenBlockHeights()) {
-                        status.append(";h=").append(height).append(",n=");
-                        status.append(ChainOptionManager.numberOfBlocksAtHeight(height));
-                    }
-                    status.append(";t=").append(timestampAge());
-                    System.out.println(status.toString());
-                }
-
-                // If messages from the network have stopped, reconnect.
-                if (timestampAge() > 30L) {
-                    //NodeManager.fetchNodeList(0);
+                    MeshListener.updateStatus();
                 }
 
             } catch (Exception reportOnly) {
@@ -418,7 +407,7 @@ public class Verifier {
         recentMessageTimestampsIndex = (recentMessageTimestampsIndex + 1) % recentMessageTimestamps.length;
     }
 
-    private static synchronized long timestampAge() {
+    public static long timestampAge() {
 
         return System.currentTimeMillis() - recentMessageTimestamps[recentMessageTimestampsIndex];
     }
@@ -432,5 +421,21 @@ public class Verifier {
 
     public static int getVersion() {
         return version;
+    }
+
+    private static void loadNickname() {
+
+        try {
+            nickname = Files.readAllLines(Paths.get(dataRootDirectory.getAbsolutePath() + "/nickname")).get(0);
+            if (nickname == null) {
+                nickname = "";
+            }
+            nickname = nickname.trim();
+        } catch (Exception ignored) { }
+    }
+
+    public static String getNickname() {
+
+        return nickname;
     }
 }

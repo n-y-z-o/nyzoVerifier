@@ -39,7 +39,7 @@ public class BlockRequestTest {
             catch (Exception ignored) { }
         }
 
-        MeshListener.closeServerSocket();
         UpdateUtil.terminate();
+        MeshListener.closeSockets();
     }
 }

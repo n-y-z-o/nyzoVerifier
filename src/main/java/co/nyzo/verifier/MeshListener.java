@@ -8,6 +8,7 @@ import co.nyzo.verifier.util.UpdateUtil;
 
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MeshListener {
@@ -22,10 +23,14 @@ public class MeshListener {
         return alive.get();
     }
 
+    public static final int statusPort = 9443;
     public static final int standardPort = 9444;
 
     private static ServerSocket serverSocket = null;
+    private static ServerSocket statusSocket = null;
     private static int port;
+
+    private static byte[] statusBytes = "Hello from the status port!\n".getBytes(StandardCharsets.UTF_8);
 
     public static int getPort() {
         return port;
@@ -35,6 +40,26 @@ public class MeshListener {
 
         final long startTimestamp = System.currentTimeMillis();
         if (!alive.getAndSet(true)) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        statusSocket = new ServerSocket(statusPort);
+
+                        while (!UpdateUtil.shouldTerminate()) {
+                            try {
+                                Socket clientSocket = statusSocket.accept();
+                                clientSocket.getOutputStream().write(statusBytes);
+                                clientSocket.close();
+                            } catch (Exception ignored) {
+                            }
+                        }
+
+                        closeSockets();
+                    } catch (Exception ignored) { }
+                }
+            }, "MeshListener-statusSocket").start();
+
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -73,7 +98,7 @@ public class MeshListener {
                             }, "MeshListener-clientSocket").start();
                         }
 
-                        closeServerSocket();
+                        closeSockets();
 
                     } catch (Exception ignored) { }
 
@@ -83,12 +108,23 @@ public class MeshListener {
         }
     }
 
-    public static void closeServerSocket() {
+    public static void closeSockets() {
 
-        try {
-            serverSocket.close();
-        } catch (Exception ignored) { }
-        serverSocket = null;
+        if (serverSocket != null) {
+            try {
+                serverSocket.close();
+            } catch (Exception ignored) {
+            }
+            serverSocket = null;
+        }
+
+        if (statusSocket != null) {
+            try {
+                statusSocket.close();
+            } catch (Exception ignored) {
+            }
+            statusSocket = null;
+        }
     }
 
     public static Message response(Message message) {
@@ -195,4 +231,9 @@ public class MeshListener {
         return response;
     }
 
+    public static void updateStatus() {
+
+        StatusResponse response = new StatusResponse();
+        statusBytes = response.getBytes();
+    }
 }
