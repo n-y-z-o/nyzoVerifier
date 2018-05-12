@@ -22,6 +22,8 @@ public enum MessageType {
     TransactionPoolResponse14(14),
     MeshRequest15(15),
     MeshResponse16(16),
+    StatusRequest17(17),
+    StatusResponse18(18),
 
     // test messages
     Ping200(200),

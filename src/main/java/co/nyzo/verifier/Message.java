@@ -407,6 +407,8 @@ public class Message {
             content = TransactionPoolResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.MeshResponse16) {
             content = MeshResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.StatusResponse18) {
+            content = StatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {

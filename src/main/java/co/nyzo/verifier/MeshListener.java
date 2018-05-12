@@ -1,7 +1,6 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
-import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
@@ -23,21 +22,10 @@ public class MeshListener {
         return alive.get();
     }
 
-    public static final int statusPort = 9443;
     public static final int standardPort = 9444;
 
     private static ServerSocket serverSocket = null;
-    private static ServerSocket statusSocket = null;
     private static int port;
-
-    private static byte[] statusBytes =
-            ("HTTP/1.1 200 OK\r\n" +
-                    "Content-Type: text/plain; charset=utf-8\r\n" +
-                    "Cache-Control: no-cache\r\n" +
-                    "Connection: Close\r\n" +
-                    "Content-Length: 28\r\n" +
-                    "\r\n" +
-                    "Hello from the status port!\r\n").getBytes(StandardCharsets.UTF_8);
 
     public static int getPort() {
         return port;
@@ -46,38 +34,6 @@ public class MeshListener {
     public static void start() {
 
         if (!alive.getAndSet(true)) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        statusSocket = new ServerSocket(statusPort);
-
-                        while (!UpdateUtil.shouldTerminate()) {
-
-                            try {
-                                Socket clientSocket = statusSocket.accept();
-                                new Thread(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        try {
-                                            clientSocket.getOutputStream().write(statusBytes);
-                                        } catch (Exception ignored) { }
-
-                                        try {
-                                            Thread.sleep(3L);
-                                            clientSocket.close();
-                                        } catch (Exception ignored) { }
-                                    }
-                                }, "MeshListener-statusClientSocket").start();
-                            } catch (Exception ignored) {
-                            }
-                        }
-
-                        closeSockets();
-                    } catch (Exception ignored) { }
-                }
-            }, "MeshListener-statusSocket").start();
 
             new Thread(new Runnable() {
                 @Override
@@ -137,14 +93,6 @@ public class MeshListener {
             } catch (Exception ignored) {
             }
             serverSocket = null;
-        }
-
-        if (statusSocket != null) {
-            try {
-                statusSocket.close();
-            } catch (Exception ignored) {
-            }
-            statusSocket = null;
         }
     }
 
@@ -213,6 +161,10 @@ public class MeshListener {
 
                     response = new Message(MessageType.MeshResponse16, new MeshResponse(NodeManager.getMesh()));
 
+                } else if (messageType == MessageType.StatusRequest17) {
+
+                    response = new Message(MessageType.StatusResponse18, new StatusResponse());
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
@@ -250,25 +202,5 @@ public class MeshListener {
         }
 
         return response;
-    }
-
-    public static void updateStatus() {
-
-        StatusResponse response = new StatusResponse();
-        StringBuilder responseString = new StringBuilder();
-        for (String line : response.getLines()) {
-            responseString.append(line).append("\r\n");
-        }
-
-        int contentLength = responseString.toString().getBytes(StandardCharsets.UTF_8).length;
-        StringBuilder headerString = new StringBuilder();
-        headerString.append("HTTP/1.1 200 OK\r\n");
-        headerString.append("Content-Type: text/plain; charset=utf-8\r\n");
-        headerString.append("Cache-Control: no-cache\r\n");
-        headerString.append("Connection: Close\r\n");
-        headerString.append("Content-Length: ").append(contentLength).append("\r\n\r\n");
-        headerString.append(responseString);
-
-        statusBytes = headerString.toString().getBytes(StandardCharsets.UTF_8);
     }
 }

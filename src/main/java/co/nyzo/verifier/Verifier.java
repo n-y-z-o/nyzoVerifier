@@ -350,8 +350,6 @@ public class Verifier {
 
                     ChainOptionManager.removeAbandonedChains();
                     ChainOptionManager.freezeBlocks();
-
-                    MeshListener.updateStatus();
                 }
 
             } catch (Exception reportOnly) {
