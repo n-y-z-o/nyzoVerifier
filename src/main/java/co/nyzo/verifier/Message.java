@@ -234,12 +234,16 @@ public class Message {
     public static Message readFromStream(InputStream inputStream, byte[] sourceIpAddress, MessageType sourceType) {
 
         byte[] response = getResponse(inputStream);
+        Message message;
         if (response.length == 0) {
             System.out.println("empty response from " + IpUtil.addressAsString(sourceIpAddress) + " for message of " +
                     "type " + sourceType);
+            message = null;
+        } else {
+            message = fromBytes(response, sourceIpAddress);
         }
 
-        return fromBytes(response, sourceIpAddress);
+        return message;
     }
 
     private static byte[] getResponse(InputStream inputStream) {

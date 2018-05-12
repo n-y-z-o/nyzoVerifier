@@ -6,6 +6,7 @@ import co.nyzo.verifier.util.PrintUtil;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class StatusResponse implements MessageObject {
@@ -21,8 +22,16 @@ public class StatusResponse implements MessageObject {
                 " inactive");
         lines.add("frozen edge: " + BlockManager.highestBlockFrozen());
         lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
-        for (Long height : ChainOptionManager.unfrozenBlockHeights()) {
-            lines.add("- height: " + height + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height));
+        List<Long> unfrozenBlockHeights = new ArrayList<>(ChainOptionManager.unfrozenBlockHeights());
+        Collections.sort(unfrozenBlockHeights);
+        for (int i = 0; i < 6 && i < unfrozenBlockHeights.size(); i++) {
+            if (i == 4 && unfrozenBlockHeights.size() > 6) {
+                lines.add("...");
+            } else {
+                long height = i < 4 || unfrozenBlockHeights.size() <= 6 ? unfrozenBlockHeights.get(i) :
+                        unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 1);
+                lines.add("- height: " + height + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height));
+            }
         }
         lines.add("timestamp age: " + Verifier.timestampAge());
 
