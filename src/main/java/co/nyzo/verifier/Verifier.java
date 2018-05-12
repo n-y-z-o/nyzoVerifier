@@ -415,6 +415,7 @@ public class Verifier {
 
         try {
             version = Integer.parseInt(Files.readAllLines(Paths.get("/home/ubuntu/nyzoVerifier/version")).get(0));
+            System.out.println("loaded version: " + version);
         } catch (Exception ignored) { }
     }
 
