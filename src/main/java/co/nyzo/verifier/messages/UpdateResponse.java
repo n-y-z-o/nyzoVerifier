@@ -125,9 +125,6 @@ public class UpdateResponse implements MessageObject {
                 // Pull the latest code and compile.
                 runProcess(new ProcessBuilder("git", "pull", "origin", "master"));
                 runProcess(new ProcessBuilder("./gradlew", "build"));
-
-                // Exit the application. The application will restart automatically.
-                System.exit(0);
             }
         }).start();
     }

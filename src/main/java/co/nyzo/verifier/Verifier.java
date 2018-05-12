@@ -162,7 +162,7 @@ public class Verifier {
             long consensusFrozenEdge = -1;
             byte[] frozenEdgeHash = new byte[FieldByteSize.hash];
             AtomicInteger frozenEdgeCycleLength = new AtomicInteger(-1);
-            while (consensusFrozenEdge < 0) {
+            while (consensusFrozenEdge < 0 && !UpdateUtil.shouldTerminate()) {
 
                 // Send bootstrap requests to all trusted entry points.
                 Message bootstrapRequest = new Message(MessageType.BootstrapRequest1,
@@ -207,13 +207,17 @@ public class Verifier {
 
             // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh
             // and build the blockchain.
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    verifierMain();
-                    alive.set(false);
-                }
-            }, "Verifier-mainLoop").start();
+            if (UpdateUtil.shouldTerminate()) {
+                alive.set(false);
+            } else {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        verifierMain();
+                        alive.set(false);
+                    }
+                }, "Verifier-mainLoop").start();
+            }
         }
     }
 
