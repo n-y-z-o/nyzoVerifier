@@ -55,8 +55,11 @@ public class Message {
         this.valid = SignatureUtil.signatureIsValid(sourceNodeSignature, getBytesForSigning(),
                 sourceNodeIdentifier);
         if (!this.valid) {
-            System.out.println("message from " + ByteUtil.arrayAsStringWithDashes(sourceNodeIdentifier) + " of type " +
+            System.out.println("message from " + PrintUtil.compactPrintByteArray(sourceNodeIdentifier) + " of type " +
                     this.type + " is not valid");
+        } else {
+            System.out.println("message from " + PrintUtil.compactPrintByteArray(sourceNodeIdentifier) + " of type " +
+                    this.type + " is valid");
         }
 
         // If the message is valid, verify the recipient signatures. Also, determine whether we have already seen this
