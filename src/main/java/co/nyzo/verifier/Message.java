@@ -56,7 +56,7 @@ public class Message {
                 sourceNodeIdentifier);
         if (!this.valid) {
             System.out.println("message from " + PrintUtil.compactPrintByteArray(sourceNodeIdentifier) + " of type " +
-                    this.type + " is not valid");
+                    this.type + " is not valid, content is " + content);
             System.out.println("signature is " + ByteUtil.arrayAsStringWithDashes(sourceNodeSignature));
         }
 

@@ -336,19 +336,21 @@ public class Verifier {
                     long startHeight = Math.max(endHeight - 2, highestBlockFrozen);
                     for (long height = startHeight; height <= endHeight; height++) {
 
-                        // Try to extend the lowest-scoring block.
-                        Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
-                        if (blockToExtend != null && blockToExtend.getDiscontinuityState() ==
-                                Block.DiscontinuityState.IsNotDiscontinuity) {
-                            Block nextBlock = createNextBlock(blockToExtend);
-                            if (nextBlock != null) {
-                                boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
-                                if (shouldTransmitBlock) {
-                                    Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                        if (height >= BlockManager.highestBlockOpenForProcessing()) {
+                            // Try to extend the lowest-scoring block.
+                            Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
+                            if (blockToExtend != null && blockToExtend.getDiscontinuityState() ==
+                                    Block.DiscontinuityState.IsNotDiscontinuity) {
+                                Block nextBlock = createNextBlock(blockToExtend);
+                                if (nextBlock != null) {
+                                    boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
+                                    if (shouldTransmitBlock) {
+                                        Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                                    }
                                 }
+                            } else {
+                                System.out.println("have no block to extend at height " + height);
                             }
-                        } else {
-                            System.out.println("have no block to extend at height " + height);
                         }
                     }
 

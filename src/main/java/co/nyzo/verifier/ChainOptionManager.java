@@ -148,8 +148,8 @@ public class ChainOptionManager {
 
     public static synchronized long leadingEdgeHeight() {
 
-        // The leading edge is defined as the greatest block height at which a valid block without a discontinuity
-        // exists.
+        // The leading edge is defined as the greatest block height open for processing at which a valid block without
+        // a discontinuity exists.
 
         long leadingEdgeHeight = -1;
         for (Long height : unfrozenBlocks.keySet()) {
@@ -163,6 +163,9 @@ public class ChainOptionManager {
                 }
             }
         }
+
+        // Limit to the highest block open for processing.
+        leadingEdgeHeight = Math.min(leadingEdgeHeight, BlockManager.highestBlockOpenForProcessing());
 
         return leadingEdgeHeight;
     }
