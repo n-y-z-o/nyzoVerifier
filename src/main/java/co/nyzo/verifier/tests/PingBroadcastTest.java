@@ -4,6 +4,7 @@ import co.nyzo.verifier.Message;
 import co.nyzo.verifier.MessageCallback;
 import co.nyzo.verifier.MessageType;
 import co.nyzo.verifier.NodeManager;
+import co.nyzo.verifier.messages.StatusResponse;
 import co.nyzo.verifier.util.UpdateUtil;
 
 public class PingBroadcastTest {
@@ -32,6 +33,12 @@ public class PingBroadcastTest {
                 @Override
                 public void responseReceived(Message message) {
                     System.out.println("received response from " + node + ": " + message);
+                    if (message != null) {
+                        StatusResponse response = (StatusResponse) message.getContent();
+                        for (String line : response.getLines()) {
+                            System.out.println("- " + line);
+                        }
+                    }
                 }
             });
         }

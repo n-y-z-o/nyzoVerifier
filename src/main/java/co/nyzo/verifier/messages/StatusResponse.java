@@ -24,12 +24,12 @@ public class StatusResponse implements MessageObject {
         lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
         List<Long> unfrozenBlockHeights = new ArrayList<>(ChainOptionManager.unfrozenBlockHeights());
         Collections.sort(unfrozenBlockHeights);
-        for (int i = 0; i < 6 && i < unfrozenBlockHeights.size(); i++) {
-            if (i == 4 && unfrozenBlockHeights.size() > 6) {
+        for (int i = 0; i < 7 && i < unfrozenBlockHeights.size(); i++) {
+            if (i == 3 && unfrozenBlockHeights.size() > 7) {
                 lines.add("...");
             } else {
-                long height = i < 4 || unfrozenBlockHeights.size() <= 6 ? unfrozenBlockHeights.get(i) :
-                        unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 1);
+                long height = i < 3 || unfrozenBlockHeights.size() <= 7 ? unfrozenBlockHeights.get(i) :
+                        unfrozenBlockHeights.get(unfrozenBlockHeights.size() - i + 3);
                 lines.add("- height: " + height + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height));
             }
         }
