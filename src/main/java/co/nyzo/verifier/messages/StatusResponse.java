@@ -22,6 +22,7 @@ public class StatusResponse implements MessageObject {
                 " inactive");
         lines.add("frozen edge: " + BlockManager.highestBlockFrozen());
         lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
+        lines.add("open edge: " + BlockManager.highestBlockOpenForProcessing());
         List<Long> unfrozenBlockHeights = new ArrayList<>(ChainOptionManager.unfrozenBlockHeights());
         Collections.sort(unfrozenBlockHeights);
         for (int i = 0; i < 7 && i < unfrozenBlockHeights.size(); i++) {

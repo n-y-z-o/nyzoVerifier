@@ -378,6 +378,10 @@ public class Verifier {
             // Get the transactions for the block.
             long blockHeight = previousBlock.getBlockHeight() + 1L;
             List<Transaction> transactions = TransactionPool.transactionsForBlock(blockHeight);
+            Transaction seedTransaction = SeedTransactionManager.transactionForBlock(blockHeight);
+            if (seedTransaction != null) {
+                transactions.add(seedTransaction);
+            }
 
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
                     blockHeight);

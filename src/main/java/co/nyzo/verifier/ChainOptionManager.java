@@ -59,8 +59,6 @@ public class ChainOptionManager {
 
             if (!alreadyContainsBlock && !alreadyContainsVerifierOnSameChain) {
                 blocksAtHeight.add(block);
-                System.out.println("added block at height " + block.getBlockHeight() + " with signature " +
-                        PrintUtil.compactPrintByteArray(block.getVerifierSignature()));
                 shouldForwardBlock = true;
             }
         }
