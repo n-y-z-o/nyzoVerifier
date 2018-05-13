@@ -387,9 +387,9 @@ public class Block implements MessageObject {
             // For the Genesis block, start with an empty balance list, no rollover fees, and an empty list of previous
             // verifiers. For all others, start with the information from the previous block's balance list.
             long blockHeight;
-            List<BalanceListItem> previousBalanceItems;
-            long previousRolloverFees;
-            List<byte[]> previousVerifiers;
+            List<BalanceListItem> previousBalanceItems = null;
+            long previousRolloverFees = -1;
+            List<byte[]> previousVerifiers = null;
             if (previousBlock == null) {
                 blockHeight = 0L;
                 previousBalanceItems = new ArrayList<>();
@@ -398,60 +398,65 @@ public class Block implements MessageObject {
             } else {
                 blockHeight = previousBlock.getBlockHeight() + 1L;
                 BalanceList previousBalanceList = previousBlock.getBalanceList();
-                previousBalanceItems = previousBalanceList.getItems();
-                previousRolloverFees = previousBalanceList.getRolloverFees();
+                if (previousBalanceList != null) {
+                    previousBalanceItems = previousBalanceList.getItems();
+                    previousRolloverFees = previousBalanceList.getRolloverFees();
 
-                // Get the previous verifiers from the previous block. Add the newest and remove the oldest.
-                previousVerifiers = new ArrayList<>(previousBalanceList.getPreviousVerifiers());
-                previousVerifiers.add(previousBlock.getVerifierIdentifier());
-                if (previousVerifiers.size() > 9) {
-                    previousVerifiers.remove(0);
+                    // Get the previous verifiers from the previous block. Add the newest and remove the oldest.
+                    previousVerifiers = new ArrayList<>(previousBalanceList.getPreviousVerifiers());
+                    previousVerifiers.add(previousBlock.getVerifierIdentifier());
+                    if (previousVerifiers.size() > 9) {
+                        previousVerifiers.remove(0);
+                    }
                 }
             }
 
-            // Make a map of the identifiers to balances.
-            Map<ByteBuffer, Long> identifierToBalanceMap = new HashMap<>();
-            for (BalanceListItem item : previousBalanceItems) {
-                identifierToBalanceMap.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());
-            }
-
-            // Add/subtract all transactions.
-            long feesThisBlock = 0L;
-            for (Transaction transaction : transactions) {
-                feesThisBlock += transaction.getFee();
-                if (transaction.getType() != Transaction.typeCoinGeneration) {
-                    adjustBalance(transaction.getSenderIdentifier(), -transaction.getAmount(), identifierToBalanceMap);
+            // Only continue if we have the necessary data.
+            if (previousBalanceItems != null && previousRolloverFees >= 0) {
+                // Make a map of the identifiers to balances.
+                Map<ByteBuffer, Long> identifierToBalanceMap = new HashMap<>();
+                for (BalanceListItem item : previousBalanceItems) {
+                    identifierToBalanceMap.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());
                 }
-                long amountAfterFee = transaction.getAmount() - transaction.getFee();
-                if (amountAfterFee > 0) {
-                    adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToBalanceMap);
+
+                // Add/subtract all transactions.
+                long feesThisBlock = 0L;
+                for (Transaction transaction : transactions) {
+                    feesThisBlock += transaction.getFee();
+                    if (transaction.getType() != Transaction.typeCoinGeneration) {
+                        adjustBalance(transaction.getSenderIdentifier(), -transaction.getAmount(),
+                                identifierToBalanceMap);
+                    }
+                    long amountAfterFee = transaction.getAmount() - transaction.getFee();
+                    if (amountAfterFee > 0) {
+                        adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToBalanceMap);
+                    }
                 }
-            }
 
-            // Split the transaction fees among the current and previous verifiers.
-            List<byte[]> verifiers = new ArrayList<>(previousVerifiers);
-            verifiers.add(verifierIdentifier);
-            long totalFees = feesThisBlock + previousRolloverFees;
-            long feesPerVerifier = totalFees / verifiers.size();
-            if (feesPerVerifier > 0L) {
-                for (byte[] verifier : verifiers) {
-                    adjustBalance(verifier, feesPerVerifier, identifierToBalanceMap);
+                // Split the transaction fees among the current and previous verifiers.
+                List<byte[]> verifiers = new ArrayList<>(previousVerifiers);
+                verifiers.add(verifierIdentifier);
+                long totalFees = feesThisBlock + previousRolloverFees;
+                long feesPerVerifier = totalFees / verifiers.size();
+                if (feesPerVerifier > 0L) {
+                    for (byte[] verifier : verifiers) {
+                        adjustBalance(verifier, feesPerVerifier, identifierToBalanceMap);
+                    }
                 }
-            }
 
-            // Make the new balance items from the balance map.
-            List<BalanceListItem> balanceItems = new ArrayList<>();
-            for (ByteBuffer identifier : identifierToBalanceMap.keySet()) {
-                long balance = identifierToBalanceMap.get(identifier);
-                if (balance > 0L) {
-                    balanceItems.add(new BalanceListItem(identifier.array(), balance));
+                // Make the new balance items from the balance map.
+                List<BalanceListItem> balanceItems = new ArrayList<>();
+                for (ByteBuffer identifier : identifierToBalanceMap.keySet()) {
+                    long balance = identifierToBalanceMap.get(identifier);
+                    if (balance > 0L) {
+                        balanceItems.add(new BalanceListItem(identifier.array(), balance));
+                    }
                 }
+
+                // Make the balance list. The pairs are sorted in the constructor.
+                byte rolloverFees = (byte) (totalFees % verifiers.size());
+                result = new BalanceList(blockHeight, rolloverFees, previousVerifiers, balanceItems);
             }
-
-            // Make the balance list. The pairs are sorted in the constructor.
-            byte rolloverFees = (byte) (totalFees % verifiers.size());
-            result = new BalanceList(blockHeight, rolloverFees, previousVerifiers, balanceItems);
-
         } catch (Exception ignored) { ignored.printStackTrace(); }
 
         return result;
