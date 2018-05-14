@@ -59,8 +59,9 @@ public class SeedTransactionManager {
                         previousFile.delete();
                     }
 
+                    
                     // Remove any items from the map below the last-requested height.
-                    Set<Long> keys = transactionMap.keySet();
+                    Set<Long> keys = new HashSet<>(transactionMap.keySet());
                     for (Long key : keys) {
                         if (key < lastBlockRequested) {
                             transactionMap.remove(key);
