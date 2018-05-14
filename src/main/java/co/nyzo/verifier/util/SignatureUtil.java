@@ -40,8 +40,10 @@ public class SignatureUtil {
                 seedToSignatureMap.put(seedBuffer, signature);
             }
 
-            signature.update(bytesToSign);
-            signatureBytes = signature.sign();
+            synchronized (SignatureUtil.class) {
+                signature.update(bytesToSign);
+                signatureBytes = signature.sign();
+            }
 
         } catch (Exception reportOnly) {
             System.err.println("exception signing bytes of length " + (bytesToSign == null ? "(null)" :
@@ -71,8 +73,10 @@ public class SignatureUtil {
                 }
             }
 
-            signature.update(signedBytes);
-            signatureIsValid = signature.verify(signatureBytes);
+            synchronized (SignatureUtil.class) {
+                signature.update(signedBytes);
+                signatureIsValid = signature.verify(signatureBytes);
+            }
 
         } catch (Exception ignored) {
 
