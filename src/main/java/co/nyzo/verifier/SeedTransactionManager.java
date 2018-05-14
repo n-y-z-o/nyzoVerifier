@@ -49,8 +49,8 @@ public class SeedTransactionManager {
                         File file = fileForIndex(fileIndex);
                         if (!file.exists()) {
                             fetchFile(file);
-                            loadFile(file);
                         }
+                        loadFile(file);
                     }
 
                     // If the previous file exists, delete it.
@@ -96,6 +96,8 @@ public class SeedTransactionManager {
     private static void fetchFile(File file) {
 
         try {
+
+            file.getParentFile().mkdirs();
 
             URL url = new URL(s3UrlForFile(file));
             ReadableByteChannel channel = Channels.newChannel(url.openStream());

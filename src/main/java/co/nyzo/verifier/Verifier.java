@@ -221,7 +221,7 @@ public class Verifier {
         }
     }
 
-    private static void loadGenesisBlock() {
+    public static void loadGenesisBlock() {
 
         Block genesisBlock = BlockManager.frozenBlockForHeight(0);
         while (genesisBlock == null) {

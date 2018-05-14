@@ -276,8 +276,9 @@ public class Transaction implements MessageObject {
             transaction = coinGenerationTransaction(timestamp, amount, recipientIdentifier);
         } else if (type == typeSeed || type == typeStandard) {
             long previousHashHeight = buffer.getLong();
-            byte[] previousBlockHash = BlockManager.frozenBlockForHeight(previousHashHeight).getHash();
-
+            Block previousHashBlock = BlockManager.frozenBlockForHeight(previousHashHeight);
+            byte[] previousBlockHash = previousHashBlock == null ? new byte[FieldByteSize.hash] :
+                    previousHashBlock.getHash();
             byte[] senderIdentifier = new byte[FieldByteSize.identifier];
             buffer.get(senderIdentifier);
 
