@@ -421,9 +421,11 @@ public class Verifier {
                     transactions.add(seedTransaction);
                 }
             }
+            System.out.println("have " + transactions.size() + " transactions before approval");
 
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
                     previousBlock);
+            System.out.println("have " + approvedTransactions.size() + " transactions after approval");
 
             BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, approvedTransactions,
                     Verifier.getIdentifier());
