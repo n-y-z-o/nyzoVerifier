@@ -68,10 +68,12 @@ public class BalanceManager {
         long endTimestamp = BlockManager.endTimestampForHeight(blockHeight);
         while (dedupedTransactions.size() > 0 && dedupedTransactions.get(0).getTimestamp() < startTimestamp) {
             dedupedTransactions.remove(0);
+            System.out.println("removed transaction because timestamp was before beginning of block");
         }
         while (dedupedTransactions.size() > 0 &&
                 dedupedTransactions.get(dedupedTransactions.size() - 1).getTimestamp() >= endTimestamp) {
             dedupedTransactions.remove(dedupedTransactions.size() - 1);
+            System.out.println("removed transaction because timestamp was past end of block");
         }
 
         // If the block height is above zero, remove all transactions that are not seed or standard.
@@ -80,6 +82,7 @@ public class BalanceManager {
                 if (dedupedTransactions.get(i).getType() != Transaction.typeSeed &&
                         dedupedTransactions.get(i).getType() != Transaction.typeStandard) {
                     dedupedTransactions.remove(i);
+                    System.out.println("removed transaction because type is invalid");
                 }
             }
         }
@@ -88,6 +91,7 @@ public class BalanceManager {
         for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
             if (!dedupedTransactions.get(i).previousHashIsValid()) {
                 dedupedTransactions.remove(i);
+                System.out.println("removed transaction because previous hash was invalid");
             }
         }
 
@@ -95,6 +99,7 @@ public class BalanceManager {
         for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
             if (!dedupedTransactions.get(i).signatureIsValid()) {
                 dedupedTransactions.remove(i);
+                System.out.println("removed transaction because signature was invalid");
             }
         }
 
@@ -102,10 +107,6 @@ public class BalanceManager {
         // timestamp, because older transactions take precedence over newer transactions.
         List<Transaction> approvedTransactions = new ArrayList<>();
         Map<ByteBuffer, Long> identifierToBalanceMap = makeBalanceMap(previousBlock.getBalanceList());
-        for (ByteBuffer buffer : identifierToBalanceMap.keySet()) {
-            System.out.println("- " + PrintUtil.compactPrintByteArray(buffer.array()) + ": " +
-                    identifierToBalanceMap.get(buffer));
-        }
         for (Transaction transaction : dedupedTransactions) {
             ByteBuffer senderIdentifier = ByteBuffer.wrap(transaction.getSenderIdentifier());
             Long senderBalance = identifierToBalanceMap.get(senderIdentifier);
@@ -124,6 +125,9 @@ public class BalanceManager {
                     receiverBalance += amountAfterFee;
                     identifierToBalanceMap.put(receiverIdentifier, receiverBalance);
                 }
+            } else {
+                System.out.println("removed transaction because amount " + transaction.getAmount() + " was greater " +
+                        "than balance " + senderBalance);
             }
         }
 
