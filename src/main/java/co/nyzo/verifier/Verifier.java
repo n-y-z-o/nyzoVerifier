@@ -25,11 +25,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Verifier {
 
     public static final File dataRootDirectory = new File("/var/lib/nyzo");
+    public static final File seedFundingFile = new File(dataRootDirectory, "seed_funding");
 
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
     private static int version = -1;
     private static String nickname = "";
+
+    private static Transaction seedFundingTransaction = null;
 
     private static int recentMessageTimestampsIndex = 0;
     private static final long[] recentMessageTimestamps = new long[10];
@@ -106,6 +109,10 @@ public class Verifier {
             loadPrivateSeed();
             nodeJoinAcknowledgementsReceived.add(ByteBuffer.wrap(getIdentifier()));  // avoids send node-join to self
 
+            // Ensure that the Genesis block and the seed-funding transaction are loaded.
+            loadGenesisBlock();
+            loadSeedFundingTransaction();
+
             // Load the version number. This is not required for proper operation, but it is helpful to know which
             // nodes are running which versions of the software.
             loadVersion();
@@ -121,9 +128,6 @@ public class Verifier {
             try {
                 Thread.sleep(20L);
             } catch (Exception e) { }
-
-            // Ensure that the Genesis block is loaded.
-            loadGenesisBlock();
 
             System.out.println("starting verifier");
 
@@ -224,7 +228,7 @@ public class Verifier {
     public static void loadGenesisBlock() {
 
         Block genesisBlock = BlockManager.frozenBlockForHeight(0);
-        while (genesisBlock == null) {
+        while (genesisBlock == null && !UpdateUtil.shouldTerminate()) {
             try {
 
                 URL url = new URL("https://s3-us-west-2.amazonaws.com/nyzo/genesis");
@@ -252,6 +256,37 @@ public class Verifier {
                 BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash());
             }
         }
+    }
+
+    public static void loadSeedFundingTransaction() {
+
+        while (seedFundingTransaction == null && !UpdateUtil.shouldTerminate()) {
+            try {
+                SeedTransactionManager.fetchFile(seedFundingFile);
+                loadSeedFundingTransactionFromFile();
+
+            } catch (Exception ignored) {
+                ignored.printStackTrace();
+            }
+
+            // The verifier should not start without the transaction. If there was a problem, sleep for two seconds and
+            // try again.
+            if (seedFundingTransaction == null && !UpdateUtil.shouldTerminate()) {
+                try {
+                    Thread.sleep(2000L);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    private static void loadSeedFundingTransactionFromFile() {
+
+        try {
+            byte[] fileBytes = Files.readAllBytes(Paths.get(seedFundingFile.getAbsolutePath()));
+            ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
+            seedFundingTransaction = Transaction.fromByteBuffer(buffer);
+        } catch (Exception ignored) { }
     }
 
     private static void sendNodeJoinRequests() {
@@ -378,13 +413,17 @@ public class Verifier {
             // Get the transactions for the block.
             long blockHeight = previousBlock.getBlockHeight() + 1L;
             List<Transaction> transactions = TransactionPool.transactionsForBlock(blockHeight);
-            Transaction seedTransaction = SeedTransactionManager.transactionForBlock(blockHeight);
-            if (seedTransaction != null) {
-                transactions.add(seedTransaction);
+            if (blockHeight == 1) {
+                transactions.add(seedFundingTransaction);
+            } else {
+                Transaction seedTransaction = SeedTransactionManager.transactionForBlock(blockHeight);
+                if (seedTransaction != null) {
+                    transactions.add(seedTransaction);
+                }
             }
 
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
-                    blockHeight);
+                    previousBlock);
 
             BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, approvedTransactions,
                     Verifier.getIdentifier());

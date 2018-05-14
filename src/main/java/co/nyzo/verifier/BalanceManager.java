@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
+
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -53,7 +55,7 @@ public class BalanceManager {
         }
     }
 
-    public static List<Transaction> approvedTransactionsForBlock(List<Transaction> transactions, long blockHeight) {
+    public static List<Transaction> approvedTransactionsForBlock(List<Transaction> transactions, Block previousBlock) {
 
         // Sort the transactions in block order, then remove all duplicates.
         sortTransactions(transactions);
@@ -61,6 +63,7 @@ public class BalanceManager {
 
         // Remove all transactions whose timestamps fall outside the block timestamp range. Because the array is sorted,
         // this can be done on the ends of the array.
+        long blockHeight = previousBlock.getBlockHeight() + 1L;
         long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
         long endTimestamp = BlockManager.endTimestampForHeight(blockHeight);
         while (dedupedTransactions.size() > 0 && dedupedTransactions.get(0).getTimestamp() < startTimestamp) {
@@ -98,7 +101,11 @@ public class BalanceManager {
         // Assemble the final list of transactions with valid amounts. This has to be done in ascending order of
         // timestamp, because older transactions take precedence over newer transactions.
         List<Transaction> approvedTransactions = new ArrayList<>();
-        Map<ByteBuffer, Long> identifierToBalanceMap = balancesAtEndOfBlock(blockHeight - 1);
+        Map<ByteBuffer, Long> identifierToBalanceMap = makeBalanceMap(previousBlock.getBalanceList());
+        for (ByteBuffer buffer : identifierToBalanceMap.keySet()) {
+            System.out.println("- " + PrintUtil.compactPrintByteArray(buffer.array()) + ": " +
+                    identifierToBalanceMap.get(buffer));
+        }
         for (Transaction transaction : dedupedTransactions) {
             ByteBuffer senderIdentifier = ByteBuffer.wrap(transaction.getSenderIdentifier());
             Long senderBalance = identifierToBalanceMap.get(senderIdentifier);
@@ -121,6 +128,16 @@ public class BalanceManager {
         }
 
         return approvedTransactions;
+    }
+
+    private static Map<ByteBuffer, Long> makeBalanceMap(BalanceList balanceList) {
+
+        Map<ByteBuffer, Long> balanceMap = new HashMap<>();
+        for (BalanceListItem item : balanceList.getItems()) {
+            balanceMap.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());
+        }
+
+        return balanceMap;
     }
 
     private static void sortTransactions(List<Transaction> transactions) {

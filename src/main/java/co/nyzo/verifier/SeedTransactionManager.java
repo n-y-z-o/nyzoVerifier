@@ -59,7 +59,6 @@ public class SeedTransactionManager {
                         previousFile.delete();
                     }
 
-                    
                     // Remove any items from the map below the last-requested height.
                     Set<Long> keys = new HashSet<>(transactionMap.keySet());
                     for (Long key : keys) {
@@ -94,7 +93,7 @@ public class SeedTransactionManager {
         return "https://s3-us-west-2.amazonaws.com/nyzo/" + file.getName();
     }
 
-    private static void fetchFile(File file) {
+    public static void fetchFile(File file) {
 
         try {
 
