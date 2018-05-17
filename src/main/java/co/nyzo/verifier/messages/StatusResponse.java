@@ -38,6 +38,15 @@ public class StatusResponse implements MessageObject {
         lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
         lines.add("old timestamp: " + Verifier.oldestTimestampAge());
 
+        StringBuilder line = new StringBuilder("[");
+        String separator = "";
+        for (long value : Verifier.timestampAges()) {
+            line.append(separator).append(value);
+            separator = ",";
+        }
+        line.append("]");
+        lines.add("timestamps: " + line);
+
         this.lines = lines;
     }
 

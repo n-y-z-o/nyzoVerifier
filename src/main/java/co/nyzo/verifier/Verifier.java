@@ -476,6 +476,17 @@ public class Verifier {
         return System.currentTimeMillis() - recentMessageTimestamps[recentMessageTimestampsIndex];
     }
 
+    public static long[] timestampAges() {
+
+        long[] ages = new long[recentMessageTimestamps.length];
+        long currentTime = System.currentTimeMillis();
+        for (int i = 0; i < ages.length; i++) {
+            ages[i] = currentTime - recentMessageTimestamps[i];
+        }
+
+        return ages;
+    }
+
     private static void loadVersion() {
 
         try {
