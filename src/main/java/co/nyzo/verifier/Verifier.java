@@ -366,6 +366,13 @@ public class Verifier {
                 // Only run the active verifier if connected to the mesh.
                 if (NodeManager.connectedToMesh()) {
 
+                    // If we have stopped receiving messages from the network, send new node-join messages. This is
+                    // likely due to a changed IP address.
+                    if (timestampAge() > 15000) {
+                        nodeJoinAcknowledgementsReceived.clear();
+                        sendNodeJoinRequests();
+                    }
+
                     long highestBlockFrozen = BlockManager.highestBlockFrozen();
                     long endHeight = Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen);
                     long startHeight = Math.max(endHeight - 2, highestBlockFrozen);
