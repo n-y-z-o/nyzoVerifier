@@ -17,6 +17,7 @@ public class StatusResponse implements MessageObject {
 
         List<String> lines = new ArrayList<>();
         lines.add("nickname: " + Verifier.getNickname());
+        lines.add("version: " + Verifier.getVersion());
         lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
         lines.add("mesh: " + NodeManager.getMesh().size() + " active, " + NodeManager.numberOfInactiveNodes() +
                 " inactive");
