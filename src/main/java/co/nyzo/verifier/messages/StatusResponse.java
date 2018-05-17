@@ -42,7 +42,7 @@ public class StatusResponse implements MessageObject {
         String separator = "";
         for (long value : Verifier.timestampAges()) {
             line.append(separator).append(value);
-            separator = ",";
+            separator = ", ";
         }
         line.append("]");
         lines.add("timestamps: " + line);

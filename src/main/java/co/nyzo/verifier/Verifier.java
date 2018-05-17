@@ -480,8 +480,9 @@ public class Verifier {
 
         long[] ages = new long[recentMessageTimestamps.length];
         long currentTime = System.currentTimeMillis();
+        int offset = recentMessageTimestampsIndex;
         for (int i = 0; i < ages.length; i++) {
-            ages[i] = currentTime - recentMessageTimestamps[i];
+            ages[i] = currentTime - recentMessageTimestamps[(offset - i - 1 + ages.length) % ages.length];
         }
 
         return ages;
