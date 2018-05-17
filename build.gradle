@@ -7,6 +7,10 @@ repositories {
     mavenCentral()
 }
 
+compileJava {
+    options.encoding = "UTF-8"
+}
+
 dependencies {
     compile('net.i2p.crypto:eddsa:0.2.0')
 }
