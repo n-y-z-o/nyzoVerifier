@@ -35,7 +35,8 @@ public class StatusResponse implements MessageObject {
                 lines.add("- height: " + height + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height));
             }
         }
-        lines.add("timestamp age: " + Verifier.timestampAge());
+        lines.add("new timestamp: " + Verifier.newestTimestampAge());
+        lines.add("old timestamp: " + Verifier.oldestTimestampAge());
 
         this.lines = lines;
     }
