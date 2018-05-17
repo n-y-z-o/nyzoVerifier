@@ -368,7 +368,7 @@ public class Verifier {
 
                     // If we have stopped receiving messages from the mesh, send new node-join messages. This is
                     // likely due to a changed IP address.
-                    if (newestTimestampAge() > 5000L) {
+                    if (newestTimestampAge(1) > 5000L) {
                         nodeJoinAcknowledgementsReceived.clear();
                         sendNodeJoinRequests();
                     }
@@ -464,9 +464,9 @@ public class Verifier {
         recentMessageTimestampsIndex = (recentMessageTimestampsIndex + 1) % recentMessageTimestamps.length;
     }
 
-    public static long newestTimestampAge() {
+    public static long newestTimestampAge(int offset) {
 
-        int index = (recentMessageTimestampsIndex + recentMessageTimestamps.length - 1) %
+        int index = (recentMessageTimestampsIndex + recentMessageTimestamps.length - offset) %
                 recentMessageTimestamps.length;
         return System.currentTimeMillis() - recentMessageTimestamps[index];
     }
