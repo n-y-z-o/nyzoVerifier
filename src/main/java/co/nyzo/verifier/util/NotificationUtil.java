@@ -1,5 +1,7 @@
 package co.nyzo.verifier.util;
 
+import co.nyzo.verifier.Verifier;
+
 import javax.net.ssl.HttpsURLConnection;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -13,11 +15,18 @@ import java.util.List;
 public class NotificationUtil {
 
 
+    private static int numberOfNotificationsSent = 0;
+
     private static final String endpoint = loadEndpointFromFile();
 
     public static void send(String message) {
 
-        if (endpoint != null) {
+        if (endpoint != null && numberOfNotificationsSent < 10) {
+
+            numberOfNotificationsSent++;
+            if (numberOfNotificationsSent >= 10) {
+                message = "*Message limit reached on " + Verifier.getNickname() + "*";
+            }
 
             try {
                 String jsonString = "{\"text\":\"" + message + "\"}";
