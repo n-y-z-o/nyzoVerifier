@@ -380,7 +380,10 @@ public class Verifier {
                     for (long height = startHeight; height <= endHeight; height++) {
 
                         Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
-                        if (blockToExtend != null) {
+                        CycleInformation cycleInformation = blockToExtend == null ? null :
+                                blockToExtend.getCycleInformation();
+                        if (cycleInformation != null && cycleInformation.getLocalVerifierIndexInCycle() <=
+                                cycleInformation.getCycleLength() / 2) {
                             Block nextBlock = createNextBlock(blockToExtend);
                             if (nextBlock != null && nextBlock.getDiscontinuityState() ==
                                     Block.DiscontinuityState.IsNotDiscontinuity) {
