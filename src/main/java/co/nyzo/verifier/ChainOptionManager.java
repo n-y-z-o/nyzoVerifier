@@ -171,42 +171,44 @@ public class ChainOptionManager {
     // TODO: make this an instance method of the block class
     public static synchronized CycleInformation cycleInformationForBlock(Block block) {
 
-        ByteBuffer newBlockVerifier = ByteBuffer.wrap(block.getVerifierIdentifier());
+        ByteBuffer blockVerifier = ByteBuffer.wrap(block.getVerifierIdentifier());
+        ByteBuffer localVerifier = ByteBuffer.wrap(Verifier.getIdentifier());
 
         // Step backward through the chain until we find the beginning of the cycle.
         CycleInformation cycleInformation = null;
         Set<ByteBuffer> identifiers = new HashSet<>();
-        long verifierPreviousBlockHeight = -1;
+        long blockVerifierPreviousBlockHeight = -1;
+        long localVerifierPreviousBlockHeight = -1;
         Block blockToCheck = block.getPreviousBlock();
         while (blockToCheck != null && cycleInformation == null) {
 
             ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
             if (identifiers.contains(identifier)) {
                 int cycleLength = (int) (block.getBlockHeight() - blockToCheck.getBlockHeight() - 1L);
-                int verifierIndexInCycle = verifierPreviousBlockHeight < 0 ? -1 :
-                        (int) (verifierPreviousBlockHeight - blockToCheck.getBlockHeight() - 1L);
-                cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle,
-                        blockToCheck.getBlockHeight());
+                int blockVerifierIndexInCycle = blockVerifierPreviousBlockHeight < 0 ? -1 :
+                        (int) (blockVerifierPreviousBlockHeight - blockToCheck.getBlockHeight() - 1L);
+                int localVerifierIndexInCycle = localVerifierPreviousBlockHeight < 0 ? -1 :
+                        (int) (localVerifierPreviousBlockHeight - blockToCheck.getBlockHeight() - 1L);
+                cycleInformation = new CycleInformation(cycleLength, blockVerifierIndexInCycle,
+                        localVerifierIndexInCycle);
             } else if (blockToCheck.getBlockHeight() == 0) {
 
                 // For purposes of calculation, new verifiers in the first cycle of the chain are treated as existing
                 // verifiers.
                 int cycleLength = (int) block.getBlockHeight();
-                int verifierIndexInCycle;
-                if (verifierPreviousBlockHeight > 0) {
-                    verifierIndexInCycle = (int) verifierPreviousBlockHeight;
-                } else if (identifier.equals(newBlockVerifier)) {
-                    verifierIndexInCycle = 0;
-                } else {
-                    verifierIndexInCycle = 0;
-                }
-                cycleInformation = new CycleInformation(cycleLength, verifierIndexInCycle, 0L);
+                int blockVerifierIndexInCycle = (int) Math.max(blockVerifierPreviousBlockHeight, 0);
+                int localVerifierIndexInCycle = (int) Math.max(localVerifierPreviousBlockHeight, 0);
+
+                cycleInformation = new CycleInformation(cycleLength, blockVerifierIndexInCycle,
+                        localVerifierIndexInCycle);
             } else {
                 identifiers.add(identifier);
             }
 
-            if (identifier.equals(newBlockVerifier)) {
-                verifierPreviousBlockHeight = blockToCheck.getBlockHeight();
+            if (identifier.equals(blockVerifier)) {
+                blockVerifierPreviousBlockHeight = blockToCheck.getBlockHeight();
+            } else if (identifier.equals(localVerifier)) {
+                localVerifierPreviousBlockHeight = blockToCheck.getBlockHeight();
             }
 
             blockToCheck = blockToCheck.getPreviousBlock();

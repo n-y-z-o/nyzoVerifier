@@ -388,7 +388,7 @@ public class Verifier {
                                 if (shouldTransmitBlock) {
                                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                                 } else {
-                                    NotificationUtil.send("created a block that cannot be registered on " +
+                                    NotificationUtil.send("Created a block that cannot be registered on " +
                                             getNickname() + " at height " + nextBlock.getBlockHeight());
                                 }
                             }

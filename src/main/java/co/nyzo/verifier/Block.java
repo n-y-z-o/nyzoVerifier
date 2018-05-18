@@ -547,7 +547,7 @@ public class Block implements MessageObject {
                     score -= 10L;
                     // TODO: add the queue index of the new verifier
                 } else {
-                    score += cycleInformation.getVerifierIndexInCycle() * 10L;
+                    score += cycleInformation.getBlockVerifierIndexInCycle() * 10L;
                 }
             }
 

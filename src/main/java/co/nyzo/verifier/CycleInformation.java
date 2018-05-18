@@ -3,35 +3,35 @@ package co.nyzo.verifier;
 public class CycleInformation {
 
     private int cycleLength;
-    private int verifierIndexInCycle;
-    private long determinationHeight;
+    private int blockVerifierIndexInCycle;
+    private int localVerifierIndexInCycle;
 
-    public CycleInformation(int cycleLength, int verifierIndexInCycle, long determinationHeight) {
+    public CycleInformation(int cycleLength, int blockVerifierIndexInCycle, int localVerifierIndexInCycle) {
 
         this.cycleLength = cycleLength;
-        this.verifierIndexInCycle = verifierIndexInCycle;
-        this.determinationHeight = determinationHeight;
+        this.blockVerifierIndexInCycle = blockVerifierIndexInCycle;
+        this.localVerifierIndexInCycle = localVerifierIndexInCycle;
     }
 
     public int getCycleLength() {
         return cycleLength;
     }
 
-    public int getVerifierIndexInCycle() {
-        return verifierIndexInCycle;
+    public int getBlockVerifierIndexInCycle() {
+        return blockVerifierIndexInCycle;
     }
 
-    public long getDeterminationHeight() {
-        return determinationHeight;
+    public int getLocalVerifierIndexInCycle() {
+        return localVerifierIndexInCycle;
     }
 
     public boolean isNewVerifier() {
-        return verifierIndexInCycle < 0;
+        return blockVerifierIndexInCycle < 0;
     }
 
     @Override
     public String toString() {
-        return "[CycleInformation (cycleLength=" + cycleLength + ", verifierIndexInCycle=" +
-                verifierIndexInCycle + ", determinationHeight=" + determinationHeight + ")]";
+        return "[CycleInformation (cycleLength=" + cycleLength + ", blockVerifierIndexInCycle=" +
+                blockVerifierIndexInCycle + ", localVerifierIndexInCycle=" + localVerifierIndexInCycle + ")]";
     }
 }
