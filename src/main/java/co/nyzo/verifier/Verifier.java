@@ -4,10 +4,7 @@ import co.nyzo.verifier.messages.BootstrapRequest;
 import co.nyzo.verifier.messages.BootstrapResponse;
 import co.nyzo.verifier.messages.MeshResponse;
 import co.nyzo.verifier.messages.NodeJoinMessage;
-import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.SignatureUtil;
-import co.nyzo.verifier.util.UpdateUtil;
+import co.nyzo.verifier.util.*;
 
 import java.io.File;
 import java.lang.reflect.Method;
@@ -31,6 +28,7 @@ public class Verifier {
     private static byte[] privateSeed = null;
     private static int version = -1;
     private static String nickname = "";
+    private static int rejoinCount = 0;
 
     private static Transaction seedFundingTransaction = null;
 
@@ -217,6 +215,7 @@ public class Verifier {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
+                        NotificationUtil.send("started main verifier loop on " + getNickname());
                         verifierMain();
                         alive.set(false);
                     }
@@ -369,32 +368,32 @@ public class Verifier {
                     // If we have stopped receiving messages from the mesh, send new node-join messages. This is
                     // likely due to a changed IP address.
                     if (newestTimestampAge(1) > 5000L) {
+                        rejoinCount++;
                         nodeJoinAcknowledgementsReceived.clear();
                         sendNodeJoinRequests();
                     }
 
                     long highestBlockFrozen = BlockManager.highestBlockFrozen();
-                    long endHeight = Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen);
+                    long endHeight = Math.min(Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen),
+                            BlockManager.highestBlockOpenForProcessing() - 1);
                     long startHeight = Math.max(endHeight - 2, highestBlockFrozen);
                     for (long height = startHeight; height <= endHeight; height++) {
 
-                        if (height < BlockManager.highestBlockOpenForProcessing()) {
-
-                            // Try to extend the lowest-scoring block.
-                            Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
-                            if (blockToExtend != null && blockToExtend.getDiscontinuityState() ==
+                        Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
+                        if (blockToExtend != null) {
+                            Block nextBlock = createNextBlock(blockToExtend);
+                            if (nextBlock != null && nextBlock.getDiscontinuityState() ==
                                     Block.DiscontinuityState.IsNotDiscontinuity) {
-                                Block nextBlock = createNextBlock(blockToExtend);
-                                if (nextBlock != null && nextBlock.getDiscontinuityState() ==
-                                        Block.DiscontinuityState.IsNotDiscontinuity) {
-                                    boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
-                                    if (shouldTransmitBlock) {
-                                        Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
-                                    }
+                                boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
+                                if (shouldTransmitBlock) {
+                                    Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                                } else {
+                                    NotificationUtil.send("created a block that cannot be registered on " +
+                                            getNickname() + " at height " + nextBlock.getBlockHeight());
                                 }
-                            } else {
-                                System.out.println("have no block to extend at height " + height);
                             }
+                        } else {
+                            System.out.println("have no block to extend at height " + height);
                         }
                     }
 
@@ -514,5 +513,10 @@ public class Verifier {
     public static String getNickname() {
 
         return nickname;
+    }
+
+    public static int getRejoinCount() {
+
+        return rejoinCount;
     }
 }
