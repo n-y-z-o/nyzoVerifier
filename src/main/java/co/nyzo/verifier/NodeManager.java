@@ -4,6 +4,7 @@ import co.nyzo.verifier.messages.NodeJoinMessage;
 import co.nyzo.verifier.messages.BootstrapRequest;
 import co.nyzo.verifier.messages.BootstrapResponse;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -129,6 +130,9 @@ public class NodeManager {
     }
 
     private static synchronized void removeNodeFromMesh(ByteBuffer addressBuffer) {
+
+        NotificationUtil.send("removing node " + PrintUtil.compactPrintByteArray(addressBuffer.array()) + " from " +
+                "mesh of node " + Verifier.getNickname());
 
         // If a node has verified in the past two cycles, we keep a record of it in the inactive map. This protects
         // against the verifier jumping in and out of the network to allow multiple verifiers at the same IP address.
