@@ -368,6 +368,7 @@ public class Verifier {
                     // If we have stopped receiving messages from the mesh, send new node-join messages. This is
                     // likely due to a changed IP address.
                     if (newestTimestampAge(1) > 5000L) {
+                        NotificationUtil.send("Rejoining mesh from " + getNickname());
                         rejoinCount++;
                         nodeJoinAcknowledgementsReceived.clear();
                         sendNodeJoinRequests();
