@@ -59,6 +59,10 @@ public class Transaction implements MessageObject {
         return amount;
     }
 
+    public long getAmountAfterFee() {
+        return amount - getFee();
+    }
+
     public byte[] getReceiverIdentifier() {
         return receiverIdentifier;
     }

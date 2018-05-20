@@ -134,11 +134,13 @@ public class BalanceManager {
         return approvedTransactions;
     }
 
-    private static Map<ByteBuffer, Long> makeBalanceMap(BalanceList balanceList) {
+    public static Map<ByteBuffer, Long> makeBalanceMap(BalanceList balanceList) {
 
         Map<ByteBuffer, Long> balanceMap = new HashMap<>();
-        for (BalanceListItem item : balanceList.getItems()) {
-            balanceMap.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());
+        if (balanceList != null) {
+            for (BalanceListItem item : balanceList.getItems()) {
+                balanceMap.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());
+            }
         }
 
         return balanceMap;

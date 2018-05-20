@@ -22,10 +22,8 @@ public class TransactionResponse implements MessageObject {
             TransactionPool.addTransaction(transaction);
             transactionAccepted = true;
             message = "Your transaction from wallet " +
-                    ByteUtil.arrayAsStringNoDashes(transaction.getSenderIdentifier(), 0, 3) + "…" +
-                    ByteUtil.arrayAsStringNoDashes(transaction.getSenderIdentifier(), 29, 3) + " to " +
-                    ByteUtil.arrayAsStringNoDashes(transaction.getReceiverIdentifier(), 0, 3) + "…" +
-                    ByteUtil.arrayAsStringNoDashes(transaction.getReceiverIdentifier(), 29, 3) +
+                    PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + " to " +
+                    PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
                     " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
                     " has been accepted by the system and is scheduled for incorporation into block " +
                     BlockManager.heightForTimestamp(transaction.getTimestamp()) + ".";

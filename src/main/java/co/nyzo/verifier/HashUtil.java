@@ -49,4 +49,20 @@ public class HashUtil {
         ByteBuffer buffer = ByteBuffer.wrap(sha256);
         return buffer.getLong();
     }
+
+    public static long longSHA256(byte[]... dataArgs) {
+
+        int length = 0;
+        for (byte[] data : dataArgs) {
+            length += data.length;
+        }
+
+        byte[] array = new byte[length];
+        ByteBuffer buffer = ByteBuffer.wrap(array);
+        for (byte[] data : dataArgs) {
+            buffer.put(data);
+        }
+
+        return longSHA256(array);
+    }
 }
