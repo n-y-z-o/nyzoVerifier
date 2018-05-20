@@ -172,9 +172,11 @@ public class Message {
                 }
                 fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, null);
             } else {
-                NotificationUtil.send("NOT forwarding message from " + Verifier.getNickname() + " to " +
-                        PrintUtil.compactPrintByteArray(node.getIdentifier()) +
-                        " because it is already in the recipient list");
+                if (message.getType() == MessageType.Transaction5) {
+                    NotificationUtil.send("NOT forwarding message from " + Verifier.getNickname() + " to " +
+                            PrintUtil.compactPrintByteArray(node.getIdentifier()) +
+                            " because it is already in the recipient list");
+                }
             }
         }
     }
