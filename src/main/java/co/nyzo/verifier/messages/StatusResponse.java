@@ -21,7 +21,7 @@ public class StatusResponse implements MessageObject {
         lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
         lines.add("mesh: " + NodeManager.getMesh().size() + " active, " + NodeManager.numberOfInactiveNodes() +
                 " inactive");
-        lines.add("transactions: " + TransactionPool.allTransactions().size());
+        lines.add("transactions: " + TransactionPool.transactionPoolSize());
         lines.add("frozen edge: " + BlockManager.highestBlockFrozen());
         lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
         lines.add("open edge: " + BlockManager.highestBlockOpenForProcessing());

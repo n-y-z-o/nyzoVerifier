@@ -3,16 +3,17 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.TransactionPoolResponse;
 import co.nyzo.verifier.util.IpUtil;
 
+import java.nio.ByteBuffer;
 import java.util.*;
 
 public class TransactionPool {
 
     private static long minimumAcceptedHeight = 1L;
-    private static final List<Transaction> transactionPool = new ArrayList<>();
+    private static final Map<ByteBuffer, Transaction> transactionPool = new HashMap<>();
 
     public static synchronized void addTransaction(Transaction transaction) {
         if (BlockManager.heightForTimestamp(transaction.getTimestamp()) >= minimumAcceptedHeight) {
-            transactionPool.add(transaction);
+            transactionPool.put(ByteBuffer.wrap(transaction.getSignature()), transaction);
         }
     }
 
@@ -21,11 +22,9 @@ public class TransactionPool {
         List<Transaction> transactionsForBlock = new ArrayList<>();
         long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
         long endTimestamp = BlockManager.endTimestampForHeight(blockHeight);
-        synchronized (TransactionPool.class) {
-            for (Transaction transaction : transactionPool) {
-                if (transaction.getTimestamp() >= startTimestamp && transaction.getTimestamp() < endTimestamp) {
-                    transactionsForBlock.add(transaction);
-                }
+        for (Transaction transaction : transactionPool.values()) {
+            if (transaction.getTimestamp() >= startTimestamp && transaction.getTimestamp() < endTimestamp) {
+                transactionsForBlock.add(transaction);
             }
         }
 
@@ -33,7 +32,11 @@ public class TransactionPool {
     }
 
     public static synchronized List<Transaction> allTransactions() {
-        return new ArrayList<>(transactionPool);
+        return new ArrayList<>(transactionPool.values());
+    }
+
+    public static synchronized int transactionPoolSize() {
+        return transactionPool.size();
     }
 
     public static synchronized void removeTransactionsToHeight(long blockHeight) {
@@ -41,9 +44,10 @@ public class TransactionPool {
         if (blockHeight > minimumAcceptedHeight) {
             minimumAcceptedHeight = blockHeight;
             long cutoffTimestamp = BlockManager.endTimestampForHeight(blockHeight);
-            for (int i = transactionPool.size() - 1; i >= 0; i--) {
-                if (transactionPool.get(i).getTimestamp() < cutoffTimestamp) {
-                    transactionPool.remove(i);
+            List<Transaction> transactions = allTransactions();
+            for (Transaction transaction : transactions) {
+                if (transaction.getTimestamp() < cutoffTimestamp) {
+                    transactionPool.remove(ByteBuffer.wrap(transaction.getSignature()));
                 }
             }
         }
