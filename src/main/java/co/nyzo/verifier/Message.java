@@ -2,7 +2,6 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
@@ -152,40 +151,10 @@ public class Message {
         Random random = new Random();
         int numberSent = 0;
         while (numberSent < 3 && mesh.size() > 0) {
-            int index = random.nextInt(mesh.size());
-            Node node = mesh.remove(index);
+            Node node = mesh.remove(random.nextInt(mesh.size()));
             if (!message.alreadySentTo(node.getIdentifier())) {
                 numberSent++;
-                if (message.getType() == MessageType.Transaction5) {
-                    StringBuilder notification = new StringBuilder("forwarding message from ")
-                            .append(Verifier.getNickname()).append(" to ")
-                            .append(PrintUtil.compactPrintByteArray(node.getIdentifier()));
-                    notification.append(" (");
-                    String separator = "";
-                    for (byte[] identifier : message.recipientIdentifiers) {
-                        notification.append(separator).append(PrintUtil.compactPrintByteArray(identifier));
-                        separator = ", ";
-                    }
-                    notification.append(") index=").append(index);
-
-                    NotificationUtil.send(notification.toString());
-                }
                 fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, null);
-            } else {
-                if (message.getType() == MessageType.Transaction5) {
-                    StringBuilder notification = new StringBuilder("NOT forwarding message from " +
-                            Verifier.getNickname() + " to " + PrintUtil.compactPrintByteArray(node.getIdentifier()) +
-                            " because it is already in the recipient list");
-                    notification.append(" (");
-                    String separator = "";
-                    for (byte[] identifier : message.recipientIdentifiers) {
-                        notification.append(separator).append(PrintUtil.compactPrintByteArray(identifier));
-                        separator = ", ";
-                    }
-                    notification.append(") index=").append(index);
-
-                    NotificationUtil.send(notification.toString());
-                }
             }
         }
     }
