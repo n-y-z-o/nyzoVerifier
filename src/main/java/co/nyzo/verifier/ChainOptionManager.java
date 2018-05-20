@@ -128,6 +128,7 @@ public class ChainOptionManager {
                 Block block = blocksAtFreezeLevel.get(0);
                 if (block.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity) {
                     BlockManager.freezeBlock(block);
+                    TransactionPool.removeTransactionsToHeight(block.getBlockHeight());
 
                     // Remove all unfrozen blocks at or below the new frozen level.
                     for (Long height : new HashSet<>(unfrozenBlocks.keySet())) {
