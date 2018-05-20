@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
@@ -154,6 +155,10 @@ public class Message {
             Node node = mesh.remove(random.nextInt(mesh.size()));
             if (!message.alreadySentTo(node.getIdentifier())) {
                 numberSent++;
+                if (message.getType() == MessageType.Transaction5) {
+                    NotificationUtil.send("forwarding message from " + Verifier.getNickname() + " to " +
+                            PrintUtil.compactPrintByteArray(node.getIdentifier()));
+                }
                 fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, null);
             }
         }

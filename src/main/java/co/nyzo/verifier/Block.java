@@ -107,7 +107,7 @@ public class Block implements MessageObject {
 
         if (balanceList == null) {
             Block previousBlock = getPreviousBlock();
-            if (previousBlock != null) {
+            if (previousBlock != null || height == 0L) {
                 setBalanceList(balanceListForNextBlock(previousBlock, transactions, verifierIdentifier));
             }
         }
