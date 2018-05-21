@@ -54,7 +54,7 @@ public class BlockManager {
         return block;
     }
 
-    public static List<Block> loadBlocksInFile(File file, boolean addBlocksToCache) {
+    public static synchronized List<Block> loadBlocksInFile(File file, boolean addBlocksToCache) {
 
         List<Block> blocks = new ArrayList<>();
         Path path = Paths.get(file.getAbsolutePath());
@@ -86,7 +86,7 @@ public class BlockManager {
         return blocks;
     }
 
-    public static boolean writeBlocksToFile(List<Block> blocks, File file) {
+    public static synchronized boolean writeBlocksToFile(List<Block> blocks, File file) {
 
         boolean successful = false;
 
@@ -206,7 +206,7 @@ public class BlockManager {
         loadBlocksInFile(fileForBlockHeight(blockHeight), true);
     }
 
-    private static void initialize() {
+    private static synchronized void initialize() {
 
         // This method only needs to load the locally stored blocks, and it can do so synchronously.
 

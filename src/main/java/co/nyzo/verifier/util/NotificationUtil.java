@@ -16,7 +16,7 @@ public class NotificationUtil {
 
 
     private static int numberOfNotificationsSent = 0;
-    private static final int maximumNotifications = 40;
+    private static final int maximumNotifications = 10;
 
     private static final String endpoint = loadEndpointFromFile();
 

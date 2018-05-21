@@ -122,8 +122,8 @@ public class Block implements MessageObject {
             if (ByteUtil.arraysAreEqual(HashUtil.doubleSHA256(balanceList.getBytes()), balanceListHash)) {
                 this.balanceList = balanceList;
             } else {
-                NotificationUtil.send("balance list does not match hash! (" + balanceList.getBlockHeight() + ") " +
-                        DebugUtil.callingMethods(3));
+                NotificationUtil.send("balance list does not match hash on " + Verifier.getNickname() + " - (h=" +
+                        balanceList.getBlockHeight() + ") " + DebugUtil.callingMethods(3));
             }
         }
     }
