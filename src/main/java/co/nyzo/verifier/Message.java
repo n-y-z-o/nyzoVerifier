@@ -11,9 +11,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.*;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class Message {
 
@@ -22,10 +20,9 @@ public class Message {
     private MessageObject content;
     private byte[] sourceNodeIdentifier;  // the identifier of the node that created this message
     private byte[] sourceNodeSignature;   // the signature of all preceding parts
-    private List<byte[]> recipientIdentifiers;  // the identifiers of all recipients
-    private List<byte[]> recipientSignatures;   // the recipient signatures of the source-node signature
+    private Map<ByteBuffer, ByteBuffer> recipients;  // the identifiers of all recipients mapped to the recipient
+                                                     // signatures of the source-node signature
     private boolean valid;       // not serialized
-    private boolean messageAlreadySeen;   // not serialized
     private byte[] sourceIpAddress;   // not serialized
 
     // This is the constructor for a new message originating from this system.
@@ -35,16 +32,15 @@ public class Message {
         this.content = content;
         this.sourceNodeIdentifier = Verifier.getIdentifier();
         this.sourceNodeSignature = Verifier.sign(getBytesForSigning());
-        this.recipientIdentifiers = new ArrayList<>();  // these are empty because no one has received the message yet
-        this.recipientSignatures = new ArrayList<>();
+        this.recipients = new HashMap<>();  // empty because no one else has seen the message yet
         this.valid = true;
-        this.messageAlreadySeen = true;
     }
 
     // This is the constructor for a message from another system.
     public Message(long timestamp, MessageType type, MessageObject content, byte[] sourceNodeIdentifier,
                    byte[] sourceNodeSignature, List<byte[]> recipientIdentifiers, List<byte[]> recipientSignatures,
                    byte[] sourceIpAddress) {
+
         this.timestamp = timestamp;
         this.type = type;
         this.content = content;
@@ -61,30 +57,30 @@ public class Message {
             System.out.println("signature is " + ByteUtil.arrayAsStringWithDashes(sourceNodeSignature));
         }
 
-        // If the message is valid, verify the recipient signatures. Also, determine whether we have already seen this
-        // message.
-        this.messageAlreadySeen = this.valid && ByteUtil.arraysAreEqual(Verifier.getIdentifier(), sourceNodeIdentifier);
-        this.recipientIdentifiers = new ArrayList<>();
-        this.recipientSignatures = new ArrayList<>();
-        if (this.valid) {
+        // If valid and a message type that is forwarded, handle the recipient signatures.
+        this.recipients = new HashMap<>();
+        if (this.valid && this.type.isForwarded()) {
+
+            // Add only the valid signatures to the recipient list to prevent eclipsing another node by adding its
+            // identifier.
             int numberOfRecipients = Math.min(recipientIdentifiers.size(), recipientSignatures.size());
             for (int i = 0; i < numberOfRecipients; i++) {
                 byte[] recipientIdentifier = recipientIdentifiers.get(i);
                 byte[] recipientSignature = recipientSignatures.get(i);
 
                 if (SignatureUtil.signatureIsValid(recipientSignature, sourceNodeSignature, recipientIdentifier)) {
-                    this.recipientIdentifiers.add(recipientIdentifier);
-                    this.recipientSignatures.add(recipientSignature);
-                    if (ByteUtil.arraysAreEqual(Verifier.getIdentifier(), recipientIdentifier)) {
-                        this.messageAlreadySeen = true;
-                    }
+                    this.recipients.put(ByteBuffer.wrap(recipientIdentifier), ByteBuffer.wrap(recipientSignature));
                 }
             }
-        }
 
-        if (!this.messageAlreadySeen) {
-            this.recipientIdentifiers.add(Verifier.getIdentifier());
-            this.recipientSignatures.add(Verifier.sign(sourceNodeSignature));
+            // Add this node.
+            if (!ByteUtil.arraysAreEqual(Verifier.getIdentifier(), sourceNodeIdentifier)) {
+                this.recipients.put(ByteBuffer.wrap(Verifier.getIdentifier()),
+                        ByteBuffer.wrap(Verifier.sign(sourceNodeSignature)));
+            }
+
+            // If we have another message, add its recipients now, also.
+            MessageForwardingManager.mergeRecipients(this);
         }
     }
 
@@ -108,6 +104,10 @@ public class Message {
         return sourceNodeSignature;
     }
 
+    public Map<ByteBuffer, ByteBuffer> getRecipients() {
+        return recipients;
+    }
+
     public boolean isValid() {
         return valid;
     }
@@ -118,14 +118,8 @@ public class Message {
 
     public boolean alreadySentTo(byte[] identifier) {
 
-        boolean alreadySentTo = ByteUtil.arraysAreEqual(sourceNodeIdentifier, identifier);
-        for (int i = 0; i < recipientIdentifiers.size() && !alreadySentTo; i++) {
-            if (ByteUtil.arraysAreEqual(recipientIdentifiers.get(i), identifier)) {
-                alreadySentTo = true;
-            }
-        }
-
-        return alreadySentTo;
+        return ByteUtil.arraysAreEqual(sourceNodeIdentifier, identifier) ||
+                recipients.containsKey(ByteBuffer.wrap(identifier));
     }
 
     public void sign(byte[] privateSeed) {
@@ -162,8 +156,8 @@ public class Message {
                             .append(Verifier.getNickname()).append(" to ")
                             .append(NicknameManager.get(node.getIdentifier())).append(" (");
                     String separator = "";
-                    for (byte[] identifier : message.recipientIdentifiers) {
-                        notification.append(separator).append(NicknameManager.get(identifier));
+                    for (ByteBuffer identifier : message.recipients.keySet()) {
+                        notification.append(separator).append(NicknameManager.get(identifier.array()));
                         separator = ", ";
                     }
                     notification.append(")");
@@ -174,8 +168,8 @@ public class Message {
                         .append(Verifier.getNickname()).append(" to ")
                         .append(NicknameManager.get(node.getIdentifier())).append(" (");
                 String separator = "";
-                for (byte[] identifier : message.recipientIdentifiers) {
-                    notification.append(separator).append(NicknameManager.get(identifier));
+                for (ByteBuffer identifier : message.recipients.keySet()) {
+                    notification.append(separator).append(NicknameManager.get(identifier.array()));
                     separator = ", ";
                 }
                 notification.append(")");
@@ -339,8 +333,8 @@ public class Message {
         // Determine the size (timestamp, type, source-node identifier, source-node signature, recipient-node
         // identifiers and signatures, content if present).
         int sizeBytes = FieldByteSize.messageLength + FieldByteSize.timestamp + FieldByteSize.messageType +
-                (FieldByteSize.identifier + FieldByteSize.signature) * (recipientIdentifiers.size() + 1);
-        if (recipientIdentifiers.size() > 0) {
+                (FieldByteSize.identifier + FieldByteSize.signature) * (recipients.size() + 1);
+        if (recipients.size() > 0) {
             sizeBytes += FieldByteSize.recipientListLength;
         }
         if (content != null) {
@@ -362,11 +356,11 @@ public class Message {
         }
         buffer.put(sourceNodeIdentifier);
         buffer.put(sourceNodeSignature);
-        if (recipientIdentifiers.size() > 0) {
-            buffer.putInt(recipientIdentifiers.size());
-            for (int i = 0; i < recipientIdentifiers.size(); i++) {  // these arrays are the same size
-                buffer.put(recipientIdentifiers.get(i));
-                buffer.put(recipientSignatures.get(i));
+        if (recipients.size() > 0) {
+            buffer.putInt(recipients.size());
+            for (ByteBuffer identifier : recipients.keySet()) {
+                buffer.put(identifier.array());
+                buffer.put(recipients.get(identifier).array());
             }
         }
 

@@ -10,11 +10,11 @@ public enum MessageType {
     BootstrapResponse2(2),
     NodeJoin3(3),
     NodeJoinResponse4(4),
-    Transaction5(5),
+    Transaction5(5, true),
     TransactionResponse6(6),
     PreviousHashRequest7(7),
     PreviousHashResponse8(8),
-    NewBlock9(9),
+    NewBlock9(9, true),
     NewBlockResponse10(10),
     BlockRequest11(11),
     BlockResponse12(12),
@@ -58,13 +58,23 @@ public enum MessageType {
     }
 
     private int value;
+    private boolean forwarded;
 
     MessageType(int value) {
+        this(value, false);
+    }
+
+    MessageType(int value, boolean forwarded) {
         this.value = value;
+        this.forwarded = forwarded;
     }
 
     public int getValue() {
         return value;
+    }
+
+    public boolean isForwarded() {
+        return forwarded;
     }
 
     public static MessageType forValue(int value) {

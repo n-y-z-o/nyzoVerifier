@@ -405,6 +405,7 @@ public class Verifier {
 
                     ChainOptionManager.removeAbandonedChains();
                     ChainOptionManager.freezeBlocks();
+                    MessageForwardingManager.cleanMap();
                 }
 
             } catch (Exception reportOnly) {
@@ -513,6 +514,7 @@ public class Verifier {
                 nickname = "";
             }
             nickname = nickname.trim();
+            NicknameManager.put(getIdentifier(), nickname);
         } catch (Exception ignored) { }
     }
 
