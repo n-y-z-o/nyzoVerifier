@@ -19,6 +19,7 @@ public class MessageForwardingManager {
         Set<ByteBuffer> recipients = messageSignatureToRecipientMap.get(signature);
         if (recipients == null) {
             recipients = new HashSet<>();
+            messageSignatureToRecipientMap.put(signature, recipients);
         }
 
         ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
@@ -45,7 +46,9 @@ public class MessageForwardingManager {
         Set<Message> messages = new HashSet<>(messageMap.values());
         for (Message message : messages) {
             if (message.getTimestamp() < thresholdTimestamp) {
-                messageMap.remove(ByteBuffer.wrap(message.getSourceNodeSignature()));
+                ByteBuffer signature = ByteBuffer.wrap(message.getSourceNodeSignature());
+                messageMap.remove(signature);
+                messageSignatureToRecipientMap.remove(signature);
             }
         }
     }
