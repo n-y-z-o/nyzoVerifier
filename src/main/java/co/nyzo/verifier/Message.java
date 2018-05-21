@@ -147,7 +147,8 @@ public class Message {
         int numberSent = 0;
         while (numberSent < 3 && mesh.size() > 0) {
             Node node = mesh.remove(random.nextInt(mesh.size()));
-            if (!message.alreadySentTo(node.getIdentifier())) {
+            if (!message.alreadySentTo(node.getIdentifier()) && !MessageForwardingManager.alreadySentMessage(message,
+                    node.getIdentifier())) {
                 numberSent++;
                 fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, null);
 
@@ -163,17 +164,6 @@ public class Message {
                     notification.append(")");
                     NotificationUtil.send(notification.toString());
                 }
-            } else if (message.getType() == MessageType.Transaction5) {
-                StringBuilder notification = new StringBuilder("NOT forwarding message from ")
-                        .append(Verifier.getNickname()).append(" to ")
-                        .append(NicknameManager.get(node.getIdentifier())).append(" (");
-                String separator = "";
-                for (ByteBuffer identifier : message.recipients.keySet()) {
-                    notification.append(separator).append(NicknameManager.get(identifier.array()));
-                    separator = ", ";
-                }
-                notification.append(")");
-                NotificationUtil.send(notification.toString());
             }
         }
     }
