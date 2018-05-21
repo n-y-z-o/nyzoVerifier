@@ -135,7 +135,7 @@ public class NodeManager {
         // against the verifier jumping in and out of the network to allow multiple verifiers at the same IP address.
         Node node = ipAddressToNodeMap.remove(addressBuffer);
         if (node != null) {
-            NotificationUtil.send("removing node " + PrintUtil.compactPrintByteArray(node.getIdentifier()) + " from " +
+            NotificationUtil.send("removing node " + NicknameManager.get(node.getIdentifier()) + " from " +
                     "mesh of node " + Verifier.getNickname());
 
             if (BlockManager.verifierPresentInPreviousTwoCycles(node.getIdentifier())) {
