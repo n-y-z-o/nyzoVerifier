@@ -1,6 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.DebugUtil;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
@@ -121,7 +122,7 @@ public class Block implements MessageObject {
             if (ByteUtil.arraysAreEqual(HashUtil.doubleSHA256(balanceList.getBytes()), balanceListHash)) {
                 this.balanceList = balanceList;
             } else {
-                System.err.println("balance list does not match hash! (" + balanceList.getBlockHeight() + ") " +
+                NotificationUtil.send("balance list does not match hash! (" + balanceList.getBlockHeight() + ") " +
                         DebugUtil.callingMethods(3));
             }
         }
