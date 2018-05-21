@@ -123,7 +123,7 @@ public class Block implements MessageObject {
                 this.balanceList = balanceList;
             } else {
                 NotificationUtil.send("balance list does not match hash on " + Verifier.getNickname() + " - (h=" +
-                        balanceList.getBlockHeight() + ") " + DebugUtil.callingMethods(3));
+                        balanceList.getBlockHeight() + ") " + DebugUtil.callingMethods(7));
             }
         }
     }
