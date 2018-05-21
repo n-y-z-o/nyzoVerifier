@@ -5,6 +5,7 @@ import co.nyzo.verifier.Message;
 import co.nyzo.verifier.MessageCallback;
 import co.nyzo.verifier.MessageType;
 import co.nyzo.verifier.messages.NodeJoinMessage;
+import co.nyzo.verifier.messages.NodeJoinResponse;
 
 public class NodeListMessageTest {
 
@@ -19,6 +20,10 @@ public class NodeListMessageTest {
                     @Override
                     public void responseReceived(Message message) {
                         System.out.println("return message in NodeJoin3 is " + message);
+                        NodeJoinResponse response = (NodeJoinResponse) message.getContent();
+                        if (response != null) {
+                            System.out.println("nickname is " + response.getNickname());
+                        }
                     }
                 });
 

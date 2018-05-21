@@ -124,7 +124,7 @@ public class MeshListener {
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
                             nodeJoinMessage.getPort());
 
-                    response = new Message(MessageType.NodeJoinResponse4, null);
+                    response = new Message(MessageType.NodeJoinResponse4, new NodeJoinResponse());
 
                 } else if (messageType == MessageType.Transaction5) {
 

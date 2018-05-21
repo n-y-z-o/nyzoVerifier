@@ -1,9 +1,6 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.messages.BootstrapRequest;
-import co.nyzo.verifier.messages.BootstrapResponse;
-import co.nyzo.verifier.messages.MeshResponse;
-import co.nyzo.verifier.messages.NodeJoinMessage;
+import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.*;
 
 import java.io.File;
@@ -301,6 +298,11 @@ public class Verifier {
                     public void responseReceived(Message message) {
                         if (message != null) {
                             nodeJoinAcknowledgementsReceived.add(ByteBuffer.wrap(message.getSourceNodeIdentifier()));
+
+                            NodeJoinResponse response = (NodeJoinResponse) message.getContent();
+                            if (response != null) {
+                                NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
+                            }
                         }
                     }
                 });
