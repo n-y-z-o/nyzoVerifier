@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
@@ -155,6 +156,30 @@ public class Message {
             if (!message.alreadySentTo(node.getIdentifier())) {
                 numberSent++;
                 fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, null);
+
+                if (message.getType() == MessageType.Transaction5) {
+                    StringBuilder notification = new StringBuilder("forwarding message from ")
+                            .append(Verifier.getNickname()).append(" to ")
+                            .append(NicknameManager.get(node.getIdentifier())).append(" (");
+                    String separator = "";
+                    for (byte[] identifier : message.recipientIdentifiers) {
+                        notification.append(separator).append(NicknameManager.get(identifier));
+                        separator = ", ";
+                    }
+                    notification.append(")");
+                    NotificationUtil.send(notification.toString());
+                }
+            } else if (message.getType() == MessageType.Transaction5) {
+                StringBuilder notification = new StringBuilder("NOT forwarding message from ")
+                        .append(Verifier.getNickname()).append(" to ")
+                        .append(NicknameManager.get(node.getIdentifier())).append(" (");
+                String separator = "";
+                for (byte[] identifier : message.recipientIdentifiers) {
+                    notification.append(separator).append(NicknameManager.get(identifier));
+                    separator = ", ";
+                }
+                notification.append(")");
+                NotificationUtil.send(notification.toString());
             }
         }
     }

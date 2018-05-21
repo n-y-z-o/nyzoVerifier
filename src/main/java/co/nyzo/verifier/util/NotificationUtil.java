@@ -16,15 +16,16 @@ public class NotificationUtil {
 
 
     private static int numberOfNotificationsSent = 0;
+    private static final int maximumNotifications = 40;
 
     private static final String endpoint = loadEndpointFromFile();
 
     public static void send(String message) {
 
-        if (endpoint != null && numberOfNotificationsSent < 10) {
+        if (endpoint != null && numberOfNotificationsSent < maximumNotifications) {
 
             numberOfNotificationsSent++;
-            if (numberOfNotificationsSent >= 10) {
+            if (numberOfNotificationsSent >= maximumNotifications) {
                 message = "*Message limit reached on " + Verifier.getNickname() + "*";
             }
 

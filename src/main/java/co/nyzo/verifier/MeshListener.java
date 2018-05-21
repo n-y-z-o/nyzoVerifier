@@ -128,10 +128,12 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.Transaction5) {
 
-                    response = new Message(MessageType.TransactionResponse6,
-                            new TransactionResponse((Transaction) message.getContent()));
+                    TransactionResponse responseContent = new TransactionResponse((Transaction) message.getContent());
+                    response = new Message(MessageType.TransactionResponse6, responseContent);
 
-                    Message.forward(message);
+                    if (responseContent.isTransactionAccepted()) {
+                        Message.forward(message);
+                    }
 
                 } else if (messageType == MessageType.PreviousHashRequest7) {
 

@@ -41,6 +41,10 @@ public class TransactionResponse implements MessageObject {
         }
     }
 
+    public boolean isTransactionAccepted() {
+        return transactionAccepted;
+    }
+
     @Override
     public byte[] getBytes() {
 
