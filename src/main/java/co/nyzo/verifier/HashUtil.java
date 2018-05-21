@@ -30,7 +30,7 @@ public class HashUtil {
         }
     }
 
-    private static byte[] singleSHA256(byte[] data) {
+    private static synchronized byte[] singleSHA256(byte[] data) {
 
         if (data == null) {
             data = new byte[0];
@@ -38,7 +38,7 @@ public class HashUtil {
         return messageDigest.digest(data);
     }
 
-    public static byte[] doubleSHA256(byte[] data) {
+    public static synchronized byte[] doubleSHA256(byte[] data) {
 
         return messageDigest.digest(messageDigest.digest(data));
     }
