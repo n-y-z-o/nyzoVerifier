@@ -115,6 +115,7 @@ public class ChainInitializationManager {
                             addedAllAvailable = true;
                         } else {
                             blocksToSave.put(height, block);
+                            System.out.println("added block at height " + height);
                             height--;
                         }
                     }

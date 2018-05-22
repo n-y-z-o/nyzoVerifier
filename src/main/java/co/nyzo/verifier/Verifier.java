@@ -198,7 +198,7 @@ public class Verifier {
             // If the consensus frozen edge is higher than the local frozen edge, fetch the necessary blocks to start
             // verifying.
             if (consensusFrozenEdge > BlockManager.highestBlockFrozen()) {
-                long startBlock = Math.max(BlockManager.highestBlockFrozen(), consensusFrozenEdge -
+                long startBlock = Math.max(BlockManager.highestBlockFrozen() + 1, consensusFrozenEdge -
                         5 * frozenEdgeCycleLength.get());
                 System.out.println("need to fetch chain section " + startBlock + " to " + consensusFrozenEdge);
                 ChainInitializationManager.fetchChainSection(startBlock, consensusFrozenEdge, frozenEdgeHash);
