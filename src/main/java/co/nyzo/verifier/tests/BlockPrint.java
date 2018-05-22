@@ -23,7 +23,7 @@ public class BlockPrint {
             System.out.println("number of transactions:   " + block.getTransactions().size());
             System.out.println("verifier:                 " +
                     PrintUtil.compactPrintByteArray(block.getVerifierIdentifier()));
-            System.out.println("signature:                 " +
+            System.out.println("signature:                " +
                     PrintUtil.compactPrintByteArray(block.getVerifierSignature()));
         }
     }
