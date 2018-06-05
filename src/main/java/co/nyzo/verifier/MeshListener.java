@@ -131,22 +131,14 @@ public class MeshListener {
                     TransactionResponse responseContent = new TransactionResponse((Transaction) message.getContent());
                     response = new Message(MessageType.TransactionResponse6, responseContent);
 
-                    if (responseContent.isTransactionAccepted()) {
-                        Message.forward(message);
-                    }
-
                 } else if (messageType == MessageType.PreviousHashRequest7) {
 
                     response = new Message(MessageType.PreviousHashResponse8, new PreviousHashResponse());
 
                 } else if (messageType == MessageType.NewBlock9) {
 
-                    boolean shouldForwardBlock = ChainOptionManager.registerBlock((Block) message.getContent());
-
+                    ChainOptionManager.registerBlock((Block) message.getContent());
                     response = new Message(MessageType.NewBlockResponse10, null);
-                    if (shouldForwardBlock) {
-                        Message.forward(message);
-                    }
 
                 } else if (messageType == MessageType.BlockRequest11) {
 

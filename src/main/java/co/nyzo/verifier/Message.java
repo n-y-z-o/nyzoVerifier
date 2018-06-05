@@ -20,8 +20,6 @@ public class Message {
     private MessageObject content;
     private byte[] sourceNodeIdentifier;  // the identifier of the node that created this message
     private byte[] sourceNodeSignature;   // the signature of all preceding parts
-    private Map<ByteBuffer, ByteBuffer> recipients;  // the identifiers of all recipients mapped to the recipient
-                                                     // signatures of the source-node signature
     private boolean valid;       // not serialized
     private byte[] sourceIpAddress;   // not serialized
 
@@ -32,14 +30,12 @@ public class Message {
         this.content = content;
         this.sourceNodeIdentifier = Verifier.getIdentifier();
         this.sourceNodeSignature = Verifier.sign(getBytesForSigning());
-        this.recipients = new HashMap<>();  // empty because no one else has seen the message yet
         this.valid = true;
     }
 
     // This is the constructor for a message from another system.
     public Message(long timestamp, MessageType type, MessageObject content, byte[] sourceNodeIdentifier,
-                   byte[] sourceNodeSignature, List<byte[]> recipientIdentifiers, List<byte[]> recipientSignatures,
-                   byte[] sourceIpAddress) {
+                   byte[] sourceNodeSignature, byte[] sourceIpAddress) {
 
         this.timestamp = timestamp;
         this.type = type;
@@ -55,32 +51,6 @@ public class Message {
             System.out.println("message from " + PrintUtil.compactPrintByteArray(sourceNodeIdentifier) + " of type " +
                     this.type + " is not valid, content is " + content);
             System.out.println("signature is " + ByteUtil.arrayAsStringWithDashes(sourceNodeSignature));
-        }
-
-        // If valid and a message type that is forwarded, handle the recipient signatures.
-        this.recipients = new HashMap<>();
-        if (this.valid && this.type.isForwarded()) {
-
-            // Add only the valid signatures to the recipient list to prevent eclipsing another node by adding its
-            // identifier.
-            int numberOfRecipients = Math.min(recipientIdentifiers.size(), recipientSignatures.size());
-            for (int i = 0; i < numberOfRecipients; i++) {
-                byte[] recipientIdentifier = recipientIdentifiers.get(i);
-                byte[] recipientSignature = recipientSignatures.get(i);
-
-                if (SignatureUtil.signatureIsValid(recipientSignature, sourceNodeSignature, recipientIdentifier)) {
-                    this.recipients.put(ByteBuffer.wrap(recipientIdentifier), ByteBuffer.wrap(recipientSignature));
-                }
-            }
-
-            // Add this node.
-            if (!ByteUtil.arraysAreEqual(Verifier.getIdentifier(), sourceNodeIdentifier)) {
-                this.recipients.put(ByteBuffer.wrap(Verifier.getIdentifier()),
-                        ByteBuffer.wrap(Verifier.sign(sourceNodeSignature)));
-            }
-
-            // If we have another message, add its recipients now, also.
-            MessageForwardingManager.mergeRecipients(this);
         }
     }
 
@@ -104,22 +74,12 @@ public class Message {
         return sourceNodeSignature;
     }
 
-    public Map<ByteBuffer, ByteBuffer> getRecipients() {
-        return recipients;
-    }
-
     public boolean isValid() {
         return valid;
     }
 
     public byte[] getSourceIpAddress() {
         return sourceIpAddress;
-    }
-
-    public boolean alreadySentTo(byte[] identifier) {
-
-        return ByteUtil.arraysAreEqual(sourceNodeIdentifier, identifier) ||
-                recipients.containsKey(ByteBuffer.wrap(identifier));
     }
 
     public void sign(byte[] privateSeed) {
@@ -129,42 +89,11 @@ public class Message {
 
     public static void broadcast(Message message) {
 
-        // Send the message to up to six nodes.
+        // Send the message to all nodes in the mesh.
         List<Node> mesh = NodeManager.getMesh();
-        Random random = new Random();
-        for (int i = 0; i < 6 && mesh.size() > 0; i++) {
-            Node node = mesh.remove(random.nextInt(mesh.size()));
-            final String ipAddress = IpUtil.addressAsString(node.getIpAddress());
+        for (Node node : mesh) {
+            String ipAddress = IpUtil.addressAsString(node.getIpAddress());
             fetch(ipAddress, node.getPort(), message, false, null);
-        }
-    }
-
-    public static void forward(Message message) {
-
-        // Send the message to up to three nodes that have not yet received it.
-        List<Node> mesh = NodeManager.getMesh();
-        Random random = new Random();
-        int numberSent = 0;
-        while (numberSent < 3 && mesh.size() > 0) {
-            Node node = mesh.remove(random.nextInt(mesh.size()));
-            if (!message.alreadySentTo(node.getIdentifier()) && !MessageForwardingManager.alreadySentMessage(message,
-                    node.getIdentifier())) {
-                numberSent++;
-                fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false, null);
-
-                if (message.getType() == MessageType.Transaction5) {
-                    StringBuilder notification = new StringBuilder("forwarding message from ")
-                            .append(Verifier.getNickname()).append(" to ")
-                            .append(NicknameManager.get(node.getIdentifier())).append(" (");
-                    String separator = "";
-                    for (ByteBuffer identifier : message.recipients.keySet()) {
-                        notification.append(separator).append(NicknameManager.get(identifier.array()));
-                        separator = ", ";
-                    }
-                    notification.append(")");
-                    NotificationUtil.send(notification.toString());
-                }
-            }
         }
     }
 
@@ -320,13 +249,9 @@ public class Message {
 
     public byte[] getBytesForTransmission() {
 
-        // Determine the size (timestamp, type, source-node identifier, source-node signature, recipient-node
-        // identifiers and signatures, content if present).
+        // Determine the size (timestamp, type, source-node identifier, source-node signature, content if present).
         int sizeBytes = FieldByteSize.messageLength + FieldByteSize.timestamp + FieldByteSize.messageType +
-                (FieldByteSize.identifier + FieldByteSize.signature) * (recipients.size() + 1);
-        if (recipients.size() > 0) {
-            sizeBytes += FieldByteSize.recipientListLength;
-        }
+                FieldByteSize.identifier + FieldByteSize.signature;
         if (content != null) {
             sizeBytes += content.getByteSize();
         }
@@ -346,13 +271,6 @@ public class Message {
         }
         buffer.put(sourceNodeIdentifier);
         buffer.put(sourceNodeSignature);
-        if (recipients.size() > 0) {
-            buffer.putInt(recipients.size());
-            for (ByteBuffer identifier : recipients.keySet()) {
-                buffer.put(identifier.array());
-                buffer.put(recipients.get(identifier).array());
-            }
-        }
 
         return result;
     }
@@ -377,21 +295,7 @@ public class Message {
             byte[] sourceNodeSignature = new byte[FieldByteSize.signature];
             buffer.get(sourceNodeSignature);
 
-            List<byte[]> recipientIdentifiers = new ArrayList<>();
-            List<byte[]> recipientSignatures = new ArrayList<>();
-            int numberOfRecipients = buffer.hasRemaining() ? buffer.getInt() : 0;
-            for (int i = 0; i < numberOfRecipients; i++) {
-                byte[] recipientIdentifier = new byte[FieldByteSize.identifier];
-                buffer.get(recipientIdentifier);
-                recipientIdentifiers.add(recipientIdentifier);
-
-                byte[] recipientSignature = new byte[FieldByteSize.signature];
-                buffer.get(recipientSignature);
-                recipientSignatures.add(recipientSignature);
-            }
-
-            message = new Message(timestamp, type, content, sourceNodeIdentifier, sourceNodeSignature,
-                    recipientIdentifiers, recipientSignatures, sourceIpAddress);
+            message = new Message(timestamp, type, content, sourceNodeIdentifier, sourceNodeSignature, sourceIpAddress);
         } catch (Exception reportOnly) {
             System.err.println("problem getting message from bytes, message type is " + typeValue + ", " +
                     type + ", " + PrintUtil.printException(reportOnly));

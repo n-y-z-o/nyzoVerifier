@@ -404,7 +404,6 @@ public class Verifier {
 
                     ChainOptionManager.removeAbandonedChains();
                     ChainOptionManager.freezeBlocks();
-                    MessageForwardingManager.cleanMap();
                 }
 
             } catch (Exception reportOnly) {
