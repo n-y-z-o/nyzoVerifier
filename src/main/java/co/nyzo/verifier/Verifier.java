@@ -364,7 +364,7 @@ public class Verifier {
 
         while (!UpdateUtil.shouldTerminate()) {
 
-            long sleepTime = 5000L;
+            long sleepTime = 1000L;
             try {
                 // Only run the active verifier if connected to the mesh.
                 if (NodeManager.connectedToMesh()) {
