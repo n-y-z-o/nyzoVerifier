@@ -378,7 +378,8 @@ public class Verifier {
                     }
 
                     // Clean up the map of blocks we have extended. We will never extend behind the frozen edge, so
-                    // those can be removed.
+                    // those can be removed. This map is used to ensure that we do not extend the same block more than
+                    // once.
                     long highestBlockFrozen = BlockManager.highestBlockFrozen();
                     for (ByteBuffer blockHash : new HashSet<>(blocksExtended.keySet())) {
                         Block block = blocksExtended.get(blockHash);
