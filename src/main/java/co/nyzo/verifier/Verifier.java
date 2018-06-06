@@ -32,6 +32,8 @@ public class Verifier {
     private static int recentMessageTimestampsIndex = 0;
     private static final long[] recentMessageTimestamps = new long[10];
 
+    private static final Map<ByteBuffer, Block> blocksExtended = new HashMap<>();
+
     private static Set<ByteBuffer> nodeJoinAcknowledgementsReceived = new HashSet<>();
 
     static {
@@ -375,7 +377,17 @@ public class Verifier {
                         sendNodeJoinRequests();
                     }
 
+                    // Clean up the map of blocks we have extended. We will never extend behind the frozen edge, so
+                    // those can be removed.
                     long highestBlockFrozen = BlockManager.highestBlockFrozen();
+                    for (ByteBuffer blockHash : new HashSet<>(blocksExtended.keySet())) {
+                        Block block = blocksExtended.get(blockHash);
+                        if (block.getBlockHeight() < highestBlockFrozen) {
+                            blocksExtended.remove(blockHash);
+                        }
+                    }
+
+                    // Try to extend blocks from the frozen edge to the leading edge.
                     long endHeight = Math.min(Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen),
                             BlockManager.highestBlockOpenForProcessing() - 1);
                     long startHeight = Math.max(endHeight - 2, highestBlockFrozen);
@@ -384,8 +396,10 @@ public class Verifier {
                         Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
                         CycleInformation cycleInformation = blockToExtend == null ? null :
                                 blockToExtend.getCycleInformation();
+                        ByteBuffer blockHash = blockToExtend == null ? null : ByteBuffer.wrap(blockToExtend.getHash());
                         if (cycleInformation != null && cycleInformation.getLocalVerifierIndexInCycle() <=
-                                cycleInformation.getCycleLength() / 2) {
+                                cycleInformation.getCycleLength() / 2 && !blocksExtended.containsKey(blockHash)) {
+                            blocksExtended.put(blockHash, blockToExtend);
                             Block nextBlock = createNextBlock(blockToExtend);
                             if (nextBlock != null && nextBlock.getDiscontinuityState() ==
                                     Block.DiscontinuityState.IsNotDiscontinuity) {
