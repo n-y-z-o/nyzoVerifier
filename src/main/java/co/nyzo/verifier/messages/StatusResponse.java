@@ -24,7 +24,7 @@ public class StatusResponse implements MessageObject {
         lines.add("transactions: " + TransactionPool.transactionPoolSize());
         lines.add("frozen edge: " + BlockManager.highestBlockFrozen());
         lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
-        lines.add("open edge: " + BlockManager.highestBlockOpenForProcessing());
+        lines.add("open edge: " + BlockManager.openEdgeHeight());
         List<Long> unfrozenBlockHeights = new ArrayList<>(ChainOptionManager.unfrozenBlockHeights());
         Collections.sort(unfrozenBlockHeights);
         for (int i = 0; i < 7 && i < unfrozenBlockHeights.size(); i++) {
@@ -42,7 +42,7 @@ public class StatusResponse implements MessageObject {
         this.lines = lines;
     }
 
-    public StatusResponse(List<String> lines) {
+    private StatusResponse(List<String> lines) {
         this.lines = lines;
     }
 

@@ -259,7 +259,7 @@ public class BlockManager {
         return genesisBlockStartTimestamp + (blockHeight + 1L) * Block.blockDuration;
     }
 
-    public static long highestBlockOpenForProcessing() {
+    public static long openEdgeHeight() {
 
         // A block is considered open for processing 2 seconds after it completes, which is 7 seconds after it starts.
         return genesisBlockStartTimestamp > 0 ?

@@ -388,9 +388,11 @@ public class Verifier {
                         }
                     }
 
-                    // Try to extend blocks from the frozen edge to the leading edge.
+                    // Try to extend blocks from the frozen edge to the leading edge. Limit to one behind the open
+                    // edge, because we cannot create a block that is not yet open (the block created is one higher
+                    // than the block that is extended).
                     long endHeight = Math.min(Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen),
-                            BlockManager.highestBlockOpenForProcessing() - 1);
+                            BlockManager.openEdgeHeight() - 1);
                     long startHeight = Math.max(endHeight - 2, highestBlockFrozen);
                     for (long height = startHeight; height <= endHeight; height++) {
 

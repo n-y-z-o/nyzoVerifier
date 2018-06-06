@@ -163,8 +163,8 @@ public class ChainOptionManager {
             }
         }
 
-        // Limit to the highest block open for processing.
-        leadingEdgeHeight = Math.min(leadingEdgeHeight, BlockManager.highestBlockOpenForProcessing());
+        // The leading edge cannot be past the open edge.
+        leadingEdgeHeight = Math.min(leadingEdgeHeight, BlockManager.openEdgeHeight());
 
         return leadingEdgeHeight;
     }
