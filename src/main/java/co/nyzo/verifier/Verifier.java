@@ -199,8 +199,8 @@ public class Verifier {
 
             // If the consensus frozen edge is higher than the local frozen edge, fetch the necessary blocks to start
             // verifying.
-            if (consensusFrozenEdge > BlockManager.highestBlockFrozen()) {
-                long startBlock = Math.max(BlockManager.highestBlockFrozen() + 1, consensusFrozenEdge -
+            if (consensusFrozenEdge > BlockManager.frozenEdgeHeight()) {
+                long startBlock = Math.max(BlockManager.frozenEdgeHeight() + 1, consensusFrozenEdge -
                         5 * frozenEdgeCycleLength.get());
                 System.out.println("need to fetch chain section " + startBlock + " to " + consensusFrozenEdge);
                 ChainInitializationManager.fetchChainSection(startBlock, consensusFrozenEdge, frozenEdgeHash);
@@ -380,10 +380,10 @@ public class Verifier {
                     // Clean up the map of blocks we have extended. We will never extend behind the frozen edge, so
                     // those can be removed. This map is used to ensure that we do not extend the same block more than
                     // once.
-                    long highestBlockFrozen = BlockManager.highestBlockFrozen();
+                    long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
                     for (ByteBuffer blockHash : new HashSet<>(blocksExtended.keySet())) {
                         Block block = blocksExtended.get(blockHash);
-                        if (block.getBlockHeight() < highestBlockFrozen) {
+                        if (block.getBlockHeight() < frozenEdgeHeight) {
                             blocksExtended.remove(blockHash);
                         }
                     }
@@ -391,9 +391,9 @@ public class Verifier {
                     // Try to extend blocks from the frozen edge to the leading edge. Limit to one behind the open
                     // edge, because we cannot create a block that is not yet open (the block created is one higher
                     // than the block that is extended).
-                    long endHeight = Math.min(Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen),
+                    long endHeight = Math.min(Math.max(ChainOptionManager.leadingEdgeHeight(), frozenEdgeHeight),
                             BlockManager.openEdgeHeight(false) - 1);
-                    long startHeight = Math.max(endHeight - 2, highestBlockFrozen);
+                    long startHeight = Math.max(endHeight - 2, frozenEdgeHeight);
                     for (long height = startHeight; height <= endHeight; height++) {
 
                         Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);

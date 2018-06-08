@@ -67,7 +67,7 @@ public class ChainInitializationManager {
     public static void fetchChainSection(long startHeight, long endHeight, byte[] endBlockHash) {
 
         // Only fetch the balance list if the section does not connect to previously frozen blocks.
-        boolean fetchBalanceList = startHeight > BlockManager.highestBlockFrozen() + 1;
+        boolean fetchBalanceList = startHeight > BlockManager.frozenEdgeHeight() + 1;
 
         Map<Long, Block> blocksToSave = new HashMap<>();
         int numberOfBlocksRequired = (int) (endHeight - startHeight + 1L);

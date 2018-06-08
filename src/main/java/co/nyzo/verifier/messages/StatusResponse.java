@@ -22,7 +22,7 @@ public class StatusResponse implements MessageObject {
         lines.add("mesh: " + NodeManager.getMesh().size() + " active, " + NodeManager.numberOfInactiveNodes() +
                 " inactive");
         lines.add("transactions: " + TransactionPool.transactionPoolSize());
-        lines.add("frozen edge: " + BlockManager.highestBlockFrozen());
+        lines.add("frozen edge: " + BlockManager.frozenEdgeHeight());
         lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
         lines.add("open edge: " + BlockManager.openEdgeHeight(false));
         List<Long> unfrozenBlockHeights = new ArrayList<>(ChainOptionManager.unfrozenBlockHeights());

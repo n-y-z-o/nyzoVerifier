@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class BlockManager {
 
     public static final File blockRootDirectory = new File(Verifier.dataRootDirectory, "blocks");
-    private static final AtomicLong highestBlockFrozen = new AtomicLong(-1L);
+    private static final AtomicLong frozenEdgeHeight = new AtomicLong(-1L);
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
     private static final Set<ByteBuffer> verifiersInPreviousTwoCycles = new HashSet<>();
@@ -23,8 +23,8 @@ public class BlockManager {
         initialize();
     }
 
-    public static long highestBlockFrozen() {
-        return highestBlockFrozen.get();
+    public static long frozenEdgeHeight() {
+        return frozenEdgeHeight.get();
     }
 
     public static long genesisBlockStartTimestamp() {
@@ -35,7 +35,7 @@ public class BlockManager {
 
         // For a block that should be available, the map is checked first, then local files.
         Block block = null;
-        if (blockHeight <= highestBlockFrozen.get()) {
+        if (blockHeight <= frozenEdgeHeight.get()) {
 
             block = BlockManagerMap.blockForHeight(blockHeight);
             if (block == null) {
@@ -144,7 +144,7 @@ public class BlockManager {
 
         // Only continue if the block's previous hash is correct and the block is past the frozen edge.
         if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) &&
-                block.getBlockHeight() > highestBlockFrozen()) {
+                block.getBlockHeight() > frozenEdgeHeight()) {
 
             // If the balance list is null, try to create it now.
             if (block.getBalanceList() == null) {
@@ -164,7 +164,7 @@ public class BlockManager {
                         "is null");
             } else {
                 try {
-                    setHighestBlockFrozen(block.getBlockHeight());
+                    setFrozenEdgeHeight(block.getBlockHeight());
 
                     File file = fileForBlockHeight(block.getBlockHeight());
                     List<Block> blocksInFile = loadBlocksInFile(file, true);
@@ -229,18 +229,18 @@ public class BlockManager {
 
             List<Block> blocks = loadBlocksInFile(fileForBlockHeight(highestFileStartBlock), true);
             if (blocks.size() > 0) {
-                setHighestBlockFrozen(blocks.get(blocks.size() - 1).getBlockHeight());
+                setFrozenEdgeHeight(blocks.get(blocks.size() - 1).getBlockHeight());
             }
         }
     }
 
-    public static void setHighestBlockFrozen(long height) {
+    public static void setFrozenEdgeHeight(long height) {
 
         // Freezing a block under the frozen edge is allowed.
-        if (height < highestBlockFrozen.get()) {
+        if (height < frozenEdgeHeight.get()) {
             System.err.println("Setting highest block frozen to a lesser value than is currently set.");
         } else {
-            highestBlockFrozen.set(height);
+            frozenEdgeHeight.set(height);
         }
     }
 

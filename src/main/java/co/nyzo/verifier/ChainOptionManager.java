@@ -15,7 +15,7 @@ public class ChainOptionManager {
 
         // Reject all blocks with invalid signatures and all those at or behind the frozen edge or ahead of the open
         // edge.
-        long frozenEdgeHeight = BlockManager.highestBlockFrozen();
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
         if (block != null && block.getBlockHeight() > frozenEdgeHeight && block.signatureIsValid() &&
                 block.getBlockHeight() <= BlockManager.openEdgeHeight(true)) {
 
@@ -77,7 +77,7 @@ public class ChainOptionManager {
 
         // All blocks that do not extend to within 4 back of the leading edge can be removed.
         long leadingEdgeHeight = leadingEdgeHeight();
-        long frozenEdgeHeight = BlockManager.highestBlockFrozen();
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
         for (long height = leadingEdgeHeight - 5; height >= frozenEdgeHeight + 1; height--) {
             List<Block> blocksAtHeight = unfrozenBlocks.get(height);
             if (blocksAtHeight != null) {
@@ -125,7 +125,7 @@ public class ChainOptionManager {
 
         // We can freeze a block if it is 5 blocks or more back from the leading edge.
         long leadingEdgeHeight = leadingEdgeHeight();
-        long frozenEdgeHeight = BlockManager.highestBlockFrozen();
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
         boolean shouldContinue = true;
         while (frozenEdgeHeight < leadingEdgeHeight - 6 && shouldContinue) {
             shouldContinue = false;
@@ -232,17 +232,17 @@ public class ChainOptionManager {
     public static synchronized Block blockToExtendForHeight(long blockHeight) {
 
         Block blockToExtend = null;
-        long highestBlockFrozen = BlockManager.highestBlockFrozen();
-        if (blockHeight <= highestBlockFrozen) {
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        if (blockHeight <= frozenEdgeHeight) {
             blockToExtend = BlockManager.frozenBlockForHeight(blockHeight);
         } else {
             List<Block> blocks = unfrozenBlocks.get(blockHeight);
             if (blocks != null) {
                 for (Block block : blocks) {
                     if (blockToExtend == null ||
-                            block.chainScore(highestBlockFrozen) < blockToExtend.chainScore(highestBlockFrozen)) {
+                            block.chainScore(frozenEdgeHeight) < blockToExtend.chainScore(frozenEdgeHeight)) {
                         blockToExtend = block;
-                    } else if (block.chainScore(highestBlockFrozen) == blockToExtend.chainScore(highestBlockFrozen)) {
+                    } else if (block.chainScore(frozenEdgeHeight) == blockToExtend.chainScore(frozenEdgeHeight)) {
 
                         // This can only happen in the case of a new verifier.
                         System.out.println("chain score is equal for two blocks");

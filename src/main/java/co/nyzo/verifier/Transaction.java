@@ -97,7 +97,7 @@ public class Transaction implements MessageObject {
 
     private void assignPreviousBlockHash() {
 
-        previousHashHeight = BlockManager.highestBlockFrozen();
+        previousHashHeight = BlockManager.frozenEdgeHeight();
         previousBlockHash = BlockManager.frozenBlockForHeight(previousHashHeight).getHash();
     }
 

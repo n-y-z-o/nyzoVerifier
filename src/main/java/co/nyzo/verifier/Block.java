@@ -132,7 +132,7 @@ public class Block implements MessageObject {
 
         Block previousBlock = null;
         if (getBlockHeight() > 0L) {
-            if (getBlockHeight() <= BlockManager.highestBlockFrozen() + 1) {
+            if (getBlockHeight() <= BlockManager.frozenEdgeHeight() + 1) {
                 Block frozenBlock = BlockManager.frozenBlockForHeight(height - 1);
                 if (frozenBlock != null && ByteUtil.arraysAreEqual(frozenBlock.getHash(), previousBlockHash)) {
                     previousBlock = frozenBlock;
