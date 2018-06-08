@@ -7,26 +7,25 @@ import java.util.*;
 
 public class ChainOptionManager {
 
-    // TODO: make sure we handle all of these cases properly
-    // -- duplicate blocks (same signature)
-    // -- two blocks at the same height from same verifier that build off different blocks
-    // -- two blocks at the same height from same verifier that build off the same block (verifiers should not do this)
-
     private static Map<Long, List<Block>> unfrozenBlocks = new HashMap<>();
 
     public static synchronized boolean registerBlock(Block block) {
 
         boolean shouldForwardBlock = false;
 
-        long leadingEdgeHeight = leadingEdgeHeight();
-        long highestBlockFrozen = BlockManager.highestBlockFrozen();
+        long frozenEdgeHeight = BlockManager.highestBlockFrozen();
 
-        // Reject all blocks with invalid signatures and all those at or behind the frozen edge.
-        if (!block.signatureIsValid() || block.getBlockHeight() <= highestBlockFrozen) {
-            block = null;
-        }
+        // This is a modification of the open-edge height calculated in the block manager. To accommodate differences
+        // in clocks, this edge is calculated to accept blocks 0.5 seconds after they close, while the block manager
+        // considers blocks open 1.5 seconds after they close.
+        long genesisBlockStartTimestamp = BlockManager.genesisBlockStartTimestamp();
+        long openEdgeHeight = genesisBlockStartTimestamp > 0 ?
+                ((System.currentTimeMillis() - 5500L - genesisBlockStartTimestamp) / Block.blockDuration) : -1;
 
-        if (block != null && block.getBlockHeight() > highestBlockFrozen) {
+        // Reject all blocks with invalid signatures and all those at or behind the frozen edge or ahead of the open
+        // edge.
+        if (block != null && block.getBlockHeight() > frozenEdgeHeight && block.signatureIsValid() &&
+                block.getBlockHeight() <= openEdgeHeight) {
 
             // Get the list of the blocks at this height.
             List<Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());

@@ -261,9 +261,10 @@ public class BlockManager {
 
     public static long openEdgeHeight() {
 
-        // A block is considered open for processing 2 seconds after it completes, which is 7 seconds after it starts.
+        // A block is considered open for processing 1.5 seconds after it completes, which is 6.5 seconds after it
+        // starts.
         return genesisBlockStartTimestamp > 0 ?
-                ((System.currentTimeMillis() - 7000L - genesisBlockStartTimestamp) / Block.blockDuration) : -1;
+                ((System.currentTimeMillis() - 6500L - genesisBlockStartTimestamp) / Block.blockDuration) : -1;
     }
 
     public static synchronized boolean verifierPresentInPreviousTwoCycles(byte[] identifier) {
