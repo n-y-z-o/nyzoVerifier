@@ -23,7 +23,7 @@ public class MessageForwardingTest {
         Thread.sleep(1000L);
 
         UpdateUtil.terminate();
-        MeshListener.closeSockets();
+        MeshListener.closeSocket();
     }
 
     private static void printThreadInfo() {

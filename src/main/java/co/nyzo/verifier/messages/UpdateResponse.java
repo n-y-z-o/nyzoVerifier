@@ -111,7 +111,7 @@ public class UpdateResponse implements MessageObject {
             public void run() {
                 // Flag that the system should terminate and close the MeshListener socket.
                 UpdateUtil.terminate();
-                MeshListener.closeSockets();
+                MeshListener.closeSocket();
 
                 // Wait for the verifier and mesh listener to terminate.
                 while (Verifier.isAlive() || MeshListener.isAlive()) {

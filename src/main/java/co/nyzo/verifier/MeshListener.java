@@ -75,7 +75,7 @@ public class MeshListener {
                             } catch (Exception ignored) { }
                         }
 
-                        closeSockets();
+                        closeSocket();
 
                     } catch (Exception ignored) { }
 
@@ -85,7 +85,7 @@ public class MeshListener {
         }
     }
 
-    public static void closeSockets() {
+    public static void closeSocket() {
 
         if (serverSocket != null) {
             try {

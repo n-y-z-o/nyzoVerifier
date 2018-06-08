@@ -40,6 +40,6 @@ public class BlockRequestTest {
         }
 
         UpdateUtil.terminate();
-        MeshListener.closeSockets();
+        MeshListener.closeSocket();
     }
 }
