@@ -11,21 +11,13 @@ public class ChainOptionManager {
 
     public static synchronized boolean registerBlock(Block block) {
 
-        boolean shouldForwardBlock = false;
-
-        long frozenEdgeHeight = BlockManager.highestBlockFrozen();
-
-        // This is a modification of the open-edge height calculated in the block manager. To accommodate differences
-        // in clocks, this edge is calculated to accept blocks 0.5 seconds after they close, while the block manager
-        // considers blocks open 1.5 seconds after they close.
-        long genesisBlockStartTimestamp = BlockManager.genesisBlockStartTimestamp();
-        long openEdgeHeight = genesisBlockStartTimestamp > 0 ?
-                ((System.currentTimeMillis() - 5500L - genesisBlockStartTimestamp) / Block.blockDuration) : -1;
+        boolean registeredBlock = false;
 
         // Reject all blocks with invalid signatures and all those at or behind the frozen edge or ahead of the open
         // edge.
+        long frozenEdgeHeight = BlockManager.highestBlockFrozen();
         if (block != null && block.getBlockHeight() > frozenEdgeHeight && block.signatureIsValid() &&
-                block.getBlockHeight() <= openEdgeHeight) {
+                block.getBlockHeight() <= BlockManager.openEdgeHeight(true)) {
 
             // Get the list of the blocks at this height.
             List<Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
@@ -58,11 +50,27 @@ public class ChainOptionManager {
 
             if (!alreadyContainsBlock && !alreadyContainsVerifierOnSameChain) {
                 blocksAtHeight.add(block);
-                shouldForwardBlock = true;
+                registeredBlock = true;
+
+                // Only keep the best three blocks at any level. For stability in the list, consider the just-added
+                // block to be the highest-scored, and only remove another block if it has a higher score than the
+                // new block.
+                if (blocksAtHeight.size() > 3) {
+                    Block highestScoredBlock = block;
+                    for (int i = 0; i < blocksAtHeight.size() - 1; i++) {
+                        Block compareBlock = blocksAtHeight.get(i);
+                        if (compareBlock.chainScore(frozenEdgeHeight) >
+                                highestScoredBlock.chainScore(frozenEdgeHeight)) {
+                            highestScoredBlock = compareBlock;
+                        }
+                    }
+
+                    blocksAtHeight.remove(highestScoredBlock);
+                }
             }
         }
 
-        return shouldForwardBlock;
+        return registeredBlock;
     }
 
     public static synchronized void removeAbandonedChains() {
@@ -163,7 +171,7 @@ public class ChainOptionManager {
         }
 
         // The leading edge cannot be past the open edge.
-        leadingEdgeHeight = Math.min(leadingEdgeHeight, BlockManager.openEdgeHeight());
+        leadingEdgeHeight = Math.min(leadingEdgeHeight, BlockManager.openEdgeHeight(true));
 
         return leadingEdgeHeight;
     }

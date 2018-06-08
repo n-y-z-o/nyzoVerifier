@@ -392,7 +392,7 @@ public class Verifier {
                     // edge, because we cannot create a block that is not yet open (the block created is one higher
                     // than the block that is extended).
                     long endHeight = Math.min(Math.max(ChainOptionManager.leadingEdgeHeight(), highestBlockFrozen),
-                            BlockManager.openEdgeHeight() - 1);
+                            BlockManager.openEdgeHeight(false) - 1);
                     long startHeight = Math.max(endHeight - 2, highestBlockFrozen);
                     for (long height = startHeight; height <= endHeight; height++) {
 

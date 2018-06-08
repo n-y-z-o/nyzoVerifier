@@ -259,12 +259,15 @@ public class BlockManager {
         return genesisBlockStartTimestamp + (blockHeight + 1L) * Block.blockDuration;
     }
 
-    public static long openEdgeHeight() {
+    public static long openEdgeHeight(boolean forRegistration) {
 
         // A block is considered open for processing 1.5 seconds after it completes, which is 6.5 seconds after it
-        // starts.
+        // starts. For registration, we reduce the offset to 0.5 seconds to avoid rejecting blocks due to minor clock
+        // differences.
+        long offset = forRegistration ? 5500L : 6500L;
+
         return genesisBlockStartTimestamp > 0 ?
-                ((System.currentTimeMillis() - 6500L - genesisBlockStartTimestamp) / Block.blockDuration) : -1;
+                ((System.currentTimeMillis() - offset - genesisBlockStartTimestamp) / Block.blockDuration) : -1;
     }
 
     public static synchronized boolean verifierPresentInPreviousTwoCycles(byte[] identifier) {
