@@ -183,7 +183,7 @@ public class Block implements MessageObject {
                     if (blockToCheck.getBlockHeight() == 0L) {
                         discontinuityState = DiscontinuityState.IsNotDiscontinuity;
                     } else if (blockToCheck.getCycleInformation().isNewVerifier()) {
-                        if (getBlockHeight() - blockToCheck.getBlockHeight() >
+                        if (getBlockHeight() - blockToCheck.getBlockHeight() >=
                                 blockToCheck.getCycleInformation().getCycleLength() + 2) {
                             discontinuityState = DiscontinuityState.IsNotDiscontinuity;
                         } else {
@@ -536,17 +536,17 @@ public class Block implements MessageObject {
 
         long score = 0L;
         Block block = this;
-        while (block != null && block.getBlockHeight() > zeroBlockHeight && score < Long.MAX_VALUE) {
+        while (block != null && block.getBlockHeight() > zeroBlockHeight && score < Long.MAX_VALUE - 1) {
             CycleInformation cycleInformation = block.getCycleInformation();
             DiscontinuityState discontinuityState = block.getDiscontinuityState();
             if (cycleInformation == null || discontinuityState == DiscontinuityState.Undetermined) {
-                score = Long.MAX_VALUE;  // unable to compute
+                score = Long.MAX_VALUE - 1;  // unable to compute; might improve with more information
             } else {
                 if (discontinuityState == DiscontinuityState.IsDiscontinuity) {
-                    score += 1000000L;
+                    score = Long.MAX_VALUE;  // invalid
                 } else if (cycleInformation.isNewVerifier()) {
                     score -= 10L;
-                    // TODO: add the queue index of the new verifier
+                    // TODO: consider the vote on the new verifier
                 } else {
                     score += cycleInformation.getBlockVerifierIndexInCycle() * 10L;
                 }

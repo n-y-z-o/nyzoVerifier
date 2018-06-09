@@ -396,6 +396,7 @@ public class Verifier {
                     long startHeight = Math.max(endHeight - 2, frozenEdgeHeight);
                     for (long height = startHeight; height <= endHeight; height++) {
 
+                        // Get the block to extend for the height from the chain option manager.
                         Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
                         CycleInformation cycleInformation = blockToExtend == null ? null :
                                 blockToExtend.getCycleInformation();
@@ -414,8 +415,6 @@ public class Verifier {
                                     //        getNickname() + " at height " + nextBlock.getBlockHeight());
                                 }
                             }
-                        } else {
-                            System.out.println("have no block to extend at height " + height);
                         }
                     }
 
