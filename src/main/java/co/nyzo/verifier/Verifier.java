@@ -398,23 +398,8 @@ public class Verifier {
 
                         // Get the block to extend for the height from the chain option manager.
                         Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
-                        CycleInformation cycleInformation = blockToExtend == null ? null :
-                                blockToExtend.getCycleInformation();
-                        ByteBuffer blockHash = blockToExtend == null ? null : ByteBuffer.wrap(blockToExtend.getHash());
-                        if (cycleInformation != null && cycleInformation.getLocalVerifierIndexInCycle() <=
-                                cycleInformation.getCycleLength() / 2 && !blocksExtended.containsKey(blockHash)) {
-                            blocksExtended.put(blockHash, blockToExtend);
-                            Block nextBlock = createNextBlock(blockToExtend);
-                            if (nextBlock != null && nextBlock.getDiscontinuityState() ==
-                                    Block.DiscontinuityState.IsNotDiscontinuity) {
-                                boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
-                                if (shouldTransmitBlock) {
-                                    Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
-                                } else {
-                                    //NotificationUtil.send("Created a block that cannot be registered on " +
-                                    //        getNickname() + " at height " + nextBlock.getBlockHeight());
-                                }
-                            }
+                        if (blockToExtend != null) {
+                            extendBlock(blockToExtend);
                         }
                     }
 
@@ -430,6 +415,26 @@ public class Verifier {
             try {
                 Thread.sleep(sleepTime);
             } catch (Exception ignored) { }
+        }
+    }
+
+    private static void extendBlock(Block block) {
+
+        CycleInformation cycleInformation = block.getCycleInformation();
+        ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
+        if (cycleInformation != null &&
+                cycleInformation.getLocalVerifierIndexInCycle() < cycleInformation.getCycleLength() / 2 &&
+                block.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity &&
+                !blocksExtended.containsKey(blockHash)) {
+
+            blocksExtended.put(blockHash, block);
+            Block nextBlock = createNextBlock(block);
+            if (nextBlock != null && nextBlock.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity) {
+                boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
+                if (shouldTransmitBlock) {
+                    Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                }
+            }
         }
     }
 
