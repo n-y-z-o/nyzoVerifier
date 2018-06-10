@@ -151,7 +151,11 @@ public class ChainOptionManager {
                         }
                     }
 
-                    if (lowestScoredBlock.chainScore(frozenEdgeHeight) <= votingScoreThresholdForHeight(height)) {
+                    if (Math.max(lowestScoredBlock.chainScore(frozenEdgeHeight), 0) <=
+                            votingScoreThresholdForHeight(height)) {
+                        NotificationUtil.send("voting for block " + height + " with a chain score of " +
+                                lowestScoredBlock.chainScore(frozenEdgeHeight) + " and a threshold of " +
+                                votingScoreThresholdForHeight(height) + " from " + Verifier.getNickname());
                         castVote(lowestScoredBlock);
                     }
                 }
@@ -161,9 +165,16 @@ public class ChainOptionManager {
 
     private static synchronized void castVote(Block block) {
 
-        votesCast.add(block.getBlockHeight());
-        Message message = new Message(MessageType.BlockVote19, new BlockVote(block.getBlockHeight(), block.getHash()));
-        Message.broadcast(message);
+        // Ensure that we only cast one vote for each block height.
+        if (!votesCast.contains(block.getBlockHeight())) {
+            votesCast.add(block.getBlockHeight());
+
+            // Register the vote locally and send it to the network.
+            BlockVote vote = new BlockVote(block.getBlockHeight(), block.getHash());
+            BlockVoteManager.registerVote(Verifier.getIdentifier(), vote);
+            Message message = new Message(MessageType.BlockVote19, vote);
+            Message.broadcast(message);
+        }
     }
 
     private static synchronized boolean possiblyConnectedToFrozenChain(Block block) {
