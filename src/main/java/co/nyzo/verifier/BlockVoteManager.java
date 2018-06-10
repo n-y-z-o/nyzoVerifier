@@ -21,6 +21,7 @@ public class BlockVoteManager {
             Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
             if (votesForHeight == null) {
                 votesForHeight = new HashMap<>();
+                voteMap.put(height, votesForHeight);
             }
             votesForHeight.put(ByteBuffer.wrap(identifier), ByteBuffer.wrap(vote.getHash()));
         }
