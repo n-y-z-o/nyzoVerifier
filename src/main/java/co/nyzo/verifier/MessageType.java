@@ -25,7 +25,7 @@ public enum MessageType {
     StatusRequest17(17),
     StatusResponse18(18),
     BlockVote19(19),
-    BlockVoteResponse(20),
+    BlockVoteResponse20(20),
 
     // test messages
     Ping200(200),

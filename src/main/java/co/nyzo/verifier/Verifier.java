@@ -409,6 +409,9 @@ public class Verifier {
                     ChainOptionManager.freezeBlocks();
                     ChainOptionManager.removeAbandonedChains();
                     ChainOptionManager.castVotes();
+
+                    // Remove old votes from the block vote manager.
+                    BlockVoteManager.removeOldVotes();
                 }
 
             } catch (Exception reportOnly) {

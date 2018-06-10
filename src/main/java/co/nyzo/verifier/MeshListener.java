@@ -159,6 +159,11 @@ public class MeshListener {
 
                     response = new Message(MessageType.StatusResponse18, new StatusResponse());
 
+                } else if (messageType == MessageType.BlockVote19) {
+
+                    BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), (BlockVote) message.getContent());
+                    response = new Message(MessageType.BlockVoteResponse20, null);
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
@@ -183,13 +188,16 @@ public class MeshListener {
 
                     response = new Message(MessageType.ResetResponse501, new BooleanMessageResponse(success,
                             responseMessage));
+                } else {
+
+                    response = new Message(MessageType.Error65534, new ErrorMessage("unknown message type"));
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
             String errorMessage = e.getMessage();
             if (errorMessage == null) {
-                errorMessage = "Message from exception is null.";
+                errorMessage = "message from exception is null";
             }
 
             response = new Message(MessageType.Error65534, new ErrorMessage(errorMessage));
