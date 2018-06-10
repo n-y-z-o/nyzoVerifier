@@ -90,6 +90,20 @@ public class ChainOptionManager {
                 }
             }
         }
+
+        // All blocks that cannot connect to the frozen chain can be removed.
+        for (long height = frozenEdgeHeight + 1; height <= leadingEdgeHeight; height++) {
+
+            List<Block> blocksAtHeight = unfrozenBlocks.get(height);
+            if (blocksAtHeight != null) {
+                for (int i = blocksAtHeight.size() - 1; i >= 0; i--) {
+                    Block block = blocksAtHeight.get(i);
+                    if (!possiblyConnectedToFrozenChain(block)) {
+                        blocksAtHeight.remove(block);
+                    }
+                }
+            }
+        }
     }
 
     private static long votingScoreThresholdForHeight(long height) {
@@ -122,6 +136,25 @@ public class ChainOptionManager {
         // vote is cast.
 
 
+    }
+
+    private static synchronized boolean possiblyConnectedToFrozenChain(Block block) {
+
+        boolean possiblyConnected = true;
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        if (block.getBlockHeight() <= frozenEdgeHeight) {
+            possiblyConnected = false;
+        } else {
+            while (block != null && block.getBlockHeight() > frozenEdgeHeight + 1) {
+                block = block.getPreviousBlock();
+            }
+            if (block != null && block.getBlockHeight() == frozenEdgeHeight + 1) {
+                Block frozenEdgeBlock = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
+                possiblyConnected = ByteUtil.arraysAreEqual(frozenEdgeBlock.getHash(), block.getPreviousBlockHash());
+            }
+        }
+
+        return possiblyConnected;
     }
 
     private static synchronized long chainHeightForBlock(Block block) {
