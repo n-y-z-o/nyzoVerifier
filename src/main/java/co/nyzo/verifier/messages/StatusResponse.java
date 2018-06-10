@@ -35,9 +35,11 @@ public class StatusResponse implements MessageObject {
             } else {
                 long height = i < 3 || unfrozenBlockHeights.size() <= 7 ? unfrozenBlockHeights.get(i) :
                         unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 7 + i);
-                String heightString = "f + " + (height - frozenEdgeHeight);
-                lines.add("- height: " + heightString + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
-                        ", v: " + BlockVoteManager.numberOfVotesAtHeight(height));
+                String heightString = "f+" + (height - frozenEdgeHeight);
+                lines.add("- h: " + heightString + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
+                        ", v: " + BlockVoteManager.numberOfVotesAtHeight(height) +
+                        ", s: " + ChainOptionManager.bestScoreForHeight(height) +
+                        ", t: " + ChainOptionManager.votingScoreThresholdForHeight(height));
             }
         }
         lines.add("new timestamp: " + Verifier.newestTimestampAge(2));

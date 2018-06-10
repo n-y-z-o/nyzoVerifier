@@ -109,7 +109,24 @@ public class ChainOptionManager {
         }
     }
 
-    private static long votingScoreThresholdForHeight(long height) {
+    // TODO: remove this from status updates and delete
+    public static synchronized long bestScoreForHeight(long height) {
+
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        List<Block> blocksForHeight = unfrozenBlocks.get(height);
+        long bestScore = Long.MAX_VALUE;
+        if (!blocksForHeight.isEmpty()) {
+            bestScore = blocksForHeight.get(0).chainScore(frozenEdgeHeight);
+            for (int i = 1; i < blocksForHeight.size(); i++) {
+                bestScore = Math.min(bestScore, blocksForHeight.get(i).chainScore(frozenEdgeHeight));
+            }
+        }
+
+        return bestScore;
+    }
+
+    // TODO: remove this from status updates and change back to private
+    public static long votingScoreThresholdForHeight(long height) {
 
         // l: leading edge height
         // b: block height
