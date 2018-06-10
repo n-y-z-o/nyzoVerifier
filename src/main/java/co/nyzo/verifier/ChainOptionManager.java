@@ -153,9 +153,6 @@ public class ChainOptionManager {
 
                     if (Math.max(lowestScoredBlock.chainScore(frozenEdgeHeight), 0) <=
                             votingScoreThresholdForHeight(height)) {
-                        NotificationUtil.send("voting for block " + height + " with a chain score of " +
-                                lowestScoredBlock.chainScore(frozenEdgeHeight) + " and a threshold of " +
-                                votingScoreThresholdForHeight(height) + " from " + Verifier.getNickname());
                         castVote(lowestScoredBlock);
                     }
                 }
