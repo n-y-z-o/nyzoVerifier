@@ -15,6 +15,8 @@ public class StatusResponse implements MessageObject {
 
     public StatusResponse() {
 
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+
         List<String> lines = new ArrayList<>();
         lines.add("nickname: " + Verifier.getNickname());
         lines.add("version: " + Verifier.getVersion());
@@ -22,7 +24,7 @@ public class StatusResponse implements MessageObject {
         lines.add("mesh: " + NodeManager.getMesh().size() + " active, " + NodeManager.numberOfInactiveNodes() +
                 " inactive");
         lines.add("transactions: " + TransactionPool.transactionPoolSize());
-        lines.add("frozen edge: " + BlockManager.frozenEdgeHeight());
+        lines.add("frozen edge: " + frozenEdgeHeight);
         lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
         lines.add("open edge: " + BlockManager.openEdgeHeight(false));
         List<Long> unfrozenBlockHeights = new ArrayList<>(ChainOptionManager.unfrozenBlockHeights());
@@ -33,7 +35,8 @@ public class StatusResponse implements MessageObject {
             } else {
                 long height = i < 3 || unfrozenBlockHeights.size() <= 7 ? unfrozenBlockHeights.get(i) :
                         unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 7 + i);
-                lines.add("- height: " + height + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
+                String heightString = "f + " + (height - frozenEdgeHeight);
+                lines.add("- height: " + heightString + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
                         ", v: " + BlockVoteManager.numberOfVotesAtHeight(height));
             }
         }
