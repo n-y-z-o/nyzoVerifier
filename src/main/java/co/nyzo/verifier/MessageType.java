@@ -10,11 +10,11 @@ public enum MessageType {
     BootstrapResponse2(2),
     NodeJoin3(3),
     NodeJoinResponse4(4),
-    Transaction5(5, true),
+    Transaction5(5),
     TransactionResponse6(6),
     PreviousHashRequest7(7),
     PreviousHashResponse8(8),
-    NewBlock9(9, true),
+    NewBlock9(9),
     NewBlockResponse10(10),
     BlockRequest11(11),
     BlockResponse12(12),
@@ -24,6 +24,8 @@ public enum MessageType {
     MeshResponse16(16),
     StatusRequest17(17),
     StatusResponse18(18),
+    BlockVote19(19),
+    BlockVoteResponse(20),
 
     // test messages
     Ping200(200),
@@ -58,23 +60,13 @@ public enum MessageType {
     }
 
     private int value;
-    private boolean forwarded;
 
     MessageType(int value) {
-        this(value, false);
-    }
-
-    MessageType(int value, boolean forwarded) {
         this.value = value;
-        this.forwarded = forwarded;
     }
 
     public int getValue() {
         return value;
-    }
-
-    public boolean isForwarded() {
-        return forwarded;
     }
 
     public static MessageType forValue(int value) {

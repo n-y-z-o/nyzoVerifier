@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.BlockVote;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
@@ -7,6 +9,7 @@ import java.util.*;
 
 public class ChainOptionManager {
 
+    private static Set<Long> votesCast = new HashSet<>();
     private static Map<Long, List<Block>> unfrozenBlocks = new HashMap<>();
 
     public static synchronized boolean registerBlock(Block block) {
@@ -135,7 +138,32 @@ public class ChainOptionManager {
         // minimum value of zero. If this limited value is less than or equal to the threshold for the height, a
         // vote is cast.
 
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        for (long height : unfrozenBlocks.keySet()) {
+            if (!votesCast.contains(height)) {
+                List<Block> blocksForHeight = unfrozenBlocks.get(height);
+                if (!blocksForHeight.isEmpty()) {
+                    Block lowestScoredBlock = blocksForHeight.get(0);
+                    for (int i = 1; i < blocksForHeight.size(); i++) {
+                        Block block = blocksForHeight.get(i);
+                        if (block.chainScore(frozenEdgeHeight) < lowestScoredBlock.chainScore(frozenEdgeHeight)) {
+                            lowestScoredBlock = block;
+                        }
+                    }
 
+                    if (lowestScoredBlock.chainScore(frozenEdgeHeight) <= votingScoreThresholdForHeight(height)) {
+                        castVote(lowestScoredBlock);
+                    }
+                }
+            }
+        }
+    }
+
+    private static synchronized void castVote(Block block) {
+
+        votesCast.add(block.getBlockHeight());
+        Message message = new Message(MessageType.BlockVote19, new BlockVote(block.getBlockHeight(), block.getHash()));
+        Message.broadcast(message);
     }
 
     private static synchronized boolean possiblyConnectedToFrozenChain(Block block) {
