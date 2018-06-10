@@ -33,7 +33,8 @@ public class StatusResponse implements MessageObject {
             } else {
                 long height = i < 3 || unfrozenBlockHeights.size() <= 7 ? unfrozenBlockHeights.get(i) :
                         unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 7 + i);
-                lines.add("- height: " + height + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height));
+                lines.add("- height: " + height + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
+                        ", v: " + BlockVoteManager.numberOfVotesAtHeight(height));
             }
         }
         lines.add("new timestamp: " + Verifier.newestTimestampAge(2));

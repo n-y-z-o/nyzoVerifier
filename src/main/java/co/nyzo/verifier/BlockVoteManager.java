@@ -36,4 +36,16 @@ public class BlockVoteManager {
             }
         }
     }
+
+    // This method is for testing and will likely be removed before release.
+    public static int numberOfVotesAtHeight(long height) {
+
+        int numberOfVotes = 0;
+        Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
+        if (votesForHeight != null) {
+            numberOfVotes = votesForHeight.size();
+        }
+
+        return numberOfVotes;
+    }
 }
