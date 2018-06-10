@@ -403,7 +403,11 @@ public class Verifier {
                         }
                     }
 
+                    // The next steps are all about trying to freeze blocks. First, we remove chains that are no longer
+                    // keeping up, then we cast votes on the remaining chains. Finally, we freeze blocks based on
+                    // votes.
                     ChainOptionManager.removeAbandonedChains();
+                    ChainOptionManager.castVotes();
                     ChainOptionManager.freezeBlocks();
                 }
 

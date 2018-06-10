@@ -92,6 +92,48 @@ public class ChainOptionManager {
         }
     }
 
+    private static long bestPossibleScoreForBlock(Block block) {
+
+        // If the block allows a new verifier, the best possible score is -3. Otherwise, it is zero. This must be done
+        // on a block, not a block height, because it must consider all previous verifiers on the chain, even those of
+        // unfrozen blocks.
+        // TODO: implement this method   :)
+        long bestPossibleScore = 0;
+
+        return bestPossibleScore;
+    }
+
+    private static long votingScoreThresholdForHeight(long height) {
+
+        // l: leading edge height
+        // b: block height
+        // f: frozen edge height
+        // t: voting score threshold
+        // t1: threshold component 1; calculated relative to leading edge
+        // t2: threshold component 2; calculated relative to frozen edge
+
+        // A vote is cast when the voting score is less than or equal to the threshold, so a lower threshold
+        // is stricter.
+
+        // t = t1 - t2
+        // t1 = l - b - 1
+        // t2 = 2 * (b - f - 1)
+
+        // t = l - b - 1 - 2 * (b - f - 1)
+        // t = l - b - 1 - 2b + 2f + 2
+        // t = l - 3b  + 2f + 1
+
+        return leadingEdgeHeight() - 3L * height + 2L * BlockManager.frozenEdgeHeight() + 1;
+    }
+
+    public static synchronized void castVotes() {
+
+        // This is the voting system documented in the white paper. In this system, each verifier has a unique "voting
+        // score" each block. This is the difference between the chain score and the best possible chain score for the
+        // block.
+
+    }
+
     private static synchronized long chainHeightForBlock(Block block) {
 
         long height = block.getBlockHeight();
