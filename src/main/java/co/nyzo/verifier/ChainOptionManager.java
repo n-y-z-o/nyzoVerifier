@@ -157,9 +157,16 @@ public class ChainOptionManager {
 
         long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
         for (long height : unfrozenBlocks.keySet()) {
-            if (!votesCast.contains(height)) {
+
+            // Only continue if we have not yet voted for this height and if the threshold can be met.
+            long threshold = votingScoreThresholdForHeight(height);
+            if (!votesCast.contains(height) && threshold >= 0) {
+
+                // Only continue if we have blocks and the threshold is non-negative.
                 List<Block> blocksForHeight = unfrozenBlocks.get(height);
                 if (!blocksForHeight.isEmpty()) {
+
+                    // Find the block with the lowest score at this height.
                     Block lowestScoredBlock = blocksForHeight.get(0);
                     for (int i = 1; i < blocksForHeight.size(); i++) {
                         Block block = blocksForHeight.get(i);
@@ -168,8 +175,8 @@ public class ChainOptionManager {
                         }
                     }
 
-                    if (Math.max(lowestScoredBlock.chainScore(frozenEdgeHeight), 0) <=
-                            votingScoreThresholdForHeight(height)) {
+                    // If the best score is less than or equal to the threshold, cast a vote for the block.
+                    if (Math.max(lowestScoredBlock.chainScore(frozenEdgeHeight), 0) <= threshold) {
                         castVote(lowestScoredBlock);
                     }
                 }
