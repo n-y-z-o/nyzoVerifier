@@ -248,30 +248,32 @@ public class ChainOptionManager {
 
     public static synchronized void freezeBlocks() {
 
-        // We can freeze a block if it is 5 blocks or more back from the leading edge.
-        long leadingEdgeHeight = leadingEdgeHeight();
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
-        boolean shouldContinue = true;
-        while (frozenEdgeHeight < leadingEdgeHeight - 6 && shouldContinue) {
-            shouldContinue = false;
-            long heightToFreeze = frozenEdgeHeight + 1;
-            List<Block> blocksAtFreezeLevel = unfrozenBlocks.get(heightToFreeze);
-            if (blocksAtFreezeLevel.size() == 1) {
-                Block block = blocksAtFreezeLevel.get(0);
-                if (block.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity) {
-                    BlockManager.freezeBlock(block);
-                    TransactionPool.removeTransactionsToHeight(block.getBlockHeight());
+        for (long height = BlockManager.frozenEdgeHeight() + 1L; height < leadingEdgeHeight(); height++) {
 
-                    // Remove all unfrozen blocks at or below the new frozen level.
-                    for (Long height : new HashSet<>(unfrozenBlocks.keySet())) {
-                        if (height <= heightToFreeze) {
-                            unfrozenBlocks.remove(height);
-                        }
+            byte[] hash = BlockVoteManager.winningHashForHeight(height);
+            if (hash != null) {
+                // Get the block.
+                Block block = unfrozenBlockAtHeight(height, hash);
+
+                // If the block is not null, get all the blocks going back to the frozen edge. Typically, this will
+                // only be a single block, but we may be freezing several, and must freeze in order starting with the
+                // first block past the frozen edge.
+                if (block != null) {
+                    List<Block> blocksToFreeze = new ArrayList<>();
+                    blocksToFreeze.add(block);
+                    while (block.getPreviousBlock() != null &&
+                            block.getBlockHeight() > BlockManager.frozenEdgeHeight() + 1L) {
+                        block = block.getPreviousBlock();
+                        blocksToFreeze.add(0, block);
                     }
 
-                    // Indicate that we should continue trying to freeze blocks.
-                    shouldContinue = true;
-                    frozenEdgeHeight = heightToFreeze;
+                    if (blocksToFreeze.get(0).getBlockHeight() == BlockManager.frozenEdgeHeight() + 1L) {
+                        for (Block blockToFreeze : blocksToFreeze) {
+                            BlockManager.freezeBlock(blockToFreeze);
+                        }
+                    } else {
+                        NotificationUtil.send("issue trying to freeze blocks on " + Verifier.getNickname());
+                    }
                 }
             }
         }

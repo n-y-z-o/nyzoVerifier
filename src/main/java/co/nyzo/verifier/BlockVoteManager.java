@@ -10,7 +10,7 @@ import java.util.Set;
 
 public class BlockVoteManager {
 
-    private static Map<Long, Map<ByteBuffer, ByteBuffer>> voteMap = new HashMap<>();
+    private static final Map<Long, Map<ByteBuffer, ByteBuffer>> voteMap = new HashMap<>();
 
     public static synchronized void registerVote(byte[] identifier, BlockVote vote) {
 
@@ -38,8 +38,8 @@ public class BlockVoteManager {
         }
     }
 
-    // This method is for testing and will likely be removed before release.
-    public static int numberOfVotesAtHeight(long height) {
+    // TODO: this method is for testing and will likely be removed before release
+    public static synchronized int numberOfVotesAtHeight(long height) {
 
         int numberOfVotes = 0;
         Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
@@ -48,5 +48,36 @@ public class BlockVoteManager {
         }
 
         return numberOfVotes;
+    }
+
+    public static synchronized byte[] winningHashForHeight(long height) {
+
+        byte[] winningHash = null;
+        Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
+        if (votesForHeight != null) {
+
+            Map<ByteBuffer, Integer> votesPerHash = new HashMap<>();
+            Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInPreviousCycle();
+            for (ByteBuffer identifier : votesForHeight.keySet()) {
+                if (votingVerifiers.contains(identifier)) {
+                    ByteBuffer hash = votesForHeight.get(identifier);
+                    Integer votesForHash = votesPerHash.get(hash);
+                    if (votesForHash == null) {
+                        votesPerHash.put(hash, 1);
+                    } else {
+                        votesPerHash.put(hash, votesForHash + 1);
+                    }
+                }
+            }
+
+            long threshold = votingVerifiers.size() * 3L / 4L;
+            for (ByteBuffer hash : votesPerHash.keySet()) {
+                if (votesPerHash.get(hash) > threshold) {
+                    winningHash = hash.array();
+                }
+            }
+        }
+
+        return winningHash;
     }
 }

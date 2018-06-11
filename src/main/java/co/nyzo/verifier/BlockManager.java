@@ -16,6 +16,7 @@ public class BlockManager {
     private static final AtomicLong frozenEdgeHeight = new AtomicLong(-1L);
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
+    private static final Set<ByteBuffer> verifiersInPreviousCycle = new HashSet<>();
     private static final Set<ByteBuffer> verifiersInPreviousTwoCycles = new HashSet<>();
     private static long genesisBlockStartTimestamp = -1L;
 
@@ -270,6 +271,11 @@ public class BlockManager {
                 ((System.currentTimeMillis() - offset - genesisBlockStartTimestamp) / Block.blockDuration) : -1;
     }
 
+    public static synchronized Set<ByteBuffer> verifiersInPreviousCycle() {
+
+        return new HashSet<>(verifiersInPreviousCycle);
+    }
+
     public static synchronized boolean verifierPresentInPreviousTwoCycles(byte[] identifier) {
 
         return verifiersInPreviousTwoCycles.contains(ByteBuffer.wrap(identifier));
@@ -277,8 +283,9 @@ public class BlockManager {
 
     private static synchronized void updateVerifiersInPreviousTwoCycles(Block block) {
 
-        verifiersInPreviousTwoCycles.clear();
+        verifiersInPreviousCycle.clear();
         Map<ByteBuffer, Integer> verifierCounts = new HashMap<>();
+        boolean foundOneCycle = false;
         boolean foundTwoCycles = false;
         Block previousBlock = block.getPreviousBlock();
         while (previousBlock != null && !foundTwoCycles) {
@@ -288,14 +295,20 @@ public class BlockManager {
             if (verifierCount == null) {
                 verifierCounts.put(identifierBuffer, 1);
             } else if (verifierCount == 1) {
+                foundOneCycle = true;
                 verifierCounts.put(identifierBuffer, 2);
             } else {
                 foundTwoCycles = true;
             }
 
+            if (!foundOneCycle) {
+                verifiersInPreviousCycle.add(identifierBuffer);
+            }
+
             previousBlock = previousBlock.getPreviousBlock();
         }
 
+        verifiersInPreviousTwoCycles.clear();
         verifiersInPreviousTwoCycles.addAll(verifierCounts.keySet());
     }
 }
