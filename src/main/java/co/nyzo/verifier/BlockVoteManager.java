@@ -74,9 +74,10 @@ public class BlockVoteManager {
             Map<ByteBuffer, Integer> votesPerHash = new HashMap<>();
             Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInPreviousCycle();
 
-            // This is a work-around for the Genesis cycle only. This is not especially robust, but it doesn't matter,
+            // This is a work-around for the Genesis cycle only. This is not especially robust, but it does not matter,
             // because it will only be used for the first cycle at the beginning of the block chain.
             if (BlockManager.inGenesisCycle()) {
+                votingVerifiers.clear();
                 for (Node node : NodeManager.getMesh()) {
                     votingVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
                 }
