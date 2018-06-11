@@ -109,6 +109,7 @@ public class BlockVoteManager {
                 StatusResponse.setField("vote", maximumVotes + ", " + threshold + ", " +
                         PrintUtil.compactPrintByteArray(winningHash) + ", h=" + height);
             }
+            StatusResponse.setField("in Genesis cycle", BlockManager.inGenesisCycle() + "");
         }
 
         return winningHash;
