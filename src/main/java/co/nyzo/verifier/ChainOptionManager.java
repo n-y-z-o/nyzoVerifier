@@ -127,7 +127,7 @@ public class ChainOptionManager {
 
             // Only continue if we have not yet voted for this height and if the threshold can be met.
             long threshold = votingScoreThresholdForHeight(height);
-            if (/*!votesCast.contains(height) &&*/ threshold >= 0) {
+            if (!votesCast.contains(height) && threshold >= 0) {
 
                 // Only continue if we have blocks and the threshold is non-negative.
                 List<Block> blocksForHeight = unfrozenBlocks.get(height);
@@ -154,7 +154,7 @@ public class ChainOptionManager {
     private static synchronized void castVote(Block block) {
 
         // Ensure that we only cast one vote for each block height.
-        //if (!votesCast.contains(block.getBlockHeight())) {
+        if (!votesCast.contains(block.getBlockHeight())) {
             votesCast.add(block.getBlockHeight());
 
             // Register the vote locally and send it to the network.
@@ -162,7 +162,7 @@ public class ChainOptionManager {
             BlockVoteManager.registerVote(Verifier.getIdentifier(), vote);
             Message message = new Message(MessageType.BlockVote19, vote);
             Message.broadcast(message);
-        //}
+        }
     }
 
     private static synchronized boolean possiblyConnectedToFrozenChain(Block block) {
