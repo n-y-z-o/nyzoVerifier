@@ -106,8 +106,9 @@ public class BlockVoteManager {
             }
 
             if (height == BlockManager.frozenEdgeHeight() + 1L) {
-                StatusResponse.setField("vote", maximumVotes + ", " + threshold + ", " +
-                        PrintUtil.compactPrintByteArray(winningHash) + ", h=" + height);
+                StatusResponse.setField("vote", "m=" + maximumVotes + ", t=" + threshold + ", " +
+                        PrintUtil.compactPrintByteArray(winningHash) + "n=" + NodeManager.getMesh().size() +
+                        ", h=" + height);
             }
             StatusResponse.setField("in Genesis cycle", BlockManager.inGenesisCycle() + "");
         }
