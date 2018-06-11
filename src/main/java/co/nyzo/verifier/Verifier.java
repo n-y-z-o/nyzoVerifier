@@ -436,7 +436,7 @@ public class Verifier {
         ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
         if (cycleInformation != null &&
                 (cycleInformation.getLocalVerifierIndexInCycle() < cycleInformation.getCycleLength() / 2 ||
-                        block.getBlockHeight() == 0L) &&
+                        block.getBlockHeight() < 2L) &&
                 block.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity &&
                 !blocksExtended.containsKey(blockHash)) {
 
