@@ -16,6 +16,7 @@ public class BlockManager {
     private static final AtomicLong frozenEdgeHeight = new AtomicLong(-1L);
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
+    private static boolean inGenesisCycle = false;
     private static final Set<ByteBuffer> verifiersInPreviousCycle = new HashSet<>();
     private static final Set<ByteBuffer> verifiersInPreviousTwoCycles = new HashSet<>();
     private static long genesisBlockStartTimestamp = -1L;
@@ -230,7 +231,9 @@ public class BlockManager {
 
             List<Block> blocks = loadBlocksInFile(fileForBlockHeight(highestFileStartBlock), true);
             if (blocks.size() > 0) {
-                setFrozenEdgeHeight(blocks.get(blocks.size() - 1).getBlockHeight());
+                Block block = blocks.get(blocks.size() - 1);
+                setFrozenEdgeHeight(block.getBlockHeight());
+                updateVerifiersInPreviousTwoCycles(block);
             }
         }
     }
@@ -271,6 +274,11 @@ public class BlockManager {
                 ((System.currentTimeMillis() - offset - genesisBlockStartTimestamp) / Block.blockDuration) : -1;
     }
 
+    public static boolean inGenesisCycle() {
+
+        return inGenesisCycle;
+    }
+
     public static synchronized Set<ByteBuffer> verifiersInPreviousCycle() {
 
         return new HashSet<>(verifiersInPreviousCycle);
@@ -305,6 +313,7 @@ public class BlockManager {
                 verifiersInPreviousCycle.add(identifierBuffer);
             }
 
+            inGenesisCycle = previousBlock.getBlockHeight() == 0 && !foundOneCycle;
             previousBlock = previousBlock.getPreviousBlock();
         }
 

@@ -71,6 +71,16 @@ public class BlockVoteManager {
 
             Map<ByteBuffer, Integer> votesPerHash = new HashMap<>();
             Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInPreviousCycle();
+
+            // This is a work-around for the Genesis cycle only. This is not especially robust, but it doesn't matter,
+            // because it will only be used for the first cycle after the Genesis block.
+            if (votingVerifiers.isEmpty() && BlockManager.inGenesisCycle()) {
+                for (Node node : NodeManager.getMesh()) {
+                    votingVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
+                }
+            }
+
+            // Build the vote map.
             for (ByteBuffer identifier : votesForHeight.keySet()) {
                 if (votingVerifiers.contains(identifier)) {
                     ByteBuffer hash = votesForHeight.get(identifier);
@@ -83,6 +93,7 @@ public class BlockVoteManager {
                 }
             }
 
+            // Check the vote totals to see if any block should be frozen.
             long threshold = votingVerifiers.size() * 3L / 4L;
             for (ByteBuffer hash : votesPerHash.keySet()) {
                 if (votesPerHash.get(hash) > threshold) {
