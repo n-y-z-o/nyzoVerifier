@@ -435,7 +435,8 @@ public class Verifier {
         CycleInformation cycleInformation = block.getCycleInformation();
         ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
         if (cycleInformation != null &&
-                cycleInformation.getLocalVerifierIndexInCycle() < cycleInformation.getCycleLength() / 2 &&
+                (cycleInformation.getLocalVerifierIndexInCycle() < cycleInformation.getCycleLength() / 2 ||
+                        block.getBlockHeight() == 0L) &&
                 block.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity &&
                 !blocksExtended.containsKey(blockHash)) {
 
@@ -545,8 +546,12 @@ public class Verifier {
                 nickname = "";
             }
             nickname = nickname.trim();
-            NicknameManager.put(getIdentifier(), nickname);
         } catch (Exception ignored) { }
+
+        if (nickname.isEmpty()) {
+            nickname = PrintUtil.compactPrintByteArray(getIdentifier());
+        }
+        NicknameManager.put(getIdentifier(), nickname);
     }
 
     public static String getNickname() {
