@@ -10,13 +10,16 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class NotificationUtil {
 
 
     private static int numberOfNotificationsSent = 0;
     private static final int maximumNotifications = 10;
+    private static final Set<Integer> sendOnceNotifications = new HashSet<>();
 
     private static final String endpoint = loadEndpointFromFile();
 
@@ -62,6 +65,15 @@ public class NotificationUtil {
             } catch (Exception ignored) {
                 ignored.printStackTrace();
             }
+        }
+    }
+
+    public static void sendOnce(String message) {
+
+        int hashCode = message.hashCode();
+        if (!sendOnceNotifications.contains(hashCode)) {
+            sendOnceNotifications.add(hashCode);
+            send(message);
         }
     }
 

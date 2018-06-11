@@ -404,6 +404,10 @@ public class Verifier {
                                 extendBlock(blockToExtend);
                             }
                         }
+                    } else {
+                        NotificationUtil.sendOnce("stopped building chain on " + Verifier.getNickname() + " because " +
+                                "leading edge (" + ChainOptionManager.leadingEdgeHeight() + ") and frozen edge (" +
+                                BlockManager.frozenEdgeHeight() + ") are too far apart");
                     }
 
                     // The next steps are all about trying to freeze blocks. First, we freeze blocks based on votes
