@@ -57,7 +57,9 @@ public class PrintUtil {
     public static String compactPrintByteArray(byte[] array) {
 
         String result;
-        if (array.length <= 4) {
+        if (array == null) {
+            result = "(null)";
+        } else if (array.length <= 4) {
             result = ByteUtil.arrayAsStringNoDashes(array);
         } else {
             result = String.format("%02x%02x...%02x%02x", array[0], array[1], array[array.length - 2],

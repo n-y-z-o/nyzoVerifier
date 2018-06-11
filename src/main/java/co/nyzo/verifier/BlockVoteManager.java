@@ -1,6 +1,8 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BlockVote;
+import co.nyzo.verifier.messages.StatusResponse;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -73,7 +75,7 @@ public class BlockVoteManager {
             Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInPreviousCycle();
 
             // This is a work-around for the Genesis cycle only. This is not especially robust, but it doesn't matter,
-            // because it will only be used for the first cycle after the Genesis block.
+            // because it will only be used for the first cycle at the beginning of the block chain.
             if (votingVerifiers.isEmpty() && BlockManager.inGenesisCycle()) {
                 for (Node node : NodeManager.getMesh()) {
                     votingVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
@@ -95,11 +97,16 @@ public class BlockVoteManager {
 
             // Check the vote totals to see if any block should be frozen.
             long threshold = votingVerifiers.size() * 3L / 4L;
+            int maximumVotes = 0;
             for (ByteBuffer hash : votesPerHash.keySet()) {
+                maximumVotes = Math.max(maximumVotes, votesPerHash.get(hash));
                 if (votesPerHash.get(hash) > threshold) {
                     winningHash = hash.array();
                 }
             }
+
+            StatusResponse.setField("vote", maximumVotes + ", " + threshold + ", " +
+                    PrintUtil.compactPrintByteArray(winningHash));
         }
 
         return winningHash;

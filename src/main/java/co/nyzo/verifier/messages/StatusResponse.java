@@ -5,47 +5,63 @@ import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class StatusResponse implements MessageObject {
 
+    private static long previousStatusTimestamp = 0L;
+    private static List<String> previousLines;
+
     private List<String> lines;
+    private static final Map<String, String> extraFields = new HashMap<>();
 
     public StatusResponse() {
 
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        // To avoid unnecessary work, do not produce a status response more frequently than every four seconds.
+        long currentTimestamp = System.currentTimeMillis();
+        if (currentTimestamp - previousStatusTimestamp < 4000L) {
+            this.lines = previousLines;
+        } else {
 
-        List<String> lines = new ArrayList<>();
-        lines.add("nickname: " + Verifier.getNickname());
-        lines.add("version: " + Verifier.getVersion());
-        lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
-        lines.add("mesh: " + NodeManager.getMesh().size() + " active, " + NodeManager.numberOfInactiveNodes() +
-                " inactive");
-        lines.add("transactions: " + TransactionPool.transactionPoolSize());
-        lines.add("frozen edge: " + frozenEdgeHeight);
-        lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
-        lines.add("open edge: " + BlockManager.openEdgeHeight(false));
-        List<Long> unfrozenBlockHeights = new ArrayList<>(ChainOptionManager.unfrozenBlockHeights());
-        Collections.sort(unfrozenBlockHeights);
-        for (int i = 0; i < 7 && i < unfrozenBlockHeights.size(); i++) {
-            if (i == 3 && unfrozenBlockHeights.size() > 7) {
-                lines.add("...");
-            } else {
-                long height = i < 3 || unfrozenBlockHeights.size() <= 7 ? unfrozenBlockHeights.get(i) :
-                        unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 7 + i);
-                String heightString = "f+" + (height - frozenEdgeHeight);
-                lines.add("- h: " + heightString + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
-                        ", v: " + BlockVoteManager.votesAtHeight(height) +
-                        ", s: " + ChainOptionManager.bestScoreForHeight(height) +
-                        ", t: " + ChainOptionManager.votingScoreThresholdForHeight(height));
+            long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+
+            List<String> lines = new ArrayList<>();
+            lines.add("nickname: " + Verifier.getNickname());
+            lines.add("version: " + Verifier.getVersion());
+            lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
+            lines.add("mesh: " + NodeManager.getMesh().size() + " active, " + NodeManager.numberOfInactiveNodes() +
+                    " inactive");
+            lines.add("transactions: " + TransactionPool.transactionPoolSize());
+            lines.add("frozen edge: " + frozenEdgeHeight);
+            lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
+            lines.add("open edge: " + BlockManager.openEdgeHeight(false));
+            List<Long> unfrozenBlockHeights = new ArrayList<>(ChainOptionManager.unfrozenBlockHeights());
+            Collections.sort(unfrozenBlockHeights);
+            for (int i = 0; i < 7 && i < unfrozenBlockHeights.size(); i++) {
+                if (i == 3 && unfrozenBlockHeights.size() > 7) {
+                    lines.add("...");
+                } else {
+                    long height = i < 3 || unfrozenBlockHeights.size() <= 7 ? unfrozenBlockHeights.get(i) :
+                            unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 7 + i);
+                    String heightString = "f+" + (height - frozenEdgeHeight);
+                    lines.add("- h: " + heightString + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
+                            ", v: " + BlockVoteManager.votesAtHeight(height) +
+                            ", s: " + ChainOptionManager.bestScoreForHeight(height) +
+                            ", t: " + ChainOptionManager.votingScoreThresholdForHeight(height));
+                }
             }
-        }
-        lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
-        lines.add("old timestamp: " + Verifier.oldestTimestampAge());
+            lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
+            lines.add("old timestamp: " + Verifier.oldestTimestampAge());
 
-        this.lines = lines;
+            Map<String, String> extraFields = getExtraFields();
+            for (String key : extraFields.keySet()) {
+                lines.add(key + ": " + extraFields.get(key));
+            }
+
+            this.lines = lines;
+            previousLines = lines;
+            previousStatusTimestamp = currentTimestamp;
+        }
     }
 
     private StatusResponse(List<String> lines) {
@@ -107,5 +123,15 @@ public class StatusResponse implements MessageObject {
     @Override
     public String toString() {
         return "[StatusResponse(n=" + lines.size() + ")]";
+    }
+
+    private static synchronized Map<String, String> getExtraFields() {
+
+        return new HashMap<>(extraFields);
+    }
+
+    public static synchronized void setField(String key, String value) {
+
+        extraFields.put(key, value);
     }
 }
