@@ -155,7 +155,7 @@ public class ChainOptionManager {
 
         // Ensure that we only cast one vote for each block height.
         if (!votesCast.contains(block.getBlockHeight())) {
-            //votesCast.add(block.getBlockHeight());  // TODO: determine how we want to handle this
+            votesCast.add(block.getBlockHeight());
 
             // Register the vote locally and send it to the network.
             BlockVote vote = new BlockVote(block.getBlockHeight(), block.getHash());

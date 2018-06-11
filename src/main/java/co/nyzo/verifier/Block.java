@@ -530,8 +530,8 @@ public class Block implements MessageObject {
 
         // This score is always relative to a provided block height. The zero block height has a score of zero, and
         // each subsequent block affects the score as follows:
-        // - a new verifier subtracts 10 but adds the verifier's position in the queue
-        // - an existing verifier adds the verifier's position in the cycle multiplied by 10
+        // - a new verifier subtracts 3 but adds 2 times the verifier's position in the queue
+        // - an existing verifier adds the verifier's position in the cycle multiplied by 2
         // - a discontinuity adds a large penalty score
 
         long score = 0L;
@@ -545,10 +545,10 @@ public class Block implements MessageObject {
                 if (discontinuityState == DiscontinuityState.IsDiscontinuity) {
                     score = Long.MAX_VALUE;  // invalid
                 } else if (cycleInformation.isNewVerifier()) {
-                    score -= 10L;
+                    score -= 3L;
                     // TODO: consider the vote on the new verifier
                 } else {
-                    score += cycleInformation.getBlockVerifierIndexInCycle() * 10L;
+                    score += cycleInformation.getBlockVerifierIndexInCycle() * 2L;
                 }
             }
 
