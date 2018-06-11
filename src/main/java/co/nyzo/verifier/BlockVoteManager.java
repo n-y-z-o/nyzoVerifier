@@ -107,7 +107,7 @@ public class BlockVoteManager {
 
             if (height == BlockManager.frozenEdgeHeight() + 1L) {
                 StatusResponse.setField("vote", maximumVotes + ", " + threshold + ", " +
-                        PrintUtil.compactPrintByteArray(winningHash));
+                        PrintUtil.compactPrintByteArray(winningHash) + ", h=" + height);
             }
         }
 
