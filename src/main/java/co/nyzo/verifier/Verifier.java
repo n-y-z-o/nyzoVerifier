@@ -404,10 +404,8 @@ public class Verifier {
                     }
 
                     // The next steps are all about trying to freeze blocks. First, we freeze blocks based on votes
-                    // we have received. Then, we remove abandoned chains and cast votes based on the new state of the
-                    // unfrozen blocks.
+                    // we have received. Then, we cast votes based on the new state of the unfrozen blocks.
                     ChainOptionManager.freezeBlocks();
-                    ChainOptionManager.removeAbandonedChains();
                     ChainOptionManager.castVotes();
 
                     // Remove old votes from the block vote manager.

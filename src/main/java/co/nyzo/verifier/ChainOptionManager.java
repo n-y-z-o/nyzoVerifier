@@ -76,39 +76,6 @@ public class ChainOptionManager {
         return registeredBlock;
     }
 
-    public static synchronized void removeAbandonedChains() {
-
-        // All blocks that do not extend to within 4 back of the leading edge can be removed.
-        long leadingEdgeHeight = leadingEdgeHeight();
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
-        for (long height = leadingEdgeHeight - 5; height >= frozenEdgeHeight + 1; height--) {
-            List<Block> blocksAtHeight = unfrozenBlocks.get(height);
-            if (blocksAtHeight != null) {
-                for (int i = blocksAtHeight.size() - 1; i >= 0; i--) {
-                    Block block = blocksAtHeight.get(i);
-                    long chainHeight = chainHeightForBlock(block);
-                    if (chainHeight < leadingEdgeHeight - 4) {
-                        blocksAtHeight.remove(block);
-                    }
-                }
-            }
-        }
-
-        // All blocks that cannot connect to the frozen chain can be removed.
-        for (long height = frozenEdgeHeight + 1; height <= leadingEdgeHeight; height++) {
-
-            List<Block> blocksAtHeight = unfrozenBlocks.get(height);
-            if (blocksAtHeight != null) {
-                for (int i = blocksAtHeight.size() - 1; i >= 0; i--) {
-                    Block block = blocksAtHeight.get(i);
-                    if (!possiblyConnectedToFrozenChain(block)) {
-                        blocksAtHeight.remove(block);
-                    }
-                }
-            }
-        }
-    }
-
     // TODO: remove this from status updates and delete
     public static synchronized long bestScoreForHeight(long height) {
 
