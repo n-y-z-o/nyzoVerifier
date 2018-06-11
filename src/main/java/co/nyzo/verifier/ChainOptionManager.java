@@ -277,6 +277,15 @@ public class ChainOptionManager {
                 }
             }
         }
+
+        // Remove any blocks below the new frozen edge.
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        Set<Long> unfrozenHeights = new HashSet<>(unfrozenBlocks.keySet());
+        for (Long unfrozenHeight : unfrozenHeights) {
+            if (unfrozenHeight <= frozenEdgeHeight) {
+                unfrozenBlocks.remove(unfrozenHeight);
+            }
+        }
     }
 
     public static synchronized long leadingEdgeHeight() {
