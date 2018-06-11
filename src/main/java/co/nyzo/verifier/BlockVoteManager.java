@@ -76,7 +76,7 @@ public class BlockVoteManager {
 
             // This is a work-around for the Genesis cycle only. This is not especially robust, but it doesn't matter,
             // because it will only be used for the first cycle at the beginning of the block chain.
-            if (votingVerifiers.isEmpty() && BlockManager.inGenesisCycle()) {
+            if (BlockManager.inGenesisCycle()) {
                 for (Node node : NodeManager.getMesh()) {
                     votingVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
                 }
@@ -107,7 +107,7 @@ public class BlockVoteManager {
 
             if (height == BlockManager.frozenEdgeHeight() + 1L) {
                 StatusResponse.setField("vote", "m=" + maximumVotes + ", t=" + threshold + ", " +
-                        PrintUtil.compactPrintByteArray(winningHash) + "n=" + NodeManager.getMesh().size() +
+                        PrintUtil.compactPrintByteArray(winningHash) + ", n=" + NodeManager.getMesh().size() +
                         ", h=" + height);
             }
             StatusResponse.setField("in Genesis cycle", BlockManager.inGenesisCycle() + "");
