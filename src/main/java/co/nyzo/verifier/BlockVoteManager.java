@@ -39,15 +39,28 @@ public class BlockVoteManager {
     }
 
     // TODO: this method is for testing and will likely be removed before release
-    public static synchronized int numberOfVotesAtHeight(long height) {
+    public static synchronized String votesAtHeight(long height) {
 
         int numberOfVotes = 0;
+        int maximumVotes = 0;
         Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
         if (votesForHeight != null) {
             numberOfVotes = votesForHeight.size();
+
+            Map<ByteBuffer, Integer> voteCounts = new HashMap<>();
+            for (ByteBuffer byteBuffer : votesForHeight.values()) {
+                Integer count = voteCounts.get(byteBuffer);
+                if (count == null) {
+                    count = 1;
+                } else {
+                    count++;
+                }
+                voteCounts.put(byteBuffer, count);
+                maximumVotes = Math.max(maximumVotes, count);
+            }
         }
 
-        return numberOfVotes;
+        return numberOfVotes + "(" + maximumVotes + ")";
     }
 
     public static synchronized byte[] winningHashForHeight(long height) {
