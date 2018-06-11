@@ -367,7 +367,7 @@ public class Verifier {
             long sleepTime = 1000L;
             try {
                 // Only run the active verifier if connected to the mesh.
-                if (NodeManager.connectedToMesh()) {
+                if (NodeManager.connectedToMesh() && false) {
 
                     // If we have stopped receiving messages from the mesh, send new node-join messages. This is
                     // likely due to a changed IP address.
