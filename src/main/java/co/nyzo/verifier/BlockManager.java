@@ -317,6 +317,10 @@ public class BlockManager {
             previousBlock = previousBlock.getPreviousBlock();
         }
 
+        if (block.getBlockHeight() == 0) {
+            inGenesisCycle = true;
+        }
+
         verifiersInPreviousTwoCycles.clear();
         verifiersInPreviousTwoCycles.addAll(verifierCounts.keySet());
     }
