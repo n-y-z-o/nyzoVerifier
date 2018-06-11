@@ -369,7 +369,6 @@ public class Verifier {
                 // Only run the active verifier if connected to the mesh.
                 if (NodeManager.connectedToMesh()) {
 
-                    /*
                     // If we have stopped receiving messages from the mesh, send new node-join messages. This is
                     // likely due to a changed IP address.
                     if (newestTimestampAge(1) > 5000L) {
@@ -411,7 +410,6 @@ public class Verifier {
 
                     // Remove old votes from the block vote manager.
                     BlockVoteManager.removeOldVotes();
-                    */
                 }
 
             } catch (Exception reportOnly) {
