@@ -105,8 +105,10 @@ public class BlockVoteManager {
                 }
             }
 
-            StatusResponse.setField("vote", maximumVotes + ", " + threshold + ", " +
-                    PrintUtil.compactPrintByteArray(winningHash));
+            if (height == BlockManager.frozenEdgeHeight() + 1L) {
+                StatusResponse.setField("vote", maximumVotes + ", " + threshold + ", " +
+                        PrintUtil.compactPrintByteArray(winningHash));
+            }
         }
 
         return winningHash;
