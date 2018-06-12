@@ -215,7 +215,8 @@ public class ChainOptionManager {
 
     public static synchronized void freezeBlocks() {
 
-        for (long height = BlockManager.frozenEdgeHeight() + 1L; height < leadingEdgeHeight(); height++) {
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        for (long height = frozenEdgeHeight + 1L; height < leadingEdgeHeight(); height++) {
 
             byte[] hash = BlockVoteManager.winningHashForHeight(height);
             if (hash != null) {
@@ -228,25 +229,23 @@ public class ChainOptionManager {
                 if (block != null) {
                     List<Block> blocksToFreeze = new ArrayList<>();
                     blocksToFreeze.add(block);
-                    while (block.getPreviousBlock() != null &&
-                            block.getBlockHeight() > BlockManager.frozenEdgeHeight() + 1L) {
+                    while (block.getPreviousBlock() != null && block.getBlockHeight() > frozenEdgeHeight + 1L) {
                         block = block.getPreviousBlock();
                         blocksToFreeze.add(0, block);
                     }
 
-                    if (blocksToFreeze.get(0).getBlockHeight() == BlockManager.frozenEdgeHeight() + 1L) {
+                    if (blocksToFreeze.get(0).getBlockHeight() == frozenEdgeHeight + 1L) {
                         for (Block blockToFreeze : blocksToFreeze) {
                             BlockManager.freezeBlock(blockToFreeze);
                         }
                     } else {
-                        NotificationUtil.send("issue trying to freeze blocks on " + Verifier.getNickname());
+                        NotificationUtil.sendOnce("issue trying to freeze blocks on " + Verifier.getNickname());
                     }
                 }
             }
         }
 
         // Remove any blocks below the new frozen edge.
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
         Set<Long> unfrozenHeights = new HashSet<>(unfrozenBlocks.keySet());
         for (Long unfrozenHeight : unfrozenHeights) {
             if (unfrozenHeight <= frozenEdgeHeight) {
