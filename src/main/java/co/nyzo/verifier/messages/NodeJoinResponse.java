@@ -48,8 +48,13 @@ public class NodeJoinResponse implements MessageObject {
     @Override
     public int getByteSize() {
 
-        return FieldByteSize.string(nickname) + FieldByteSize.voteListLength * (FieldByteSize.blockHeight +
-                FieldByteSize.hash);
+        int size = FieldByteSize.string(nickname);
+        if (votes.size() > 0) {
+            size += FieldByteSize.voteListLength;
+            size += votes.size() * (FieldByteSize.blockHeight + FieldByteSize.hash);
+        }
+
+        return size;
     }
 
     @Override
