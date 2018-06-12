@@ -6,6 +6,8 @@ import co.nyzo.verifier.util.PrintUtil;
 
 public class BlockPrint {
 
+    // This class is used to display basic information about a block from the console.
+
     public static void main(String[] args) {
 
         long height = 0L;
