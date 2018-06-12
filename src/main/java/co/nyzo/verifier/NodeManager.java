@@ -1,12 +1,8 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.messages.NodeJoinMessage;
-import co.nyzo.verifier.messages.BootstrapRequest;
-import co.nyzo.verifier.messages.BootstrapResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.UpdateUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;

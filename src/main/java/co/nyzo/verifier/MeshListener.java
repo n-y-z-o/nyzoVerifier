@@ -52,8 +52,8 @@ public class MeshListener {
 
                                         try {
                                             Message message = Message.readFromStream(clientSocket.getInputStream(),
-                                                    IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() + ""),
-                                                    MessageType.IncomingRequest65533);
+                                                    IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() +
+                                                            ""), MessageType.IncomingRequest65533);
                                             if (message != null) {
                                                 Message response = response(message);
                                                 if (response != null) {
@@ -102,6 +102,8 @@ public class MeshListener {
 
         Message response = null;
         try {
+            // Many actions are taken inside this block as a result of messages. Therefore, we only want to continue if
+            // the message is valid.
             if (message != null && message.isValid()) {
 
                 Verifier.registerMessage();

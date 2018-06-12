@@ -32,15 +32,21 @@ public enum MessageType {
     PingResponse201(201),
 
     // maintenance messages
-    UpdateRequest300(300),
+    UpdateRequest300(300),  // updates the verifier with the latest code from the Git repository, rebuilds, and restarts
     UpdateResponse301(301),
 
+    // debugging messages -- these are meant to cause problems to test resiliency
+    BlockRejectionRequest(400),  // discards all blocks received for the next 10 seconds
+    BlockRejectionResponse(401),
+    DetachmentRequest(402),  // stops producing blocks for two verifier cycles
+    DetachmentResponse(403),
+
     // bootstrapping messages
-    ResetRequest500(500),
+    ResetRequest500(500),   // resets the blockchain   TODO: remove this before public release
     ResetResponse501(501),
 
     // the highest allowable message number is 65535
-    IncomingRequest65533(65533),
+    IncomingRequest65533(65533),  // for debugging -- passed to readFromStream by meshListener/meshListenerController
     Error65534(65534),
     Unknown65535(65535);
 
