@@ -360,18 +360,6 @@ public class Verifier {
         ChainInitializationManager.processBootstrapResponseMessage(message);
     }
 
-    private static long[] profileSums = new long[5];
-    private static long[] profileStarts = new long[5];
-    private static void markStart(int index) {
-
-        profileStarts[index] = System.currentTimeMillis();
-    }
-
-    private static void markEnd(int index) {
-
-        profileSums[index] += System.currentTimeMillis() - profileStarts[index];
-    }
-
     private static void verifierMain() {
 
         while (!UpdateUtil.shouldTerminate()) {
@@ -392,7 +380,6 @@ public class Verifier {
                     // Clean up the map of blocks we have extended. We will never extend behind the frozen edge, so
                     // those can be removed. This map is used to ensure that we do not extend the same block more than
                     // once.
-                    markStart(0);
                     long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
                     for (ByteBuffer blockHash : new HashSet<>(blocksExtended.keySet())) {
                         Block block = blocksExtended.get(blockHash);
@@ -400,13 +387,11 @@ public class Verifier {
                             blocksExtended.remove(blockHash);
                         }
                     }
-                    markEnd(0);
 
                     // Try to extend blocks from the frozen edge to the leading edge. Limit to one behind the open
                     // edge, because we cannot create a block that is not yet open (the block created is one higher
                     // than the block that is extended).
                     // TODO: remove this condition; it is for testing only
-                    markStart(1);
                     if (ChainOptionManager.leadingEdgeHeight() - BlockManager.frozenEdgeHeight() < 15) {
                         long endHeight = Math.min(Math.max(ChainOptionManager.leadingEdgeHeight(), frozenEdgeHeight),
                                 BlockManager.openEdgeHeight(false) - 1);
@@ -424,28 +409,14 @@ public class Verifier {
                                 "leading edge (" + ChainOptionManager.leadingEdgeHeight() + ") and frozen edge (" +
                                 BlockManager.frozenEdgeHeight() + ") are too far apart");
                     }
-                    markEnd(1);
 
                     // The next steps are all about trying to freeze blocks. First, we freeze blocks based on votes
                     // we have received. Then, we cast votes based on the new state of the unfrozen blocks.
-                    markStart(2);
                     ChainOptionManager.freezeBlocks();
-                    markEnd((2));
-                    markStart(3);
                     ChainOptionManager.castVotes();
-                    markEnd(3);
 
                     // Remove old votes from the block vote manager.
-                    markStart(4);
                     BlockVoteManager.removeOldVotes();
-                    markEnd(4);
-
-                    double d = profileSums[0];
-                    for (int i = 1; i < profileSums.length; i++) {
-                        d = Math.max(d, profileSums[i]);
-                    }
-                    StatusResponse.setField("times", String.format("%.1f, %.1f, %.1f, %.1f, %.1f", profileSums[0] / d,
-                            profileSums[1] / d, profileSums[2] / d, profileSums[3] / d, profileSums[4] / d));
                 }
 
             } catch (Exception reportOnly) {
