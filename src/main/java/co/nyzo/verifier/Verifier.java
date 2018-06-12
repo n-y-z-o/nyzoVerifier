@@ -24,7 +24,7 @@ public class Verifier {
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
     private static int version = -1;
-    private static String nickname = "";
+    private static String nickname = null;
     private static int rejoinCount = 0;
 
     private static Transaction seedFundingTransaction = null;
@@ -545,11 +545,12 @@ public class Verifier {
 
         try {
             nickname = Files.readAllLines(Paths.get(dataRootDirectory.getAbsolutePath() + "/nickname")).get(0);
-            if (nickname == null) {
-                nickname = "";
-            }
-            nickname = nickname.trim();
         } catch (Exception ignored) { }
+
+        if (nickname == null) {
+            nickname = "";
+        }
+        nickname = nickname.trim();
 
         if (nickname.isEmpty()) {
             nickname = PrintUtil.compactPrintByteArray(getIdentifier());
@@ -558,6 +559,10 @@ public class Verifier {
     }
 
     public static String getNickname() {
+
+        if (nickname == null) {
+            loadNickname();
+        }
 
         return nickname;
     }

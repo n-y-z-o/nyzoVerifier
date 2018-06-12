@@ -48,13 +48,8 @@ public class NodeJoinResponse implements MessageObject {
     @Override
     public int getByteSize() {
 
-        int size = FieldByteSize.string(nickname);
-        if (votes.size() > 0) {
-            size += FieldByteSize.voteListLength;
-            size += votes.size() * (FieldByteSize.blockHeight + FieldByteSize.hash);
-        }
-
-        return size;
+        return FieldByteSize.string(nickname) + FieldByteSize.voteListLength + votes.size() *
+                (FieldByteSize.blockHeight + FieldByteSize.hash);
     }
 
     @Override
@@ -67,12 +62,10 @@ public class NodeJoinResponse implements MessageObject {
         buffer.putShort((short) nicknameBytes.length);
         buffer.put(nicknameBytes);
 
-        if (votes.size() > 0) {
-            buffer.put((byte) votes.size());
-            for (BlockVote vote : votes) {
-                buffer.putLong(vote.getHeight());
-                buffer.put(vote.getHash());
-            }
+        buffer.put((byte) votes.size());
+        for (BlockVote vote : votes) {
+            buffer.putLong(vote.getHeight());
+            buffer.put(vote.getHash());
         }
 
         return array;
@@ -89,14 +82,12 @@ public class NodeJoinResponse implements MessageObject {
             String nickname = new String(nicknameBytes, StandardCharsets.UTF_8);
 
             List<BlockVote> votes = new ArrayList<>();
-            if (buffer.hasRemaining()) {
-                int numberOfVotes = Math.max(buffer.get(), maximumVotes);
-                for (int i = 0; i < numberOfVotes; i++) {
-                    long height = buffer.getLong();
-                    byte[] hash = new byte[FieldByteSize.hash];
-                    buffer.get(hash);
-                    votes.add(new BlockVote(height, hash));
-                }
+            int numberOfVotes = Math.min(buffer.get(), maximumVotes);
+            for (int i = 0; i < numberOfVotes; i++) {
+                long height = buffer.getLong();
+                byte[] hash = new byte[FieldByteSize.hash];
+                buffer.get(hash);
+                votes.add(new BlockVote(height, hash));
             }
 
             result = new NodeJoinResponse(nickname, votes);
