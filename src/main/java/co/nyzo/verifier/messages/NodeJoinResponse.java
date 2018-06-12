@@ -1,34 +1,55 @@
 package co.nyzo.verifier.messages;
 
-import co.nyzo.verifier.FieldByteSize;
-import co.nyzo.verifier.MeshListener;
-import co.nyzo.verifier.MessageObject;
-import co.nyzo.verifier.Verifier;
+import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 public class NodeJoinResponse implements MessageObject {
 
+    private static final int maximumVotes = 100;
+
     private String nickname;
+    private List<BlockVote> votes;
 
     public NodeJoinResponse() {
 
         this.nickname = Verifier.getNickname();
+        this.votes = BlockVoteManager.getLocalVotes();
+        limitVoteListSize();
     }
 
-    public NodeJoinResponse(String nickname) {
+    public NodeJoinResponse(String nickname, List<BlockVote> votes) {
 
         this.nickname = nickname == null ? "" : nickname;
+        this.votes = votes;
+        limitVoteListSize();
+    }
+
+    private void limitVoteListSize() {
+
+        while (votes.size() > maximumVotes) {
+            votes.remove(votes.size() - 1);
+        }
     }
 
     public String getNickname() {
+
         return nickname;
+    }
+
+    public List<BlockVote> getVotes() {
+
+        return votes;
     }
 
     @Override
     public int getByteSize() {
-        return FieldByteSize.string(nickname);
+
+        return FieldByteSize.string(nickname) + FieldByteSize.voteListLength * (FieldByteSize.blockHeight +
+                FieldByteSize.hash);
     }
 
     @Override
@@ -36,9 +57,18 @@ public class NodeJoinResponse implements MessageObject {
 
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
+
         byte[] nicknameBytes = nickname.getBytes(StandardCharsets.UTF_8);
         buffer.putShort((short) nicknameBytes.length);
         buffer.put(nicknameBytes);
+
+        if (votes.size() > 0) {
+            buffer.put((byte) votes.size());
+            for (BlockVote vote : votes) {
+                buffer.putLong(vote.getHeight());
+                buffer.put(vote.getHash());
+            }
+        }
 
         return array;
     }
@@ -53,7 +83,18 @@ public class NodeJoinResponse implements MessageObject {
             buffer.get(nicknameBytes);
             String nickname = new String(nicknameBytes, StandardCharsets.UTF_8);
 
-            result = new NodeJoinResponse(nickname);
+            List<BlockVote> votes = new ArrayList<>();
+            if (buffer.hasRemaining()) {
+                int numberOfVotes = Math.max(buffer.get(), maximumVotes);
+                for (int i = 0; i < numberOfVotes; i++) {
+                    long height = buffer.getLong();
+                    byte[] hash = new byte[FieldByteSize.hash];
+                    buffer.get(hash);
+                    votes.add(new BlockVote(height, hash));
+                }
+            }
+
+            result = new NodeJoinResponse(nickname, votes);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }

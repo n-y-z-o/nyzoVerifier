@@ -159,7 +159,7 @@ public class ChainOptionManager {
 
             // Register the vote locally and send it to the network.
             BlockVote vote = new BlockVote(block.getBlockHeight(), block.getHash());
-            BlockVoteManager.registerVote(Verifier.getIdentifier(), vote);
+            BlockVoteManager.registerVote(Verifier.getIdentifier(), vote, true);
             Message message = new Message(MessageType.BlockVote19, vote);
             Message.broadcast(message);
         }

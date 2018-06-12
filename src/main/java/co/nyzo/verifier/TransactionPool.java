@@ -12,6 +12,7 @@ public class TransactionPool {
     private static final Map<ByteBuffer, Transaction> transactionPool = new HashMap<>();
 
     public static synchronized void addTransaction(Transaction transaction) {
+
         if (BlockManager.heightForTimestamp(transaction.getTimestamp()) >= minimumAcceptedHeight) {
             transactionPool.put(ByteBuffer.wrap(transaction.getSignature()), transaction);
         }

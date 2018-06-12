@@ -5,16 +5,16 @@ import co.nyzo.verifier.messages.StatusResponse;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class BlockVoteManager {
 
+    // The local votes map is redundant, but it is a simple and efficient way to store local votes for responding to
+    // node-join messages.
+    private static final Map<Long, byte[]> localVotes = new HashMap<>();
     private static final Map<Long, Map<ByteBuffer, ByteBuffer>> voteMap = new HashMap<>();
 
-    public static synchronized void registerVote(byte[] identifier, BlockVote vote) {
+    public static synchronized void registerVote(byte[] identifier, BlockVote vote, boolean isLocalVote) {
 
         // Register the vote. The map ensures that each identifier only gets one vote. Some of the votes may not count.
         // Votes are only counted for verifiers in the previous cycle.
@@ -27,6 +27,10 @@ public class BlockVoteManager {
             }
             votesForHeight.put(ByteBuffer.wrap(identifier), ByteBuffer.wrap(vote.getHash()));
         }
+
+        if (isLocalVote) {
+            localVotes.put(vote.getHeight(), vote.getHash());
+        }
     }
 
     public static synchronized void removeOldVotes() {
@@ -36,6 +40,7 @@ public class BlockVoteManager {
         for (long height : heights) {
             if (height <= frozenEdgeHeight) {
                 voteMap.remove(height);
+                localVotes.remove(height);
             }
         }
     }
@@ -115,5 +120,15 @@ public class BlockVoteManager {
         }
 
         return winningHash;
+    }
+
+    public static synchronized List<BlockVote> getLocalVotes() {
+
+        List<BlockVote> votes = new ArrayList<>();
+        for (Long height : localVotes.keySet()) {
+            votes.add(new BlockVote(height, localVotes.get(height)));
+        }
+
+        return votes;
     }
 }

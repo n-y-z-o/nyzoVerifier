@@ -304,6 +304,9 @@ public class Verifier {
                             NodeJoinResponse response = (NodeJoinResponse) message.getContent();
                             if (response != null) {
                                 NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
+                                for (BlockVote vote : response.getVotes()) {
+                                    BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote, false);
+                                }
                             }
                         }
                     }

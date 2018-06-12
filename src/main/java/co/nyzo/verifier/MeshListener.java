@@ -161,7 +161,8 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.BlockVote19) {
 
-                    BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), (BlockVote) message.getContent());
+                    BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), (BlockVote) message.getContent(),
+                            false);
                     response = new Message(MessageType.BlockVoteResponse20, null);
 
                 } else if (messageType == MessageType.Ping200) {
