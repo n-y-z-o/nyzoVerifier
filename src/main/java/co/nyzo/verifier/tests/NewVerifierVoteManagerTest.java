@@ -31,10 +31,14 @@ public class NewVerifierVoteManagerTest {
         NewVerifierVoteManager.registerVote(id(9), id(2), false);
 
         List<ByteBuffer> topVerifiers = NewVerifierVoteManager.topVerifiers();
-        for (int i = 0; i < topVerifiers.size(); i++) {
-            byte[] verifier = topVerifiers.get(i).array();
-            System.out.println("verifier " + i + ": " + PrintUtil.compactPrintByteArray(verifier));
-        }
+        printVerifiers(topVerifiers);
+
+        // Remove all "old verifiers" from voting. In this test, this should clear the vote map complete.
+        NewVerifierVoteManager.removeOldVotes();
+
+        System.out.println("removed old votes");
+        topVerifiers = NewVerifierVoteManager.topVerifiers();
+        printVerifiers(topVerifiers);
     }
 
     private static byte[] id(int value) {
@@ -43,5 +47,17 @@ public class NewVerifierVoteManagerTest {
         result[FieldByteSize.identifier - 1] = (byte) value;
 
         return result;
+    }
+
+    private static void printVerifiers(List<ByteBuffer> verifiers) {
+
+        if (verifiers.isEmpty()) {
+            System.out.println("***** verifiers list is empty *****");
+        } else {
+            for (int i = 0; i < verifiers.size(); i++) {
+                byte[] verifier = verifiers.get(i).array();
+                System.out.println("verifier " + i + ": " + PrintUtil.compactPrintByteArray(verifier));
+            }
+        }
     }
 }

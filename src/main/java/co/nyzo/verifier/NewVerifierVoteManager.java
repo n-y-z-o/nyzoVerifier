@@ -30,8 +30,18 @@ public class NewVerifierVoteManager {
 
     public static synchronized void removeOldVotes() {
 
-        // TODO: remove votes of identifiers that are not in the current cycle
+        // For simplicity, we remove all votes that are not in the current verifier cycle to conserve memory. This will
+        // potentially remove verifiers that would be in the verification cycle when they are needed, but that's not
+        // a huge concern, as this process does not require absolute or precise vote counts to work properly. In
+        // reality, we are highly unlikely to ever lose more than one vote at a time due to this simplification.
 
+        Set<ByteBuffer> verifiers = new HashSet<>(voteMap.keySet());
+        Set<ByteBuffer> currentCycle = BlockManager.verifiersInPreviousCycle();
+        for (ByteBuffer verifier : verifiers) {
+            if (!currentCycle.contains(verifier)) {
+                voteMap.remove(verifier);
+            }
+        }
     }
 
     public static synchronized List<ByteBuffer> topVerifiers() {
