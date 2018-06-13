@@ -5,7 +5,6 @@ import co.nyzo.verifier.NewVerifierVoteManager;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 
 public class NewVerifierVoteManagerTest {

@@ -546,7 +546,15 @@ public class Block implements MessageObject {
                     score = Long.MAX_VALUE;  // invalid
                 } else if (cycleInformation.isNewVerifier()) {
                     score -= 3L;
-                    // TODO: consider the vote on the new verifier
+
+                    List<ByteBuffer> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
+                    ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());
+                    int indexInQueue = topNewVerifiers.indexOf(verifierIdentifier);
+                    if (indexInQueue < 0) {
+                        score = Long.MAX_VALUE - 1;
+                    } else {
+                        score += indexInQueue * 2L;
+                    }
                 } else {
                     score += cycleInformation.getBlockVerifierIndexInCycle() * 2L;
                 }
