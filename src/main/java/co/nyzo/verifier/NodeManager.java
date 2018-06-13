@@ -9,6 +9,10 @@ import java.util.*;
 
 public class NodeManager {
 
+    // TODO: add logic to ensure that a verifier in the current cycle is not overwritten; this is to prevent a
+    // TODO: manipulation where multiple verifiers could move to the same IP address after getting into the verification
+    // TODO: cycle to free up a different IP address for another new verifier
+
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new HashMap<>();
     private static final Map<ByteBuffer, Node> ipAddressToNodeMapInactive = new HashMap<>();
 
