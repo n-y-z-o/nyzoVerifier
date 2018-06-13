@@ -46,13 +46,19 @@ public class BalanceList implements MessageObject {
             }
         });
 
+        // Remove any entries with balances of zero.
         for (int i = sorted.size() - 1; i >= 0; i--) {
             if (sorted.get(i).getBalance() == 0L) {
                 sorted.remove(i);
             }
         }
 
-        // TODO: remove any duplicates
+        // Remove any duplicate identifiers.
+        for (int i = sorted.size() - 1; i >= 1; i--) {
+            if (ByteUtil.arraysAreEqual(sorted.get(i).getIdentifier(), sorted.get(i - 1).getIdentifier())) {
+                sorted.remove(i);
+            }
+        }
 
         return sorted;
     }
