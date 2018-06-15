@@ -42,7 +42,7 @@ public class StatusResponse implements MessageObject {
                 } else {
                     long height = i < 3 || unfrozenBlockHeights.size() <= 7 ? unfrozenBlockHeights.get(i) :
                             unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 7 + i);
-                    String heightString = "f+" + (height - frozenEdgeHeight);
+                    String heightString = "+" + (height - frozenEdgeHeight);
                     lines.add("- h: " + heightString + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
                             ", v: " + BlockVoteManager.votesAtHeight(height) +
                             ", s: " + printScore(ChainOptionManager.bestScoreForHeight(height)) +

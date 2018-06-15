@@ -35,13 +35,16 @@ public enum MessageType {
     UpdateRequest300(300),  // updates the verifier with the latest code from the Git repository, rebuilds, and restarts
     UpdateResponse301(301),
 
-    // debugging messages -- these are meant to cause problems to test resiliency
+    // debugging messages -- these are meant to cause problems to test resiliency or to provide information that is not
+    // necessary for normal operation
     BlockRejectionRequest400(400),  // discards all blocks received for the next 10 seconds
     BlockRejectionResponse401(401),
     DetachmentRequest402(402),  // stops producing blocks for two verifier cycles
     DetachmentResponse403(403),
     UnfrozenBlockPoolPurgeRequest404(404),  // clears the unfrozen block pool
     UnfrozenBlockPoolPurgeResponse405(405),
+    UnfrozenBlockPoolRequest406(406),  // gets the unfrozen block pool only
+    UnfrozenBlockPoolResponse407(407),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain   TODO: remove this before public release
