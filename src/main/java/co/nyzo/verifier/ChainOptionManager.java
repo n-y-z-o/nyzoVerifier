@@ -259,7 +259,7 @@ public class ChainOptionManager {
         // The leading edge is defined as the greatest block height open for processing at which a valid block without
         // a discontinuity exists.
 
-        long leadingEdgeHeight = -1;
+        long leadingEdgeHeight = BlockManager.frozenEdgeHeight();
         long openEdgeHeight = BlockManager.openEdgeHeight(true);
         for (Long height : unfrozenBlocks.keySet()) {
             if (height > leadingEdgeHeight && height <= openEdgeHeight) {
