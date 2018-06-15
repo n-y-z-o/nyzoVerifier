@@ -17,7 +17,7 @@ public class BlockManager {
     private static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
     private static boolean inGenesisCycle = false;
-    private static final Set<ByteBuffer> verifiersInPreviousCycle = new HashSet<>();
+    private static final Set<ByteBuffer> verifiersInCurrentCycle = new HashSet<>();
     private static final Set<ByteBuffer> verifiersInPreviousTwoCycles = new HashSet<>();
     private static long genesisBlockStartTimestamp = -1L;
 
@@ -279,9 +279,9 @@ public class BlockManager {
         return inGenesisCycle;
     }
 
-    public static synchronized Set<ByteBuffer> verifiersInPreviousCycle() {
+    public static synchronized Set<ByteBuffer> verifiersInCurrentCycle() {
 
-        return new HashSet<>(verifiersInPreviousCycle);
+        return new HashSet<>(verifiersInCurrentCycle);
     }
 
     public static synchronized boolean verifierPresentInPreviousTwoCycles(byte[] identifier) {
@@ -291,7 +291,7 @@ public class BlockManager {
 
     private static synchronized void updateVerifiersInPreviousTwoCycles(Block block) {
 
-        verifiersInPreviousCycle.clear();
+        verifiersInCurrentCycle.clear();
         Map<ByteBuffer, Integer> verifierCounts = new HashMap<>();
         boolean foundOneCycle = false;
         boolean foundTwoCycles = false;
@@ -310,7 +310,7 @@ public class BlockManager {
             }
 
             if (!foundOneCycle) {
-                verifiersInPreviousCycle.add(identifierBuffer);
+                verifiersInCurrentCycle.add(identifierBuffer);
             }
 
             inGenesisCycle = previousBlock.getBlockHeight() == 0 && !foundOneCycle;

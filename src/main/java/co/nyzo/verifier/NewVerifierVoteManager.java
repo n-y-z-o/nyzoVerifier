@@ -36,7 +36,7 @@ public class NewVerifierVoteManager {
         // reality, we are highly unlikely to ever lose more than one vote at a time due to this simplification.
 
         Set<ByteBuffer> verifiers = new HashSet<>(voteMap.keySet());
-        Set<ByteBuffer> currentCycle = BlockManager.verifiersInPreviousCycle();
+        Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycle();
         for (ByteBuffer verifier : verifiers) {
             if (!currentCycle.contains(verifier)) {
                 voteMap.remove(verifier);
@@ -49,7 +49,7 @@ public class NewVerifierVoteManager {
         List<ByteBuffer> topVerifiers = new ArrayList<>();
 
         Map<ByteBuffer, Integer> votesPerVerifier = new HashMap<>();
-        Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInPreviousCycle();
+        Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycle();
 
         // If the voting verifiers list is empty, accept votes from all verifiers. This will happen only rarely, if
         // ever, but this condition is helpful for testing.

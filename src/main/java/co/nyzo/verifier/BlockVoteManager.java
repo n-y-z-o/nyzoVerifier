@@ -77,7 +77,7 @@ public class BlockVoteManager {
         if (votesForHeight != null) {
 
             Map<ByteBuffer, Integer> votesPerHash = new HashMap<>();
-            Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInPreviousCycle();
+            Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycle();
 
             // This is a work-around for the Genesis cycle only. This is not especially robust, but it does not matter,
             // because it will only be used for the first cycle at the beginning of the block chain.
