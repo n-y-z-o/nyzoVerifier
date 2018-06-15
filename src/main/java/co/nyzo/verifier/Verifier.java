@@ -345,6 +345,7 @@ public class Verifier {
                 ByteUtil.arrayAsStringWithDashes(message.getSourceNodeIdentifier()) + ":" + response);
 
         // Add the nodes to the node manager.
+        // TODO: we should be able to remove this -- the mesh is already provided earlier from the trusted verifiers
         for (Node node : response.getMesh()) {
             NodeManager.updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(), node.getQueueTimestamp());
         }

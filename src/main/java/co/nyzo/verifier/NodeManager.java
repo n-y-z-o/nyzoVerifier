@@ -1,7 +1,6 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
@@ -9,12 +8,7 @@ import java.util.*;
 
 public class NodeManager {
 
-    // TODO: add logic to ensure that a verifier in the previous two cycles is not overwritten; this is to prevent a
-    // TODO: manipulation where multiple verifiers could move to the same IP address after getting into the verification
-    // TODO: cycle to free up a different IP address for another new verifier
-
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new HashMap<>();
-    private static final Map<ByteBuffer, Node> ipAddressToNodeMapInactive = new HashMap<>();
 
     private static final int consecutiveFailuresBeforeRemoval = 6;
     private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
@@ -30,44 +24,29 @@ public class NodeManager {
                 IpUtil.addressAsString(ipAddress));
 
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
-                ipAddress.length == FieldByteSize.ipAddress) {
+                ipAddress.length == FieldByteSize.ipAddress && !IpUtil.isPrivate(ipAddress)) {
 
-            // This logic enforces much of the one-verifier-per-IP rule.
-
-            // First, try to get the node from the active map.
+            // Try to get the node from the map.
             ByteBuffer ipAddressBuffer = ByteBuffer.wrap(ipAddress);
             Node existingNode = ipAddressToNodeMap.get(ipAddressBuffer);
 
-            // If the node is not in the active map, try to get it from the inactive map. If present, add it back
-            // to the active map.
+            // If no other node is at the IP, add a new node. If there is already a node at the IP address, update the
+            // port and, if necessary, the verifier. If the verifier is updated, reset the queue timestamp.
             if (existingNode == null) {
-                existingNode = ipAddressToNodeMapInactive.remove(ipAddressBuffer);
-                if (existingNode != null) {
-                    ipAddressToNodeMap.put(ipAddressBuffer, existingNode);
-                    System.out.println("moved verifier from inactive to active");
-                }
-            }
-
-            if (existingNode == null) {
-                // This is the simple case. If no other verifier is at this IP, add the verifier.
                 Node node = new Node(identifier, ipAddress, port);
                 if (queueTimestamp > 0) {
                     node.setQueueTimestamp(queueTimestamp);
                 }
                 ipAddressToNodeMap.put(ipAddressBuffer, node);
-            } else if (ByteUtil.arraysAreEqual(identifier, existingNode.getIdentifier())) {
-                // If the identifiers are the same, update the port.
-                existingNode.setPort(port);
+
             } else {
-                // This is the case of a new verifier taking over an existing IP address. This is where we are most
-                // likely to have manipulation. This is allowed, but only if the existing verifier at this IP did not
-                // verify a block in the previous two cycles.
-                if (!BlockManager.verifierPresentInPreviousTwoCycles(existingNode.getIdentifier())) {
-                    Node node = new Node(identifier, ipAddress, port);
-                    if (queueTimestamp > 0) {
-                        node.setQueueTimestamp(queueTimestamp);
-                    }
-                    ipAddressToNodeMap.put(ipAddressBuffer, node);
+                // Always update the port.
+                existingNode.setPort(port);
+
+                // If the verifier has changed, set the identifier and reset the queue timestamp.
+                if (!ByteUtil.arraysAreEqual(existingNode.getIdentifier(), identifier)) {
+                    existingNode.setIdentifier(identifier);
+                    existingNode.setQueueTimestamp(System.currentTimeMillis());
                 }
             }
         }
@@ -131,41 +110,6 @@ public class NodeManager {
 
     private static synchronized void removeNodeFromMesh(ByteBuffer addressBuffer) {
 
-        // If a node has verified in the past two cycles, we keep a record of it in the inactive map. This protects
-        // against the verifier jumping in and out of the network to allow multiple verifiers at the same IP address.
-        Node node = ipAddressToNodeMap.remove(addressBuffer);
-        if (node != null) {
-            NotificationUtil.send("removing node " + NicknameManager.get(node.getIdentifier()) + " from " +
-                    "mesh of node " + Verifier.getNickname());
-
-            if (BlockManager.verifierPresentInPreviousTwoCycles(node.getIdentifier())) {
-                ipAddressToNodeMapInactive.put(addressBuffer, node);
-            } else {
-                System.out.println("not adding to inactive because " +
-                        PrintUtil.compactPrintByteArray(node.getIdentifier()) + " is not a recent verifier");
-            }
-
-            // This is a good place to remove verifiers that no longer need to be in the inactive map.
-            cleanInactiveMap();
-        } else {
-            System.out.println("not adding to inactive because node is null");
-        }
-    }
-
-    private static synchronized void cleanInactiveMap() {
-
-        Set<ByteBuffer> addressesInMap = new HashSet<>(ipAddressToNodeMapInactive.keySet());
-        for (ByteBuffer address : addressesInMap) {
-            Node node = ipAddressToNodeMapInactive.get(address);
-            if (node != null && !BlockManager.verifierPresentInPreviousTwoCycles(node.getIdentifier())) {
-                ipAddressToNodeMapInactive.remove(address);
-                System.out.println("removed inactive node in cleanup");
-            }
-        }
-    }
-
-    // This method is temporary, for testing.
-    public static int numberOfInactiveNodes() {
-        return ipAddressToNodeMapInactive.size();
+        ipAddressToNodeMap.remove(addressBuffer);
     }
 }
