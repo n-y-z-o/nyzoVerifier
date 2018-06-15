@@ -260,8 +260,9 @@ public class ChainOptionManager {
         // a discontinuity exists.
 
         long leadingEdgeHeight = -1;
+        long openEdgeHeight = BlockManager.openEdgeHeight(true);
         for (Long height : unfrozenBlocks.keySet()) {
-            if (height > leadingEdgeHeight) {
+            if (height > leadingEdgeHeight && height <= openEdgeHeight) {
                 List<Block> blocksForHeight = unfrozenBlocks.get(height);
                 for (int i = 0; i < blocksForHeight.size() && leadingEdgeHeight < height; i++) {
                     Block block = blocksForHeight.get(i);

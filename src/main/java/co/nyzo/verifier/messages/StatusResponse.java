@@ -45,7 +45,7 @@ public class StatusResponse implements MessageObject {
                     String heightString = "f+" + (height - frozenEdgeHeight);
                     lines.add("- h: " + heightString + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
                             ", v: " + BlockVoteManager.votesAtHeight(height) +
-                            ", s: " + ChainOptionManager.bestScoreForHeight(height) +
+                            ", s: " + printScore(ChainOptionManager.bestScoreForHeight(height)) +
                             ", t: " + ChainOptionManager.votingScoreThresholdForHeight(height));
                 }
             }
@@ -132,5 +132,19 @@ public class StatusResponse implements MessageObject {
     public static synchronized void setField(String key, String value) {
 
         extraFields.put(key, value);
+    }
+
+    private static String printScore(long score) {
+
+        String result;
+        if (score == Long.MAX_VALUE) {
+            result = "H";
+        } else if (score == Long.MAX_VALUE - 1) {
+            result = "H-1";
+        } else {
+            result = score + "";
+        }
+
+        return result;
     }
 }
