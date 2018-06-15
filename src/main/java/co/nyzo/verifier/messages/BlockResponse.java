@@ -42,6 +42,11 @@ public class BlockResponse implements MessageObject {
 
     public BlockResponse(BalanceList initialBalanceList, List<Block> blocks) {
 
+        if (initialBalanceList != null && blocks.size() > 0 && initialBalanceList.getBlockHeight() ==
+                blocks.get(0).getBlockHeight()) {
+            blocks.get(0).setBalanceList(initialBalanceList);
+        }
+
         this.initialBalanceList = initialBalanceList;
         this.blocks = blocks;
     }
@@ -110,5 +115,10 @@ public class BlockResponse implements MessageObject {
         }
 
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return "[BlockResponse(blocks=" + blocks.size() + "]";
     }
 }
