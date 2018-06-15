@@ -334,7 +334,9 @@ public class Message {
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
-                content = UpdateResponse.fromByteBuffer(buffer);
+            content = UpdateResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.UnfrozenBlockPoolPurgeResponse405) {
+            content = UnfrozenBlockPoolPurgeResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.ResetResponse501) {
             content = BooleanMessageResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Error65534) {

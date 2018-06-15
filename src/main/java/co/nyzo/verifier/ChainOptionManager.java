@@ -396,4 +396,9 @@ public class ChainOptionManager {
 
         return block;
     }
+
+    public static synchronized void purge() {
+
+        unfrozenBlocks.clear();
+    }
 }

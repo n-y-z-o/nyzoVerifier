@@ -36,10 +36,12 @@ public enum MessageType {
     UpdateResponse301(301),
 
     // debugging messages -- these are meant to cause problems to test resiliency
-    BlockRejectionRequest(400),  // discards all blocks received for the next 10 seconds
-    BlockRejectionResponse(401),
-    DetachmentRequest(402),  // stops producing blocks for two verifier cycles
-    DetachmentResponse(403),
+    BlockRejectionRequest400(400),  // discards all blocks received for the next 10 seconds
+    BlockRejectionResponse401(401),
+    DetachmentRequest402(402),  // stops producing blocks for two verifier cycles
+    DetachmentResponse403(403),
+    UnfrozenBlockPoolPurgeRequest404(404),  // clears the unfrozen block pool
+    UnfrozenBlockPoolPurgeResponse405(405),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain   TODO: remove this before public release

@@ -176,6 +176,11 @@ public class MeshListener {
 
                     response = new Message(MessageType.UpdateResponse301, new UpdateResponse(message));
 
+                } else if (messageType == MessageType.UnfrozenBlockPoolPurgeRequest404) {
+
+                    response = new Message(MessageType.UnfrozenBlockPoolPurgeResponse405,
+                            new UnfrozenBlockPoolPurgeResponse(message));
+
                 } else if (messageType == MessageType.ResetRequest500) {
 
                     boolean success = ByteUtil.arraysAreEqual(message.getSourceNodeIdentifier(), Block.genesisVerifier);
