@@ -569,4 +569,9 @@ public class Block implements MessageObject {
 
         return score;
     }
+
+    @Override
+    public String toString() {
+        return "[Block: height=" + getBlockHeight() + ", hash=" + PrintUtil.compactPrintByteArray(getHash()) + "]";
+    }
 }
