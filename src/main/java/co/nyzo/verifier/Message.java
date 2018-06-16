@@ -331,6 +331,8 @@ public class Message {
             content = StatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.BlockVote19) {
             content = BlockVote.fromByteBuffer(buffer);
+        } else if (type == MessageType.NewVerifierVote21) {
+            content = NewVerifierVote.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {

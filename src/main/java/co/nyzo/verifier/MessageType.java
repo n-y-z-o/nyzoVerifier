@@ -26,6 +26,8 @@ public enum MessageType {
     StatusResponse18(18),
     BlockVote19(19),
     BlockVoteResponse20(20),
+    NewVerifierVote21(21),
+    NewVerifierVoteResponse22(22),
 
     // test messages
     Ping200(200),

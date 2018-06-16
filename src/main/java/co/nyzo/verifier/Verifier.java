@@ -409,7 +409,6 @@ public class Verifier {
                         }
                     }
 
-
                     // The next steps are all about trying to freeze blocks. First, we freeze blocks based on votes
                     // we have received. Then, we cast votes based on the new state of the unfrozen blocks.
                     ChainOptionManager.freezeBlocks();
@@ -417,6 +416,11 @@ public class Verifier {
 
                     // Remove old votes from the block vote manager.
                     BlockVoteManager.removeOldVotes();
+
+                    // If the frozen edge height has changed, update the new-verifier vote.
+                    if (frozenEdgeHeight != BlockManager.frozenEdgeHeight()) {
+                        NewVerifierQueueManager.updateVote();
+                    }
                 }
 
             } catch (Exception reportOnly) {
