@@ -21,7 +21,7 @@ public class NewVerifierVote implements MessageObject {
         byte[] bufferArray = new byte[FieldByteSize.identifier + FieldByteSize.ipAddress];
         byteBuffer = ByteBuffer.wrap(bufferArray);
         byteBuffer.put(this.identifier);
-        byteBuffer.put(this.byteBuffer);
+        byteBuffer.put(this.ipAddress);
         byteBuffer.rewind();  // hashCode is calculated from position
     }
 
