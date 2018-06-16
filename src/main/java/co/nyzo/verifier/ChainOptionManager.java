@@ -340,15 +340,13 @@ public class ChainOptionManager {
             blockToExtend = BlockManager.frozenBlockForHeight(blockHeight);
         } else {
             List<Block> blocks = unfrozenBlocks.get(blockHeight);
+            long verificationTimeThreshold = System.currentTimeMillis() - Block.minimumVerificationInterval;
             if (blocks != null) {
                 for (Block block : blocks) {
-                    if (blockToExtend == null ||
-                            block.chainScore(frozenEdgeHeight) < blockToExtend.chainScore(frozenEdgeHeight)) {
+                    if (block.getVerificationTimestamp() < verificationTimeThreshold &&
+                            (blockToExtend == null ||
+                                    block.chainScore(frozenEdgeHeight) < blockToExtend.chainScore(frozenEdgeHeight))) {
                         blockToExtend = block;
-                    } else if (block.chainScore(frozenEdgeHeight) == blockToExtend.chainScore(frozenEdgeHeight)) {
-
-                        // This can only happen in the case of a new verifier.
-                        System.out.println("chain score is equal for two blocks");
                     }
                 }
             }
