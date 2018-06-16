@@ -403,7 +403,8 @@ public class Verifier {
 
                         // Get the block to extend for the height from the chain option manager.
                         Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
-                        if (blockToExtend != null) {
+                        if (blockToExtend != null && blockToExtend.getVerificationTimestamp() <
+                                System.currentTimeMillis() - Block.minimumVerificationInterval) {
                             extendBlock(blockToExtend);
                         }
                     }
