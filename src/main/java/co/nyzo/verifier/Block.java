@@ -10,6 +10,8 @@ import java.util.*;
 
 public class Block implements MessageObject {
 
+    // TODO: ensure verification interval is enforced in both registration and freezing of blocks
+
     public enum DiscontinuityState {
         Undetermined,
         IsDiscontinuity,
