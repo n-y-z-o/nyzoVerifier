@@ -476,59 +476,7 @@ public class Block implements MessageObject {
         balance += amount;
         identifierToBalanceMap.put(identifierBuffer, balance);
     }
-
-    public static boolean isValidGenesisBlock(Block block, StringBuilder error) {
-
-        if (error == null) {
-            error = new StringBuilder();
-        }
-
-        boolean valid = true;
-        if (block.getBlockHeight() != 0L) {
-            error.append("The block height is " + block.getBlockHeight() + ", but the only valid height for a " +
-                    "Genesis block is 0. ");
-            valid = false;
-        }
-
-        if (block.getTransactions().size() == 1) {
-            Transaction transaction = block.getTransactions().get(0);
-            if (transaction.getType() != Transaction.typeCoinGeneration) {
-                error.append("The only valid transaction type in the Genesis block is coin generation (type " +
-                        Transaction.typeCoinGeneration + "). The transaction in this block is of type " +
-                        transaction.getType() + ". ");
-                valid = false;
-            }
-            if (transaction.getAmount() != Transaction.micronyzosInSystem) {
-                error.append("The Genesis block transaction must be for exactly " +
-                        PrintUtil.printAmount(Transaction.micronyzosInSystem) + ". The transaction in this block is " +
-                        "for " + PrintUtil.printAmount(transaction.getAmount()) + ". ");
-                valid = false;
-            }
-        } else {
-            error.append("The Genesis block must have exactly 1 transaction. This block has " +
-                    block.getTransactions().size() + " transactions. ");
-            valid = false;
-        }
-
-        if (!ByteUtil.arraysAreEqual(block.getVerifierIdentifier(), Block.genesisVerifier)) {
-            error.append("The Genesis block must be verified by " +
-                    ByteUtil.arrayAsStringWithDashes(Block.genesisVerifier) + ". This block was verified by " +
-                    ByteUtil.arrayAsStringWithDashes(block.getVerifierIdentifier()) + ". ");
-            valid = false;
-        }
-
-        if (!block.signatureIsValid()) {
-            error.append("The signature is not valid. ");
-            valid = false;
-        }
-
-        if (error.length() > 0 && error.charAt(error.length() - 1) == ' ') {
-            error.deleteCharAt(error.length() - 1);
-        }
-
-        return valid;
-    }
-
+    
     public long chainScore(long zeroBlockHeight) {
 
         // This score is always relative to a provided block height. The zero block height has a score of zero, and
