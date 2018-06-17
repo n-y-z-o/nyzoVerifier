@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NewVerifierVote;
 import co.nyzo.verifier.util.NotificationUtil;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -22,7 +23,7 @@ public class NewVerifierQueueManager {
 
             Message message = new Message(MessageType.NewVerifierVote21, vote);
             Message.broadcast(message);
-            NotificationUtil.sendOnce("sent vote for verifier " + vote.getIdentifier());
+            NotificationUtil.send("sent vote for verifier " + PrintUtil.compactPrintByteArray(vote.getIdentifier()));
 
             currentVote = vote;
         }
