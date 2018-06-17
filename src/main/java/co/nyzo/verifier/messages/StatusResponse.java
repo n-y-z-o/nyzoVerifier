@@ -25,11 +25,15 @@ public class StatusResponse implements MessageObject {
 
             long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
 
+            int meshSize = NodeManager.getMeshSize();
+            int activeMeshSize = NodeManager.getActiveMeshSize();
+            int inactiveMeshSize = meshSize - activeMeshSize;
+
             List<String> lines = new ArrayList<>();
             lines.add("nickname: " + Verifier.getNickname());
             lines.add("version: " + Verifier.getVersion());
             lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
-            lines.add("mesh: " + NodeManager.getMesh().size() + " active");
+            lines.add("mesh: " + activeMeshSize + " active, " + inactiveMeshSize + " inactive");
             lines.add("transactions: " + TransactionPool.transactionPoolSize());
             lines.add("frozen edge: " + frozenEdgeHeight);
             lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());

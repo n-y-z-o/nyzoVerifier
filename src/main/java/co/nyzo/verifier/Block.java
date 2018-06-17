@@ -482,9 +482,9 @@ public class Block implements MessageObject {
 
         // This score is always relative to a provided block height. The zero block height has a score of zero, and
         // each subsequent block affects the score as follows:
-        // - a new verifier subtracts 3 but adds 2 times the verifier's position in the queue
-        // - an existing verifier adds the verifier's position in the cycle multiplied by 2
-        // - a discontinuity adds a large penalty score
+        // - a new verifier subtracts 6 but adds 4 times the verifier's position in the queue
+        // - an existing verifier adds the verifier's position in the cycle multiplied by 4
+        // - an existing verifier that is no longer in the mesh or shares an IP with another verifier adds 5
 
         long score = 0L;
         Block block = this;
@@ -497,20 +497,21 @@ public class Block implements MessageObject {
                 if (discontinuityState == DiscontinuityState.IsDiscontinuity) {
                     score = Long.MAX_VALUE;  // invalid
                 } else if (cycleInformation.isNewVerifier()) {
-                    score -= 3L;
+                    score -= 6L;
 
                     List<NewVerifierVote> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
-                    /*
                     ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());
                     int indexInQueue = topNewVerifiers.indexOf(verifierIdentifier);
                     if (indexInQueue < 0) {
                         score = Long.MAX_VALUE - 1;
                     } else {
                         score += indexInQueue * 2L;
-                    }*/
-                    score = Long.MAX_VALUE - 1;
+                    }
                 } else {
-                    score += cycleInformation.getBlockVerifierIndexInCycle() * 2L;
+                    score += cycleInformation.getBlockVerifierIndexInCycle() * 4L;
+                    if (!NodeManager.isActive(verifierIdentifier)) {
+                        score += 5L;
+                    }
                 }
             }
 

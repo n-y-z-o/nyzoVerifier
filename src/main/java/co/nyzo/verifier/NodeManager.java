@@ -1,6 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
@@ -8,6 +9,7 @@ import java.util.*;
 
 public class NodeManager {
 
+    private static Set<ByteBuffer> activeVerifiers = new HashSet<>();
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new HashMap<>();
 
     private static final int consecutiveFailuresBeforeRemoval = 6;
@@ -30,9 +32,8 @@ public class NodeManager {
             ByteBuffer ipAddressBuffer = ByteBuffer.wrap(ipAddress);
             Node existingNode = ipAddressToNodeMap.get(ipAddressBuffer);
 
-            // If no other node is at the IP, add a new node. If there is already a node at the IP address, update the
-            // port and, if necessary, the verifier. If the verifier is updated, reset the queue timestamp.
             if (existingNode == null) {
+                // This is the case when no other node is at the IP. We create a new node and add it to the map.
                 Node node = new Node(identifier, ipAddress, port);
                 if (queueTimestamp > 0) {
                     node.setQueueTimestamp(queueTimestamp);
@@ -40,11 +41,15 @@ public class NodeManager {
                 ipAddressToNodeMap.put(ipAddressBuffer, node);
 
             } else {
-                // Always update the port.
-                existingNode.setPort(port);
+                // This is the case when there is already a node at the IP. We always update the port and mark the node
+                // as active. Then, if the verifier has changed and a verifier change is allowed, we update the
+                // verifier.
 
-                // If the verifier has changed, set the identifier and reset the queue timestamp.
-                if (!ByteUtil.arraysAreEqual(existingNode.getIdentifier(), identifier)) {
+                existingNode.setPort(port);
+                existingNode.setInactiveTimestamp(-1L);
+
+                if (!ByteUtil.arraysAreEqual(existingNode.getIdentifier(), identifier) &&
+                        verifierChangeAllowed(existingNode)) {
                     existingNode.setIdentifier(identifier);
                     existingNode.setQueueTimestamp(System.currentTimeMillis());
                 }
@@ -52,8 +57,22 @@ public class NodeManager {
         }
     }
 
+    private static boolean verifierChangeAllowed(Node node) {
+
+        long blocksSinceChange = (System.currentTimeMillis() - node.getQueueTimestamp()) / Block.blockDuration;
+        return blocksSinceChange > BlockManager.currentCycleLength() + 2;
+    }
+
     public static synchronized List<Node> getMesh() {
         return new ArrayList<>(ipAddressToNodeMap.values());
+    }
+
+    public static int getMeshSize() {
+        return ipAddressToNodeMap.size();
+    }
+
+    public static int getActiveMeshSize() {
+        return activeVerifiers.size();
     }
 
     public static boolean connectedToMesh() {
@@ -105,11 +124,39 @@ public class NodeManager {
         if (address != null) {
             ByteBuffer addressBuffer = ByteBuffer.wrap(address);
             ipAddressToFailureCountMap.remove(addressBuffer);
+            Node node = ipAddressToNodeMap.get(addressBuffer);
+            if (node != null) {
+                node.setInactiveTimestamp(-1L);
+            }
         }
     }
 
     private static synchronized void removeNodeFromMesh(ByteBuffer addressBuffer) {
 
-        ipAddressToNodeMap.remove(addressBuffer);
+        Node node = ipAddressToNodeMap.get(addressBuffer);
+        node.setInactiveTimestamp(System.currentTimeMillis());
+    }
+
+    public static boolean isActive(byte[] verifierIdentifier) {
+
+        return activeVerifiers.contains(ByteBuffer.wrap(verifierIdentifier));
+    }
+
+    public static synchronized void updateActiveVerifiersAndRemoveOldNodes() {
+
+        Set<ByteBuffer> activeVerifiers = new HashSet<>();
+        long thresholdTimestamp = System.currentTimeMillis() - Block.blockDuration *
+                BlockManager.currentCycleLength() * 2;
+        for (ByteBuffer ipAddress : new HashSet<>(ipAddressToNodeMap.keySet())) {
+            Node node = ipAddressToNodeMap.get(ipAddress);
+            if (node.isActive()) {
+                activeVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
+            } else if (node.getInactiveTimestamp() < thresholdTimestamp) {
+                ipAddressToNodeMap.remove(ipAddress);
+                NotificationUtil.send("removed node " + NicknameManager.get(node.getIdentifier()) + " from mesh");
+            }
+        }
+
+        NodeManager.activeVerifiers = activeVerifiers;
     }
 }

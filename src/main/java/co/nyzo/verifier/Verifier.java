@@ -380,6 +380,9 @@ public class Verifier {
                         sendNodeJoinRequests();
                     }
 
+                    // Perform setup tasks for the NodeManager.
+                    NodeManager.updateActiveVerifiersAndRemoveOldNodes();
+
                     // Clean up the map of blocks we have extended. We will never extend behind the frozen edge, so
                     // those can be removed. This map is used to ensure that we do not extend the same block more than
                     // once.

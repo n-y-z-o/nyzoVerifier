@@ -20,6 +20,7 @@ public class BlockManager {
     private static final Set<ByteBuffer> verifiersInCurrentCycle = new HashSet<>();
     private static final Set<ByteBuffer> verifiersInPreviousTwoCycles = new HashSet<>();
     private static long genesisBlockStartTimestamp = -1L;
+    private static int currentCycleLength = 0;
 
     static {
         initialize();
@@ -279,6 +280,11 @@ public class BlockManager {
         return inGenesisCycle;
     }
 
+    public static int currentCycleLength() {
+
+        return currentCycleLength;
+    }
+
     public static synchronized Set<ByteBuffer> verifiersInCurrentCycle() {
 
         return new HashSet<>(verifiersInCurrentCycle);
@@ -323,5 +329,7 @@ public class BlockManager {
 
         verifiersInPreviousTwoCycles.clear();
         verifiersInPreviousTwoCycles.addAll(verifierCounts.keySet());
+
+        currentCycleLength = verifiersInCurrentCycle.size();
     }
 }

@@ -92,8 +92,10 @@ public class Message {
         // Send the message to all nodes in the mesh.
         List<Node> mesh = NodeManager.getMesh();
         for (Node node : mesh) {
-            String ipAddress = IpUtil.addressAsString(node.getIpAddress());
-            fetch(ipAddress, node.getPort(), message, null);
+            if (node.isActive()) {
+                String ipAddress = IpUtil.addressAsString(node.getIpAddress());
+                fetch(ipAddress, node.getPort(), message, null);
+            }
         }
     }
 

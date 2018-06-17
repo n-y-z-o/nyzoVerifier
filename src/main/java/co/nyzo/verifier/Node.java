@@ -12,7 +12,9 @@ public class Node implements MessageObject {
     private byte[] ipAddress;                     // IPv4 address, stored as bytes to keep memory predictable (4 bytes)
     private int port;                             // port number
     private long queueTimestamp;                  // this is the timestamp that determines queue placement -- it is
-                                                  // when the verifier joined the mesh
+                                                  // when the verifier joined the mesh or when the verifier was last
+                                                  // updated
+    private long inactiveTimestamp;               // when the verifier was marked as inactive; -1 for active verifiers
 
     public Node(byte[] identifier, byte[] ipAddress, int port) {
 
@@ -20,6 +22,7 @@ public class Node implements MessageObject {
         this.ipAddress = Arrays.copyOf(ipAddress, FieldByteSize.ipAddress);
         this.port = port;
         this.queueTimestamp = System.currentTimeMillis();
+        this.inactiveTimestamp = -1L;
     }
 
     public byte[] getIdentifier() {
@@ -46,11 +49,21 @@ public class Node implements MessageObject {
         return queueTimestamp;
     }
 
-    // This method is used to set an initial queue timestamp when a node list is provided by another node or when
-    // constructed from a byte buffer.
     public void setQueueTimestamp(long queueTimestamp) {
         this.queueTimestamp = queueTimestamp;
     }
+
+    public long getInactiveTimestamp() {
+        return inactiveTimestamp;
+    }
+
+    public void setInactiveTimestamp(long inactiveTimestamp) {
+        this.inactiveTimestamp = inactiveTimestamp;
+    }
+
+     public boolean isActive() {
+         return inactiveTimestamp < 0;
+     }
 
     public static int getByteSizeStatic() {
 
