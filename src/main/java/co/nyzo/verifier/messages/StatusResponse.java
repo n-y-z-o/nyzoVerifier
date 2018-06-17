@@ -136,7 +136,11 @@ public class StatusResponse implements MessageObject {
 
     public static synchronized void setField(String key, String value) {
 
-        extraFields.put(key, value);
+        if (value == null) {
+            extraFields.remove(key);
+        } else {
+            extraFields.put(key, value);
+        }
     }
 
     private static String printScore(long score) {

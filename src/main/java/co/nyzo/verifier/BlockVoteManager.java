@@ -116,7 +116,8 @@ public class BlockVoteManager {
                         PrintUtil.compactPrintByteArray(winningHash) + ", h: +" +
                         (height - BlockManager.frozenEdgeHeight()));
             }
-            StatusResponse.setField("in Genesis cycle", BlockManager.inGenesisCycle() + "");
+
+            StatusResponse.setField("in Genesis cycle", BlockManager.inGenesisCycle() ? "true" : null);
         }
 
         return winningHash;
