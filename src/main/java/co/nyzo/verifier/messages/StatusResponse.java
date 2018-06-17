@@ -34,6 +34,7 @@ public class StatusResponse implements MessageObject {
             lines.add("version: " + Verifier.getVersion());
             lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
             lines.add("mesh: " + activeMeshSize + " active, " + inactiveMeshSize + " inactive");
+            lines.add("cycle length: " + BlockManager.currentCycleLength());
             lines.add("transactions: " + TransactionPool.transactionPoolSize());
             lines.add("frozen edge: " + frozenEdgeHeight);
             lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
