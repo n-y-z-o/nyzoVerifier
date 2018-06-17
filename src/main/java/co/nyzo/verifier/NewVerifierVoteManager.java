@@ -15,18 +15,19 @@ public class NewVerifierVoteManager {
 
     // The local vote is redundant, but it is a simple and efficient way to store the local vote for responding to
     // node-join messages.
-    private static final NewVerifierVote localVote = null;
+    private static NewVerifierVote localVote = null;
     private static final Map<ByteBuffer, NewVerifierVote> voteMap = new HashMap<>();
 
     public static synchronized void registerVote(byte[] votingIdentifier, NewVerifierVote vote, boolean isLocalVote) {
 
         // Register the vote. The map ensures that each identifier only gets one vote. Some of the votes may not count.
         // Votes are only counted for verifiers in the previous cycle.
-        voteMap.put(ByteBuffer.wrap(votingIdentifier), vote);
-
-        if (isLocalVote) {
-            System.arraycopy(localVote, 0, vote.getIdentifier(), 0, FieldByteSize.identifier);
+        ByteBuffer votingIdentifierBuffer = ByteBuffer.wrap(votingIdentifier);
+        if (BlockManager.verifierInCurrentCycle(votingIdentifierBuffer)) {
+            voteMap.put(votingIdentifierBuffer, vote);
         }
+
+        localVote = vote;
     }
 
     public static synchronized void removeOldVotes() {
@@ -88,6 +89,4 @@ public class NewVerifierVoteManager {
 
         return localVote;
     }
-
-
 }

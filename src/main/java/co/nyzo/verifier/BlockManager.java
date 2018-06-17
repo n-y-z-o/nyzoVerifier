@@ -285,6 +285,11 @@ public class BlockManager {
         return new HashSet<>(verifiersInCurrentCycle);
     }
 
+    public static synchronized boolean verifierInCurrentCycle(ByteBuffer identifier) {
+
+        return verifiersInCurrentCycle.contains(identifier);
+    }
+
     private static synchronized void updateVerifiersInCurrentCycle(Block block) {
 
         boolean foundOneCycle = false;

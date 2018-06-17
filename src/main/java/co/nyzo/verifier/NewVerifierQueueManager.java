@@ -1,6 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NewVerifierVote;
+import co.nyzo.verifier.util.NotificationUtil;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -21,6 +22,7 @@ public class NewVerifierQueueManager {
 
             Message message = new Message(MessageType.NewVerifierVote21, vote);
             Message.broadcast(message);
+            NotificationUtil.sendOnce("sent vote for verifier " + vote.getIdentifier());
 
             currentVote = vote;
         }
@@ -28,14 +30,12 @@ public class NewVerifierQueueManager {
 
     private static synchronized NewVerifierVote calculateVote() {
 
-        // TODO: exclude all IP addresses that have been used for entry for verifiers in the current cycle
-
         Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycle();
 
         List<Node> mesh = NodeManager.getMesh();
         Node oldestNewVerifier = null;
         for (Node node : mesh) {
-            if (!currentCycle.contains(ByteBuffer.wrap(node.getIdentifier()))) {
+            if (node.isActive() && !currentCycle.contains(ByteBuffer.wrap(node.getIdentifier()))) {
                 if (oldestNewVerifier == null || node.getQueueTimestamp() < oldestNewVerifier.getQueueTimestamp()) {
                     oldestNewVerifier = node;
                 }
