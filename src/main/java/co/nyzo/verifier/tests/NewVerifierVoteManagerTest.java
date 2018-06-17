@@ -31,7 +31,7 @@ public class NewVerifierVoteManagerTest {
         NewVerifierVoteManager.registerVote(id(8), vote(2), false);
         NewVerifierVoteManager.registerVote(id(9), vote(2), false);
 
-        List<NewVerifierVote> topVerifiers = NewVerifierVoteManager.topVerifiers();
+        List<ByteBuffer> topVerifiers = NewVerifierVoteManager.topVerifiers();
         printVerifiers(topVerifiers);
 
         // Remove all "old verifiers" from voting. In this test, this should clear the vote map complete.
@@ -56,19 +56,17 @@ public class NewVerifierVoteManagerTest {
         identifier[FieldByteSize.identifier - 1] = (byte) value;
         byte[] ipAddress = IpUtil.addressFromString("127.0.0.1");
 
-        return new NewVerifierVote(identifier, ipAddress);
+        return new NewVerifierVote(identifier);
     }
 
-    private static void printVerifiers(List<NewVerifierVote> verifiers) {
+    private static void printVerifiers(List<ByteBuffer> verifiers) {
 
         if (verifiers.isEmpty()) {
             System.out.println("***** verifiers list is empty *****");
         } else {
             for (int i = 0; i < verifiers.size(); i++) {
-                byte[] identifier = verifiers.get(i).getIdentifier();
-                byte[] ipAddress = verifiers.get(i).getIpAddress();
-                System.out.println("verifier " + i + ": " + PrintUtil.compactPrintByteArray(identifier) + ":" +
-                        ipAddress);
+                byte[] identifier = verifiers.get(i).array();
+                System.out.println("verifier " + i + ": " + PrintUtil.compactPrintByteArray(identifier));
             }
         }
     }

@@ -10,38 +10,25 @@ import java.util.Arrays;
 public class NewVerifierVote implements MessageObject {
 
     private byte[] identifier;
-    private byte[] ipAddress;
-    private ByteBuffer byteBuffer;  // for the hashCode and equals methods
 
-    public NewVerifierVote(byte[] identifier, byte[] ipAddress) {
+    public NewVerifierVote(byte[] identifier) {
 
         this.identifier = identifier;
-        this.ipAddress = ipAddress;
-
-        byte[] bufferArray = new byte[FieldByteSize.identifier + FieldByteSize.ipAddress];
-        byteBuffer = ByteBuffer.wrap(bufferArray);
-        byteBuffer.put(this.identifier);
-        byteBuffer.put(this.ipAddress);
-        byteBuffer.rewind();  // hashCode is calculated from position
     }
 
     public byte[] getIdentifier() {
         return identifier;
     }
 
-    public byte[] getIpAddress() {
-        return ipAddress;
-    }
-
     @Override
     public int getByteSize() {
-        return byteBuffer.array().length;
+        return FieldByteSize.identifier;
     }
 
     @Override
     public byte[] getBytes() {
 
-        return Arrays.copyOf(byteBuffer.array(), byteBuffer.array().length);
+        return Arrays.copyOf(identifier, FieldByteSize.identifier);
     }
 
     public static NewVerifierVote fromByteBuffer(ByteBuffer buffer) {
@@ -51,24 +38,12 @@ public class NewVerifierVote implements MessageObject {
         try {
             byte[] identifier = new byte[FieldByteSize.identifier];
             buffer.get(identifier);
-            byte[] ipAddress = new byte[FieldByteSize.ipAddress];
-            buffer.get(ipAddress);
 
-            result = new NewVerifierVote(identifier, ipAddress);
+            result = new NewVerifierVote(identifier);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }
 
         return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        return (obj instanceof NewVerifierVote) && ((NewVerifierVote) obj).byteBuffer.equals(byteBuffer);
-    }
-
-    @Override
-    public int hashCode() {
-        return byteBuffer.hashCode();
     }
 }

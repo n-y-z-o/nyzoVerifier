@@ -10,26 +10,24 @@ import java.util.Set;
 
 public class NewVerifierQueueManager {
 
-    private static NewVerifierVote currentVote = null;
+    private static ByteBuffer currentVote = null;
 
     public static synchronized void updateVote() {
 
-        NewVerifierVote vote = calculateVote();
+        ByteBuffer vote = calculateVote();
 
         // Only update if the new vote is not null and the current vote is either null or different than the new vote.
-        if (vote != null && (currentVote == null ||
-                !ByteUtil.arraysAreEqual(vote.getIdentifier(), currentVote.getIdentifier()) ||
-                !ByteUtil.arraysAreEqual(vote.getIpAddress(), currentVote.getIpAddress()))) {
+        if (vote != null && (currentVote == null || !vote.equals(currentVote))) {
 
-            Message message = new Message(MessageType.NewVerifierVote21, vote);
+            Message message = new Message(MessageType.NewVerifierVote21, new NewVerifierVote(vote.array()));
             Message.broadcast(message);
-            NotificationUtil.send("sent vote for verifier " + PrintUtil.compactPrintByteArray(vote.getIdentifier()));
+            NotificationUtil.send("sent vote for verifier " + PrintUtil.compactPrintByteArray(vote.array()));
 
             currentVote = vote;
         }
     }
 
-    private static synchronized NewVerifierVote calculateVote() {
+    private static synchronized ByteBuffer calculateVote() {
 
         Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycle();
 
@@ -43,7 +41,6 @@ public class NewVerifierQueueManager {
             }
         }
 
-        return oldestNewVerifier == null ? null : new NewVerifierVote(oldestNewVerifier.getIdentifier(),
-                oldestNewVerifier.getIpAddress());
+        return oldestNewVerifier == null ? null : ByteBuffer.wrap(oldestNewVerifier.getIdentifier());
     }
 }

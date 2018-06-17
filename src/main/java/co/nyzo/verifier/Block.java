@@ -499,7 +499,7 @@ public class Block implements MessageObject {
                 } else if (cycleInformation.isNewVerifier()) {
                     score -= 6L;
 
-                    List<NewVerifierVote> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
+                    List<ByteBuffer> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
                     ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());
                     int indexInQueue = topNewVerifiers.indexOf(verifierIdentifier);
                     if (indexInQueue < 0) {

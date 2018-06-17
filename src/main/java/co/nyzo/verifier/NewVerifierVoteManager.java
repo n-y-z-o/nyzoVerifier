@@ -17,15 +17,19 @@ public class NewVerifierVoteManager {
     // The local vote is redundant, but it is a simple and efficient way to store the local vote for responding to
     // node-join messages.
     private static NewVerifierVote localVote = null;
-    private static final Map<ByteBuffer, NewVerifierVote> voteMap = new HashMap<>();
+    private static final Map<ByteBuffer, ByteBuffer> voteMap = new HashMap<>();
 
     public static synchronized void registerVote(byte[] votingIdentifier, NewVerifierVote vote, boolean isLocalVote) {
+
+        // If the voting verifiers list is empty, accept votes from all verifiers. This will happen only rarely, if
+        // ever, but this condition is helpful for testing.
+        boolean acceptAllVotes = BlockManager.currentCycleLength() == 0;
 
         // Register the vote. The map ensures that each identifier only gets one vote. Some of the votes may not count.
         // Votes are only counted for verifiers in the previous cycle.
         ByteBuffer votingIdentifierBuffer = ByteBuffer.wrap(votingIdentifier);
-        if (BlockManager.verifierInCurrentCycle(votingIdentifierBuffer)) {
-            voteMap.put(votingIdentifierBuffer, vote);
+        if (BlockManager.verifierInCurrentCycle(votingIdentifierBuffer) || acceptAllVotes) {
+            voteMap.put(votingIdentifierBuffer, ByteBuffer.wrap(vote.getIdentifier()));
         }
 
         if (isLocalVote) {
@@ -49,11 +53,11 @@ public class NewVerifierVoteManager {
         }
     }
 
-    public static synchronized List<NewVerifierVote> topVerifiers() {
+    public static synchronized List<ByteBuffer> topVerifiers() {
 
-        List<NewVerifierVote> topVerifiers = new ArrayList<>();
+        List<ByteBuffer> topVerifiers = new ArrayList<>();
 
-        Map<NewVerifierVote, Integer> votesPerVerifier = new HashMap<>();
+        Map<ByteBuffer, Integer> votesPerVerifier = new HashMap<>();
         Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycle();
 
         // If the voting verifiers list is empty, accept votes from all verifiers. This will happen only rarely, if
@@ -63,7 +67,7 @@ public class NewVerifierVoteManager {
         // Build the vote map.
         for (ByteBuffer votingVerifier : voteMap.keySet()) {
             if (votingVerifiers.contains(votingVerifier) || acceptAllVotes) {
-                NewVerifierVote vote = voteMap.get(votingVerifier);
+                ByteBuffer vote = voteMap.get(votingVerifier);
                 Integer votesForVerifier = votesPerVerifier.get(vote);
                 if (votesForVerifier == null) {
                     votesPerVerifier.put(vote, 1);
@@ -75,9 +79,9 @@ public class NewVerifierVoteManager {
 
         // Make and sort the list descending on votes.
         topVerifiers.addAll(votesPerVerifier.keySet());
-        Collections.sort(topVerifiers, new Comparator<NewVerifierVote>() {
+        Collections.sort(topVerifiers, new Comparator<ByteBuffer>() {
             @Override
-            public int compare(NewVerifierVote verifierVote1, NewVerifierVote verifierVote2) {
+            public int compare(ByteBuffer verifierVote1, ByteBuffer verifierVote2) {
                 Integer voteCount1 = votesPerVerifier.get(verifierVote1);
                 Integer voteCount2 = votesPerVerifier.get(verifierVote2);
                 return voteCount2.compareTo(voteCount1);
