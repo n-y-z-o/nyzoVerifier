@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.NewVerifierVote;
+
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -13,18 +15,17 @@ public class NewVerifierVoteManager {
 
     // The local vote is redundant, but it is a simple and efficient way to store the local vote for responding to
     // node-join messages.
-    private static final byte[] localVote = new byte[FieldByteSize.identifier];
-    private static final Map<ByteBuffer, ByteBuffer> voteMap = new HashMap<>();
+    private static final NewVerifierVote localVote = null;
+    private static final Map<ByteBuffer, NewVerifierVote> voteMap = new HashMap<>();
 
-    public static synchronized void registerVote(byte[] votingIdentifier, byte[] newVerifierIdentifier,
-                                                 boolean isLocalVote) {
+    public static synchronized void registerVote(byte[] votingIdentifier, NewVerifierVote vote, boolean isLocalVote) {
 
         // Register the vote. The map ensures that each identifier only gets one vote. Some of the votes may not count.
         // Votes are only counted for verifiers in the previous cycle.
-        voteMap.put(ByteBuffer.wrap(votingIdentifier), ByteBuffer.wrap(newVerifierIdentifier));
+        voteMap.put(ByteBuffer.wrap(votingIdentifier), vote);
 
         if (isLocalVote) {
-            System.arraycopy(localVote, 0, newVerifierIdentifier, 0, FieldByteSize.identifier);
+            System.arraycopy(localVote, 0, vote.getIdentifier(), 0, FieldByteSize.identifier);
         }
     }
 
@@ -44,11 +45,11 @@ public class NewVerifierVoteManager {
         }
     }
 
-    public static synchronized List<ByteBuffer> topVerifiers() {
+    public static synchronized List<NewVerifierVote> topVerifiers() {
 
-        List<ByteBuffer> topVerifiers = new ArrayList<>();
+        List<NewVerifierVote> topVerifiers = new ArrayList<>();
 
-        Map<ByteBuffer, Integer> votesPerVerifier = new HashMap<>();
+        Map<NewVerifierVote, Integer> votesPerVerifier = new HashMap<>();
         Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycle();
 
         // If the voting verifiers list is empty, accept votes from all verifiers. This will happen only rarely, if
@@ -58,23 +59,23 @@ public class NewVerifierVoteManager {
         // Build the vote map.
         for (ByteBuffer votingVerifier : voteMap.keySet()) {
             if (votingVerifiers.contains(votingVerifier) || acceptAllVotes) {
-                ByteBuffer newVerifierIdentifier = voteMap.get(votingVerifier);
-                Integer votesForVerifier = votesPerVerifier.get(newVerifierIdentifier);
+                NewVerifierVote vote = voteMap.get(votingVerifier);
+                Integer votesForVerifier = votesPerVerifier.get(vote);
                 if (votesForVerifier == null) {
-                    votesPerVerifier.put(newVerifierIdentifier, 1);
+                    votesPerVerifier.put(vote, 1);
                 } else {
-                    votesPerVerifier.put(newVerifierIdentifier, votesForVerifier + 1);
+                    votesPerVerifier.put(vote, votesForVerifier + 1);
                 }
             }
         }
 
         // Make and sort the list descending on votes.
         topVerifiers.addAll(votesPerVerifier.keySet());
-        Collections.sort(topVerifiers, new Comparator<ByteBuffer>() {
+        Collections.sort(topVerifiers, new Comparator<NewVerifierVote>() {
             @Override
-            public int compare(ByteBuffer verifierIdentifier1, ByteBuffer verifierIdentifier2) {
-                Integer voteCount1 = votesPerVerifier.get(verifierIdentifier1);
-                Integer voteCount2 = votesPerVerifier.get(verifierIdentifier2);
+            public int compare(NewVerifierVote verifierVote1, NewVerifierVote verifierVote2) {
+                Integer voteCount1 = votesPerVerifier.get(verifierVote1);
+                Integer voteCount2 = votesPerVerifier.get(verifierVote2);
                 return voteCount2.compareTo(voteCount1);
             }
         });
@@ -83,9 +84,9 @@ public class NewVerifierVoteManager {
         return topVerifiers;
     }
 
-    public static synchronized byte[] getLocalVote() {
+    public static synchronized NewVerifierVote getLocalVote() {
 
-        return Arrays.copyOf(localVote, FieldByteSize.identifier);
+        return localVote;
     }
 
 

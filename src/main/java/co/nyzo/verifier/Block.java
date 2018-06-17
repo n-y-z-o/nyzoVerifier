@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.NewVerifierVote;
 import co.nyzo.verifier.util.DebugUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
@@ -498,14 +499,16 @@ public class Block implements MessageObject {
                 } else if (cycleInformation.isNewVerifier()) {
                     score -= 3L;
 
-                    List<ByteBuffer> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
+                    List<NewVerifierVote> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
+                    /*
                     ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());
                     int indexInQueue = topNewVerifiers.indexOf(verifierIdentifier);
                     if (indexInQueue < 0) {
                         score = Long.MAX_VALUE - 1;
                     } else {
                         score += indexInQueue * 2L;
-                    }
+                    }*/
+                    score = Long.MAX_VALUE - 1;
                 } else {
                     score += cycleInformation.getBlockVerifierIndexInCycle() * 2L;
                 }

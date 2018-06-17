@@ -167,6 +167,12 @@ public class MeshListener {
                             false);
                     response = new Message(MessageType.BlockVoteResponse20, null);
 
+                } else if (messageType == MessageType.NewVerifierVote21) {
+
+                    NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
+                            (NewVerifierVote) message.getContent(), false);
+                    response = new Message(MessageType.NewVerifierVoteResponse22, null);
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
