@@ -1,6 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NewVerifierVote;
+import co.nyzo.verifier.messages.StatusResponse;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -27,7 +28,9 @@ public class NewVerifierVoteManager {
             voteMap.put(votingIdentifierBuffer, vote);
         }
 
-        localVote = vote;
+        if (isLocalVote) {
+            localVote = vote;
+        }
     }
 
     public static synchronized void removeOldVotes() {
@@ -81,6 +84,7 @@ public class NewVerifierVoteManager {
             }
         });
 
+        StatusResponse.setField("top new", topVerifiers.size() + "");
 
         return topVerifiers;
     }
