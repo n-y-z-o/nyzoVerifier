@@ -18,7 +18,6 @@ public class BlockManager {
     private static final long filesPerDirectory = 1000L;
     private static boolean inGenesisCycle = false;
     private static final Set<ByteBuffer> verifiersInCurrentCycle = new HashSet<>();
-    private static final Set<ByteBuffer> verifiersInPreviousTwoCycles = new HashSet<>();
     private static long genesisBlockStartTimestamp = -1L;
     private static int currentCycleLength = 0;
 
@@ -28,10 +27,6 @@ public class BlockManager {
 
     public static long frozenEdgeHeight() {
         return frozenEdgeHeight.get();
-    }
-
-    public static long genesisBlockStartTimestamp() {
-        return genesisBlockStartTimestamp;
     }
 
     public static Block frozenBlockForHeight(long blockHeight) {
@@ -179,7 +174,7 @@ public class BlockManager {
                         genesisBlockStartTimestamp = block.getStartTimestamp();
                     }
 
-                    updateVerifiersInPreviousTwoCycles(block);
+                    updateVerifiersInCurrentCycle(block);
 
                 } catch (Exception reportOnly) {
                     reportOnly.printStackTrace();
@@ -234,7 +229,7 @@ public class BlockManager {
             if (blocks.size() > 0) {
                 Block block = blocks.get(blocks.size() - 1);
                 setFrozenEdgeHeight(block.getBlockHeight());
-                updateVerifiersInPreviousTwoCycles(block);
+                updateVerifiersInCurrentCycle(block);
             }
         }
     }
@@ -290,32 +285,17 @@ public class BlockManager {
         return new HashSet<>(verifiersInCurrentCycle);
     }
 
-    public static synchronized boolean verifierPresentInPreviousTwoCycles(byte[] identifier) {
+    private static synchronized void updateVerifiersInCurrentCycle(Block block) {
 
-        return verifiersInPreviousTwoCycles.contains(ByteBuffer.wrap(identifier));
-    }
-
-    private static synchronized void updateVerifiersInPreviousTwoCycles(Block block) {
-
-        verifiersInCurrentCycle.clear();
-        Map<ByteBuffer, Integer> verifierCounts = new HashMap<>();
         boolean foundOneCycle = false;
-        boolean foundTwoCycles = false;
         Block previousBlock = block.getPreviousBlock();
-        while (previousBlock != null && !foundTwoCycles) {
+        verifiersInCurrentCycle.clear();
+        while (previousBlock != null && !foundOneCycle) {
 
             ByteBuffer identifierBuffer = ByteBuffer.wrap(previousBlock.getVerifierIdentifier());
-            Integer verifierCount = verifierCounts.get(identifierBuffer);
-            if (verifierCount == null) {
-                verifierCounts.put(identifierBuffer, 1);
-            } else if (verifierCount == 1) {
+            if (verifiersInCurrentCycle.contains(identifierBuffer)) {
                 foundOneCycle = true;
-                verifierCounts.put(identifierBuffer, 2);
             } else {
-                foundTwoCycles = true;
-            }
-
-            if (!foundOneCycle) {
                 verifiersInCurrentCycle.add(identifierBuffer);
             }
 
@@ -323,13 +303,12 @@ public class BlockManager {
             previousBlock = previousBlock.getPreviousBlock();
         }
 
+        // The loop will not enter for the Genesis block, so mark it as the Genesis cycle here.
         if (block.getBlockHeight() == 0) {
             inGenesisCycle = true;
         }
 
-        verifiersInPreviousTwoCycles.clear();
-        verifiersInPreviousTwoCycles.addAll(verifierCounts.keySet());
-
+        // Update the cycle value. This is stored separately so the method can be made un-synchronized without question.
         currentCycleLength = verifiersInCurrentCycle.size();
     }
 }
