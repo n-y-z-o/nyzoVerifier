@@ -21,7 +21,7 @@ public class NodeJoinTest {
         AtomicInteger totalVotes = new AtomicInteger(0);
         while (totalVotes.get() == 0) {
             Message message = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
-            Message.fetch(node, MeshListener.standardPort, message, false, new MessageCallback() {
+            Message.fetch(node, MeshListener.standardPort, message, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
 

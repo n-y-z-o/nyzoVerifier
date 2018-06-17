@@ -19,7 +19,7 @@ public class BlockRequestTest {
         AtomicBoolean receivedResponse = new AtomicBoolean(false);
         Message message = new Message(MessageType.BlockRequest11, new BlockRequest(0, 6, true));
         System.out.println("message byte length: " + message.getBytesForTransmission().length);
-        Message.fetch("verifier1.nyzo.co", 9444, message, false, new MessageCallback() {
+        Message.fetch("verifier1.nyzo.co", 9444, message, new MessageCallback() {
             @Override
             public void responseReceived(Message message) {
                 System.out.println("received response");

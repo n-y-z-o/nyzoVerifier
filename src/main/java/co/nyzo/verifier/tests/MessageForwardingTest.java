@@ -13,7 +13,7 @@ public class MessageForwardingTest {
 
         MeshListener.start();
         Block block = BlockManager.frozenBlockForHeight(0L);
-        Message.fetch("127.0.0.1", 9444, new Message(MessageType.NewBlock9, block), false, new MessageCallback() {
+        Message.fetch("127.0.0.1", 9444, new Message(MessageType.NewBlock9, block), new MessageCallback() {
             @Override
             public void responseReceived(Message message) {
                 System.out.println("received response: " + message);

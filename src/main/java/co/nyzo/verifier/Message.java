@@ -93,11 +93,11 @@ public class Message {
         List<Node> mesh = NodeManager.getMesh();
         for (Node node : mesh) {
             String ipAddress = IpUtil.addressAsString(node.getIpAddress());
-            fetch(ipAddress, node.getPort(), message, false, null);
+            fetch(ipAddress, node.getPort(), message, null);
         }
     }
 
-    public static void fetch(Message message, boolean retryIfFailed, MessageCallback messageCallback) {
+    public static void fetch(Message message, MessageCallback messageCallback) {
 
         Node node = null;
         List<Node> mesh = NodeManager.getMesh();
@@ -110,12 +110,14 @@ public class Message {
         }
 
         if (node != null) {
-            fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, retryIfFailed, messageCallback);
+            fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, messageCallback);
         }
     }
 
-    public static void fetch(String hostNameOrIp, int port, Message message, boolean retryIfFailed,
+    public static void fetch(String hostNameOrIp, int port, Message message,
                              MessageCallback messageCallback) {
+
+        boolean retryIfFailed = false;
 
         byte[] identifier = NodeManager.identifierForIpAddress(hostNameOrIp);
         if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
@@ -155,12 +157,7 @@ public class Message {
 
                     if (messageCallback != null) {
                         if (response == null || !response.isValid()) {
-                            if (retryIfFailed) {
-                                System.out.println("RETRYING");
-                                fetch(hostNameOrIp, port, message, false, messageCallback);
-                            } else {
-                                MessageQueue.add(messageCallback, null);
-                            }
+                            MessageQueue.add(messageCallback, null);
                         } else {
                             MessageQueue.add(messageCallback, response);
                         }

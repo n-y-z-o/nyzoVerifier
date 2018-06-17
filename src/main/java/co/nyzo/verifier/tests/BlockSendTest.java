@@ -25,7 +25,7 @@ public class BlockSendTest {
 
         Message message = new Message(MessageType.NewBlock9, block);
         for (String node : nodes) {
-            Message.fetch(node, 9444, message, false, new MessageCallback() {
+            Message.fetch(node, 9444, message, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
                     System.out.println("BlockSendTest: response is " + message);

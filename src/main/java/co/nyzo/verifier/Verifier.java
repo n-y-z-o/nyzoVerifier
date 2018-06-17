@@ -138,7 +138,7 @@ public class Verifier {
             // Send mesh requests to all trusted entry points.
             Message meshRequest = new Message(MessageType.MeshRequest15, null);
             for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
-                Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, false, new MessageCallback() {
+                Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
 
@@ -171,17 +171,16 @@ public class Verifier {
                 for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
 
                     System.out.println("sending Bootstrap request to " + entryPoint);
-                    Message.fetch(entryPoint.getHost(), entryPoint.getPort(), bootstrapRequest, false,
-                            new MessageCallback() {
-                                @Override
-                                public void responseReceived(Message message) {
-                                    if (message == null) {
-                                        System.out.println("Bootstrap response is null");
-                                    } else {
-                                        processBootstrapResponseMessage(message);
-                                        sendNodeJoinRequests();
-                                    }
-                                }
+                    Message.fetch(entryPoint.getHost(), entryPoint.getPort(), bootstrapRequest, new MessageCallback() {
+                        @Override
+                        public void responseReceived(Message message) {
+                            if (message == null) {
+                                System.out.println("Bootstrap response is null");
+                            } else {
+                                processBootstrapResponseMessage(message);
+                                sendNodeJoinRequests();
+                            }
+                        }
                     });
                 }
 
@@ -294,8 +293,8 @@ public class Verifier {
         for (Node node : mesh) {
             ByteBuffer identifierBuffer = ByteBuffer.wrap(node.getIdentifier());
             if (!nodeJoinAcknowledgementsReceived.contains(identifierBuffer)) {
-                Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, false,
-                        new MessageCallback() {
+                String address = IpUtil.addressAsString(node.getIpAddress());
+                Message.fetch(address, node.getPort(), message, new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
                         if (message != null) {

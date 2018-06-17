@@ -62,7 +62,7 @@ public class TransactionPool {
             Node node = availableNodes.remove(random.nextInt(availableNodes.size()));
 
             String ipAddress = IpUtil.addressAsString(node.getIpAddress());
-            Message.fetch(ipAddress, node.getPort(), new Message(MessageType.TransactionPoolRequest13, null), false,
+            Message.fetch(ipAddress, node.getPort(), new Message(MessageType.TransactionPoolRequest13, null),
                     new MessageCallback() {
                         @Override
                         public void responseReceived(Message message) {

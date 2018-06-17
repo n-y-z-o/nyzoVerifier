@@ -15,7 +15,6 @@ public class NodeListMessageTest {
         String url = "verifier1.nyzo.co";
 
         Message.fetch(url, MeshListener.standardPort, new Message(MessageType.NodeJoin3, new NodeJoinMessage(9444)),
-                false,
                 new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
@@ -31,7 +30,7 @@ public class NodeListMessageTest {
             Thread.sleep(1000L);
         } catch (Exception ignored) { }
 
-        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.BootstrapRequest1, null), false,
+        Message.fetch(url, MeshListener.standardPort, new Message(MessageType.BootstrapRequest1, null),
                 new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {

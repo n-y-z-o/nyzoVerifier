@@ -14,7 +14,7 @@ public class PingBroadcastTest {
         Message pingMessage = new Message(MessageType.Ping200, null);
         for (int i = 0; i < 4; i++) {
             String node = "verifier" + i + ".nyzo.co";
-            Message.fetch(node, 9444, pingMessage, false, new MessageCallback() {
+            Message.fetch(node, 9444, pingMessage, new MessageCallback() {
 
                 @Override
                 public void responseReceived(Message message) {
@@ -28,7 +28,7 @@ public class PingBroadcastTest {
         Message statusMessage = new Message(MessageType.StatusRequest17, null);
         for (int i = 0; i < 4; i++) {
             String node = "verifier" + i + ".nyzo.co";
-            Message.fetch(node, 9444, statusMessage, false, new MessageCallback() {
+            Message.fetch(node, 9444, statusMessage, new MessageCallback() {
 
                 @Override
                 public void responseReceived(Message message) {
