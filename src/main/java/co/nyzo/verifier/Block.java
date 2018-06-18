@@ -1,6 +1,5 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.messages.NewVerifierVote;
 import co.nyzo.verifier.util.DebugUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
@@ -142,7 +141,7 @@ public class Block implements MessageObject {
                     previousBlock = frozenBlock;
                 }
             } else {
-                previousBlock = ChainOptionManager.unfrozenBlockAtHeight(height - 1, previousBlockHash);
+                previousBlock = UnfrozenBlockManager.unfrozenBlockAtHeight(height - 1, previousBlockHash);
             }
         }
 
@@ -309,7 +308,7 @@ public class Block implements MessageObject {
     public CycleInformation getCycleInformation() {
 
         if (cycleInformation == null) {
-            cycleInformation = ChainOptionManager.cycleInformationForBlock(this);
+            cycleInformation = UnfrozenBlockManager.cycleInformationForBlock(this);
         }
 
         return cycleInformation;

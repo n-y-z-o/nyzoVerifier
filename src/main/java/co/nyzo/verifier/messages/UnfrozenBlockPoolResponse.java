@@ -14,7 +14,7 @@ public class UnfrozenBlockPoolResponse implements MessageObject {
 
         // This is a debug request, so it must be signed by the local verifier.
         if (ByteUtil.arraysAreEqual(request.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
-            this.blocks = ChainOptionManager.allUnfrozenBlocks();
+            this.blocks = UnfrozenBlockManager.allUnfrozenBlocks();
         } else {
             this.blocks = new ArrayList<>();
         }

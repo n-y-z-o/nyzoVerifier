@@ -36,7 +36,7 @@ public class BootstrapResponse implements MessageObject {
         this.cycleLengths = cycleLengths;
 
         this.transactionPool = TransactionPool.allTransactions();
-        this.unfrozenBlockPool = ChainOptionManager.allUnfrozenBlocks();
+        this.unfrozenBlockPool = UnfrozenBlockManager.allUnfrozenBlocks();
     }
 
     public BootstrapResponse(List<Node> mesh, long firstHashHeight, List<byte[]> frozenBlockHashes,

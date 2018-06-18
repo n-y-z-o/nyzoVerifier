@@ -7,7 +7,6 @@ import co.nyzo.verifier.util.UpdateUtil;
 
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MeshListener {
@@ -139,7 +138,7 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NewBlock9) {
 
-                    ChainOptionManager.registerBlock((Block) message.getContent());
+                    UnfrozenBlockManager.registerBlock((Block) message.getContent());
                     response = new Message(MessageType.NewBlockResponse10, null);
 
                 } else if (messageType == MessageType.BlockRequest11) {

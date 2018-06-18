@@ -7,7 +7,7 @@ import co.nyzo.verifier.util.PrintUtil;
 import java.nio.ByteBuffer;
 import java.util.*;
 
-public class ChainOptionManager {
+public class UnfrozenBlockManager {
 
     private static Set<Long> votesCast = new HashSet<>();
     private static Map<Long, List<Block>> unfrozenBlocks = new HashMap<>();

@@ -360,7 +360,7 @@ public class Verifier {
 
         // Add the unfrozen blocks to the chain-option manager.
         for (Block block : response.getUnfrozenBlockPool()) {
-            ChainOptionManager.registerBlock(block);
+            UnfrozenBlockManager.registerBlock(block);
         }
 
         // Cast hash votes with the chain initialization manager.
@@ -401,14 +401,14 @@ public class Verifier {
                     // Try to extend blocks from the frozen edge to the leading edge. Limit to one behind the open
                     // edge, because we cannot create a block that is not yet open (the block created is one higher
                     // than the block that is extended).
-                    long endHeight = Math.min(Math.max(ChainOptionManager.leadingEdgeHeight(), frozenEdgeHeight),
+                    long endHeight = Math.min(Math.max(UnfrozenBlockManager.leadingEdgeHeight(), frozenEdgeHeight),
                             BlockManager.openEdgeHeight(false) - 1);
                     long startHeight = frozenEdgeHeight;
                     endHeight = Math.min(endHeight, startHeight + 10);  // TODO: remove this; for testing only
                     for (long height = startHeight; height <= endHeight; height++) {
 
                         // Get the block to extend for the height from the chain option manager.
-                        Block blockToExtend = ChainOptionManager.blockToExtendForHeight(height);
+                        Block blockToExtend = UnfrozenBlockManager.blockToExtendForHeight(height);
                         if (blockToExtend != null && blockToExtend.getVerificationTimestamp() <
                                 System.currentTimeMillis() - Block.minimumVerificationInterval) {
                             extendBlock(blockToExtend);
@@ -417,8 +417,8 @@ public class Verifier {
 
                     // The next steps are all about trying to freeze blocks. First, we freeze blocks based on votes
                     // we have received. Then, we cast votes based on the new state of the unfrozen blocks.
-                    ChainOptionManager.freezeBlocks();
-                    ChainOptionManager.castVotes();
+                    UnfrozenBlockManager.freezeBlocks();
+                    UnfrozenBlockManager.castVotes();
 
                     // Remove old votes from the block vote manager.
                     BlockVoteManager.removeOldVotes();
@@ -453,7 +453,7 @@ public class Verifier {
             blocksExtended.put(blockHash, block);
             Block nextBlock = createNextBlock(block);
             if (nextBlock != null && nextBlock.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity) {
-                boolean shouldTransmitBlock = ChainOptionManager.registerBlock(nextBlock);
+                boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
                 if (shouldTransmitBlock) {
                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                 }

@@ -3,7 +3,6 @@ package co.nyzo.verifier.messages;
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.PrintUtil;
 
-import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
@@ -105,7 +104,7 @@ public class UnfrozenBlockPoolPurgeResponse implements MessageObject {
 
     private static void purgeUnfrozenBlockPool() {
 
-        ChainOptionManager.purge();
+        UnfrozenBlockManager.purge();
     }
 
     @Override

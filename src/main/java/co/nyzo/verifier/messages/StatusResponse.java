@@ -37,9 +37,9 @@ public class StatusResponse implements MessageObject {
             lines.add("cycle length: " + BlockManager.currentCycleLength());
             lines.add("transactions: " + TransactionPool.transactionPoolSize());
             lines.add("frozen edge: " + frozenEdgeHeight);
-            lines.add("leading edge: " + ChainOptionManager.leadingEdgeHeight());
+            lines.add("leading edge: " + UnfrozenBlockManager.leadingEdgeHeight());
             lines.add("open edge: " + BlockManager.openEdgeHeight(false));
-            List<Long> unfrozenBlockHeights = new ArrayList<>(ChainOptionManager.unfrozenBlockHeights());
+            List<Long> unfrozenBlockHeights = new ArrayList<>(UnfrozenBlockManager.unfrozenBlockHeights());
             Collections.sort(unfrozenBlockHeights);
             for (int i = 0; i < 7 && i < unfrozenBlockHeights.size(); i++) {
                 if (i == 3 && unfrozenBlockHeights.size() > 7) {
@@ -48,10 +48,10 @@ public class StatusResponse implements MessageObject {
                     long height = i < 3 || unfrozenBlockHeights.size() <= 7 ? unfrozenBlockHeights.get(i) :
                             unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 7 + i);
                     String heightString = "+" + (height - frozenEdgeHeight);
-                    lines.add("- h: " + heightString + ", n: " + ChainOptionManager.numberOfBlocksAtHeight(height) +
+                    lines.add("- h: " + heightString + ", n: " + UnfrozenBlockManager.numberOfBlocksAtHeight(height) +
                             ", v: " + BlockVoteManager.votesAtHeight(height) +
-                            ", s: " + printScore(ChainOptionManager.bestScoreForHeight(height)) +
-                            ", t: " + ChainOptionManager.votingScoreThresholdForHeight(height));
+                            ", s: " + printScore(UnfrozenBlockManager.bestScoreForHeight(height)) +
+                            ", t: " + UnfrozenBlockManager.votingScoreThresholdForHeight(height));
                 }
             }
             lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
