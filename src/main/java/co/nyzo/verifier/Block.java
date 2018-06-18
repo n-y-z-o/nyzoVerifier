@@ -25,7 +25,7 @@ public class Block implements MessageObject {
     public static final byte[] genesisBlockHash = HashUtil.doubleSHA256(new byte[0]);
 
     public static final long blockDuration = 5000L;
-    public static final long minimumVerificationInterval = 2000L;
+    public static final long minimumVerificationInterval = 1500L;
 
     private long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,
                                                    // which has a height of 0
