@@ -316,8 +316,10 @@ public class BlockManager {
 
         // Update the cycle value. This is stored separately so the method can be made un-synchronized without question.
         if (currentCycleLength != verifiersInCurrentCycle.size()) {
-            NotificationUtil.send("cycle length changed from " + currentCycleLength + " to " +
-                    verifiersInCurrentCycle.size() + " at block " + block.getBlockHeight());
+            if (currentCycleLength > 0) {
+                NotificationUtil.send("cycle length changed from " + currentCycleLength + " to " +
+                        verifiersInCurrentCycle.size() + " at block " + block.getBlockHeight());
+            }
             currentCycleLength = verifiersInCurrentCycle.size();
         }
     }
