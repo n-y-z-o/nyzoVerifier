@@ -303,8 +303,12 @@ public class Verifier {
                             NodeJoinResponse response = (NodeJoinResponse) message.getContent();
                             if (response != null) {
                                 NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
-                                for (BlockVote vote : response.getVotes()) {
+                                for (BlockVote vote : response.getBlockVotes()) {
                                     BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote, false);
+                                }
+                                if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
+                                    NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
+                                            response.getNewVerifierVote(), false);
                                 }
                             }
                         }

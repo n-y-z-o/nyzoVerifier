@@ -27,8 +27,9 @@ public class NodeJoinTest {
 
                     NodeJoinResponse response = (NodeJoinResponse) message.getContent();
                     System.out.println("nickname is " + response.getNickname());
-                    System.out.println("response has " + response.getVotes().size() + " votes");
-                    totalVotes.addAndGet(response.getVotes().size());
+                    System.out.println("response has " + response.getBlockVotes().size() + " block votes");
+                    System.out.println("response new-verifier vote: " + response.getNewVerifierVote());
+                    totalVotes.addAndGet(response.getBlockVotes().size());
                 }
             });
 

@@ -16,7 +16,7 @@ public class NewVerifierVoteManager {
 
     // The local vote is redundant, but it is a simple and efficient way to store the local vote for responding to
     // node-join messages.
-    private static NewVerifierVote localVote = null;
+    private static NewVerifierVote localVote = new NewVerifierVote(new byte[FieldByteSize.identifier]);
     private static final Map<ByteBuffer, ByteBuffer> voteMap = new HashMap<>();
 
     public static synchronized void registerVote(byte[] votingIdentifier, NewVerifierVote vote, boolean isLocalVote) {

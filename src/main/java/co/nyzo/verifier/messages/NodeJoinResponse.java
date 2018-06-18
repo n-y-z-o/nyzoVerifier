@@ -12,26 +12,29 @@ public class NodeJoinResponse implements MessageObject {
     private static final int maximumVotes = 100;
 
     private String nickname;
-    private List<BlockVote> votes;
+    private List<BlockVote> blockVotes;
+    private NewVerifierVote newVerifierVote;
 
     public NodeJoinResponse() {
 
         this.nickname = Verifier.getNickname();
-        this.votes = BlockVoteManager.getLocalVotes();
-        limitVoteListSize();
+        this.blockVotes = BlockVoteManager.getLocalVotes();
+        limitBlockVoteListSize();
+        this.newVerifierVote = NewVerifierVoteManager.getLocalVote();
     }
 
-    public NodeJoinResponse(String nickname, List<BlockVote> votes) {
+    public NodeJoinResponse(String nickname, List<BlockVote> blockVotes, NewVerifierVote newVerifierNote) {
 
         this.nickname = nickname == null ? "" : nickname;
-        this.votes = votes;
-        limitVoteListSize();
+        this.blockVotes = blockVotes;
+        limitBlockVoteListSize();
+        this.newVerifierVote = newVerifierNote;
     }
 
-    private void limitVoteListSize() {
+    private void limitBlockVoteListSize() {
 
-        while (votes.size() > maximumVotes) {
-            votes.remove(votes.size() - 1);
+        while (blockVotes.size() > maximumVotes) {
+            blockVotes.remove(blockVotes.size() - 1);
         }
     }
 
@@ -40,16 +43,20 @@ public class NodeJoinResponse implements MessageObject {
         return nickname;
     }
 
-    public List<BlockVote> getVotes() {
+    public List<BlockVote> getBlockVotes() {
 
-        return votes;
+        return blockVotes;
+    }
+
+    public NewVerifierVote getNewVerifierVote() {
+        return newVerifierVote;
     }
 
     @Override
     public int getByteSize() {
 
-        return FieldByteSize.string(nickname) + FieldByteSize.voteListLength + votes.size() *
-                (FieldByteSize.blockHeight + FieldByteSize.hash);
+        return FieldByteSize.string(nickname) + FieldByteSize.voteListLength + blockVotes.size() *
+                (FieldByteSize.blockHeight + FieldByteSize.hash) + FieldByteSize.identifier;
     }
 
     @Override
@@ -62,11 +69,13 @@ public class NodeJoinResponse implements MessageObject {
         buffer.putShort((short) nicknameBytes.length);
         buffer.put(nicknameBytes);
 
-        buffer.put((byte) votes.size());
-        for (BlockVote vote : votes) {
+        buffer.put((byte) blockVotes.size());
+        for (BlockVote vote : blockVotes) {
             buffer.putLong(vote.getHeight());
             buffer.put(vote.getHash());
         }
+
+        buffer.put(newVerifierVote.getIdentifier());
 
         return array;
     }
@@ -81,16 +90,20 @@ public class NodeJoinResponse implements MessageObject {
             buffer.get(nicknameBytes);
             String nickname = new String(nicknameBytes, StandardCharsets.UTF_8);
 
-            List<BlockVote> votes = new ArrayList<>();
+            List<BlockVote> blockVotes = new ArrayList<>();
             int numberOfVotes = Math.min(buffer.get(), maximumVotes);
             for (int i = 0; i < numberOfVotes; i++) {
                 long height = buffer.getLong();
                 byte[] hash = new byte[FieldByteSize.hash];
                 buffer.get(hash);
-                votes.add(new BlockVote(height, hash));
+                blockVotes.add(new BlockVote(height, hash));
             }
 
-            result = new NodeJoinResponse(nickname, votes);
+            byte[] newVerifierVoteIdentifier = new byte[FieldByteSize.identifier];
+            buffer.get(newVerifierVoteIdentifier);
+            NewVerifierVote newVerifierVote = new NewVerifierVote(newVerifierVoteIdentifier);
+
+            result = new NodeJoinResponse(nickname, blockVotes, newVerifierVote);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }
