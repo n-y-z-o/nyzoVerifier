@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.io.File;
@@ -314,6 +315,10 @@ public class BlockManager {
         }
 
         // Update the cycle value. This is stored separately so the method can be made un-synchronized without question.
-        currentCycleLength = verifiersInCurrentCycle.size();
+        if (currentCycleLength != verifiersInCurrentCycle.size()) {
+            NotificationUtil.send("cycle length changed from " + currentCycleLength + " to " +
+                    verifiersInCurrentCycle.size() + " at block " + block.getBlockHeight());
+            currentCycleLength = verifiersInCurrentCycle.size();
+        }
     }
 }
