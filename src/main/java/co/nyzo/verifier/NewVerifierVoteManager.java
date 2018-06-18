@@ -68,11 +68,13 @@ public class NewVerifierVoteManager {
         for (ByteBuffer votingVerifier : voteMap.keySet()) {
             if (votingVerifiers.contains(votingVerifier) || acceptAllVotes) {
                 ByteBuffer vote = voteMap.get(votingVerifier);
-                Integer votesForVerifier = votesPerVerifier.get(vote);
-                if (votesForVerifier == null) {
-                    votesPerVerifier.put(vote, 1);
-                } else {
-                    votesPerVerifier.put(vote, votesForVerifier + 1);
+                if (!BlockManager.verifierInCurrentCycle(vote) && NodeManager.isActive(vote.array())) {
+                    Integer votesForVerifier = votesPerVerifier.get(vote);
+                    if (votesForVerifier == null) {
+                        votesPerVerifier.put(vote, 1);
+                    } else {
+                        votesPerVerifier.put(vote, votesForVerifier + 1);
+                    }
                 }
             }
         }
