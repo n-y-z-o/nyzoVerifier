@@ -10,8 +10,6 @@ import java.util.*;
 
 public class Block implements MessageObject {
 
-    // TODO: ensure verification interval is enforced in both registration and freezing of blocks
-
     public enum DiscontinuityState {
         Undetermined,
         IsDiscontinuity,
@@ -514,11 +512,18 @@ public class Block implements MessageObject {
                 }
             }
 
-            block = block.getPreviousBlock();
+            // Check the verification timestamp interval.
+            Block previousBlock = block.getPreviousBlock();
+            if (previousBlock != null && previousBlock.getVerificationTimestamp() >
+                    block.getVerificationTimestamp() - minimumVerificationInterval) {
+                score = Long.MAX_VALUE;  // invalid
+            }
+
+            block = previousBlock;
         }
 
         if (block == null) {
-            score = Long.MAX_VALUE;
+            score = Long.MAX_VALUE - 1;  // unable to compute; might improve with more information
         }
 
         return score;

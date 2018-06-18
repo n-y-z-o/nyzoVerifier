@@ -51,7 +51,18 @@ public class UnfrozenBlockManager {
                 }
             }
 
+            // Check if the block has a valid verification timestamp. We cannot be sure of this, but we can filter out
+            // some invalid blocks at this point.
+            boolean verificationTimestampIntervalValid = true;
             if (!alreadyContainsBlock && !alreadyContainsVerifierOnSameChain) {
+                Block previousBlock = block.getPreviousBlock();
+                if (previousBlock != null && previousBlock.getVerificationTimestamp() >
+                        block.getVerificationTimestamp() - Block.minimumVerificationInterval) {
+                    verificationTimestampIntervalValid = false;
+                }
+            }
+
+            if (!alreadyContainsBlock && !alreadyContainsVerifierOnSameChain && verificationTimestampIntervalValid) {
                 blocksAtHeight.add(block);
                 registeredBlock = true;
 

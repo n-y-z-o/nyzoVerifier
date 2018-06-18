@@ -17,7 +17,6 @@ public class ChainInitializationManager {
 
     public static synchronized void processBootstrapResponseMessage(Message message) {
 
-        System.out.println("processing bootstrap response");
         BootstrapResponse response = (BootstrapResponse) message.getContent();
 
         // Accumulate votes for the hashes.
