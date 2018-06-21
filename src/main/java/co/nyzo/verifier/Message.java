@@ -92,7 +92,7 @@ public class Message {
         // Send the message to all nodes in the mesh.
         List<Node> mesh = NodeManager.getMesh();
         for (Node node : mesh) {
-            if (node.isActive()) {
+            if (node.isActive() && ByteUtil.arraysAreEqual(node.getIdentifier(), Verifier.getIdentifier())) {
                 String ipAddress = IpUtil.addressAsString(node.getIpAddress());
                 fetch(ipAddress, node.getPort(), message, null);
             }
