@@ -20,16 +20,25 @@ public class NotificationUtil {
     private static int numberOfNotificationsSent = 0;
     private static final int maximumNotifications = 10;
     private static final Set<Integer> sendOnceNotifications = new HashSet<>();
+    private static long notificationLimitReachedTimestamp = Long.MAX_VALUE;
 
     private static final String endpoint = loadEndpointFromFile();
 
     public static void send(String message) {
+
+        // Reset the limit 10 minutes after hitting it.
+        if (numberOfNotificationsSent >= maximumNotifications &&
+                notificationLimitReachedTimestamp < System.currentTimeMillis() - 1000L * 60L * 10L) {
+            numberOfNotificationsSent = 0;
+            notificationLimitReachedTimestamp = Long.MAX_VALUE;
+        }
 
         if (endpoint != null && numberOfNotificationsSent < maximumNotifications) {
 
             numberOfNotificationsSent++;
             if (numberOfNotificationsSent >= maximumNotifications) {
                 message = "*Message limit reached on " + Verifier.getNickname() + "*";
+                notificationLimitReachedTimestamp = System.currentTimeMillis();
             }
 
             try {
