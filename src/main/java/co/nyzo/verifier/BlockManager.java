@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -122,7 +123,7 @@ public class BlockManager {
         try {
             file.getParentFile().mkdirs();
             file.delete();
-            Files.write(Paths.get(file.getAbsolutePath()), bytes);
+            FileUtil.writeFile(Paths.get(file.getAbsolutePath()), bytes);
             successful = true;
         } catch (Exception reportOnly) {
             System.err.println(PrintUtil.printException(reportOnly));

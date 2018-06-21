@@ -89,7 +89,7 @@ public class Verifier {
             if (privateSeed == null || ByteUtil.isAllZeros(privateSeed) || privateSeed.length != 32) {
                 privateSeed = KeyUtil.generateSeed();
                 try {
-                    Files.write(seedFile, Arrays.asList(ByteUtil.arrayAsStringWithDashes(privateSeed)));
+                    FileUtil.writeFile(seedFile, Arrays.asList(ByteUtil.arrayAsStringWithDashes(privateSeed)));
                 } catch (Exception e) {
                     e.printStackTrace();
                     privateSeed = null;
