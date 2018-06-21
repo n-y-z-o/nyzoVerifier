@@ -8,12 +8,12 @@ import java.util.*;
 
 public class TransactionPool {
 
-    private static long minimumAcceptedHeight = 1L;
+    private static long frozenEdgeHeight = 1L;
     private static final Map<ByteBuffer, Transaction> transactionPool = new HashMap<>();
 
     public static synchronized void addTransaction(Transaction transaction) {
 
-        if (BlockManager.heightForTimestamp(transaction.getTimestamp()) >= minimumAcceptedHeight) {
+        if (BlockManager.heightForTimestamp(transaction.getTimestamp()) > frozenEdgeHeight) {
             transactionPool.put(ByteBuffer.wrap(transaction.getSignature()), transaction);
         }
     }
@@ -40,40 +40,18 @@ public class TransactionPool {
         return transactionPool.size();
     }
 
-    public static synchronized void removeTransactionsToHeight(long blockHeight) {
+    public static synchronized void updateFrozenEdge() {
 
-        if (blockHeight > minimumAcceptedHeight) {
-            minimumAcceptedHeight = blockHeight;
-            long cutoffTimestamp = BlockManager.endTimestampForHeight(blockHeight);
+        long newFrozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        if (newFrozenEdgeHeight > frozenEdgeHeight) {
+            frozenEdgeHeight = newFrozenEdgeHeight;
+            long cutoffTimestamp = BlockManager.endTimestampForHeight(frozenEdgeHeight);
             List<Transaction> transactions = allTransactions();
             for (Transaction transaction : transactions) {
                 if (transaction.getTimestamp() < cutoffTimestamp) {
                     transactionPool.remove(ByteBuffer.wrap(transaction.getSignature()));
                 }
             }
-        }
-    }
-
-    public static void fetchFromMesh() {
-
-        List<Node> availableNodes = new ArrayList<>(NodeManager.getMesh());
-        Random random = new Random();
-        for (int i = 0; i < 5 && availableNodes.size() > 0; i++) {
-            Node node = availableNodes.remove(random.nextInt(availableNodes.size()));
-
-            String ipAddress = IpUtil.addressAsString(node.getIpAddress());
-            Message.fetch(ipAddress, node.getPort(), new Message(MessageType.TransactionPoolRequest13, null),
-                    new MessageCallback() {
-                        @Override
-                        public void responseReceived(Message message) {
-                            TransactionPoolResponse response = (TransactionPoolResponse) message.getContent();
-                            if (response != null) {
-                                for (Transaction transaction : response.getTransactions()) {
-                                    addTransaction(transaction);
-                                }
-                            }
-                        }
-                    });
         }
     }
 }

@@ -49,7 +49,7 @@ public enum MessageType {
     UnfrozenBlockPoolResponse407(407),
 
     // bootstrapping messages
-    ResetRequest500(500),   // resets the blockchain   TODO: remove this before public release
+    ResetRequest500(500),   // resets the blockchain   TODO: key this to the local verifier before release
     ResetResponse501(501),
 
     // the highest allowable message number is 65535

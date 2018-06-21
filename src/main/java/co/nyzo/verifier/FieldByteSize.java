@@ -20,7 +20,6 @@ public class FieldByteSize {
     public static final int transactionAmount = 8;
     public static final int transactionType = 1;
     public static final int messageType = 2;
-    public static final int recipientListLength = 4;
     public static final int identifier = 32;
     public static final int nodeListLength = 4;
     public static final int signature = 64;

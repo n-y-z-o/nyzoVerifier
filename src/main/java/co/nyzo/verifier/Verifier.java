@@ -423,9 +423,11 @@ public class Verifier {
                     // Remove old votes from the block vote manager.
                     BlockVoteManager.removeOldVotes();
 
-                    // If the frozen edge height has changed, update the new-verifier vote.
+                    // If the frozen edge height has changed, update the new-verifier vote and update the frozen edge
+                    // with the transaction pool.
                     if (frozenEdgeHeight != BlockManager.frozenEdgeHeight()) {
                         NewVerifierQueueManager.updateVote();
+                        TransactionPool.updateFrozenEdge();
                     }
                 }
 

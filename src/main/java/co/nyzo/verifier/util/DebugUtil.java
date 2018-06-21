@@ -15,6 +15,20 @@ public class DebugUtil {
         return result;
     }
 
+    public static boolean fromClass(String className) {
+
+        boolean fromClass = false;
+        Throwable throwable = new Throwable();
+        StackTraceElement[] stackTrace = throwable.getStackTrace();
+        for (int i = 1; i < stackTrace.length; i++) {
+            if (stackTrace[i].getClassName().contains(className)) {
+                fromClass = true;
+            }
+        }
+
+        return fromClass;
+    }
+
     public static String callingMethods(int length) {
 
         StringBuilder result = new StringBuilder("");

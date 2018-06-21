@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Arrays;
 
 public class HashUtil {
 
@@ -64,5 +65,27 @@ public class HashUtil {
         }
 
         return longSHA256(array);
+    }
+
+    public static byte[] bLongSHA256(byte[] data) {
+
+        byte[] sha256 = singleSHA256(data);
+        return Arrays.copyOf(sha256, 8);
+    }
+
+    public static byte[] bLongSHA256(byte[]... dataArgs) {
+
+        int length = 0;
+        for (byte[] data : dataArgs) {
+            length += data.length;
+        }
+
+        byte[] array = new byte[length];
+        ByteBuffer buffer = ByteBuffer.wrap(array);
+        for (byte[] data : dataArgs) {
+            buffer.put(data);
+        }
+
+        return bLongSHA256(array);
     }
 }

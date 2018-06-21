@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 
 public class TransactionResponse implements MessageObject {
 
-    private boolean transactionAccepted;
+    private boolean accepted;
     private String message;
 
     public TransactionResponse(Transaction transaction) {
@@ -20,7 +20,7 @@ public class TransactionResponse implements MessageObject {
 
         if (transactionValid) {
             TransactionPool.addTransaction(transaction);
-            transactionAccepted = true;
+            accepted = true;
             message = "Your transaction from wallet " +
                     PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + " to " +
                     PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
@@ -28,7 +28,7 @@ public class TransactionResponse implements MessageObject {
                     " has been accepted by the system and is scheduled for incorporation into block " +
                     BlockManager.heightForTimestamp(transaction.getTimestamp()) + ".";
         } else {
-            transactionAccepted = false;
+            accepted = false;
             String errorString = "";
             if (validationError.length() > 0) {
                 errorString = " (error=\"" + validationError.toString() + "\")";
@@ -41,8 +41,20 @@ public class TransactionResponse implements MessageObject {
         }
     }
 
-    public boolean isTransactionAccepted() {
-        return transactionAccepted;
+    private TransactionResponse(boolean accepted, String message) {
+
+        this.accepted = accepted;
+        this.message = message;
+    }
+
+    public boolean isAccepted() {
+        return accepted;
+    }
+
+    @Override
+    public int getByteSize() {
+        return FieldByteSize.booleanField +   // transactionAccepted
+                FieldByteSize.string(message);    // message
     }
 
     @Override
@@ -50,7 +62,7 @@ public class TransactionResponse implements MessageObject {
 
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
-        buffer.put(transactionAccepted ? (byte) 1 : (byte) 0);
+        buffer.put(accepted ? (byte) 1 : (byte) 0);
         byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
         buffer.putShort((short) messageBytes.length);
         buffer.put(messageBytes);
@@ -58,9 +70,19 @@ public class TransactionResponse implements MessageObject {
         return array;
     }
 
+    public static TransactionResponse fromByteBuffer(ByteBuffer buffer) {
+
+        boolean transactionAccepted = buffer.get() == 1;
+        short messageLength = buffer.getShort();
+        byte[] messageBytes = new byte[messageLength];
+        buffer.get(messageBytes);
+        String message = new String(messageBytes, StandardCharsets.UTF_8);
+
+        return new TransactionResponse(transactionAccepted, message);
+    }
+
     @Override
-    public int getByteSize() {
-        return FieldByteSize.booleanField +   // transactionAccepted
-            FieldByteSize.string(message);    // message
+    public String toString() {
+        return "[TransactionResponse(accepted=" + accepted + ", message=" + message + "]";
     }
 }

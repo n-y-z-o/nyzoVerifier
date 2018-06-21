@@ -22,9 +22,9 @@ public class SeedTransactionManager {
     private static long lastBlockRequested = 0L;
 
     public static final long blocksPerDay = 12 * 60 * 24;
-    public static final long startHeight = 10; // 12 * 60;  // start one hour after the blockchain starts
+    public static final long startHeight = 5;  // start at block 5
     public static final long transactionsPerYear = blocksPerDay * 365L;  // one year of seed transactions
-    public static final long totalSeedTransactions = blocksPerDay * 5L; // transactionsPerYear + blocksPerDay * 20;
+    public static final long totalSeedTransactions = blocksPerDay * 30L; // transactionsPerYear * 5L + blocksPerDay * 30L;  // five years
     public static final long highestSeedHeight = startHeight + totalSeedTransactions;
 
     private static final Map<Long, Transaction> transactionMap = new HashMap<>();

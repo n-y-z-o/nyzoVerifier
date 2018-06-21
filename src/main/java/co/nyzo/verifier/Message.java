@@ -316,6 +316,10 @@ public class Message {
             content = NodeJoinResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Transaction5) {
             content = Transaction.fromByteBuffer(buffer);
+        } else if (type == MessageType.TransactionResponse6) {
+            content = TransactionResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.PreviousHashResponse8) {
+            content = PreviousHashResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.NewBlock9) {
             content = Block.fromByteBuffer(buffer);
         } else if (type == MessageType.BlockRequest11) {
