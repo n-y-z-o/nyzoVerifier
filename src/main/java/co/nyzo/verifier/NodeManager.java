@@ -153,7 +153,8 @@ public class NodeManager {
                 activeVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
             } else if (node.getInactiveTimestamp() < thresholdTimestamp) {
                 ipAddressToNodeMap.remove(ipAddress);
-                NotificationUtil.send("removed node " + NicknameManager.get(node.getIdentifier()) + " from mesh");
+                NotificationUtil.send("removed node " + NicknameManager.get(node.getIdentifier()) + " from mesh on " +
+                        Verifier.getNickname());
             }
         }
 
