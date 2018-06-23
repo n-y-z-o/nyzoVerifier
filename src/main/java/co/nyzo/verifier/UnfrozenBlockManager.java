@@ -63,6 +63,7 @@ public class UnfrozenBlockManager {
             }
 
             if (!alreadyContainsBlock && !alreadyContainsVerifierOnSameChain && verificationTimestampIntervalValid) {
+
                 blocksAtHeight.add(block);
                 registeredBlock = true;
 
