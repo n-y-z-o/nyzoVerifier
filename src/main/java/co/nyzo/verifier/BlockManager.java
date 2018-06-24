@@ -301,7 +301,6 @@ public class BlockManager {
         boolean foundOneCycle = false;
         Block previousBlock = block.getPreviousBlock();
         verifiersInCurrentCycle.clear();
-        long cycleStartHeight = block.getBlockHeight();
         while (previousBlock != null && !foundOneCycle) {
 
             ByteBuffer identifierBuffer = ByteBuffer.wrap(previousBlock.getVerifierIdentifier());
@@ -309,23 +308,18 @@ public class BlockManager {
                 foundOneCycle = true;
             } else {
                 verifiersInCurrentCycle.add(identifierBuffer);
-                cycleStartHeight = previousBlock.getBlockHeight();
             }
 
             inGenesisCycle = previousBlock.getBlockHeight() == 0 && !foundOneCycle;
             previousBlock = previousBlock.getPreviousBlock();
         }
 
-        // Update the cycle start height with the map.
-        BlockManagerMap.setCycleStartHeight(cycleStartHeight);
-
         // The loop will not enter for the Genesis block, so mark it as the Genesis cycle here.
         if (block.getBlockHeight() == 0) {
             inGenesisCycle = true;
         }
 
-        // Update the cycle value. This is stored separately so the method returning it can be made un-synchronized
-        // without question.
+        // Update the cycle value. This is stored separately so the method can be made un-synchronized without question.
         if (currentCycleLength != verifiersInCurrentCycle.size()) {
             if (currentCycleLength > 0) {
                 NotificationUtil.send("cycle length changed from " + currentCycleLength + " to " +

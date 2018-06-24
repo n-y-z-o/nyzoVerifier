@@ -3,43 +3,59 @@ package co.nyzo.verifier;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class BlockManagerMap {
 
-    private static Map<Long, Block> blocks = new HashMap<>();
-    private static long minimumBlockHeight = 0;
+    // TODO: The map should always have the Genesis block and the last two cycles of blocks loaded into
+    // TODO: memory and no more.
+
+    // This is a parameter we will likely need to revisit. It is here to prevent memory usage from getting out of
+    // control, but we need to keep more blocks in memory to determine verification cycle lengths as our mesh grows.
+    private static final long maximumBlocksInMap = 20000;
+
+    private static Map<Long, BlockManagerMap> blockMap = new HashMap<>();
+
+    private long lastUsedTimestamp;
+    private Block block;
+
+    private BlockManagerMap(Block block) {
+        this.block = block;
+        this.lastUsedTimestamp = 0L;  // we add some blocks that are not used because it is convenient; this makes sure
+                                      // that they will be removed first if they are not used
+    }
 
     public static synchronized void addBlock(Block block) {
 
         // Add the block to the map.
-        long height = block.getBlockHeight();
-        if (height == 0L || height >= minimumBlockHeight) {
-            blocks.put(height, block);
-        }
-    }
+        blockMap.put(block.getBlockHeight(), new BlockManagerMap(block));
 
-    public static synchronized void setCycleStartHeight(long cycleStartHeight) {
+        // Reduce the size of the map if it is too large.
+        if (blockMap.keySet().size() > maximumBlocksInMap) {
+            long sumTimestamp = 0L;
+            for (BlockManagerMap blockWrapper : blockMap.values()) {
+                sumTimestamp += blockWrapper.lastUsedTimestamp;
+            }
 
-        // The map should always have the Genesis block and three times the last cycle of blocks loaded into
-        // memory and no more. This will be sufficient for all discontinuity calculations and reasonable transaction
-        // validation.
-
-        // f - 3 * (f - c) = f - 3f + 3c = -2f + 3c
-        long minimumBlockHeight = -2L * BlockManager.frozenEdgeHeight() + 3L * cycleStartHeight;
-        if (minimumBlockHeight > BlockManagerMap.minimumBlockHeight) {
-
-            BlockManagerMap.minimumBlockHeight = minimumBlockHeight;
-
-            for (long height : new HashSet<>(blocks.keySet())) {
-                if (height != 0L && height < minimumBlockHeight) {
-                    blocks.remove(height);
+            long cutoffTimestamp = sumTimestamp / blockMap.size();
+            Set<Long> blockHeights = new HashSet<>(blockMap.keySet());
+            for (long blockHeight : blockHeights) {
+                BlockManagerMap blockWrapper = blockMap.get(blockHeight);
+                if (blockWrapper.lastUsedTimestamp < cutoffTimestamp) {
+                    blockMap.remove(blockHeight);
                 }
             }
         }
     }
 
     public static Block blockForHeight(long blockHeight) {
+        BlockManagerMap blockWrapper = blockMap.get(blockHeight);
+        Block block = null;
+        if (blockWrapper != null) {
+            block = blockWrapper.block;
+            blockWrapper.lastUsedTimestamp = System.currentTimeMillis();
+        }
 
-        return blocks.get(blockHeight);
+        return block;
     }
 }
