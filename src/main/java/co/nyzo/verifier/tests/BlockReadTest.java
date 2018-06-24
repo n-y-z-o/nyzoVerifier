@@ -13,7 +13,7 @@ public class BlockReadTest {
         int numberThatExist = 0;
         int numberThatDoNotExist = 0;
         for (int i = 0; i < blocksPerYear * 10L; i += 1000L) {
-            if (BlockManager.fileForBlockHeight(i, "yo").exists()) {
+            if (BlockManager.fileForBlockHeight(i).exists()) {
                 numberThatExist++;
             } else {
                 numberThatDoNotExist++;

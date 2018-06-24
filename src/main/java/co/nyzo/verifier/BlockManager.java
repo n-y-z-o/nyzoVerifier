@@ -65,29 +65,32 @@ public class BlockManager {
     public static synchronized List<Block> loadBlocksInFile(File file, boolean addBlocksToCache) {
 
         List<Block> blocks = new ArrayList<>();
-        Path path = Paths.get(file.getAbsolutePath());
-        try {
-            byte[] fileBytes = Files.readAllBytes(path);
-            ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
-            int numberOfBlocks = buffer.getShort();
-            Block previousBlock = null;
-            for (int i = 0; i < numberOfBlocks; i++) {
-                Block block = Block.fromByteBuffer(buffer);
-                if (previousBlock == null || (previousBlock.getBlockHeight() != block.getBlockHeight() - 1)) {
-                    block.setBalanceList(BalanceList.fromByteBuffer(buffer));
-                } else {
-                    block.setBalanceList(Block.balanceListForNextBlock(previousBlock, block.getTransactions(),
-                            block.getVerifierIdentifier()));
+        if (file.exists()) {
+            Path path = Paths.get(file.getAbsolutePath());
+            try {
+                byte[] fileBytes = Files.readAllBytes(path);
+                ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
+                int numberOfBlocks = buffer.getShort();
+                Block previousBlock = null;
+                for (int i = 0; i < numberOfBlocks; i++) {
+                    Block block = Block.fromByteBuffer(buffer);
+                    if (previousBlock == null || (previousBlock.getBlockHeight() != block.getBlockHeight() - 1)) {
+                        block.setBalanceList(BalanceList.fromByteBuffer(buffer));
+                    } else {
+                        block.setBalanceList(Block.balanceListForNextBlock(previousBlock, block.getTransactions(),
+                                block.getVerifierIdentifier()));
+                    }
+                    blocks.add(block);
+
+                    previousBlock = block;
                 }
-                blocks.add(block);
-
-                previousBlock = block;
+            } catch (Exception ignored) {
             }
-        } catch (Exception ignored) { }
 
-        if (addBlocksToCache) {
-            for (Block block : blocks) {
-                BlockManagerMap.addBlock(block);
+            if (addBlocksToCache) {
+                for (Block block : blocks) {
+                    BlockManagerMap.addBlock(block);
+                }
             }
         }
 
@@ -194,24 +197,29 @@ public class BlockManager {
         }
     }
 
-    public static File fileForBlockHeight(long blockHeight, String extension) {
+    public static File individualFileForBlockHeight(long blockHeight) {
+
+        long directoryIndex = blockHeight / blocksPerFile / filesPerDirectory;
+        File directory = new File(blockRootDirectory, String.format("%03d", directoryIndex));
+        return new File(directory, String.format("i_%06d.%s", blockHeight, "nyzoblock"));
+    }
+
+    public static File fileForBlockHeight(long blockHeight) {
 
         // This format provides 158.5 years of blocks with nicely aligned names. After that, it will still work fine,
         // but the filenames will be wider.
         long fileIndex = blockHeight / blocksPerFile;
         long directoryIndex = blockHeight / blocksPerFile / filesPerDirectory;
         File directory = new File(blockRootDirectory, String.format("%03d", directoryIndex));
-        return new File(directory, String.format("%06d.%s", fileIndex, extension));
-    }
-
-    private static File fileForBlockHeight(long blockHeight) {
-
-        return fileForBlockHeight(blockHeight, "nyzoblock");
+        return new File(directory, String.format("%06d.%s", fileIndex, "nyzoblock"));
     }
 
     private static void loadBlockFromFile(long blockHeight) {
 
-        loadBlocksInFile(fileForBlockHeight(blockHeight), true);
+        loadBlocksInFile(individualFileForBlockHeight(blockHeight), true);
+        if (BlockManagerMap.blockForHeight(blockHeight) == null) {
+            loadBlocksInFile(fileForBlockHeight(blockHeight), true);
+        }
     }
 
     private static synchronized void initialize() {
