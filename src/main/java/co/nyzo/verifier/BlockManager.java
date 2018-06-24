@@ -47,6 +47,10 @@ public class BlockManager {
         if (blockHeight <= frozenEdgeHeight.get()) {
 
             block = BlockManagerMap.blockForHeight(blockHeight);
+            if (block == null) {  // TODO: remove this, but be very careful when you do  ;)
+                loadBlockFromFile(blockHeight);
+                block = BlockManagerMap.blockForHeight(blockHeight);
+            }
         }
 
         return block;
