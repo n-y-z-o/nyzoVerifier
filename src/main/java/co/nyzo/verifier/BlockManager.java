@@ -33,26 +33,30 @@ public class BlockManager {
 
     public static Block frozenBlockForHeight(long blockHeight) {
 
-        // For a block that should be available, the map is checked first, then local files.
+        // Only return blocks from the map. It would be too computationally intensive to load blocks from files on
+        // demand without any rate limiting.
+
+        // We also used to have block loading from the network here. This could cause some serious performance issues
+        // for verifiers, though, because we might have very large chains that need to be connected in order
+        // to establish the veracity of a block.  So, we will instead allow verifiers to be ignorant of certain
+        // parts of the chain. When a verifier starts, it will get the recent chain. If a transaction references
+        // a hash of a block that a verifier does not know, the verifier should omit that transaction from
+        // the block.
+
         Block block = null;
         if (blockHeight <= frozenEdgeHeight.get()) {
 
             block = BlockManagerMap.blockForHeight(blockHeight);
-            if (block == null) {
-                loadBlockFromFile(blockHeight);
-                block = BlockManagerMap.blockForHeight(blockHeight);
-
-                // We used to have block loading from the network here. This could cause some serious performance issues
-                // for verifiers, though, because we might have very large chains that need to be connected in order
-                // to establish the veracity of a block.  So, we will instead allow verifiers to be ignorant of certain
-                // parts of the chain. When a verifier starts, it will get the recent chain. If a transaction references
-                // a hash of a block that a verifier does not know, the verifier should omit that transaction from
-                // the block.
-            }
         }
 
         return block;
     }
+
+    // rules:
+    // (1) write individual files
+    // (2) when all 1000 files are in place, write combined file and delete individual files
+    // (3) when loading, look first for combined files, then for individual files
+    // (4) after initial load, all blocks in the file should be in memory
 
     public static synchronized List<Block> loadBlocksInFile(File file, boolean addBlocksToCache) {
 
