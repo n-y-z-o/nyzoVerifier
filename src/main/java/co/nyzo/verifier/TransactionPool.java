@@ -1,43 +1,55 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.messages.TransactionPoolResponse;
-import co.nyzo.verifier.util.IpUtil;
-
 import java.nio.ByteBuffer;
 import java.util.*;
 
 public class TransactionPool {
 
     private static long frozenEdgeHeight = 1L;
-    private static final Map<ByteBuffer, Transaction> transactionPool = new HashMap<>();
+    private static final Map<Long, Map<ByteBuffer, Transaction>> transactions = new HashMap<>();
 
     public static synchronized void addTransaction(Transaction transaction) {
 
-        if (BlockManager.heightForTimestamp(transaction.getTimestamp()) > frozenEdgeHeight) {
-            transactionPool.put(ByteBuffer.wrap(transaction.getSignature()), transaction);
+        long transactionBlockHeight = BlockManager.heightForTimestamp(transaction.getTimestamp());
+        if (transactionBlockHeight > frozenEdgeHeight) {
+            Map<ByteBuffer, Transaction> transactionsForHeight = transactions.get(transactionBlockHeight);
+            if (transactionsForHeight == null) {
+                transactionsForHeight = new HashMap<>();
+                transactions.put(transactionBlockHeight, transactionsForHeight);
+            }
+            transactionsForHeight.put(ByteBuffer.wrap(transaction.getSignature()), transaction);
         }
     }
 
-    public static synchronized List<Transaction> transactionsForBlock(long blockHeight) {
+    public static synchronized List<Transaction> transactionsForHeight(long blockHeight) {
 
-        List<Transaction> transactionsForBlock = new ArrayList<>();
-        long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
-        long endTimestamp = BlockManager.endTimestampForHeight(blockHeight);
-        for (Transaction transaction : transactionPool.values()) {
-            if (transaction.getTimestamp() >= startTimestamp && transaction.getTimestamp() < endTimestamp) {
-                transactionsForBlock.add(transaction);
-            }
+        List<Transaction> transactionsForHeight = new ArrayList<>();
+        Map<ByteBuffer, Transaction> transactionMapForHeight = transactions.get(blockHeight);
+        if (transactionMapForHeight != null) {
+            transactionsForHeight.addAll(transactionMapForHeight.values());
         }
 
-        return transactionsForBlock;
+        return transactionsForHeight;
     }
 
     public static synchronized List<Transaction> allTransactions() {
-        return new ArrayList<>(transactionPool.values());
+
+        List<Transaction> allTransactions = new ArrayList<>();
+        for (Map<ByteBuffer, Transaction> transactionsForHeight : transactions.values()) {
+            allTransactions.addAll(transactionsForHeight.values());
+        }
+
+        return allTransactions;
     }
 
     public static synchronized int transactionPoolSize() {
-        return transactionPool.size();
+
+        int numberOfTransactions = 0;
+        for (Map<ByteBuffer, Transaction> transactionsForHeight : transactions.values()) {
+            numberOfTransactions += transactionsForHeight.size();
+        }
+
+        return numberOfTransactions;
     }
 
     public static synchronized void updateFrozenEdge() {
@@ -45,11 +57,9 @@ public class TransactionPool {
         long newFrozenEdgeHeight = BlockManager.frozenEdgeHeight();
         if (newFrozenEdgeHeight > frozenEdgeHeight) {
             frozenEdgeHeight = newFrozenEdgeHeight;
-            long cutoffTimestamp = BlockManager.endTimestampForHeight(frozenEdgeHeight);
-            List<Transaction> transactions = allTransactions();
-            for (Transaction transaction : transactions) {
-                if (transaction.getTimestamp() < cutoffTimestamp) {
-                    transactionPool.remove(ByteBuffer.wrap(transaction.getSignature()));
+            for (Long height : new HashSet<>(transactions.keySet())) {
+                if (height <= frozenEdgeHeight) {
+                    transactions.remove(height);
                 }
             }
         }

@@ -42,7 +42,7 @@ public class BlockManager {
         // parts of the chain. When a verifier starts, it will get the recent chain. If a transaction references
         // a hash of a block that a verifier does not know, the verifier should omit that transaction from
         // the block.
-
+        
         Block block = null;
         if (blockHeight <= frozenEdgeHeight.get()) {
 

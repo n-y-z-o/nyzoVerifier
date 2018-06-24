@@ -7,6 +7,9 @@ import java.util.Set;
 
 public class BlockManagerMap {
 
+    // TODO: The map should always have the Genesis block and the last two cycles of blocks loaded into
+    // TODO: memory and no more.
+
     // This is a parameter we will likely need to revisit. It is here to prevent memory usage from getting out of
     // control, but we need to keep more blocks in memory to determine verification cycle lengths as our mesh grows.
     private static final long maximumBlocksInMap = 20000;

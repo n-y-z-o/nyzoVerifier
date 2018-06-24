@@ -471,7 +471,7 @@ public class Verifier {
 
             // Get the transactions for the block.
             long blockHeight = previousBlock.getBlockHeight() + 1L;
-            List<Transaction> transactions = TransactionPool.transactionsForBlock(blockHeight);
+            List<Transaction> transactions = TransactionPool.transactionsForHeight(blockHeight);
             if (blockHeight == 1) {
                 transactions.add(seedFundingTransaction);
             } else {
