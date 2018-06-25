@@ -39,7 +39,7 @@ public class BlockFileConsolidator {
     private static void consolidateFiles() {
 
         // To prevent unbounded work on this, we will only look at the last 5000 blocks.
-
+        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
     }
 
 }
