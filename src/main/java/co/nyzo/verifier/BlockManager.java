@@ -332,7 +332,8 @@ public class BlockManager {
         if (currentCycleLength != verifiersInCurrentCycle.size()) {
             if (verifiersInCurrentCycle.size() < currentCycleLength) {
                 NotificationUtil.send("cycle length changed from " + currentCycleLength + " to " +
-                        verifiersInCurrentCycle.size() + " at block " + block.getBlockHeight());
+                        verifiersInCurrentCycle.size() + " at block " + block.getBlockHeight() + " on " +
+                        Verifier.getNickname());
             }
             currentCycleLength = verifiersInCurrentCycle.size();
         }
