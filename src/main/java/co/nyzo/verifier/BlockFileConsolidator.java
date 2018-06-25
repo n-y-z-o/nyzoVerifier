@@ -70,19 +70,16 @@ public class BlockFileConsolidator {
     private static void writeCombinedFileForHeight(long fileStartHeight) {
 
         long fileEndHeight = fileStartHeight + BlockManager.blocksPerFile - 1;
-        boolean fileIsComplete = true;
-        for (long height = fileStartHeight; height <= fileEndHeight && fileIsComplete; height++) {
-
-            if (!BlockManager.individualFileForBlockHeight(height).exists()) {
-                fileIsComplete = false;
-            }
-        }
+        boolean fileIsComplete = fileEndHeight < BlockManager.frozenEdgeHeight();
 
         if (fileIsComplete) {
 
             List<Block> blocksForFile = new ArrayList<>();
             for (long height = fileStartHeight; height <= fileEndHeight; height++) {
-                blocksForFile.add(BlockManager.frozenBlockForHeight(height));
+                Block block = BlockManager.frozenBlockForHeight(height);
+                if (block != null) {
+                    blocksForFile.add(block);
+                }
             }
 
             BlockManager.writeBlocksToFile(blocksForFile, BlockManager.fileForBlockHeight(fileStartHeight));
