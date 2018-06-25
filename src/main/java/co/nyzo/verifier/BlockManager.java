@@ -16,7 +16,7 @@ public class BlockManager {
 
     public static final File blockRootDirectory = new File(Verifier.dataRootDirectory, "blocks");
     private static final AtomicLong frozenEdgeHeight = new AtomicLong(-1L);
-    private static final long blocksPerFile = 1000L;
+    public static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
     private static boolean inGenesisCycle = false;
     private static final Set<ByteBuffer> verifiersInCurrentCycle = new HashSet<>();
@@ -330,7 +330,7 @@ public class BlockManager {
 
         // Update the cycle value. This is stored separately so the method can be made un-synchronized without question.
         if (currentCycleLength != verifiersInCurrentCycle.size()) {
-            if (currentCycleLength > 0) {
+            if (currentCycleLength < verifiersInCurrentCycle.size()) {
                 NotificationUtil.send("cycle length changed from " + currentCycleLength + " to " +
                         verifiersInCurrentCycle.size() + " at block " + block.getBlockHeight());
             }

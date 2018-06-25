@@ -120,6 +120,10 @@ public class Verifier {
             // Start the seed transaction manager. This loads all the seed transactions in the background.
             SeedTransactionManager.start();
 
+            // Start the block file consolidator. This bundles every 1000 blocks into one file to avoiding using
+            // too many inodes.
+            BlockFileConsolidator.start();
+
             // Start the node listener and wait for it to start and for the port to settle.
             MeshListener.start();
             try {
