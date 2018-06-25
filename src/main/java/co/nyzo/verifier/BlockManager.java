@@ -97,7 +97,7 @@ public class BlockManager {
         return blocks;
     }
 
-    public static synchronized boolean writeBlocksToFile(List<Block> blocks, File file) {
+    public static boolean writeBlocksToFile(List<Block> blocks, File file) {
 
         boolean successful = false;
 
@@ -177,10 +177,7 @@ public class BlockManager {
                 try {
                     setFrozenEdgeHeight(block.getBlockHeight());
 
-                    File file = fileForBlockHeight(block.getBlockHeight());
-                    List<Block> blocksInFile = loadBlocksInFile(file, true);
-                    blocksInFile.add(block);
-                    writeBlocksToFile(blocksInFile, file);
+                    writeBlocksToFile(Arrays.asList(block), individualFileForBlockHeight(block.getBlockHeight()));
                     BlockManagerMap.addBlock(block);
 
                     if (block.getBlockHeight() == 0L) {
