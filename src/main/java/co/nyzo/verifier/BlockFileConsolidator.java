@@ -39,9 +39,9 @@ public class BlockFileConsolidator {
 
     private static void consolidateFiles() {
 
-        // To prevent unbounded work on this, we will only look at the last five files behind the frozen edge.
+        // To prevent unbounded work on this, we will only look at the last 20 files behind the frozen edge.
         long endHeight = (BlockManager.frozenEdgeHeight() / BlockManager.blocksPerFile) * BlockManager.blocksPerFile;
-        long startHeight = Math.max(0, endHeight - BlockManager.blocksPerFile * 5L);
+        long startHeight = Math.max(0, endHeight - BlockManager.blocksPerFile * 20L);
         for (long height = startHeight; height < endHeight; height += BlockManager.blocksPerFile) {
 
             if (BlockManager.fileForBlockHeight(height).exists()) {
@@ -82,7 +82,9 @@ public class BlockFileConsolidator {
                 }
             }
 
-            BlockManager.writeBlocksToFile(blocksForFile, BlockManager.fileForBlockHeight(fileStartHeight));
+            if (!blocksForFile.isEmpty()) {
+                BlockManager.writeBlocksToFile(blocksForFile, BlockManager.fileForBlockHeight(fileStartHeight));
+            }
         }
     }
 
