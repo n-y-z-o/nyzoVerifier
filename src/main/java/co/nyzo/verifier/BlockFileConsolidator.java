@@ -41,7 +41,7 @@ public class BlockFileConsolidator {
 
         // To prevent unbounded work on this, we will only look at the last 20 files behind the frozen edge.
         long endHeight = (BlockManager.frozenEdgeHeight() / BlockManager.blocksPerFile) * BlockManager.blocksPerFile;
-        long startHeight = Math.max(0, endHeight - BlockManager.blocksPerFile * 20L);
+        long startHeight = Math.max(0, endHeight - BlockManager.blocksPerFile * 4L);
         for (long height = startHeight; height < endHeight; height += BlockManager.blocksPerFile) {
 
             if (BlockManager.fileForBlockHeight(height).exists()) {
