@@ -30,7 +30,10 @@ public class FileUtil {
             Files.write(temporaryPath, bytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
             Files.move(temporaryPath, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
 
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {
+            ignored.printStackTrace();
+            NotificationUtil.sendOnce("unable to write file " + path.getFileName() + ": " + ignored.getMessage());
+        }
     }
 
     public static void writeFile(Path path, List<String> lines) {
