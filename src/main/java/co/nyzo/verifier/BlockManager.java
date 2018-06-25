@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class BlockManager {
 
     public static final File blockRootDirectory = new File(Verifier.dataRootDirectory, "blocks");
+    public static final File individualBlockDirectory = new File(blockRootDirectory, "individual");
     private static final AtomicLong frozenEdgeHeight = new AtomicLong(-1L);
     public static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
@@ -55,12 +56,6 @@ public class BlockManager {
 
         return block;
     }
-
-    // rules:
-    // (1) write individual files
-    // (2) when all 1000 files are in place, write combined file and delete individual files
-    // (3) when loading, look first for combined files, then for individual files
-    // (4) after initial load, all blocks in the file should be in memory
 
     public static synchronized List<Block> loadBlocksInFile(File file, boolean addBlocksToCache) {
 
@@ -133,7 +128,6 @@ public class BlockManager {
 
         try {
             file.getParentFile().mkdirs();
-            file.delete();
             FileUtil.writeFile(Paths.get(file.getAbsolutePath()), bytes);
             successful = true;
         } catch (Exception reportOnly) {
@@ -196,9 +190,7 @@ public class BlockManager {
 
     public static File individualFileForBlockHeight(long blockHeight) {
 
-        long directoryIndex = blockHeight / blocksPerFile / filesPerDirectory;
-        File directory = new File(blockRootDirectory, String.format("%03d", directoryIndex));
-        return new File(directory, String.format("i_%06d.%s", blockHeight, "nyzoblock"));
+        return new File(individualBlockDirectory, String.format("i_%09d.%s", blockHeight, "nyzoblock"));
     }
 
     public static File fileForBlockHeight(long blockHeight) {
@@ -223,6 +215,10 @@ public class BlockManager {
 
         // This method only needs to load the locally stored blocks, and it can do so synchronously.
 
+        // Ensure that both the block directory and the individual block directory exist. The individual block directory
+        // is a subdirectory of the block directory, so a single call can ensure both.
+        individualBlockDirectory.mkdirs();
+
         if (fileForBlockHeight(0).exists()) {
 
             System.out.println("Genesis block file exists");
@@ -240,11 +236,33 @@ public class BlockManager {
                 highestFileStartBlock += BlockManager.blocksPerFile;
             }
 
+            // Load the highest consolidated file.
             List<Block> blocks = loadBlocksInFile(fileForBlockHeight(highestFileStartBlock), true);
+            Block block = null;
             if (blocks.size() > 0) {
-                Block block = blocks.get(blocks.size() - 1);
+                block = blocks.get(blocks.size() - 1);
+            }
+
+            // Continue trying to load individual files that have not yet been consolidated.
+            if (block != null) {
+                long blockHeight = block.getBlockHeight();
+                while (individualFileForBlockHeight(blockHeight + 1).exists()) {
+                    blockHeight++;
+                    NotificationUtil.sendOnce("found individual file at height " + blockHeight + " on " +
+                            Verifier.getNickname());
+                }
+
+                if (individualFileForBlockHeight(blockHeight).exists()) {
+                    List<Block> individualBlockList = loadBlocksInFile(individualFileForBlockHeight(blockHeight), true);
+                    if (individualBlockList.size() > 0) {
+                        block = individualBlockList.get(0);
+                    }
+                }
+
                 setFrozenEdgeHeight(block.getBlockHeight());
                 updateVerifiersInCurrentCycle(block);
+                NotificationUtil.sendOnce("loaded frozen edge at height " + frozenEdgeHeight() + " on " +
+                        Verifier.getNickname());
             }
         }
     }

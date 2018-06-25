@@ -1,18 +1,10 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.FileUtil;
-import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.File;
-import java.nio.ByteBuffer;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.*;
 
 public class BlockFileConsolidator {
 
@@ -24,7 +16,9 @@ public class BlockFileConsolidator {
 
                 while (!UpdateUtil.shouldTerminate()) {
 
-                    consolidateFiles();
+                    try {
+                        consolidateFiles();
+                    } catch (Exception ignored) { }
 
                     // Sleep for 5 minutes (300 seconds) in 3-second intervals.
                     for (int i = 0; i < 100 && !UpdateUtil.shouldTerminate(); i++) {
@@ -39,53 +33,80 @@ public class BlockFileConsolidator {
 
     private static void consolidateFiles() {
 
-        // To prevent unbounded work on this, we will only look at the last 20 files behind the frozen edge.
-        long endHeight = (BlockManager.frozenEdgeHeight() / BlockManager.blocksPerFile) * BlockManager.blocksPerFile;
-        long startHeight = Math.max(0, endHeight - BlockManager.blocksPerFile * 4L);
-        for (long height = startHeight; height < endHeight; height += BlockManager.blocksPerFile) {
+        // Get all files in the individual directory.
+        File[] individualFiles = BlockManager.individualBlockDirectory.listFiles();
 
-            if (BlockManager.fileForBlockHeight(height).exists()) {
-
-                deleteIndividualFilesForHeight(height);
-
-            } else {
-
-                writeCombinedFileForHeight(height);
-            }
-        }
-    }
-
-    private static void deleteIndividualFilesForHeight(long fileStartHeight) {
-
-        long fileEndHeight = fileStartHeight + BlockManager.blocksPerFile - 1;
-        for (long height = fileStartHeight; height <= fileEndHeight; height++) {
-
-            File file = BlockManager.individualFileForBlockHeight(height);
-            if (file.exists()) {
-                file.delete();
-            }
-        }
-    }
-
-    private static void writeCombinedFileForHeight(long fileStartHeight) {
-
-        long fileEndHeight = fileStartHeight + BlockManager.blocksPerFile - 1;
-        boolean fileIsComplete = fileEndHeight < BlockManager.frozenEdgeHeight();
-
-        if (fileIsComplete) {
-
-            List<Block> blocksForFile = new ArrayList<>();
-            for (long height = fileStartHeight; height <= fileEndHeight; height++) {
-                Block block = BlockManager.frozenBlockForHeight(height);
-                if (block != null) {
-                    blocksForFile.add(block);
+        // Build a map of all files that need to be consolidated.
+        Map<Long, List<File>> fileMap = new HashMap<>();
+        long currentFileIndex = BlockManager.frozenEdgeHeight() / BlockManager.blocksPerFile;
+        if (individualFiles != null) {
+            for (File file : individualFiles) {
+                long blockHeight = blockHeightForFile(file);
+                long fileIndex = blockHeight / BlockManager.blocksPerFile;
+                if (fileIndex < currentFileIndex) {
+                    List<File> filesForIndex = fileMap.get(fileIndex);
+                    if (filesForIndex == null) {
+                        filesForIndex = new ArrayList<>();
+                        fileMap.put(fileIndex, filesForIndex);
+                    }
+                    filesForIndex.add(file);
                 }
             }
+        }
 
-            if (!blocksForFile.isEmpty()) {
-                BlockManager.writeBlocksToFile(blocksForFile, BlockManager.fileForBlockHeight(fileStartHeight));
+        // Consolidate the files for each file index.
+        for (Long fileIndex : fileMap.keySet()) {
+            consolidateFiles(fileIndex, fileMap.get(fileIndex));
+        }
+    }
+
+    private static void consolidateFiles(long fileIndex, List<File> individualFiles) {
+
+        // Get the blocks from the existing consolidated file for this index.
+        long startBlockHeight = fileIndex * BlockManager.blocksPerFile;
+        List<Block> blocks = BlockManager.loadBlocksInFile(BlockManager.fileForBlockHeight(startBlockHeight), false);
+
+        // Add the blocks from the individual files.
+        for (File file : individualFiles) {
+            blocks.addAll(BlockManager.loadBlocksInFile(file, false));
+        }
+
+        // Sort the blocks on block height ascending.
+        Collections.sort(blocks, new Comparator<Block>() {
+            @Override
+            public int compare(Block block1, Block block2) {
+                return ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight());
+            }
+        });
+
+        // Dedupe blocks.
+        for (int i = blocks.size() - 1; i > 0; i--) {
+            if (blocks.get(i).getBlockHeight() == blocks.get(i - 1).getBlockHeight()) {
+                blocks.remove(i);
             }
         }
+
+        // Write the combined file.
+        BlockManager.writeBlocksToFile(blocks, BlockManager.fileForBlockHeight(startBlockHeight));
+
+        // Delete the individual files.
+        for (File file : individualFiles) {
+            file.delete();
+        }
+
+        NotificationUtil.send("consolidated " + individualFiles.size() + " files to a single file for start height " +
+                startBlockHeight + " on " + Verifier.getNickname());
+    }
+
+    private static long blockHeightForFile(File file) {
+
+        long height = -1;
+        try {
+            String filename = file.getName().replace("i_", "").replace(".nyzoblock", "");
+            height = Long.parseLong(filename);
+        } catch (Exception ignored) { }
+
+        return height;
     }
 
 }
