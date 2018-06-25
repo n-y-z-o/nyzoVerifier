@@ -26,7 +26,7 @@ public class FileUtil {
         Path temporaryPath = Paths.get(path.toAbsolutePath().toString() + "_temp");
         try {
             // Write the file to the temporary path then move it to the permanent path.
-            Files.delete(temporaryPath);
+            Files.deleteIfExists(temporaryPath);
             Files.write(temporaryPath, bytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
             Files.move(temporaryPath, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
 
