@@ -39,8 +39,6 @@ public class MeshListener {
                 public void run() {
                     try {
                         serverSocket = new ServerSocket(standardPort);
-                        serverSocket.setReceiveBufferSize(10240);
-                        //System.out.println("receive buffer size is " + serverSocket.getReceiveBufferSize());
                         port = serverSocket.getLocalPort();
 
                         while (!UpdateUtil.shouldTerminate()) {
