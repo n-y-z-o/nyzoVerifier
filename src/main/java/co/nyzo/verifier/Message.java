@@ -125,18 +125,31 @@ public class Message {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    Message response = null;
-                    Socket socket = new Socket();
-                    try {
-                        socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
-                        NodeManager.markSuccessfulConnection(hostNameOrIp);
-                    } catch (Exception ignored) {
-                        System.out.println("unable to open socket to " + hostNameOrIp + ":" + port);
-                        NodeManager.markFailedConnection(hostNameOrIp);
-                        socket = null;
+                    Socket socket = null;
+                    for (int i = 0; i < 3 && socket == null; i++) {
+                        socket = new Socket();
+                        try {
+                            socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
+                        } catch (Exception ignored) {
+                            socket = null;
+                        }
+
+                        if (socket == null) {
+                            try {
+                                Thread.sleep(100L + (long) (Math.random() * 100));
+                            } catch (Exception ignored) { }
+                        }
                     }
 
-                    if (socket != null) {
+                    Message response = null;
+                    if (socket == null) {
+
+                        NodeManager.markFailedConnection(hostNameOrIp);
+
+                    } else {
+
+                        NodeManager.markSuccessfulConnection(hostNameOrIp);
+
                         try {
                             OutputStream outputStream = socket.getOutputStream();
                             outputStream.write(message.getBytesForTransmission());
