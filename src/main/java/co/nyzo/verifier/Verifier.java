@@ -23,7 +23,6 @@ public class Verifier {
 
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
-    private static final int version = 290;
     private static String nickname = null;
     private static int rejoinCount = 0;
 
@@ -536,10 +535,6 @@ public class Verifier {
         }
 
         return ages;
-    }
-
-    public static int getVersion() {
-        return version;
     }
 
     private static void loadNickname() {
