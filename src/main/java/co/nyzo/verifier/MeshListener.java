@@ -11,6 +11,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MeshListener {
 
+    private static final Socket[] waitingSockets = new Socket[10000];
+    private static int waitingSocketsPutIndex = 0;
+    private static int waitingSocketsGetIndex = 0;
+
     public static void main(String[] args) {
         start();
     }
@@ -45,32 +49,7 @@ public class MeshListener {
 
                             try {
                                 Socket clientSocket = serverSocket.accept();
-                                new Thread(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        try {
-                                            Message message = Message.readFromStream(clientSocket.getInputStream(),
-                                                    IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() +
-                                                            ""), MessageType.IncomingRequest65533);
-                                            if (message != null) {
-                                                Message response = response(message);
-                                                if (response != null) {
-                                                    clientSocket.getOutputStream().write(response
-                                                            .getBytesForTransmission());
-                                                }
-                                            }
-
-                                        } catch (Exception e) {
-                                            e.printStackTrace();
-                                        }
-
-                                        try {
-                                            Thread.sleep(3L);
-                                            clientSocket.close();
-                                        } catch (Exception ignored) { }
-                                    }
-                                }, "MeshListener-clientSocket").start();
+                                dispatch(clientSocket);
                             } catch (Exception ignored) { }
                         }
 
@@ -81,7 +60,58 @@ public class MeshListener {
                     alive.set(false);
                 }
             }, "MeshListener-serverSocket").start();
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+
+                    while (!UpdateUtil.shouldTerminate()) {
+
+                        if (waitingSockets[waitingSocketsGetIndex] == null) {
+                            try {
+                                Thread.sleep(10L);
+                            } catch (Exception ignored) { }
+                        } else {
+                            Socket clientSocket = waitingSockets[waitingSocketsGetIndex];
+                            new Thread(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    try {
+                                        Message message = Message.readFromStream(clientSocket.getInputStream(),
+                                                IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() +
+                                                        ""), MessageType.IncomingRequest65533);
+                                        if (message != null) {
+                                            Message response = response(message);
+                                            if (response != null) {
+                                                clientSocket.getOutputStream().write(response
+                                                        .getBytesForTransmission());
+                                            }
+                                        }
+
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                    }
+
+                                    try {
+                                        Thread.sleep(3L);
+                                        clientSocket.close();
+                                    } catch (Exception ignored) { }
+                                }
+                            }, "MeshListener-clientSocket").start();
+                            waitingSockets[waitingSocketsGetIndex] = null;
+                            waitingSocketsGetIndex = (waitingSocketsGetIndex + 1) % waitingSockets.length;
+                        }
+                    }
+                }
+            }, "MeshListener-socketDispatch").start();
         }
+    }
+
+    private static void dispatch(Socket clientSocket) {
+
+        waitingSockets[waitingSocketsPutIndex] = clientSocket;
+        waitingSocketsPutIndex = (waitingSocketsPutIndex + 1) % waitingSockets.length;
     }
 
     public static void closeSocket() {

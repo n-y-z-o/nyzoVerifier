@@ -23,7 +23,7 @@ public class Verifier {
 
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
-    private static final int version = 283;
+    private static final int version = 284;
     private static String nickname = null;
     private static int rejoinCount = 0;
 
