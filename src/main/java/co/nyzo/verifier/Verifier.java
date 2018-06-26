@@ -23,7 +23,7 @@ public class Verifier {
 
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
-    private static int version = -1;
+    private static final int version = 283;
     private static String nickname = null;
     private static int rejoinCount = 0;
 
@@ -109,10 +109,6 @@ public class Verifier {
             // Ensure that the Genesis block and the seed-funding transaction are loaded.
             loadGenesisBlock();
             loadSeedFundingTransaction();
-
-            // Load the version number. This is not required for proper operation, but it is helpful to know which
-            // nodes are running which versions of the software.
-            loadVersion();
 
             // Load the nickname. This is purely for display purposes.
             loadNickname();
@@ -540,14 +536,6 @@ public class Verifier {
         }
 
         return ages;
-    }
-
-    private static void loadVersion() {
-
-        try {
-            version = Integer.parseInt(Files.readAllLines(Paths.get("/home/ubuntu/nyzoVerifier/version")).get(0));
-            System.out.println("loaded version: " + version);
-        } catch (Exception ignored) { }
     }
 
     public static int getVersion() {
