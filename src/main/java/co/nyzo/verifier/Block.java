@@ -341,11 +341,16 @@ public class Block implements MessageObject {
         return array;
     }
 
-    public void sign(byte[] signerSeed) {
+    public void sign(long verificationTimestamp, byte[] signerSeed) {
 
-        this.verificationTimestamp = System.currentTimeMillis();
+        this.verificationTimestamp = verificationTimestamp;
         this.verifierIdentifier = KeyUtil.identifierForSeed(signerSeed);
         this.verifierSignature = SignatureUtil.signBytes(getBytes(false), signerSeed);
+    }
+
+    public void sign(byte[] signerSeed) {
+
+        sign(System.currentTimeMillis(), signerSeed);
     }
 
     public boolean signatureIsValid() {

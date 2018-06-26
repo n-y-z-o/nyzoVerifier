@@ -313,7 +313,7 @@ public class UnfrozenBlockManager {
                 int localVerifierIndexInCycle = localVerifierPreviousBlockHeight < 0 ? -1 :
                         (int) (localVerifierPreviousBlockHeight - blockToCheck.getBlockHeight() - 1L);
                 cycleInformation = new CycleInformation(cycleLength, blockVerifierIndexInCycle,
-                        localVerifierIndexInCycle);
+                        localVerifierIndexInCycle, false);
             } else if (blockToCheck.getBlockHeight() == 0) {
 
                 // For purposes of calculation, new verifiers in the first cycle of the chain are treated as existing
@@ -323,7 +323,8 @@ public class UnfrozenBlockManager {
                 int localVerifierIndexInCycle = (int) Math.max(localVerifierPreviousBlockHeight, 0);
 
                 cycleInformation = new CycleInformation(cycleLength, blockVerifierIndexInCycle,
-                        localVerifierIndexInCycle);
+                        localVerifierIndexInCycle,
+                        !identifiers.contains(ByteBuffer.wrap(block.getVerifierIdentifier())));
             } else {
                 identifiers.add(identifier);
             }
@@ -338,7 +339,7 @@ public class UnfrozenBlockManager {
         }
 
         if (block.getBlockHeight() == 0) {
-            cycleInformation = new CycleInformation(0, 0, 0);
+            cycleInformation = new CycleInformation(0, 0, 0, true);
         }
 
         return cycleInformation;
