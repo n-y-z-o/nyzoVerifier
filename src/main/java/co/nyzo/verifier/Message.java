@@ -119,8 +119,6 @@ public class Message {
     public static void fetch(String hostNameOrIp, int port, Message message,
                              MessageCallback messageCallback) {
 
-        boolean retryIfFailed = false;
-
         byte[] identifier = NodeManager.identifierForIpAddress(hostNameOrIp);
         if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
 
