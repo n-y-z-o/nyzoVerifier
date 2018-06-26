@@ -246,8 +246,13 @@ public class BlockManager {
             // Continue trying to load individual files that have not yet been consolidated.
             if (block != null) {
                 long blockHeight = block.getBlockHeight();
+                long individualBlockHeight = -1;
                 while (individualFileForBlockHeight(blockHeight + 1).exists()) {
                     blockHeight++;
+                    individualBlockHeight = blockHeight;
+                }
+
+                if (individualBlockHeight >= 0) {
                     NotificationUtil.sendOnce("found individual file at height " + blockHeight + " on " +
                             Verifier.getNickname());
                 }
