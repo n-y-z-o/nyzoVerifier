@@ -11,11 +11,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MeshListener {
 
-    private static final int numberOfThreads = 16;
-    private static final Socket[] waitingSockets = new Socket[numberOfThreads * 1000];
-    private static int waitingSocketsPutIndex = 0;
-    private static int[] waitingSocketsGetIndices = new int[numberOfThreads];
-
     public static void main(String[] args) {
         start();
     }
@@ -39,106 +34,55 @@ public class MeshListener {
 
         if (!alive.getAndSet(true)) {
 
-            startServerSocketThread();
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        serverSocket = new ServerSocket(standardPort);
+                        //serverSocket.setReceiveBufferSize(10240);
+                        port = serverSocket.getLocalPort();
 
-            for (int i = 0; i < numberOfThreads; i++) {
-                startClientSocketThread(i);
-            }
-        }
-    }
+                        while (!UpdateUtil.shouldTerminate()) {
 
-    private static void startServerSocketThread() {
+                            try {
+                                Socket clientSocket = serverSocket.accept();
+                                new Thread(new Runnable() {
+                                    @Override
+                                    public void run() {
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    serverSocket = new ServerSocket(standardPort);
-                    serverSocket.setReceiveBufferSize(1024);
-                    System.out.println("receive buffer size: " + serverSocket.getReceiveBufferSize());
-                    port = serverSocket.getLocalPort();
+                                        try {
+                                            Message message = Message.readFromStream(clientSocket.getInputStream(),
+                                                    IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() +
+                                                            ""), MessageType.IncomingRequest65533);
+                                            if (message != null) {
+                                                Message response = response(message);
+                                                if (response != null) {
+                                                    clientSocket.getOutputStream().write(response
+                                                            .getBytesForTransmission());
+                                                }
+                                            }
 
-                    while (!UpdateUtil.shouldTerminate()) {
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
 
-                        try {
-                            Socket clientSocket = serverSocket.accept();
-
-                            if (waitingSockets[waitingSocketsPutIndex] != null) {
-                                System.out.println("overwriting socket");
-                            }
-                            waitingSockets[waitingSocketsPutIndex] = clientSocket;
-                            waitingSocketsPutIndex = (waitingSocketsPutIndex + 1) % waitingSockets.length;
-                        } catch (Exception ignored) { }
-                    }
-
-                    closeSocket();
-
-                } catch (Exception ignored) { }
-
-                alive.set(false);
-            }
-        }, "MeshListener-serverSocket").start();
-    }
-
-    private static void startClientSocketThread(final int index) {
-
-        waitingSocketsGetIndices[index] = index;
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-
-                long sumDistance = 0L;
-                long sumSleep = 0L;
-                int numberOfSleeps = 0;
-                while (!UpdateUtil.shouldTerminate()) {
-
-                    int getIndex = waitingSocketsGetIndices[index];
-                    if (waitingSockets[getIndex] == null) {
-                        try {
-                            int distance = (getIndex + waitingSockets.length - waitingSocketsPutIndex) %
-                                    waitingSockets.length;
-                            sumDistance += distance;
-
-                            long sleepTime = Math.min(1000L, Math.max(10L, distance *
-                                    Verifier.oldestTimestampAge() / 10L));
-                            sumSleep += sleepTime;
-                            numberOfSleeps++;
-                            Thread.sleep(sleepTime);
-                        } catch (Exception ignored) { }
-                    } else {
-                        Socket clientSocket = waitingSockets[getIndex];
-
-                        try {
-                            Message message = Message.readFromStream(clientSocket.getInputStream(),
-                                    IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() +
-                                            ""), MessageType.IncomingRequest65533);
-                            if (message != null) {
-                                Message response = response(message);
-                                if (response != null) {
-                                    clientSocket.getOutputStream().write(response.getBytesForTransmission());
-                                }
-                            }
-
-                        } catch (Exception e) {
-                            e.printStackTrace();
+                                        try {
+                                            Thread.sleep(3L);
+                                            clientSocket.close();
+                                        } catch (Exception ignored) { }
+                                    }
+                                }, "MeshListener-clientSocket").start();
+                            } catch (Exception ignored) { }
                         }
 
-                        try {
-                            Thread.sleep(3L);  // 3 milliseconds
-                            clientSocket.close();
-                        } catch (Exception ignored) { }
+                        closeSocket();
 
-                        waitingSockets[getIndex] = null;
-                        waitingSocketsGetIndices[index] = (getIndex + numberOfThreads) % waitingSockets.length;
-                    }
+                    } catch (Exception ignored) { }
+
+                    alive.set(false);
                 }
-
-                System.out.println("average sleep for thread " + index + ": " + (sumSleep /
-                        Math.max(1, numberOfSleeps)) + ", " + (sumDistance / Math.max(1, numberOfSleeps)) + ", " +
-                        sumDistance);
-            }
-        }, "MeshListener-clientSocket" + index).start();
+            }, "MeshListener-serverSocket").start();
+        }
     }
 
     public static void closeSocket() {
