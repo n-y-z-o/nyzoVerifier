@@ -137,11 +137,11 @@ public class UnfrozenBlockManager {
         long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
         for (long height : unfrozenBlocks.keySet()) {
 
-            // Only continue if we have not yet voted for this height and if the threshold can be met.
+            // Only continue if we have not yet voted for this height and the threshold is non-negative.
             long threshold = votingScoreThresholdForHeight(height);
             if (!votesCast.contains(height) && threshold >= 0) {
 
-                // Only continue if we have blocks and the threshold is non-negative.
+                // Only continue if we have blocks.
                 List<Block> blocksForHeight = unfrozenBlocks.get(height);
                 if (!blocksForHeight.isEmpty()) {
 
@@ -299,47 +299,34 @@ public class UnfrozenBlockManager {
 
         // Step backward through the chain until we find the beginning of the cycle.
         CycleInformation cycleInformation = null;
-        Set<ByteBuffer> identifiers = new HashSet<>();
-        long blockVerifierPreviousBlockHeight = -1;
-        long localVerifierPreviousBlockHeight = -1;
         Block blockToCheck = block.getPreviousBlock();
+        List<ByteBuffer> cycle = new ArrayList<>();
         while (blockToCheck != null && cycleInformation == null) {
 
             ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
-            if (identifiers.contains(identifier)) {
+            if (cycle.contains(identifier) || blockToCheck.getBlockHeight() == 0) {
+
+                if (!cycle.contains(identifier)) {
+                    cycle.add(0, identifier);
+                }
+
                 int cycleLength = (int) (block.getBlockHeight() - blockToCheck.getBlockHeight() - 1L);
-                int blockVerifierIndexInCycle = blockVerifierPreviousBlockHeight < 0 ? -1 :
-                        (int) (blockVerifierPreviousBlockHeight - blockToCheck.getBlockHeight() - 1L);
-                int localVerifierIndexInCycle = localVerifierPreviousBlockHeight < 0 ? -1 :
-                        (int) (localVerifierPreviousBlockHeight - blockToCheck.getBlockHeight() - 1L);
+                int blockVerifierIndexInCycle = cycle.indexOf(blockVerifier);
+                int localVerifierIndexInCycle = cycle.indexOf(localVerifier);
+                boolean genesisCycle = blockToCheck.getBlockHeight() == 0 && blockVerifierIndexInCycle < 0;
                 cycleInformation = new CycleInformation(cycleLength, blockVerifierIndexInCycle,
-                        localVerifierIndexInCycle, false);
-            } else if (blockToCheck.getBlockHeight() == 0) {
-
-                // For purposes of calculation, new verifiers in the first cycle of the chain are treated as existing
-                // verifiers.
-                int cycleLength = (int) block.getBlockHeight();
-                int blockVerifierIndexInCycle = (int) Math.max(blockVerifierPreviousBlockHeight, 0);
-                int localVerifierIndexInCycle = (int) Math.max(localVerifierPreviousBlockHeight, 0);
-
-                cycleInformation = new CycleInformation(cycleLength, blockVerifierIndexInCycle,
-                        localVerifierIndexInCycle,
-                        !identifiers.contains(ByteBuffer.wrap(block.getVerifierIdentifier())));
+                        localVerifierIndexInCycle, genesisCycle);
             } else {
-                identifiers.add(identifier);
-            }
 
-            if (identifier.equals(blockVerifier)) {
-                blockVerifierPreviousBlockHeight = blockToCheck.getBlockHeight();
-            } else if (identifier.equals(localVerifier)) {
-                localVerifierPreviousBlockHeight = blockToCheck.getBlockHeight();
+                cycle.add(0, identifier);
             }
 
             blockToCheck = blockToCheck.getPreviousBlock();
         }
 
+        // This is the cycle information for the Genesis block.
         if (block.getBlockHeight() == 0) {
-            cycleInformation = new CycleInformation(0, 0, 0, true);
+            cycleInformation = new CycleInformation(0, -1, -1, true);
         }
 
         return cycleInformation;

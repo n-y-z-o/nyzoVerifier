@@ -181,7 +181,7 @@ public class Block implements MessageObject {
                 while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
                         discontinuityState == DiscontinuityState.Undetermined) {
 
-                    if (blockToCheck.getBlockHeight() == 0L) {
+                    if (blockToCheck.getCycleInformation().isGenesisCycle()) {
                         discontinuityState = DiscontinuityState.IsNotDiscontinuity;
                     } else if (blockToCheck.getCycleInformation().isNewVerifier()) {
                         if (getBlockHeight() - blockToCheck.getBlockHeight() >=
@@ -505,9 +505,9 @@ public class Block implements MessageObject {
                     ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());
                     int indexInQueue = topNewVerifiers.indexOf(verifierIdentifier);
                     if (indexInQueue < 0) {
-                        score = Long.MAX_VALUE - 1;
+                        score += 12L;  // maximum of three new in queue; this is behind the queue
                     } else {
-                        score += indexInQueue * 2L;
+                        score += indexInQueue * 4L;
                     }
                 } else {
                     score += cycleInformation.getBlockVerifierIndexInCycle() * 4L;

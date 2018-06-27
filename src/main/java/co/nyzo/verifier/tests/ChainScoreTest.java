@@ -14,8 +14,8 @@ public class ChainScoreTest {
 
         String[] verifiers =    { "A", "B", "C", "B", "C", "A", "C", "A", "C", "A", "B", "C", "A", "B", "C", "D", "D",
                 "A" };
-        long[] expectedScores = {   0,   5,  10,  19,  24,   0,  10,  10,  10,  10,   0,   0,   0,   0,   0, -10,  20,
-                1000020 };
+        long[] expectedScores = {   0,   6,  12,  21,  26,  32,  41,  46,  51,  56,  62,  67,  72,  77,  82,  88, 9999,
+                9999 };
 
         // NOTE: before running this script, delete the block root directory (sudo rm -r /var/lib/nyzo/blocks) and
         // recreate it with 777 permissions (sudo mkdir /var/lib/nyzo/blocks, sudo chmod 777 /var/lib/nyzo/blocks)
