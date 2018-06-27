@@ -10,10 +10,10 @@ import java.util.*;
 
 public class Block implements MessageObject {
 
-    public enum DiscontinuityState {
+    public enum ContinuityState {
         Undetermined,
-        IsDiscontinuity,
-        IsNotDiscontinuity
+        Discontinuous,
+        Continuous
     }
 
     public static final byte[] genesisVerifier = ByteUtil.byteArrayFromHexString("6b32332d4b28e6ad-" +
@@ -37,7 +37,7 @@ public class Block implements MessageObject {
     private BalanceList balanceList;               // stored separately - the hash is stored in the block
     private byte[] verifierIdentifier;             // 32 bytes
     private byte[] verifierSignature;              // 64 bytes
-    private DiscontinuityState discontinuityState;
+    private ContinuityState continuityState;
 
     private CycleInformation cycleInformation = null;
 
@@ -51,7 +51,7 @@ public class Block implements MessageObject {
         this.transactions = new ArrayList<>(transactions);
         this.balanceListHash = balanceListHash;
         this.balanceList = balanceList;
-        this.discontinuityState = height == 0 ? DiscontinuityState.IsNotDiscontinuity : DiscontinuityState.Undetermined;
+        this.continuityState = height == 0 ? ContinuityState.Continuous : ContinuityState.Undetermined;
 
         try {
             this.verifierIdentifier = Verifier.getIdentifier();
@@ -74,7 +74,7 @@ public class Block implements MessageObject {
         this.balanceListHash = balanceListHash;
         this.verifierIdentifier = verifierIdentifier;
         this.verifierSignature = verifierSignature;
-        this.discontinuityState = height == 0 ? DiscontinuityState.IsNotDiscontinuity : DiscontinuityState.Undetermined;
+        this.continuityState = height == 0 ? ContinuityState.Continuous : ContinuityState.Undetermined;
     }
 
     public long getBlockHeight() {
@@ -154,19 +154,16 @@ public class Block implements MessageObject {
         return verifierSignature;
     }
 
-    public DiscontinuityState getDiscontinuityState() {
+    public ContinuityState getContinuityState() {
 
-        if (discontinuityState == DiscontinuityState.Undetermined) {
-            determineDiscontinuityState();
+        if (continuityState == ContinuityState.Undetermined) {
+            determineContinuityState();
         }
 
-        return discontinuityState;
+        return continuityState;
     }
 
-    private void determineDiscontinuityState() {
-
-        // Note: this method will not determine the discontinuity state of the Genesis block. It is assigned in the
-        // constructor.
+    private void determineContinuityState() {
 
         CycleInformation cycleInformation = getCycleInformation();
         if (cycleInformation != null) {
@@ -179,24 +176,24 @@ public class Block implements MessageObject {
                 // discontinuity.
                 Block blockToCheck = getPreviousBlock();
                 while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
-                        discontinuityState == DiscontinuityState.Undetermined) {
+                        continuityState == ContinuityState.Undetermined) {
 
                     if (blockToCheck.getCycleInformation().isGenesisCycle()) {
-                        discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                        continuityState = ContinuityState.Continuous;
                     } else if (blockToCheck.getCycleInformation().isNewVerifier()) {
                         if (getBlockHeight() - blockToCheck.getBlockHeight() >=
                                 blockToCheck.getCycleInformation().getCycleLength() + 2) {
-                            discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                            continuityState = ContinuityState.Continuous;
                         } else {
-                            discontinuityState = DiscontinuityState.IsDiscontinuity;
+                            continuityState = ContinuityState.Discontinuous;
                         }
                     } else if (getBlockHeight() - blockToCheck.getBlockHeight() >
                             blockToCheck.getCycleInformation().getCycleLength() * 2 + 2) {
-                        discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                        continuityState = ContinuityState.Continuous;
                     }
                     blockToCheck = blockToCheck.getPreviousBlock();
 
-                    if (discontinuityState == DiscontinuityState.Undetermined) {
+                    if (continuityState == ContinuityState.Undetermined) {
                         if (blockToCheck == null) {
                             System.out.println("new verifier, block is null -- unable to determine state for block " +
                                     height + " -- " + DebugUtil.callingMethods(3));
@@ -215,23 +212,23 @@ public class Block implements MessageObject {
                 Block blockToCheck = getPreviousBlock();
                 Block previousBlockForVerifier = null;
                 while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
-                        discontinuityState == DiscontinuityState.Undetermined) {
+                        continuityState == ContinuityState.Undetermined) {
 
                     if (ByteUtil.arraysAreEqual(getVerifierIdentifier(), blockToCheck.getVerifierIdentifier())) {
                         if (blockToCheck.getCycleInformation().isNewVerifier()) {
                             if (getCycleInformation().getCycleLength() >
                                     blockToCheck.getCycleInformation().getCycleLength() / 2) {
-                                discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                                continuityState = ContinuityState.Continuous;
                             } else {
-                                discontinuityState = DiscontinuityState.IsDiscontinuity;
+                                continuityState = ContinuityState.Discontinuous;
                             }
                         } else if (previousBlockForVerifier != null) {
                             long threshold = Math.max(blockToCheck.getCycleInformation().getCycleLength(),
                                     previousBlockForVerifier.getCycleInformation().getCycleLength()) / 2;
                             if (getCycleInformation().getCycleLength() > threshold) {
-                                discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                                continuityState = ContinuityState.Continuous;
                             } else {
-                                discontinuityState = DiscontinuityState.IsDiscontinuity;
+                                continuityState = ContinuityState.Discontinuous;
                             }
                         } else {
                             previousBlockForVerifier = blockToCheck;
@@ -241,18 +238,18 @@ public class Block implements MessageObject {
                         if (previousBlockForVerifier != null) {
                             if (getCycleInformation().getCycleLength() >
                                     previousBlockForVerifier.getCycleInformation().getCycleLength() / 2) {
-                                discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                                continuityState = ContinuityState.Continuous;
                             } else {
-                                discontinuityState = DiscontinuityState.IsDiscontinuity;
+                                continuityState = ContinuityState.Discontinuous;
                             }
                         } else {
-                            discontinuityState = DiscontinuityState.IsNotDiscontinuity;
+                            continuityState = ContinuityState.Continuous;
                         }
                     }
 
                     blockToCheck = blockToCheck.getPreviousBlock();
 
-                    if (discontinuityState == DiscontinuityState.Undetermined) {
+                    if (continuityState == ContinuityState.Undetermined) {
                         if (blockToCheck == null) {
                             System.out.println("existing verifier, block is null -- unable to determine state for " +
                                     "height " + height + " -- " + DebugUtil.callingMethods(3));
@@ -492,11 +489,11 @@ public class Block implements MessageObject {
         Block block = this;
         while (block != null && block.getBlockHeight() > zeroBlockHeight && score < Long.MAX_VALUE - 1) {
             CycleInformation cycleInformation = block.getCycleInformation();
-            DiscontinuityState discontinuityState = block.getDiscontinuityState();
-            if (cycleInformation == null || discontinuityState == DiscontinuityState.Undetermined) {
+            ContinuityState continuityState = block.getContinuityState();
+            if (cycleInformation == null || continuityState == ContinuityState.Undetermined) {
                 score = Long.MAX_VALUE - 1;  // unable to compute; might improve with more information
             } else {
-                if (discontinuityState == DiscontinuityState.IsDiscontinuity) {
+                if (continuityState == ContinuityState.Discontinuous) {
                     score = Long.MAX_VALUE;  // invalid
                 } else if (cycleInformation.isNewVerifier()) {
                     score -= 6L;

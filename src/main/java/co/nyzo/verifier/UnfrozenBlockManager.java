@@ -278,7 +278,7 @@ public class UnfrozenBlockManager {
                 List<Block> blocksForHeight = unfrozenBlocks.get(height);
                 for (int i = 0; i < blocksForHeight.size() && leadingEdgeHeight < height; i++) {
                     Block block = blocksForHeight.get(i);
-                    if (block.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity) {
+                    if (block.getContinuityState() == Block.ContinuityState.Continuous) {
                         leadingEdgeHeight = height;
                     }
                 }
@@ -310,7 +310,7 @@ public class UnfrozenBlockManager {
                     cycle.add(0, identifier);
                 }
 
-                int cycleLength = (int) (block.getBlockHeight() - blockToCheck.getBlockHeight() - 1L);
+                int cycleLength = cycle.size();
                 int blockVerifierIndexInCycle = cycle.indexOf(blockVerifier);
                 int localVerifierIndexInCycle = cycle.indexOf(localVerifier);
                 boolean genesisCycle = blockToCheck.getBlockHeight() == 0 && blockVerifierIndexInCycle < 0;

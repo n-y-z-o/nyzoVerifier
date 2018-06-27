@@ -45,7 +45,7 @@ public class ChainScoreTest {
                     "cycle index=%2d, discontinuity state=%s, Genesis=%s", i, verifiers[i], chainScore,
                     chainScore == expectedScores[i] ? "pass" : "FAIL", cycle.getCycleLength(),
                     cycle.isNewVerifier() ? "Y" : "N", cycle.getBlockVerifierIndexInCycle(),
-                    block.getDiscontinuityState() + "", block.getCycleInformation().isGenesisCycle() ? "Y" :"N"));
+                    block.getContinuityState() + "", block.getCycleInformation().isGenesisCycle() ? "Y" :"N"));
         }
     }
 

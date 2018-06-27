@@ -139,10 +139,10 @@ public class ChainInitializationManager {
             }
         }
 
-        // Now the the blocks are saved, we should be able to determine the discontinuity state of the end block.
+        // Now that the blocks are saved, we should be able to determine the continuity state of the end block.
         Block endBlock = BlockManager.frozenBlockForHeight(endHeight);
         System.out.println("end block (" + endBlock.getBlockHeight() + ") discontinuity state: " +
-                endBlock.getDiscontinuityState() + ", cycle length: " +
+                endBlock.getContinuityState() + ", cycle length: " +
                 endBlock.getCycleInformation().getCycleLength());
     }
 

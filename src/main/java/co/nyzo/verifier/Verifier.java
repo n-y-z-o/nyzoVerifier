@@ -448,12 +448,13 @@ public class Verifier {
         if (cycleInformation != null &&
                 (cycleInformation.getLocalVerifierIndexInCycle() < cycleInformation.getCycleLength() / 2 ||
                         block.getBlockHeight() < 2L) &&
-                block.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity &&
+                block.getContinuityState() == Block.ContinuityState.Continuous &&
                 !blocksExtended.containsKey(blockHash)) {
 
             blocksExtended.put(blockHash, block);
             Block nextBlock = createNextBlock(block);
-            if (nextBlock != null && nextBlock.getDiscontinuityState() == Block.DiscontinuityState.IsNotDiscontinuity) {
+
+            if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Continuous) {
                 boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
                 if (shouldTransmitBlock) {
                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
