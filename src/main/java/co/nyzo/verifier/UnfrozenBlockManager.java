@@ -297,36 +297,62 @@ public class UnfrozenBlockManager {
         ByteBuffer blockVerifier = ByteBuffer.wrap(block.getVerifierIdentifier());
         ByteBuffer localVerifier = ByteBuffer.wrap(Verifier.getIdentifier());
 
-        // Step backward through the chain until we find the beginning of the cycle.
+        // We are going to build a list of the previous two cycles.
         CycleInformation cycleInformation = null;
         Block blockToCheck = block.getPreviousBlock();
-        List<ByteBuffer> cycle = new ArrayList<>();
-        while (blockToCheck != null && cycleInformation == null) {
+        List<ByteBuffer> firstCycle = new ArrayList<>();
+        List<ByteBuffer> secondCycle = new ArrayList<>();
+        boolean foundFirstCycle = false;
+        boolean foundSecondCycle = false;
+
+        // Find the first cycle.
+        while (blockToCheck != null && !foundFirstCycle) {
 
             ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
-            if (cycle.contains(identifier) || blockToCheck.getBlockHeight() == 0) {
+            if (firstCycle.contains(identifier) || blockToCheck.getBlockHeight() == 0) {
 
-                if (!cycle.contains(identifier)) {
-                    cycle.add(0, identifier);
+                if (!firstCycle.contains(identifier)) {
+                    firstCycle.add(0, identifier);
                 }
 
-                int cycleLength = cycle.size();
-                int blockVerifierIndexInCycle = cycle.indexOf(blockVerifier);
-                int localVerifierIndexInCycle = cycle.indexOf(localVerifier);
-                boolean genesisCycle = blockToCheck.getBlockHeight() == 0 && blockVerifierIndexInCycle < 0;
-                cycleInformation = new CycleInformation(cycleLength, blockVerifierIndexInCycle,
-                        localVerifierIndexInCycle, genesisCycle);
+                foundFirstCycle = true;
+                foundSecondCycle = blockToCheck.getBlockHeight() == 0;
             } else {
-
-                cycle.add(0, identifier);
+                firstCycle.add(0, identifier);
             }
 
             blockToCheck = blockToCheck.getPreviousBlock();
         }
 
-        // This is the cycle information for the Genesis block.
+        // Find the second cycle.
+        while (blockToCheck != null && !foundSecondCycle) {
+
+            ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
+            if (secondCycle.contains(identifier) || blockToCheck.getBlockHeight() == 0) {
+
+                if (!secondCycle.contains(identifier)) {
+                    secondCycle.add(0, identifier);
+                }
+
+                foundSecondCycle = true;
+            } else {
+                secondCycle.add(0, identifier);
+            }
+
+            blockToCheck = blockToCheck.getPreviousBlock();
+        }
+
+        // Build the cycle information, with a special case for the Genesis block.
         if (block.getBlockHeight() == 0) {
-            cycleInformation = new CycleInformation(0, -1, -1, true);
+            cycleInformation = new CycleInformation(0, 0, -1, -1);
+        } else if (foundFirstCycle && foundSecondCycle) {
+
+            int cycleLength = firstCycle.size();
+            int previousCycleLength = secondCycle.size();
+            int blockVerifierIndexInCycle = firstCycle.indexOf(blockVerifier);
+            int localVerifierIndexInCycle = secondCycle.indexOf(localVerifier);
+            cycleInformation = new CycleInformation(cycleLength, previousCycleLength, blockVerifierIndexInCycle,
+                    localVerifierIndexInCycle);
         }
 
         return cycleInformation;

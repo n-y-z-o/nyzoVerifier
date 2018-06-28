@@ -3,21 +3,25 @@ package co.nyzo.verifier;
 public class CycleInformation {
 
     private int cycleLength;
+    private int previousCycleLength;
     private int blockVerifierIndexInCycle;
     private int localVerifierIndexInCycle;
-    private boolean genesisCycle;
 
-    public CycleInformation(int cycleLength, int blockVerifierIndexInCycle, int localVerifierIndexInCycle,
-                            boolean genesisCycle) {
+    public CycleInformation(int cycleLength, int previousCycleLength, int blockVerifierIndexInCycle,
+                            int localVerifierIndexInCycle) {
 
         this.cycleLength = cycleLength;
+        this.previousCycleLength = previousCycleLength;
         this.blockVerifierIndexInCycle = blockVerifierIndexInCycle;
         this.localVerifierIndexInCycle = localVerifierIndexInCycle;
-        this.genesisCycle = genesisCycle;
     }
 
     public int getCycleLength() {
         return cycleLength;
+    }
+
+    public int getPreviousCycleLength() {
+        return previousCycleLength;
     }
 
     public int getBlockVerifierIndexInCycle() {
@@ -29,7 +33,7 @@ public class CycleInformation {
     }
 
     public boolean isGenesisCycle() {
-        return genesisCycle;
+        return previousCycleLength == 0 && blockVerifierIndexInCycle < 0;
     }
 
     public boolean isNewVerifier() {
@@ -38,8 +42,7 @@ public class CycleInformation {
 
     @Override
     public String toString() {
-        return "[CycleInformation (cycleLength=" + cycleLength + ", blockVerifierIndexInCycle=" +
-                blockVerifierIndexInCycle + ", localVerifierIndexInCycle=" + localVerifierIndexInCycle +
-                ", genesisCycle=" + genesisCycle + ")]";
+        return String.format("[CycleInformation (c=%d,p=%d,b=%d,l=%d)]", cycleLength, previousCycleLength,
+                blockVerifierIndexInCycle, localVerifierIndexInCycle);
     }
 }
