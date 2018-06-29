@@ -496,15 +496,23 @@ public class Block implements MessageObject {
                 if (continuityState == ContinuityState.Discontinuous) {
                     score = Long.MAX_VALUE;  // invalid
                 } else if (cycleInformation.isNewVerifier()) {
-                    score -= 6L;
+                    if (cycleInformation.isGenesisCycle()) {
 
-                    List<ByteBuffer> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
-                    ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());
-                    int indexInQueue = topNewVerifiers.indexOf(verifierIdentifier);
-                    if (indexInQueue < 0) {
-                        score += 12L;  // maximum of three new in queue; this is behind the queue
+                        // This is a special case for the Genesis cycle. We want a deterministic order that can be
+                        // calculated locally, but we do not care what that order is.
+                        score = -1L * Math.abs(HashUtil.longSHA256(block.getVerifierIdentifier()));
+
                     } else {
-                        score += indexInQueue * 4L;
+                        score -= 6L;
+
+                        List<ByteBuffer> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
+                        ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());
+                        int indexInQueue = topNewVerifiers.indexOf(verifierIdentifier);
+                        if (indexInQueue < 0) {
+                            score += 12L;  // maximum of three new in queue; this is behind the queue
+                        } else {
+                            score += indexInQueue * 4L;
+                        }
                     }
                 } else {
                     score += cycleInformation.getBlockVerifierIndexInCycle() * 4L;
