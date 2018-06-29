@@ -39,13 +39,11 @@ public class ChainScoreTest {
 
             previousBlock = block;
 
-            long chainScore = block.chainScore(0L);
             CycleInformation cycle = block.getCycleInformation();
-            System.out.println(String.format("block %2d (%s): score=%2d (%s), cycle length=%2d, new=%s, " +
-                    "cycle index=%2d, discontinuity state=%s, Genesis=%s", i, verifiers[i], chainScore,
-                    chainScore == expectedScores[i] ? "pass" : "FAIL", cycle.getCycleLength(),
-                    cycle.isNewVerifier() ? "Y" : "N", cycle.getBlockVerifierIndexInCycle(),
-                    block.getContinuityState() + "", block.getCycleInformation().isGenesisCycle() ? "Y" :"N"));
+            System.out.println(String.format("block%s%2d (%s): c=%2d, n=%s, b=%2d, d=%s",
+                    block.getCycleInformation().isGenesisCycle() ? "*" : " ", i, verifiers[i],
+                    cycle.getCycleLength(), cycle.isNewVerifier() ? "Y" : "N", cycle.getBlockVerifierIndexInCycle(),
+                    block.getContinuityState() + ""));
         }
     }
 
