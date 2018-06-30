@@ -282,6 +282,10 @@ public class BlockManager {
         }
     }
 
+    public static void setGenesisBlockStartTimestamp(long genesisBlockStartTimestamp) {
+        BlockManager.genesisBlockStartTimestamp = genesisBlockStartTimestamp;
+    }
+
     public static long heightForTimestamp(long timestamp) {
 
         return (timestamp - genesisBlockStartTimestamp) / Block.blockDuration;

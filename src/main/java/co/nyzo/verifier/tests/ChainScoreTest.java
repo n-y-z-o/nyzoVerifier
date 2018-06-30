@@ -12,38 +12,40 @@ public class ChainScoreTest {
 
     public static void main(String[] args) {
 
-        String[] verifiers =    { "A", "B", "C", "B", "C", "A", "C", "A", "C", "A", "B", "C", "A", "B", "C", "D", "D",
-                "A" };
-        long[] expectedScores = {   0,   6,  12,  21,  26,  32,  41,  46,  51,  56,  62,  67,  72,  77,  82,  88, 9999,
-                9999 };
+        String verifiers = "ABCDABCDABCDABCDEABCDEABCDEABFCDEAF".replace(" ", "");
 
         // NOTE: before running this script, delete the block root directory (sudo rm -r /var/lib/nyzo/blocks) and
         // recreate it with 777 permissions (sudo mkdir /var/lib/nyzo/blocks, sudo chmod 777 /var/lib/nyzo/blocks)
 
         Block previousBlock = null;
         long genesisStartTimestamp = 1000000L;
-        for (int i = 0; i < verifiers.length; i++) {
+        BlockManager.setGenesisBlockStartTimestamp(genesisStartTimestamp);
+        for (int i = 0; i < verifiers.length(); i++) {
 
             long height = i;
             byte[] previousBlockHash = previousBlock == null ? Block.genesisBlockHash : previousBlock.getHash();
             long startTimestamp = genesisStartTimestamp + Block.blockDuration * i;
             List<Transaction> transactions = new ArrayList<>();
-            byte[] verifierSeed = HashUtil.doubleSHA256(verifiers[i].getBytes());
+            byte[] verifierSeed = HashUtil.doubleSHA256((verifiers.charAt(i) + "").getBytes());
             byte[] verifierIdentifier = KeyUtil.identifierForSeed(verifierSeed);
             BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, transactions, verifierIdentifier);
 
             Block block = new Block(height, previousBlockHash, startTimestamp, transactions, balanceList.getHash(),
                     balanceList);
             block.sign(startTimestamp + 7000L, verifierSeed);
-            BlockManager.freezeBlock(block, block.getPreviousBlockHash());
+
+            // This is necessary for previous blocks to be found.
+            UnfrozenBlockManager.registerBlock(block);
 
             previousBlock = block;
 
+
+
             CycleInformation cycle = block.getCycleInformation();
-            System.out.println(String.format("block%s%2d (%s): c=%2d, n=%s, b=%2d, d=%s",
-                    block.getCycleInformation().isGenesisCycle() ? "*" : " ", i, verifiers[i],
-                    cycle.getCycleLength(), cycle.isNewVerifier() ? "Y" : "N", cycle.getBlockVerifierIndexInCycle(),
-                    block.getContinuityState() + ""));
+            System.out.println(String.format("block%s%2d (%s): c=%2d, n=%s, d=%s, s=%d",
+                    block.getCycleInformation().isGenesisCycle() ? "*" : " ", i, verifiers.charAt(i) + "",
+                    cycle.getCycleLength(), cycle.isNewVerifier() ? "Y" : "N", block.getContinuityState() + "",
+                    block.chainScore(Math.max(block.getBlockHeight() - 1, 0L))));
         }
     }
 

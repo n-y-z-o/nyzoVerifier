@@ -1,48 +1,38 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.Block.ContinuityState;
+
 public class CycleInformation {
 
-    private int cycleLength;
-    private int previousCycleLength;
-    private int blockVerifierIndexInCycle;
-    private int localVerifierIndexInCycle;
+    private int[] cycleLengths;
+    private boolean newVerifier;
+    private boolean genesisCycle;
 
-    public CycleInformation(int cycleLength, int previousCycleLength, int blockVerifierIndexInCycle,
-                            int localVerifierIndexInCycle) {
+    public CycleInformation(int[] cycleLengths, boolean newVerifier, boolean genesisCycle) {
 
-        this.cycleLength = cycleLength;
-        this.previousCycleLength = previousCycleLength;
-        this.blockVerifierIndexInCycle = blockVerifierIndexInCycle;
-        this.localVerifierIndexInCycle = localVerifierIndexInCycle;
+        this.cycleLengths = cycleLengths;
+        this.newVerifier = newVerifier;
+        this.genesisCycle = genesisCycle;
     }
 
     public int getCycleLength() {
-        return cycleLength;
+        return cycleLengths[0];
     }
 
-    public int getPreviousCycleLength() {
-        return previousCycleLength;
-    }
-
-    public int getBlockVerifierIndexInCycle() {
-        return blockVerifierIndexInCycle;
-    }
-
-    public int getLocalVerifierIndexInCycle() {
-        return localVerifierIndexInCycle;
-    }
-
-    public boolean isGenesisCycle() {
-        return previousCycleLength == 0 && blockVerifierIndexInCycle < 0;
+    public int getCycleLength(int index) {
+        return cycleLengths[index];
     }
 
     public boolean isNewVerifier() {
-        return blockVerifierIndexInCycle < 0;
+        return newVerifier;
+    }
+
+    public boolean isGenesisCycle() {
+        return genesisCycle;
     }
 
     @Override
     public String toString() {
-        return String.format("[CycleInformation (c=%d,p=%d,b=%d,l=%d)]", cycleLength, previousCycleLength,
-                blockVerifierIndexInCycle, localVerifierIndexInCycle);
+        return String.format("[CycleInformation (c=%d,n=%d,G=%d)]", cycleLengths[0], newVerifier, genesisCycle);
     }
 }

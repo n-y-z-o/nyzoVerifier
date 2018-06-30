@@ -37,8 +37,8 @@ public class Block implements MessageObject {
     private BalanceList balanceList;               // stored separately - the hash is stored in the block
     private byte[] verifierIdentifier;             // 32 bytes
     private byte[] verifierSignature;              // 64 bytes
-    private ContinuityState continuityState;
 
+    private ContinuityState continuityState = ContinuityState.Undetermined;
     private CycleInformation cycleInformation = null;
 
     public Block(long height, byte[] previousBlockHash, long startTimestamp, List<Transaction> transactions,
@@ -51,7 +51,6 @@ public class Block implements MessageObject {
         this.transactions = new ArrayList<>(transactions);
         this.balanceListHash = balanceListHash;
         this.balanceList = balanceList;
-        this.continuityState = height == 0 ? ContinuityState.Continuous : ContinuityState.Undetermined;
 
         try {
             this.verifierIdentifier = Verifier.getIdentifier();
@@ -74,7 +73,6 @@ public class Block implements MessageObject {
         this.balanceListHash = balanceListHash;
         this.verifierIdentifier = verifierIdentifier;
         this.verifierSignature = verifierSignature;
-        this.continuityState = height == 0 ? ContinuityState.Continuous : ContinuityState.Undetermined;
     }
 
     public long getBlockHeight() {
@@ -163,110 +161,6 @@ public class Block implements MessageObject {
         return continuityState;
     }
 
-    private void determineContinuityState() {
-
-        CycleInformation cycleInformation = getCycleInformation();
-        if (cycleInformation != null) {
-            if (cycleInformation.isNewVerifier()) {
-
-                // For a new verifier, find the previous new verifier and ensure that the difference is c + 2 from that
-                // verifier. If a new verifier is not found far enough back in the chain, we are certain that there is
-                // no discontinuity. The c * 2 + 2 calculation is a safe over-approximation, considering that one block
-                // back, the cycle length could be roughly double the current cycle length and still not result in a
-                // discontinuity.
-                Block blockToCheck = getPreviousBlock();
-                while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
-                        continuityState == ContinuityState.Undetermined) {
-
-                    if (blockToCheck.getCycleInformation().isGenesisCycle()) {
-                        continuityState = ContinuityState.Continuous;
-                    } else if (blockToCheck.getCycleInformation().isNewVerifier()) {
-                        if (getBlockHeight() - blockToCheck.getBlockHeight() >=
-                                blockToCheck.getCycleInformation().getCycleLength() + 2) {
-                            continuityState = ContinuityState.Continuous;
-                        } else {
-                            continuityState = ContinuityState.Discontinuous;
-                        }
-                    } else if (getBlockHeight() - blockToCheck.getBlockHeight() >
-                            blockToCheck.getCycleInformation().getCycleLength() * 2 + 2) {
-                        continuityState = ContinuityState.Continuous;
-                    }
-                    blockToCheck = blockToCheck.getPreviousBlock();
-
-                    if (continuityState == ContinuityState.Undetermined) {
-                        if (blockToCheck == null) {
-                            System.out.println("new verifier, block is null -- unable to determine state for block " +
-                                    height + " -- " + DebugUtil.callingMethods(3));
-                        } else if (blockToCheck.getCycleInformation() == null) {
-                            System.out.println("new verifier, cycle is null for height " +
-                                    blockToCheck.getBlockHeight() + " -- unable to determine state for block " +
-                                    height + " -- " + DebugUtil.callingMethods(3));
-                        }
-                    }
-                }
-
-            } else {
-
-                // For an existing verifier, find the previous two locations of that verifier, or just the previous
-                // location if the verifier was new in its last location.
-                Block blockToCheck = getPreviousBlock();
-                Block previousBlockForVerifier = null;
-                while (blockToCheck != null && blockToCheck.getCycleInformation() != null &&
-                        continuityState == ContinuityState.Undetermined) {
-
-                    if (ByteUtil.arraysAreEqual(getVerifierIdentifier(), blockToCheck.getVerifierIdentifier())) {
-                        if (blockToCheck.getCycleInformation().isNewVerifier()) {
-                            if (getCycleInformation().getCycleLength() >
-                                    blockToCheck.getCycleInformation().getCycleLength() / 2) {
-                                continuityState = ContinuityState.Continuous;
-                            } else {
-                                continuityState = ContinuityState.Discontinuous;
-                            }
-                        } else if (previousBlockForVerifier != null) {
-                            long threshold = Math.max(blockToCheck.getCycleInformation().getCycleLength(),
-                                    previousBlockForVerifier.getCycleInformation().getCycleLength()) / 2;
-                            if (getCycleInformation().getCycleLength() > threshold) {
-                                continuityState = ContinuityState.Continuous;
-                            } else {
-                                continuityState = ContinuityState.Discontinuous;
-                            }
-                        } else {
-                            previousBlockForVerifier = blockToCheck;
-                        }
-                    } else if (blockToCheck.getBlockHeight() == 0L) {
-
-                        if (previousBlockForVerifier != null) {
-                            if (getCycleInformation().getCycleLength() >
-                                    previousBlockForVerifier.getCycleInformation().getCycleLength() / 2) {
-                                continuityState = ContinuityState.Continuous;
-                            } else {
-                                continuityState = ContinuityState.Discontinuous;
-                            }
-                        } else {
-                            continuityState = ContinuityState.Continuous;
-                        }
-                    }
-
-                    blockToCheck = blockToCheck.getPreviousBlock();
-
-                    if (continuityState == ContinuityState.Undetermined) {
-                        if (blockToCheck == null) {
-                            System.out.println("existing verifier, block is null -- unable to determine state for " +
-                                    "height " + height + " -- " + DebugUtil.callingMethods(3));
-                        } else if (blockToCheck.getCycleInformation() == null) {
-                            System.out.println("existing verifier, cycle is null at height " +
-                                    blockToCheck.getBlockHeight() + " -- unable to determine state for height " +
-                                    height + " -- " + DebugUtil.callingMethods(3));
-                        }
-                    }
-                }
-            }
-
-        } else {
-            System.out.println("cycle information is null for block " + height + ": " + DebugUtil.callingMethods(8));
-        }
-    }
-
     public long getTransactionFees() {
 
         long fees = 0L;
@@ -303,10 +197,116 @@ public class Block implements MessageObject {
     public CycleInformation getCycleInformation() {
 
         if (cycleInformation == null) {
-            cycleInformation = UnfrozenBlockManager.cycleInformationForBlock(this);
+            calculateCycleInformation();
         }
 
         return cycleInformation;
+    }
+
+    private void calculateCycleInformation() {
+
+        // Make a list of sets for the last four cycles.
+        List<Set<ByteBuffer>> cycles = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            cycles.add(new HashSet<>());
+        }
+
+        // Starting at this block, stepping backward in the chain, build the last four cycles.
+        int index = 0;
+        Block blockToCheck = this;
+        boolean reachedGenesisBlock = false;
+        while (index < 4 && blockToCheck != null) {
+
+            Set<ByteBuffer> cycle = cycles.get(index);
+            ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
+            if (cycle.contains(identifier)) {
+                index++;
+            } else {
+                cycle.add(identifier);
+                reachedGenesisBlock = blockToCheck.getBlockHeight() == 0L;
+                blockToCheck = blockToCheck.getPreviousBlock();
+            }
+        }
+
+        // If we found four full cycles or if we reached the beginning of the chain, we can build the
+        // cycle information.
+        if (index == 4 || reachedGenesisBlock) {
+
+            ByteBuffer verifierIdentifier = ByteBuffer.wrap(getVerifierIdentifier());
+
+            boolean newVerifier = !cycles.get(1).contains(verifierIdentifier);
+            boolean genesisCycle = cycles.get(1).isEmpty();
+
+            int[] cycleLengths = { cycles.get(0).size(), cycles.get(1).size(), cycles.get(2).size(),
+                    cycles.get(3).size() };
+            cycleInformation = new CycleInformation(cycleLengths, newVerifier, genesisCycle);
+        }
+    }
+
+    private void determineContinuityState() {
+
+        CycleInformation cycleInformation = getCycleInformation();
+        if (cycleInformation != null) {
+
+            // Proof-of-diversity rule 1: After the first existing verifier in the block chain, a new verifier is only
+            // allowed if none of the other blocks in the cycle, the previous cycle, or the two blocks before the
+            // previous cycle were verified by new verifiers.
+
+            boolean rule1Pass;
+            boolean sufficientInformation;
+            if (cycleInformation.isGenesisCycle() || !cycleInformation.isNewVerifier()) {
+                rule1Pass = true;
+                sufficientInformation = true;
+            } else {
+                long startCheckHeight = getBlockHeight() - cycleInformation.getCycleLength() -
+                        cycleInformation.getCycleLength(1) - 1;
+                Block blockToCheck = getPreviousBlock();
+                sufficientInformation = blockToCheck != null;
+                rule1Pass = true;
+                while (blockToCheck != null && blockToCheck.getBlockHeight() >= startCheckHeight && rule1Pass &&
+                        sufficientInformation) {
+
+                    // If the cycle information is null, the continuity state cannot be calculated. If the block is a
+                    // new verifier, this block is discontinuous.
+                    if (blockToCheck.getCycleInformation() == null) {
+                        sufficientInformation = false;
+                    } else if (blockToCheck.getCycleInformation().isNewVerifier()) {
+                        rule1Pass = false;
+                    }
+
+                    // If we have not reached the start check height and the next block back in the chain is null, the
+                    // continuity state cannot be calculated.
+                    if (blockToCheck.getBlockHeight() > startCheckHeight && blockToCheck.getPreviousBlock() == null) {
+                        sufficientInformation = false;
+                    }
+
+                    // Step back one block.
+                    blockToCheck = blockToCheck.getPreviousBlock();
+                }
+            }
+
+            if (sufficientInformation) {
+
+                if (rule1Pass) {
+
+                    // Proof-of-diversity rule 2: All cycles must be longer than one more than half of the maximum of the
+                    // lengths of the three previous cycles.
+
+                    int maximumPreviousLength = Math.max(cycleInformation.getCycleLength(1),
+                            Math.max(cycleInformation.getCycleLength(2), cycleInformation.getCycleLength(3)));
+                    long threshold = (maximumPreviousLength + 1L) / 2L;
+                    boolean rule2Pass = cycleInformation.getCycleLength() > threshold;
+                    if (!rule2Pass) {
+                        System.out.println("rule 2 fail " + cycleInformation.getCycleLength() + ", " + threshold);
+                    }
+                    continuityState = rule2Pass ? ContinuityState.Continuous : ContinuityState.Discontinuous;
+
+                } else {
+                    System.out.println("rule 1 fail");
+                    continuityState = ContinuityState.Discontinuous;
+                }
+            }
+        }
     }
 
     public byte[] getBytes() {
@@ -515,7 +515,14 @@ public class Block implements MessageObject {
                         }
                     }
                 } else {
-                    score += cycleInformation.getBlockVerifierIndexInCycle() * 4L;
+                    Block previousBlock = getPreviousBlock();
+                    if (previousBlock == null || previousBlock.getCycleInformation() == null) {
+                        score = Long.MAX_VALUE - 1;  // unable to compute; might improve with more information
+                    } else {
+                        score += (previousBlock.getCycleInformation().getCycleLength() -
+                                cycleInformation.getCycleLength()) * 4L;
+                    }
+
                     if (!NodeManager.isActive(verifierIdentifier)) {
                         score += 5L;
                     }
