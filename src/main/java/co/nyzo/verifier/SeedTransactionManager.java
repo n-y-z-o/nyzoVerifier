@@ -84,8 +84,7 @@ public class SeedTransactionManager {
                         if (!UpdateUtil.shouldTerminate()) {
                             try {
                                 Thread.sleep(2000L);
-                            } catch (Exception ignored) {
-                            }
+                            } catch (Exception ignored) { }
                         }
                     }
                 }
