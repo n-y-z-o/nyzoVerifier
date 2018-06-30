@@ -77,14 +77,14 @@ public class SeedTransactionManager {
                                 transactionMap.remove(key);
                             }
                         }
+                    }
 
-                        // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
-                        for (int i = 0; i < 15; i++) {
-                            if (!UpdateUtil.shouldTerminate()) {
-                                try {
-                                    Thread.sleep(2000L);
-                                } catch (Exception ignored) {
-                                }
+                    // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
+                    for (int i = 0; i < 15; i++) {
+                        if (!UpdateUtil.shouldTerminate()) {
+                            try {
+                                Thread.sleep(2000L);
+                            } catch (Exception ignored) {
                             }
                         }
                     }
