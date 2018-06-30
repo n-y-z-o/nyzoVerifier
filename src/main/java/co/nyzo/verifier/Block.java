@@ -263,7 +263,7 @@ public class Block implements MessageObject {
             }
 
         } else {
-            System.out.println("cycle information is null");
+            System.out.println("cycle information is null: " + DebugUtil.callingMethods(8));
         }
     }
 
