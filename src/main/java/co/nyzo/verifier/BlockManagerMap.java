@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.NotificationUtil;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -31,6 +33,11 @@ public class BlockManagerMap {
 
         // Add the block to the map.
         blockMap.put(block.getBlockHeight(), new BlockManagerMap(block));
+
+        if (iteration++ == 100) {
+            iteration = 0;
+            NotificationUtil.send("now have " + blockMap.size() + " blocks on " + Verifier.getNickname());
+        }
 
         // Reduce the size of the map if it is too large.
         if (blockMap.keySet().size() > maximumBlocksInMap) {
