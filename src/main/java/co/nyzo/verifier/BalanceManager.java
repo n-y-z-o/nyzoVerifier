@@ -7,54 +7,6 @@ import java.util.*;
 
 public class BalanceManager {
 
-    public static void main(String[] args) {
-
-        Random random = new Random();
-        List<Transaction> transactions = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            int timestamp1 = 100; random.nextInt(10000000);
-            int timestamp2 = 100; random.nextInt(10000000);
-            if (i == 7 || i == 9) {
-                timestamp2 = timestamp1;
-            }
-
-            byte[] signature1 = new byte[FieldByteSize.signature];
-            byte[] signature2 = new byte[FieldByteSize.signature];
-            for (int j = 0; j < FieldByteSize.signature; j++) {
-                signature1[j] = (byte) random.nextInt(256);
-                signature2[j] = (byte) random.nextInt(256);
-                if (i == 9) {
-                    signature2[j] = signature1[j];
-                }
-            }
-
-            // long timestamp, long amount, byte[] receiverIdentifier,
-            // byte[] recentBlockHash, byte[] senderIdentifier,
-            // byte[] senderData, byte[] signature
-            transactions.add(Transaction.standardTransaction(timestamp1, 0, new byte[32], 0L, new byte[32],
-                    new byte[32], new byte[32], signature1));
-            transactions.add(Transaction.standardTransaction(timestamp2, 0, new byte[32], 0L, new byte[32],
-                    new byte[32], new byte[32], signature2));
-        }
-
-        sortTransactions(transactions);
-
-        System.out.println("*** sorted transactions ***");
-        int index = 0;
-        for (Transaction transaction : transactions) {
-            System.out.println(String.format("%3d, %10d, %s", index++, transaction.getTimestamp(),
-                    ByteUtil.arrayAsStringWithDashes(transaction.getSignature())));
-        }
-
-        System.out.println("*** transactions without duplicates ***");
-        index = 0;
-        List<Transaction> transactionsWithoutDuplicates = transactionsWithoutDuplicates(transactions);
-        for (Transaction transaction : transactionsWithoutDuplicates) {
-            System.out.println(String.format("%3d, %10d, %s", index++, transaction.getTimestamp(),
-                    ByteUtil.arrayAsStringWithDashes(transaction.getSignature())));
-        }
-    }
-
     public static List<Transaction> approvedTransactionsForBlock(List<Transaction> transactions, Block previousBlock) {
 
         // Sort the transactions in block order, then remove all duplicates.
@@ -146,7 +98,7 @@ public class BalanceManager {
         return balanceMap;
     }
 
-    private static void sortTransactions(List<Transaction> transactions) {
+    public static void sortTransactions(List<Transaction> transactions) {
 
         // First, sort transactions according to the acceptable ordering for blocks.
         Collections.sort(transactions, new Comparator<Transaction>() {
@@ -178,7 +130,7 @@ public class BalanceManager {
         });
     }
 
-    private static List<Transaction> transactionsWithoutDuplicates(List<Transaction> sortedTransactions) {
+    public static List<Transaction> transactionsWithoutDuplicates(List<Transaction> sortedTransactions) {
 
         List<Transaction> transactionsWithoutDuplicates = new ArrayList<>();
         Transaction previousTransaction = null;
@@ -191,22 +143,5 @@ public class BalanceManager {
         }
 
         return transactionsWithoutDuplicates;
-    }
-
-    private static Map<ByteBuffer, Long> balancesAtEndOfBlock(long blockHeight) {
-
-        Map<ByteBuffer, Long> balances = new HashMap<>();
-        BalanceList balanceList = null;
-        Block block = BlockManager.frozenBlockForHeight(blockHeight);
-        if (block != null) {
-            balanceList = block.getBalanceList();
-        }
-        if (balanceList != null) {
-            for (BalanceListItem item : balanceList.getItems()) {
-                balances.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());
-            }
-        }
-
-        return balances;
     }
 }
