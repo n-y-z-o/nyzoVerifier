@@ -33,22 +33,12 @@ public class BlockManager {
     }
 
     public static Block frozenBlockForHeight(long blockHeight) {
-
-        // Only return blocks from the map. It would be too computationally intensive to load blocks from files on
-        // demand without any rate limiting.
-
-        // We also used to have block loading from the network here. This could cause some serious performance issues
-        // for verifiers, though, because we might have very large chains that need to be connected in order
-        // to establish the veracity of a block.  So, we will instead allow verifiers to be ignorant of certain
-        // parts of the chain. When a verifier starts, it will get the recent chain. If a transaction references
-        // a hash of a block that a verifier does not know, the verifier should omit that transaction from
-        // the block.
         
         Block block = null;
         if (blockHeight <= frozenEdgeHeight.get()) {
 
             block = BlockManagerMap.blockForHeight(blockHeight);
-            if (block == null) {  // TODO: remove this, but be very careful when you do  ;)
+            if (block == null) {  // TODO: restrict which blocks are loaded on demand
                 loadBlockFromFile(blockHeight);
                 block = BlockManagerMap.blockForHeight(blockHeight);
             }
@@ -57,7 +47,8 @@ public class BlockManager {
         return block;
     }
 
-    public static synchronized List<Block> loadBlocksInFile(File file, boolean addBlocksToCache) {
+    public static synchronized List<Block> loadBlocksInFile(File file, long minimumHeight, long maximumHeight,
+                                                            boolean addBlocksToCache) {
 
         List<Block> blocks = new ArrayList<>();
         if (file.exists()) {
@@ -67,7 +58,8 @@ public class BlockManager {
                 ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
                 int numberOfBlocks = buffer.getShort();
                 Block previousBlock = null;
-                for (int i = 0; i < numberOfBlocks; i++) {
+                for (int i = 0; i < numberOfBlocks && (previousBlock == null ||
+                        previousBlock.getBlockHeight() < maximumHeight); i++) {
                     Block block = Block.fromByteBuffer(buffer);
                     if (previousBlock == null || (previousBlock.getBlockHeight() != block.getBlockHeight() - 1)) {
                         block.setBalanceList(BalanceList.fromByteBuffer(buffer));
@@ -75,7 +67,10 @@ public class BlockManager {
                         block.setBalanceList(Block.balanceListForNextBlock(previousBlock, block.getTransactions(),
                                 block.getVerifierIdentifier()));
                     }
-                    blocks.add(block);
+
+                    if (block.getBlockHeight() >= minimumHeight && block.getBlockHeight() <= maximumHeight) {
+                        blocks.add(block);
+                    }
 
                     previousBlock = block;
                 }
@@ -205,9 +200,9 @@ public class BlockManager {
 
     private static void loadBlockFromFile(long blockHeight) {
 
-        loadBlocksInFile(individualFileForBlockHeight(blockHeight), true);
+        loadBlocksInFile(individualFileForBlockHeight(blockHeight), blockHeight, blockHeight, true);
         if (BlockManagerMap.blockForHeight(blockHeight) == null) {
-            loadBlocksInFile(fileForBlockHeight(blockHeight), true);
+            loadBlocksInFile(fileForBlockHeight(blockHeight), blockHeight, blockHeight, true);
         }
     }
 
@@ -219,14 +214,10 @@ public class BlockManager {
         // is a subdirectory of the block directory, so a single call can ensure both.
         individualBlockDirectory.mkdirs();
 
-        if (fileForBlockHeight(0).exists()) {
+        Block genesisBlock = frozenBlockForHeight(0L);
+        if (genesisBlock != null) {
 
-            // Load the Genesis block start timestamp.
-            List<Block> blocksInGenesisFile = loadBlocksInFile(fileForBlockHeight(0L), true);
-            if (blocksInGenesisFile.size() > 0) {
-                Block genesisBlock = blocksInGenesisFile.get(0);
-                genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
-            }
+            genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
 
             // Load the highest block available.
             long highestFileStartBlock = 0L;
@@ -234,6 +225,7 @@ public class BlockManager {
                 highestFileStartBlock += BlockManager.blocksPerFile;
             }
 
+            /*
             // Load the highest consolidated file.
             List<Block> blocks = loadBlocksInFile(fileForBlockHeight(highestFileStartBlock), true);
             Block block = null;
@@ -257,7 +249,7 @@ public class BlockManager {
 
                 setFrozenEdgeHeight(block.getBlockHeight());
                 updateVerifiersInCurrentCycle(block);
-            }
+            }*/
         }
     }
 

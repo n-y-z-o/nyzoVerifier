@@ -64,11 +64,12 @@ public class BlockFileConsolidator {
 
         // Get the blocks from the existing consolidated file for this index.
         long startBlockHeight = fileIndex * BlockManager.blocksPerFile;
-        List<Block> blocks = BlockManager.loadBlocksInFile(BlockManager.fileForBlockHeight(startBlockHeight), false);
+        List<Block> blocks = BlockManager.loadBlocksInFile(BlockManager.fileForBlockHeight(startBlockHeight),
+                startBlockHeight, startBlockHeight + BlockManager.blocksPerFile - 1, false);
 
         // Add the blocks from the individual files.
         for (File file : individualFiles) {
-            blocks.addAll(BlockManager.loadBlocksInFile(file, false));
+            blocks.addAll(BlockManager.loadBlocksInFile(file, 0, Long.MAX_VALUE, false));
         }
 
         // Sort the blocks on block height ascending.
