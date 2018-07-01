@@ -11,22 +11,12 @@ public class BlockManagerMap {
 
     private static int iteration = 0;
 
-    // TODO: The map should always have the Genesis block and the last five cycles of blocks loaded into
-    // TODO: memory and no more.
-
-    // This is a parameter we will likely need to revisit. It is here to prevent memory usage from getting out of
-    // control, but we need to keep more blocks in memory to determine verification cycle lengths as our mesh grows.
-    private static final long maximumBlocksInMap = 20000;
-
     private static Map<Long, BlockManagerMap> blockMap = new HashMap<>();
 
-    private long lastUsedTimestamp;
     private Block block;
 
     private BlockManagerMap(Block block) {
         this.block = block;
-        this.lastUsedTimestamp = 0L;  // we add some blocks that are not used because it is convenient; this makes sure
-                                      // that they will be removed first if they are not used
     }
 
     public static synchronized void addBlock(Block block) {
@@ -34,24 +24,24 @@ public class BlockManagerMap {
         // Add the block to the map.
         blockMap.put(block.getBlockHeight(), new BlockManagerMap(block));
 
-        if (iteration++ == 100) {
+        // Periodically remove old blocks.
+        if (iteration++ >= 10) {
+
             iteration = 0;
-            NotificationUtil.send("now have " + blockMap.size() + " blocks on " + Verifier.getNickname());
-        }
 
-        // Reduce the size of the map if it is too large.
-        if (blockMap.keySet().size() > maximumBlocksInMap) {
-            long sumTimestamp = 0L;
-            for (BlockManagerMap blockWrapper : blockMap.values()) {
-                sumTimestamp += blockWrapper.lastUsedTimestamp;
-            }
+            long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+            Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
+            if (frozenEdge.getCycleInformation() != null) {
 
-            long cutoffTimestamp = sumTimestamp / blockMap.size();
-            Set<Long> blockHeights = new HashSet<>(blockMap.keySet());
-            for (long blockHeight : blockHeights) {
-                BlockManagerMap blockWrapper = blockMap.get(blockHeight);
-                if (blockWrapper.lastUsedTimestamp < cutoffTimestamp) {
-                    blockMap.remove(blockHeight);
+                long startHeight = frozenEdgeHeight - 1;
+                for (int i = 0; i < 4; i++) {
+                    startHeight -= frozenEdge.getCycleInformation().getCycleLength(i);
+                }
+
+                for (Long height : new HashSet<>(blockMap.keySet())) {
+                    if (height != 0 && height < startHeight) {
+                        blockMap.remove(height);
+                    }
                 }
             }
         }
@@ -62,9 +52,14 @@ public class BlockManagerMap {
         Block block = null;
         if (blockWrapper != null) {
             block = blockWrapper.block;
-            blockWrapper.lastUsedTimestamp = System.currentTimeMillis();
         }
 
         return block;
+    }
+
+    // TODO: remove this; it is for debugging only
+    public static long mapSize() {
+
+        return blockMap.size();
     }
 }

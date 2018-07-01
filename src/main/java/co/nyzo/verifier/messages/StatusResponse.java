@@ -56,6 +56,7 @@ public class StatusResponse implements MessageObject {
             }
             lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
             lines.add("old timestamp: " + Verifier.oldestTimestampAge());
+            lines.add("map size: " + BlockManagerMap.mapSize());
 
             Map<String, String> extraFields = getExtraFields();
             for (String key : extraFields.keySet()) {
