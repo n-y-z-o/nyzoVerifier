@@ -221,8 +221,6 @@ public class BlockManager {
 
         if (fileForBlockHeight(0).exists()) {
 
-            System.out.println("Genesis block file exists");
-
             // Load the Genesis block start timestamp.
             List<Block> blocksInGenesisFile = loadBlocksInFile(fileForBlockHeight(0L), true);
             if (blocksInGenesisFile.size() > 0) {
@@ -246,15 +244,8 @@ public class BlockManager {
             // Continue trying to load individual files that have not yet been consolidated.
             if (block != null) {
                 long blockHeight = block.getBlockHeight();
-                long individualBlockHeight = -1;
                 while (individualFileForBlockHeight(blockHeight + 1).exists()) {
                     blockHeight++;
-                    individualBlockHeight = blockHeight;
-                }
-
-                if (individualBlockHeight >= 0) {
-                    NotificationUtil.sendOnce("found individual file at height " + blockHeight + " on " +
-                            Verifier.getNickname());
                 }
 
                 if (individualFileForBlockHeight(blockHeight).exists()) {
@@ -266,8 +257,6 @@ public class BlockManager {
 
                 setFrozenEdgeHeight(block.getBlockHeight());
                 updateVerifiersInCurrentCycle(block);
-                NotificationUtil.sendOnce("loaded frozen edge at height " + frozenEdgeHeight() + " on " +
-                        Verifier.getNickname());
             }
         }
     }
