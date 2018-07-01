@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.DebugUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.util.ArrayList;
@@ -59,7 +60,7 @@ public class MessageQueue {
                             next.callback.responseReceived(next.message);
                         } catch (Exception ignored) {
                             System.err.println("exception processing message " + next.message + " (" +
-                                    ignored.getMessage() + ")");
+                                    ignored.getMessage() + "): " + DebugUtil.callingMethods(8));
                         }
                     }
 
