@@ -38,7 +38,7 @@ public class BlockFileConsolidator {
 
         // Build a map of all files that need to be consolidated.
         Map<Long, List<File>> fileMap = new HashMap<>();
-        long currentFileIndex = BlockManager.frozenEdgeHeight() / BlockManager.blocksPerFile;
+        long currentFileIndex = BlockManager.getFrozenEdgeHeight() / BlockManager.blocksPerFile;
         if (individualFiles != null) {
             for (File file : individualFiles) {
                 long blockHeight = blockHeightForFile(file);

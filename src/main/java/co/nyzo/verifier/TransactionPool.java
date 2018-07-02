@@ -54,7 +54,7 @@ public class TransactionPool {
 
     public static synchronized void updateFrozenEdge() {
 
-        long newFrozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        long newFrozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         if (newFrozenEdgeHeight > frozenEdgeHeight) {
             frozenEdgeHeight = newFrozenEdgeHeight;
             for (Long height : new HashSet<>(transactions.keySet())) {

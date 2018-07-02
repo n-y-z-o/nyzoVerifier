@@ -21,7 +21,7 @@ public class BootstrapResponse implements MessageObject {
 
         List<byte[]> frozenBlockHashes = new ArrayList<>();
         List<Integer> cycleLengths = new ArrayList<>();
-        long height = BlockManager.frozenEdgeHeight();
+        long height = BlockManager.getFrozenEdgeHeight();
         Block block = BlockManager.frozenBlockForHeight(height);
         long firstHashHeight = -1;
         while (frozenBlockHashes.size() < 5 && block != null && block.getCycleInformation() != null) {

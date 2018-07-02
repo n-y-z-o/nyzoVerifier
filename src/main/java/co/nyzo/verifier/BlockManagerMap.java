@@ -9,11 +9,16 @@ import java.util.Set;
 
 public class BlockManagerMap {
 
-    private static int iteration = 0;
+    private static final BlockManagerMap singleton = new BlockManagerMap();
 
-    private static Map<Long, Block> blockMap = new HashMap<>();
+    private int iteration = 0;
+    private Map<Long, Block> blockMap = new HashMap<>();
 
-    public static synchronized void addBlock(Block block) {
+    public static BlockManagerMap getSingleton() {
+        return singleton;
+    }
+
+    public synchronized void addBlock(Block block) {
 
         // Add the block to the map.
         blockMap.put(block.getBlockHeight(), block);
@@ -23,7 +28,7 @@ public class BlockManagerMap {
 
             iteration = 0;
 
-            long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+            long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
             Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
             if (frozenEdge.getCycleInformation() != null) {
 
@@ -41,13 +46,13 @@ public class BlockManagerMap {
         }
     }
 
-    public static Block blockForHeight(long blockHeight) {
+    public Block blockForHeight(long blockHeight) {
 
         return blockMap.get(blockHeight);
     }
 
     // TODO: remove this; it is for debugging only
-    public static long mapSize() {
+    public long mapSize() {
 
         return blockMap.size();
     }

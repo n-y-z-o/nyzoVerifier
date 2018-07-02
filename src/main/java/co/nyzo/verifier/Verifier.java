@@ -197,8 +197,8 @@ public class Verifier {
 
             // If the consensus frozen edge is higher than the local frozen edge, fetch the necessary blocks to start
             // verifying.
-            if (consensusFrozenEdge > BlockManager.frozenEdgeHeight()) {
-                long startBlock = Math.max(BlockManager.frozenEdgeHeight() + 1, consensusFrozenEdge -
+            if (consensusFrozenEdge > BlockManager.getFrozenEdgeHeight()) {
+                long startBlock = Math.max(BlockManager.getFrozenEdgeHeight() + 1, consensusFrozenEdge -
                         5 * frozenEdgeCycleLength.get());
                 System.out.println("need to fetch chain section " + startBlock + " to " + consensusFrozenEdge);
                 ChainInitializationManager.fetchChainSection(startBlock, consensusFrozenEdge, frozenEdgeHash);
@@ -393,7 +393,7 @@ public class Verifier {
                     // Clean up the map of blocks we have extended. We will never extend behind the frozen edge, so
                     // those can be removed. This map is used to ensure that we do not extend the same block more than
                     // once.
-                    long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+                    long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
                     for (ByteBuffer blockHash : new HashSet<>(blocksExtended.keySet())) {
                         Block block = blocksExtended.get(blockHash);
                         if (block.getBlockHeight() < frozenEdgeHeight) {
@@ -432,7 +432,7 @@ public class Verifier {
 
                     // If the frozen edge height has changed, update the new-verifier vote and update the frozen edge
                     // with the transaction pool.
-                    if (frozenEdgeHeight != BlockManager.frozenEdgeHeight()) {
+                    if (frozenEdgeHeight != BlockManager.getFrozenEdgeHeight()) {
                         NewVerifierQueueManager.updateVote();
                         TransactionPool.updateFrozenEdge();
                     }

@@ -18,7 +18,7 @@ public class UnfrozenBlockManager {
 
         // Reject all blocks with invalid signatures and all those at or behind the frozen edge or ahead of the open
         // edge.
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         if (block != null && block.getBlockHeight() > frozenEdgeHeight && block.signatureIsValid() &&
                 block.getBlockHeight() <= BlockManager.openEdgeHeight(true)) {
 
@@ -85,7 +85,7 @@ public class UnfrozenBlockManager {
     // TODO: remove this from status updates and delete
     public static synchronized long bestScoreForHeight(long height) {
 
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         Map<ByteBuffer, Block> blocksForHeight = unfrozenBlocks.get(height);
         long bestScore = Long.MAX_VALUE;
         for (Block block : blocksForHeight.values()) {
@@ -116,7 +116,7 @@ public class UnfrozenBlockManager {
         // t = l - b - 1 - 2b + 2f + 2
         // t = l - 3b  + 2f + 1
 
-        return leadingEdgeHeight() - 3L * height + 2L * BlockManager.frozenEdgeHeight() + 1;
+        return leadingEdgeHeight() - 3L * height + 2L * BlockManager.getFrozenEdgeHeight() + 1;
     }
 
     public static synchronized void castVotes() {
@@ -125,7 +125,7 @@ public class UnfrozenBlockManager {
         // minimum value of zero. If this limited value is less than or equal to the threshold for the height, a
         // vote is cast.
 
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         for (long height : unfrozenBlocks.keySet()) {
 
             // Only continue if we have not yet voted for this height and the threshold is non-negative.
@@ -172,7 +172,7 @@ public class UnfrozenBlockManager {
 
     public static synchronized void freezeBlocks() {
 
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         for (long height = frozenEdgeHeight + 1L; height < leadingEdgeHeight(); height++) {
 
             byte[] hash = BlockVoteManager.winningHashForHeight(height);
@@ -216,7 +216,7 @@ public class UnfrozenBlockManager {
         // The leading edge is defined as the greatest block height open for processing at which a valid block without
         // a discontinuity exists.
 
-        long leadingEdgeHeight = BlockManager.frozenEdgeHeight();
+        long leadingEdgeHeight = BlockManager.getFrozenEdgeHeight();
         long openEdgeHeight = BlockManager.openEdgeHeight(true);
 
         boolean heightIsContinuous = true;
@@ -243,7 +243,7 @@ public class UnfrozenBlockManager {
     public static synchronized Block blockToExtendForHeight(long blockHeight) {
 
         Block blockToExtend = null;
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         if (blockHeight <= frozenEdgeHeight) {
             blockToExtend = BlockManager.frozenBlockForHeight(blockHeight);
         } else {

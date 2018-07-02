@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.webSupport.ServerBlockManagerMap;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -23,12 +24,13 @@ public class BlockManager {
     private static final Set<ByteBuffer> verifiersInCurrentCycle = new HashSet<>();
     private static long genesisBlockStartTimestamp = -1L;
     private static int currentCycleLength = 0;
+    private static BlockManagerMap blockManagerMap = BlockManagerMap.getSingleton();
 
     static {
         initialize();
     }
 
-    public static long frozenEdgeHeight() {
+    public static long getFrozenEdgeHeight() {
         return frozenEdgeHeight.get();
     }
 
@@ -37,10 +39,10 @@ public class BlockManager {
         Block block = null;
         if (blockHeight <= frozenEdgeHeight.get()) {
 
-            block = BlockManagerMap.blockForHeight(blockHeight);
+            block = blockManagerMap.blockForHeight(blockHeight);
             if (block == null) {  // TODO: restrict which blocks are loaded on demand
                 loadBlockFromFile(blockHeight);
-                block = BlockManagerMap.blockForHeight(blockHeight);
+                block = blockManagerMap.blockForHeight(blockHeight);
             }
         }
 
@@ -79,7 +81,7 @@ public class BlockManager {
 
             if (addBlocksToCache) {
                 for (Block block : blocks) {
-                    BlockManagerMap.addBlock(block);
+                    blockManagerMap.addBlock(block);
                 }
             }
         }
@@ -144,7 +146,7 @@ public class BlockManager {
 
         // Only continue if the block's previous hash is correct and the block is past the frozen edge.
         if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) &&
-                block.getBlockHeight() > frozenEdgeHeight()) {
+                block.getBlockHeight() > getFrozenEdgeHeight()) {
 
             // If the balance list is null, try to create it now.
             if (block.getBalanceList() == null) {
@@ -167,7 +169,7 @@ public class BlockManager {
                     setFrozenEdgeHeight(block.getBlockHeight());
 
                     writeBlocksToFile(Arrays.asList(block), individualFileForBlockHeight(block.getBlockHeight()));
-                    BlockManagerMap.addBlock(block);
+                    blockManagerMap.addBlock(block);
 
                     if (block.getBlockHeight() == 0L) {
                         genesisBlockStartTimestamp = block.getStartTimestamp();
@@ -201,12 +203,13 @@ public class BlockManager {
     private static void loadBlockFromFile(long blockHeight) {
 
         loadBlocksInFile(individualFileForBlockHeight(blockHeight), blockHeight, blockHeight, true);
-        if (BlockManagerMap.blockForHeight(blockHeight) == null) {
+        if (blockManagerMap.blockForHeight(blockHeight) == null) {
             loadBlocksInFile(fileForBlockHeight(blockHeight), blockHeight, blockHeight, true);
         }
     }
 
     private static synchronized void initialize() {
+
 
         // This method only needs to load the locally stored blocks, and it can do so synchronously.
 

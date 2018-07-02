@@ -23,7 +23,7 @@ public class StatusResponse implements MessageObject {
             this.lines = previousLines;
         } else {
 
-            long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+            long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
 
             int meshSize = NodeManager.getMeshSize();
             int activeMeshSize = NodeManager.getActiveMeshSize();
@@ -58,7 +58,7 @@ public class StatusResponse implements MessageObject {
             }
             lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
             lines.add("old timestamp: " + Verifier.oldestTimestampAge());
-            lines.add("map size: " + BlockManagerMap.mapSize());
+            lines.add("map size: " + BlockManagerMap.getSingleton().mapSize());
 
             Map<String, String> extraFields = getExtraFields();
             for (String key : extraFields.keySet()) {

@@ -36,7 +36,7 @@ public class BlockVoteManager {
     public static synchronized void removeOldVotes() {
 
         Set<Long> heights = new HashSet<>(voteMap.keySet());
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         for (long height : heights) {
             if (height <= frozenEdgeHeight) {
                 voteMap.remove(height);
@@ -111,10 +111,10 @@ public class BlockVoteManager {
                 }
             }
 
-            if (height == BlockManager.frozenEdgeHeight() + 1L) {
+            if (height == BlockManager.getFrozenEdgeHeight() + 1L) {
                 StatusResponse.setField("vote", "m: " + maximumVotes + ", t: " + threshold + ", " +
                         PrintUtil.compactPrintByteArray(winningHash) + ", h: +" +
-                        (height - BlockManager.frozenEdgeHeight()));
+                        (height - BlockManager.getFrozenEdgeHeight()));
             }
         }
 

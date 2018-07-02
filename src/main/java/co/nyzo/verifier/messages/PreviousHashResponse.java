@@ -11,7 +11,7 @@ public class PreviousHashResponse implements MessageObject {
     private byte[] hash;
 
     public PreviousHashResponse() {
-        height = BlockManager.frozenEdgeHeight();
+        height = BlockManager.getFrozenEdgeHeight();
         hash = BlockManager.frozenBlockForHeight(height).getHash();
     }
 
