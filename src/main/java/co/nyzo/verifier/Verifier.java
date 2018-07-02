@@ -467,14 +467,14 @@ public class Verifier {
             if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Continuous) {
                 boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
                 if (shouldTransmitBlock) {
-                    status.append("(b)");
-                    StatusResponse.setField("extended", nextBlock.getBlockHeight() + "");
+                    StatusResponse.setField("transmitted", nextBlock.getBlockHeight() + "");
                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                 } else {
-                    status.append("(h)");
+                    StatusResponse.setField("did not transmit", nextBlock.getBlockHeight() + "");
                 }
             } else {
-                status.append("(n)");
+                StatusResponse.setField("did not create", nextBlock == null ? "(null)" :
+                        nextBlock.getBlockHeight() + "");
             }
         } else {
             if (blocksExtended.containsKey(blockHash)) {
