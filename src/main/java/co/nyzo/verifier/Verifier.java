@@ -384,7 +384,7 @@ public class Verifier {
                         rejoinCount++;
                         nodeJoinAcknowledgementsReceived.clear();
                         sendNodeJoinRequests();
-                        status.append(",rj");
+                        status.append(", rejoin");
                     }
 
                     // Perform setup tasks for the NodeManager.
@@ -407,17 +407,17 @@ public class Verifier {
                     long endHeight = Math.min(Math.max(UnfrozenBlockManager.leadingEdgeHeight(), frozenEdgeHeight),
                             BlockManager.openEdgeHeight(false) - 1);
                     endHeight = Math.min(endHeight, frozenEdgeHeight + 10);  // TODO: remove this; for testing only
-                    status.append(",e+").append(endHeight - frozenEdgeHeight);
+                    status.append(", e+").append(endHeight - frozenEdgeHeight);
                     for (long height = frozenEdgeHeight; height <= endHeight; height++) {
 
                         // Get the block to extend for the height from the chain option manager.
                         Block blockToExtend = UnfrozenBlockManager.blockToExtendForHeight(height);
                         if (blockToExtend == null) {
-                            status.append(",n@+").append(height - frozenEdgeHeight);
+                            status.append(", n@+").append(height - frozenEdgeHeight);
                         }
                         if (blockToExtend != null && blockToExtend.getVerificationTimestamp() <
                                 System.currentTimeMillis() - Block.minimumVerificationInterval) {
-                            status.append(",b@+").append(height - frozenEdgeHeight);
+                            status.append(", b@+").append(height - frozenEdgeHeight);
                             extendBlock(blockToExtend, status);
                         }
                     }
@@ -442,6 +442,7 @@ public class Verifier {
 
             } catch (Exception reportOnly) {
                 System.err.println(PrintUtil.printException(reportOnly));
+                StatusResponse.setField("verifier main exception", PrintUtil.printException(reportOnly));
             }
 
             // Sleep for a short time to avoid consuming too much computational power.
