@@ -243,9 +243,11 @@ public class UnfrozenBlockManager {
             long height = leadingEdgeHeight + 1;
             Map<ByteBuffer, Block> blocksForHeight = unfrozenBlocks.get(height);
             heightIsContinuous = false;
-            for (Block block : blocksForHeight.values()) {
-                if (block.getContinuityState() == Block.ContinuityState.Continuous) {
-                    heightIsContinuous = true;
+            if (blocksForHeight != null) {
+                for (Block block : blocksForHeight.values()) {
+                    if (block.getContinuityState() == Block.ContinuityState.Continuous) {
+                        heightIsContinuous = true;
+                    }
                 }
             }
 
