@@ -1,9 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.FileUtil;
-import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.webSupport.ServerBlockManagerMap;
 
 import java.io.File;
 import java.nio.ByteBuffer;
