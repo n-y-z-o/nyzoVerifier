@@ -418,6 +418,7 @@ public class Verifier {
                         if (blockToExtend != null && blockToExtend.getVerificationTimestamp() <
                                 System.currentTimeMillis() - Block.minimumVerificationInterval) {
                             extendBlock(blockToExtend);
+                            status.append(",b@+").append(height - frozenEdgeHeight);
                         }
                     }
 
