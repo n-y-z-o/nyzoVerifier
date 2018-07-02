@@ -370,10 +370,13 @@ public class Verifier {
 
         while (!UpdateUtil.shouldTerminate()) {
 
+            StringBuilder status = new StringBuilder();
             long sleepTime = 1000L;
             try {
                 // Only run the active verifier if connected to the mesh.
                 if (NodeManager.connectedToMesh()) {
+
+                    status.append("c");
 
                     // If we have stopped receiving messages from the mesh, send new node-join messages. This is
                     // likely due to a changed IP address.
@@ -381,6 +384,7 @@ public class Verifier {
                         rejoinCount++;
                         nodeJoinAcknowledgementsReceived.clear();
                         sendNodeJoinRequests();
+                        status.append(",rj");
                     }
 
                     // Perform setup tasks for the NodeManager.
@@ -408,6 +412,9 @@ public class Verifier {
 
                         // Get the block to extend for the height from the chain option manager.
                         Block blockToExtend = UnfrozenBlockManager.blockToExtendForHeight(height);
+                        if (blockToExtend == null) {
+                            status.append(",n@+").append(height - frozenEdgeHeight);
+                        }
                         if (blockToExtend != null && blockToExtend.getVerificationTimestamp() <
                                 System.currentTimeMillis() - Block.minimumVerificationInterval) {
                             extendBlock(blockToExtend);
@@ -428,6 +435,8 @@ public class Verifier {
                         NewVerifierQueueManager.updateVote();
                         TransactionPool.updateFrozenEdge();
                     }
+
+                    StatusResponse.setField("last cycle", status.toString());
                 }
 
             } catch (Exception reportOnly) {
