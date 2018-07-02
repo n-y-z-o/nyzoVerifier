@@ -417,8 +417,8 @@ public class Verifier {
                         }
                         if (blockToExtend != null && blockToExtend.getVerificationTimestamp() <
                                 System.currentTimeMillis() - Block.minimumVerificationInterval) {
-                            extendBlock(blockToExtend);
                             status.append(",b@+").append(height - frozenEdgeHeight);
+                            extendBlock(blockToExtend, status);
                         }
                     }
 
@@ -451,7 +451,7 @@ public class Verifier {
         }
     }
 
-    private static void extendBlock(Block block) {
+    private static void extendBlock(Block block, StringBuilder status) {
 
         CycleInformation cycleInformation = block.getCycleInformation();
         ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
@@ -467,8 +467,13 @@ public class Verifier {
             if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Continuous) {
                 boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
                 if (shouldTransmitBlock) {
+                    status.append("(b)");
                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                } else {
+                    status.append("(h)");
                 }
+            } else {
+                status.append("(n)");
             }
         }
     }
