@@ -144,6 +144,10 @@ public class StatusResponse implements MessageObject {
         } else {
             extraFields.put(key, value);
         }
+
+        if (extraFields.size() > 10) {
+            extraFields.clear();
+        }
     }
 
     private static String printScore(long score) {

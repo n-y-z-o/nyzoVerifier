@@ -35,10 +35,9 @@ public class UnfrozenBlockManager {
             // Check if the block is a duplicate verifier on the same previous block.
             boolean alreadyContainsVerifierOnSameChain = false;
             if (!alreadyContainsBlock) {
-                for (int i = 0; i < blocksAtHeight.size() && !alreadyContainsVerifierOnSameChain; i++) {
-                    if (ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getVerifierIdentifier(),
-                            block.getVerifierIdentifier()) &&
-                            ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getPreviousBlockHash(),
+                for (Block blockAtHeight : blocksAtHeight.values()) {
+                    if (ByteUtil.arraysAreEqual(blockAtHeight.getVerifierIdentifier(), block.getVerifierIdentifier()) &&
+                            ByteUtil.arraysAreEqual(blockAtHeight.getPreviousBlockHash(),
                                     block.getPreviousBlockHash())) {
                         alreadyContainsVerifierOnSameChain = true;
                     }
@@ -66,15 +65,16 @@ public class UnfrozenBlockManager {
                 // new block.
                 if (blocksAtHeight.size() > 3) {
                     Block highestScoredBlock = block;
-                    for (int i = 0; i < blocksAtHeight.size() - 1; i++) {
-                        Block compareBlock = blocksAtHeight.get(i);
-                        if (compareBlock.chainScore(frozenEdgeHeight) >
-                                highestScoredBlock.chainScore(frozenEdgeHeight)) {
-                            highestScoredBlock = compareBlock;
+                    long highestScore = highestScoredBlock.chainScore(frozenEdgeHeight);
+                    for (Block blockAtHeight : blocksAtHeight.values()) {
+                        long score = blockAtHeight.chainScore(frozenEdgeHeight);
+                        if (score > highestScore) {
+                            highestScore = score;
+                            highestScoredBlock = blockAtHeight;
                         }
                     }
 
-                    blocksAtHeight.remove(highestScoredBlock);
+                    blocksAtHeight.remove(ByteBuffer.wrap(highestScoredBlock.getHash()));
                 }
             }
         }
@@ -168,25 +168,6 @@ public class UnfrozenBlockManager {
             Message message = new Message(MessageType.BlockVote19, vote);
             Message.broadcast(message);
         }
-    }
-
-    private static synchronized boolean possiblyConnectedToFrozenChain(Block block) {
-
-        boolean possiblyConnected = true;
-        long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
-        if (block.getBlockHeight() <= frozenEdgeHeight) {
-            possiblyConnected = false;
-        } else {
-            while (block != null && block.getBlockHeight() > frozenEdgeHeight + 1) {
-                block = block.getPreviousBlock();
-            }
-            if (block != null && block.getBlockHeight() == frozenEdgeHeight + 1) {
-                Block frozenEdgeBlock = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
-                possiblyConnected = ByteUtil.arraysAreEqual(frozenEdgeBlock.getHash(), block.getPreviousBlockHash());
-            }
-        }
-
-        return possiblyConnected;
     }
 
     public static synchronized void freezeBlocks() {
