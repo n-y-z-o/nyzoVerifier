@@ -476,6 +476,8 @@ public class Verifier {
             } else {
                 status.append("(n)");
             }
+        } else {
+            status.append("(ne)");
         }
     }
 

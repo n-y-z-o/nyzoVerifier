@@ -321,25 +321,19 @@ public class BlockManager {
 
     private static synchronized void updateVerifiersInCurrentCycle(Block block) {
 
-        boolean foundOneCycle = false;
-        Block previousBlock = block.getPreviousBlock();
+        boolean foundCycle = false;
         verifiersInCurrentCycle.clear();
-        while (previousBlock != null && !foundOneCycle) {
+        while (block != null && !foundCycle) {
 
-            ByteBuffer identifierBuffer = ByteBuffer.wrap(previousBlock.getVerifierIdentifier());
+            ByteBuffer identifierBuffer = ByteBuffer.wrap(block.getVerifierIdentifier());
             if (verifiersInCurrentCycle.contains(identifierBuffer)) {
-                foundOneCycle = true;
+                foundCycle = true;
             } else {
                 verifiersInCurrentCycle.add(identifierBuffer);
             }
 
-            inGenesisCycle = previousBlock.getBlockHeight() == 0 && !foundOneCycle;
-            previousBlock = previousBlock.getPreviousBlock();
-        }
-
-        // The loop will not enter for the Genesis block, so mark it as the Genesis cycle here.
-        if (block.getBlockHeight() == 0) {
-            inGenesisCycle = true;
+            inGenesisCycle = block.getBlockHeight() == 0 && !foundCycle;
+            block = block.getPreviousBlock();
         }
 
         // Update the cycle value. This is stored separately so the method can be made un-synchronized without question.
