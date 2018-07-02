@@ -468,6 +468,7 @@ public class Verifier {
                 boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
                 if (shouldTransmitBlock) {
                     status.append("(b)");
+                    StatusResponse.setField("extended", nextBlock.getBlockHeight() + "");
                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                 } else {
                     status.append("(h)");
