@@ -263,7 +263,13 @@ public class BlockManager {
         }
     }
 
+    public static long getGenesisBlockStartTimestamp() {
+
+        return genesisBlockStartTimestamp;
+    }
+
     public static void setGenesisBlockStartTimestamp(long genesisBlockStartTimestamp) {
+
         BlockManager.genesisBlockStartTimestamp = genesisBlockStartTimestamp;
     }
 

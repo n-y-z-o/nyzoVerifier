@@ -22,7 +22,7 @@ public class UnfrozenBlockManager {
         if (block != null && block.getBlockHeight() > frozenEdgeHeight && block.signatureIsValid() &&
                 block.getBlockHeight() <= BlockManager.openEdgeHeight(true)) {
 
-            // Get the list of the blocks at this height.
+            // Get the map of blocks at this height.
             Map<ByteBuffer, Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
             if (blocksAtHeight == null) {
                 blocksAtHeight = new HashMap<>();
