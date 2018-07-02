@@ -239,7 +239,7 @@ public class Block implements MessageObject {
 
             int[] cycleLengths = { cycles.get(0).size(), cycles.get(1).size(), cycles.get(2).size(),
                     cycles.get(3).size() };
-            cycleInformation = new CycleInformation(cycleLengths, newVerifier, genesisCycle);
+            cycleInformation = new CycleInformation(height, cycleLengths, newVerifier, genesisCycle);
         }
     }
 

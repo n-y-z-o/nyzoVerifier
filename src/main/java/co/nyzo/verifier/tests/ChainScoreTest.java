@@ -42,10 +42,11 @@ public class ChainScoreTest {
 
 
             CycleInformation cycle = block.getCycleInformation();
-            System.out.println(String.format("block%s%2d (%s): c=%2d, n=%s, d=%s, s=%d",
+            System.out.println(String.format("block%s%2d (%s): c=%2d, n=%s, d=%s, s=%d, w=%d",
                     block.getCycleInformation().isGenesisCycle() ? "*" : " ", i, verifiers.charAt(i) + "",
                     cycle.getCycleLength(), cycle.isNewVerifier() ? "Y" : "N", block.getContinuityState() + "",
-                    block.chainScore(Math.max(block.getBlockHeight() - 1, 0L))));
+                    block.chainScore(Math.max(block.getBlockHeight() - 1, 0L)),
+                    block.getCycleInformation().getWindowStartHeight()));
         }
     }
 

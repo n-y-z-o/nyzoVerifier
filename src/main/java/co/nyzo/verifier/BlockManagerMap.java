@@ -11,18 +11,12 @@ public class BlockManagerMap {
 
     private static int iteration = 0;
 
-    private static Map<Long, BlockManagerMap> blockMap = new HashMap<>();
-
-    private Block block;
-
-    private BlockManagerMap(Block block) {
-        this.block = block;
-    }
+    private static Map<Long, Block> blockMap = new HashMap<>();
 
     public static synchronized void addBlock(Block block) {
 
         // Add the block to the map.
-        blockMap.put(block.getBlockHeight(), new BlockManagerMap(block));
+        blockMap.put(block.getBlockHeight(), block);
 
         // Periodically remove old blocks.
         if (iteration++ >= 10) {
@@ -48,13 +42,8 @@ public class BlockManagerMap {
     }
 
     public static Block blockForHeight(long blockHeight) {
-        BlockManagerMap blockWrapper = blockMap.get(blockHeight);
-        Block block = null;
-        if (blockWrapper != null) {
-            block = blockWrapper.block;
-        }
 
-        return block;
+        return blockMap.get(blockHeight);
     }
 
     // TODO: remove this; it is for debugging only
