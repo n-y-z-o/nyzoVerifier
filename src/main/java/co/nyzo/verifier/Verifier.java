@@ -477,7 +477,11 @@ public class Verifier {
                 status.append("(n)");
             }
         } else {
-            status.append("(ne)");
+            if (blocksExtended.containsKey(blockHash)) {
+                status.append("(ae)");
+            } else {
+                status.append("(ne)");
+            }
         }
     }
 
