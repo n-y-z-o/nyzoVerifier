@@ -21,7 +21,7 @@ public class NewVerifierQueueManager {
 
             Message message = new Message(MessageType.NewVerifierVote21, new NewVerifierVote(vote.array()));
             Message.broadcast(message);
-            NotificationUtil.send("sent vote for verifier " + PrintUtil.compactPrintByteArray(vote.array()));
+            NotificationUtil.send("sent vote for verifier " + NicknameManager.get(vote.array()));
 
             currentVote = vote;
         }
