@@ -10,7 +10,7 @@ import java.util.*;
 public class UnfrozenBlockManager {
 
     private static Set<Long> votesCast = new HashSet<>();
-    private static Map<Long, List<Block>> unfrozenBlocks = new HashMap<>();
+    private static Map<Long, Map<ByteBuffer, Block>> unfrozenBlocks = new HashMap<>();
 
     public static synchronized boolean registerBlock(Block block) {
 
@@ -23,20 +23,14 @@ public class UnfrozenBlockManager {
                 block.getBlockHeight() <= BlockManager.openEdgeHeight(true)) {
 
             // Get the list of the blocks at this height.
-            List<Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
+            Map<ByteBuffer, Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
             if (blocksAtHeight == null) {
-                blocksAtHeight = new ArrayList<>();
+                blocksAtHeight = new HashMap<>();
                 unfrozenBlocks.put(block.getBlockHeight(), blocksAtHeight);
             }
 
-            // Check if the block is a simple duplicate (same signature).
-            boolean alreadyContainsBlock = false;
-            for (int i = 0; i < blocksAtHeight.size() && !alreadyContainsBlock; i++) {
-                if (ByteUtil.arraysAreEqual(blocksAtHeight.get(i).getVerifierSignature(),
-                        block.getVerifierSignature())) {
-                    alreadyContainsBlock = true;
-                }
-            }
+            // Check if the block is a simple duplicate (same hash).
+            boolean alreadyContainsBlock = blocksAtHeight.containsKey(ByteBuffer.wrap(block.getHash()));
 
             // Check if the block is a duplicate verifier on the same previous block.
             boolean alreadyContainsVerifierOnSameChain = false;
@@ -64,7 +58,7 @@ public class UnfrozenBlockManager {
 
             if (!alreadyContainsBlock && !alreadyContainsVerifierOnSameChain && verificationTimestampIntervalValid) {
 
-                blocksAtHeight.add(block);
+                blocksAtHeight.put(ByteBuffer.wrap(block.getHash()), block);
                 registeredBlock = true;
 
                 // Only keep the best three blocks at any level. For stability in the list, consider the just-added
@@ -92,13 +86,10 @@ public class UnfrozenBlockManager {
     public static synchronized long bestScoreForHeight(long height) {
 
         long frozenEdgeHeight = BlockManager.frozenEdgeHeight();
-        List<Block> blocksForHeight = unfrozenBlocks.get(height);
+        Map<ByteBuffer, Block> blocksForHeight = unfrozenBlocks.get(height);
         long bestScore = Long.MAX_VALUE;
-        if (!blocksForHeight.isEmpty()) {
-            bestScore = blocksForHeight.get(0).chainScore(frozenEdgeHeight);
-            for (int i = 1; i < blocksForHeight.size(); i++) {
-                bestScore = Math.min(bestScore, blocksForHeight.get(i).chainScore(frozenEdgeHeight));
-            }
+        for (Block block : blocksForHeight.values()) {
+            bestScore = Math.min(bestScore, block.chainScore(frozenEdgeHeight));
         }
 
         return bestScore;
@@ -142,20 +133,22 @@ public class UnfrozenBlockManager {
             if (!votesCast.contains(height) && threshold >= 0) {
 
                 // Only continue if we have blocks.
-                List<Block> blocksForHeight = unfrozenBlocks.get(height);
+                Map<ByteBuffer, Block> blocksForHeight = unfrozenBlocks.get(height);
                 if (!blocksForHeight.isEmpty()) {
 
                     // Find the block with the lowest score at this height.
-                    Block lowestScoredBlock = blocksForHeight.get(0);
-                    for (int i = 1; i < blocksForHeight.size(); i++) {
-                        Block block = blocksForHeight.get(i);
-                        if (block.chainScore(frozenEdgeHeight) < lowestScoredBlock.chainScore(frozenEdgeHeight)) {
+                    Block lowestScoredBlock = null;
+                    long lowestChainScore = Long.MAX_VALUE;
+                    for (Block block : blocksForHeight.values()) {
+                        long blockChainScore = block.chainScore(frozenEdgeHeight);
+                        if (lowestScoredBlock == null || blockChainScore < lowestChainScore) {
+                            lowestChainScore = blockChainScore;
                             lowestScoredBlock = block;
                         }
                     }
 
                     // If the best score is less than or equal to the threshold, cast a vote for the block.
-                    if (Math.max(lowestScoredBlock.chainScore(frozenEdgeHeight), 0) <= threshold) {
+                    if (Math.max(lowestChainScore, 0) <= threshold) {
                         castVote(lowestScoredBlock);
                     }
                 }
@@ -194,35 +187,6 @@ public class UnfrozenBlockManager {
         }
 
         return possiblyConnected;
-    }
-
-    private static synchronized long chainHeightForBlock(Block block) {
-
-        long height = block.getBlockHeight();
-        long heightToCheck = height + 1;
-        byte[] hash = block.getHash();
-        boolean foundBreak = false;
-        while (!foundBreak) {
-            List<Block> blocks = unfrozenBlocks.get(heightToCheck);
-            boolean foundHash = false;
-            if (blocks != null) {
-                for (int i = 0; i < blocks.size() && !foundHash; i++) {
-                    Block blockToCheck = blocks.get(i);
-                    if (ByteUtil.arraysAreEqual(blockToCheck.getPreviousBlockHash(), hash)) {
-                        foundHash = true;
-                        height = heightToCheck;
-                        heightToCheck = height + 1;
-                        hash = blockToCheck.getHash();
-                    }
-                }
-            }
-
-            if (!foundHash) {
-                foundBreak = true;
-            }
-        }
-
-        return height;
     }
 
     public static synchronized void freezeBlocks() {
@@ -273,20 +237,22 @@ public class UnfrozenBlockManager {
 
         long leadingEdgeHeight = BlockManager.frozenEdgeHeight();
         long openEdgeHeight = BlockManager.openEdgeHeight(true);
-        for (Long height : unfrozenBlocks.keySet()) {
-            if (height > leadingEdgeHeight && height <= openEdgeHeight) {
-                List<Block> blocksForHeight = unfrozenBlocks.get(height);
-                for (int i = 0; i < blocksForHeight.size() && leadingEdgeHeight < height; i++) {
-                    Block block = blocksForHeight.get(i);
-                    if (block.getContinuityState() == Block.ContinuityState.Continuous) {
-                        leadingEdgeHeight = height;
-                    }
+
+        boolean heightIsContinuous = true;
+        while (heightIsContinuous && leadingEdgeHeight < openEdgeHeight) {
+            long height = leadingEdgeHeight + 1;
+            Map<ByteBuffer, Block> blocksForHeight = unfrozenBlocks.get(height);
+            heightIsContinuous = false;
+            for (Block block : blocksForHeight.values()) {
+                if (block.getContinuityState() == Block.ContinuityState.Continuous) {
+                    heightIsContinuous = true;
                 }
             }
-        }
 
-        // The leading edge cannot be past the open edge.
-        leadingEdgeHeight = Math.min(leadingEdgeHeight, BlockManager.openEdgeHeight(true));
+            if (heightIsContinuous) {
+                leadingEdgeHeight = height;
+            }
+        }
 
         return leadingEdgeHeight;
     }
@@ -298,10 +264,10 @@ public class UnfrozenBlockManager {
         if (blockHeight <= frozenEdgeHeight) {
             blockToExtend = BlockManager.frozenBlockForHeight(blockHeight);
         } else {
-            List<Block> blocks = unfrozenBlocks.get(blockHeight);
+            Map<ByteBuffer, Block> blocks = unfrozenBlocks.get(blockHeight);
             long verificationTimeThreshold = System.currentTimeMillis() - Block.minimumVerificationInterval;
             if (blocks != null) {
-                for (Block block : blocks) {
+                for (Block block : blocks.values()) {
                     if (block.getVerificationTimestamp() < verificationTimeThreshold &&
                             (blockToExtend == null ||
                                     block.chainScore(frozenEdgeHeight) < blockToExtend.chainScore(frozenEdgeHeight))) {
@@ -322,7 +288,7 @@ public class UnfrozenBlockManager {
     public static int numberOfBlocksAtHeight(long height) {
 
         int number = 0;
-        List<Block> blocks = unfrozenBlocks.get(height);
+        Map<ByteBuffer, Block> blocks = unfrozenBlocks.get(height);
         if (blocks != null) {
             number = blocks.size();
         }
@@ -333,8 +299,8 @@ public class UnfrozenBlockManager {
     public static synchronized List<Block> allUnfrozenBlocks() {
 
         List<Block> allBlocks = new ArrayList<>();
-        for (List<Block> blocks : unfrozenBlocks.values()) {
-            allBlocks.addAll(blocks);
+        for (Map<ByteBuffer, Block> blocks : unfrozenBlocks.values()) {
+            allBlocks.addAll(blocks.values());
         }
 
         return allBlocks;
@@ -343,13 +309,9 @@ public class UnfrozenBlockManager {
     public static synchronized Block unfrozenBlockAtHeight(long height, byte[] hash) {
 
         Block block = null;
-        List<Block> blocksAtHeight = unfrozenBlocks.get(height);
+        Map<ByteBuffer, Block> blocksAtHeight = unfrozenBlocks.get(height);
         if (blocksAtHeight != null) {
-            for (Block blockToCheck : blocksAtHeight) {
-                if (ByteUtil.arraysAreEqual(blockToCheck.getHash(), hash)) {
-                    block = blockToCheck;
-                }
-            }
+            block = blocksAtHeight.get(ByteBuffer.wrap(hash));
         }
 
         return block;
