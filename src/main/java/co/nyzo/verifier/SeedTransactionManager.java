@@ -39,8 +39,7 @@ public class SeedTransactionManager {
                     Thread.sleep(100L);
                 } catch (Exception e) { }
 
-                while (!UpdateUtil.shouldTerminate() &&
-                        lastBlockRequested < highestSeedHeight + blocksPerFile * 3L) {
+                while (!UpdateUtil.shouldTerminate() && lastBlockRequested < highestSeedHeight) {
 
                     long currentFileIndex = lastBlockRequested / blocksPerFile;
 
@@ -48,7 +47,8 @@ public class SeedTransactionManager {
                     // the rest of the process for this iteration.
                     boolean haveBlocks = true;
                     for (int i = 0; i < 20 && haveBlocks; i++) {
-                        if (transactionMap.get(lastBlockRequested + i + 1) == null) {
+                        long height = lastBlockRequested + i + 1;
+                        if (height <= highestSeedHeight && transactionMap.get(height) == null) {
                             haveBlocks = false;
                         }
                     }
