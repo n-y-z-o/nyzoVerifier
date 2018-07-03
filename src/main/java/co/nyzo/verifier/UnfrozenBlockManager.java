@@ -63,6 +63,7 @@ public class UnfrozenBlockManager {
                 // Only keep the best three blocks at any level. For stability in the list, consider the just-added
                 // block to be the highest-scored, and only remove another block if it has a higher score than the
                 // new block.
+                // TODO: make this bigger -- right now, it is small to test recovery when a good block is discarded
                 if (blocksAtHeight.size() > 3) {
                     Block highestScoredBlock = block;
                     long highestScore = highestScoredBlock.chainScore(frozenEdgeHeight);

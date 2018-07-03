@@ -462,10 +462,12 @@ public class Verifier {
                 block.getContinuityState() == Block.ContinuityState.Continuous &&
                 !blocksExtended.containsKey(blockHash)) {
 
-            blocksExtended.put(blockHash, block);
             Block nextBlock = createNextBlock(block);
 
             if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Continuous) {
+
+                blocksExtended.put(blockHash, block);
+
                 boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
                 if (shouldTransmitBlock) {
                     StatusResponse.setField("transmitted " + nextBlock.getBlockHeight(), "");
@@ -473,15 +475,14 @@ public class Verifier {
                 } else {
                     StatusResponse.setField("did not transmit " + nextBlock.getBlockHeight(), "");
                 }
-            } else {
-                StatusResponse.setField("did not register " + (block.getBlockHeight() + 1), nextBlock == null ?
-                        "(null)" : nextBlock.getContinuityState() + "");
-            }
-        } else {
-            if (blocksExtended.containsKey(blockHash)) {
-                status.append("(ae)");
-            } else {
-                status.append("(ne)");
+            } else if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Discontinuous) {
+
+                // If the next block is a definite discontinuity, mark that it has been extended so we do not extend it
+                // again.
+                blocksExtended.put(blockHash, block);
+
+                StatusResponse.setField("did not register " + (block.getBlockHeight() + 1),
+                        nextBlock.getContinuityState() + "");
             }
         }
     }
@@ -513,9 +514,11 @@ public class Verifier {
 
             BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, approvedTransactions,
                     Verifier.getIdentifier());
-            long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
-            block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
-                    HashUtil.doubleSHA256(balanceList.getBytes()), balanceList);
+            if (balanceList != null) {
+                long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
+                block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
+                        HashUtil.doubleSHA256(balanceList.getBytes()), balanceList);
+            }
         }
 
         return block;
