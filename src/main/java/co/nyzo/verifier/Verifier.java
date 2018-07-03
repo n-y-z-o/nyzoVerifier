@@ -446,8 +446,6 @@ public class Verifier {
         CycleInformation cycleInformation = block.getCycleInformation();
         ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
         if (cycleInformation != null &&
-                //(cycleInformation.getLocalVerifierIndexInCycle() < cycleInformation.getCycleLength() / 2 ||
-                 //       block.getBlockHeight() < 2L) &&
                 block.getContinuityState() == Block.ContinuityState.Continuous &&
                 !blocksExtended.containsKey(blockHash)) {
 
