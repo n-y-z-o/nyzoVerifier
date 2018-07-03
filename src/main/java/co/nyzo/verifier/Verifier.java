@@ -459,10 +459,12 @@ public class Verifier {
 
                 boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
                 if (shouldTransmitBlock) {
-                    StatusResponse.setField("transmitted " + nextBlock.getBlockHeight(), "");
+                    StatusResponse.setField("sent +" + (nextBlock.getBlockHeight() -
+                            BlockManager.getFrozenEdgeHeight()), nextBlock.getBlockHeight() + "");
                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
                 } else {
-                    StatusResponse.setField("did not transmit " + nextBlock.getBlockHeight(), "");
+                    StatusResponse.setField("did not send +" + (nextBlock.getBlockHeight() -
+                            BlockManager.getFrozenEdgeHeight()), nextBlock.getBlockHeight() + "");
                 }
             } else if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Discontinuous) {
 
@@ -470,8 +472,8 @@ public class Verifier {
                 // again.
                 blocksExtended.put(blockHash, block);
 
-                StatusResponse.setField("did not register " + (block.getBlockHeight() + 1),
-                        nextBlock.getContinuityState() + "");
+                StatusResponse.setField("discontinuous @+" + (nextBlock.getBlockHeight() -
+                        BlockManager.getFrozenEdgeHeight()), nextBlock.getBlockHeight() + "");
             }
         }
     }
