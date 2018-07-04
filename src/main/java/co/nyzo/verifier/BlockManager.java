@@ -229,38 +229,6 @@ public class BlockManager {
 
             genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
             setFrozenEdgeHeight(0L);
-
-            /*
-            // Load the highest block available.
-            long highestFileStartBlock = 0L;
-            while (fileForBlockHeight(highestFileStartBlock + BlockManager.blocksPerFile).exists()) {
-                highestFileStartBlock += BlockManager.blocksPerFile;
-            }
-
-            // Load the highest consolidated file.
-            List<Block> blocks = loadBlocksInFile(fileForBlockHeight(highestFileStartBlock), true);
-            Block block = null;
-            if (blocks.size() > 0) {
-                block = blocks.get(blocks.size() - 1);
-            }
-
-            // Continue trying to load individual files that have not yet been consolidated.
-            if (block != null) {
-                long blockHeight = block.getBlockHeight();
-                while (individualFileForBlockHeight(blockHeight + 1).exists()) {
-                    blockHeight++;
-                }
-
-                if (individualFileForBlockHeight(blockHeight).exists()) {
-                    List<Block> individualBlockList = loadBlocksInFile(individualFileForBlockHeight(blockHeight), true);
-                    if (individualBlockList.size() > 0) {
-                        block = individualBlockList.get(0);
-                    }
-                }
-
-                setFrozenEdgeHeight(block.getBlockHeight());
-                updateVerifiersInCurrentCycle(block);
-            }*/
         }
     }
 
