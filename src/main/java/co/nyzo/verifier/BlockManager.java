@@ -1,6 +1,8 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.DebugUtil;
 import co.nyzo.verifier.util.FileUtil;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.io.File;
@@ -141,6 +143,11 @@ public class BlockManager {
     }
 
     public static synchronized void freezeBlock(Block block, byte[] previousBlockHash) {
+
+        if (block.getBlockHeight() == 0L) {
+            NotificationUtil.send("freezing Genesis block on " + Verifier.getNickname() + ": " +
+                    DebugUtil.callingMethods(8));
+        }
 
         // Only continue if the block's previous hash is correct and the block is past the frozen edge.
         if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) &&
