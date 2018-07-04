@@ -1,6 +1,7 @@
 package co.nyzo.verifier.util;
 
 import co.nyzo.verifier.Verifier;
+import co.nyzo.verifier.messages.StatusResponse;
 
 import javax.net.ssl.HttpsURLConnection;
 import java.io.BufferedReader;
@@ -17,62 +18,65 @@ import java.util.Set;
 public class NotificationUtil {
 
 
-    private static int numberOfNotificationsSent = 0;
-    private static final int maximumNotifications = 10;
+    private static int notificationBudget = 10;
+    private static long lastEarnedTimestamp = 0L;
+    private static final long interval = 1000L * 60L * 2L;
     private static final Set<Integer> sendOnceNotifications = new HashSet<>();
-    private static long notificationLimitReachedTimestamp = Long.MAX_VALUE;
 
     private static final String endpoint = loadEndpointFromFile();
 
     public static void send(String message) {
 
-        // Reset the limit 10 minutes after hitting it.
-        if (numberOfNotificationsSent >= maximumNotifications &&
-                notificationLimitReachedTimestamp < System.currentTimeMillis() - 1000L * 60L * 10L) {
-            numberOfNotificationsSent = 0;
-            notificationLimitReachedTimestamp = Long.MAX_VALUE;
-        }
+        if (endpoint != null) {
 
-        if (endpoint != null && numberOfNotificationsSent < maximumNotifications) {
-
-            numberOfNotificationsSent++;
-            if (numberOfNotificationsSent >= maximumNotifications) {
-                message = "*Message limit reached on " + Verifier.getNickname() + "*";
-                notificationLimitReachedTimestamp = System.currentTimeMillis();
+            // Our maximum/initial budget is 10 notifications, and we earn a new notification every 2 minutes.
+            long notificationsEarned = (System.currentTimeMillis() - lastEarnedTimestamp) / interval;
+            if (notificationsEarned > 0) {
+                notificationBudget = (int) Math.min(10, notificationBudget + notificationsEarned);
+                lastEarnedTimestamp += notificationsEarned * interval;
+                StatusResponse.setField("notif. budget", notificationBudget + "");
             }
 
-            try {
-                String jsonString = "{\"text\":\"" + message + "\"}";
+            if (notificationBudget > 0) {
 
-                URL url = new URL(endpoint);
-                HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
-                connection.setDoOutput(true);
-                connection.setDoInput(true);
-                connection.setRequestProperty("Content-type", "application/json");
-                connection.setRequestProperty("Accept", "application/json");
-                connection.setRequestMethod("POST");
-
-                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(connection.getOutputStream());
-                outputStreamWriter.write(jsonString);
-                outputStreamWriter.flush();
-
-                StringBuilder result = new StringBuilder();
-                int responseCode = connection.getResponseCode();
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(),
-                            "UTF-8"));
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        result.append(line + "\n");
-                    }
-                    reader.close();
-
-                    System.out.println(result.toString());
-                } else {
-                    System.out.println(connection.getResponseMessage());
+                notificationBudget--;
+                if (notificationBudget == 0) {
+                    message += " *Message limit reached on " + Verifier.getNickname() + "*";
                 }
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
+
+                try {
+                    String jsonString = "{\"text\":\"" + message + "\"}";
+
+                    URL url = new URL(endpoint);
+                    HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
+                    connection.setDoOutput(true);
+                    connection.setDoInput(true);
+                    connection.setRequestProperty("Content-type", "application/json");
+                    connection.setRequestProperty("Accept", "application/json");
+                    connection.setRequestMethod("POST");
+
+                    OutputStreamWriter outputStreamWriter = new OutputStreamWriter(connection.getOutputStream());
+                    outputStreamWriter.write(jsonString);
+                    outputStreamWriter.flush();
+
+                    StringBuilder result = new StringBuilder();
+                    int responseCode = connection.getResponseCode();
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(),
+                                "UTF-8"));
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            result.append(line + "\n");
+                        }
+                        reader.close();
+
+                        System.out.println(result.toString());
+                    } else {
+                        System.out.println(connection.getResponseMessage());
+                    }
+                } catch (Exception ignored) {
+                    ignored.printStackTrace();
+                }
             }
         }
     }
