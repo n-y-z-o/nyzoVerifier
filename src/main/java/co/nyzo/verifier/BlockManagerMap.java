@@ -36,6 +36,7 @@ public class BlockManagerMap {
                 for (int i = 0; i < 4; i++) {
                     startHeight -= frozenEdge.getCycleInformation().getCycleLength(i);
                 }
+                startHeight -= 20;  // keep some extra blocks to aid in initialization of new verifiers
 
                 for (Long height : new HashSet<>(blockMap.keySet())) {
                     if (height != 0 && height < startHeight) {

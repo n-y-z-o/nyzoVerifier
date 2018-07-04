@@ -222,18 +222,21 @@ public class BlockManager {
         // is a subdirectory of the block directory, so a single call can ensure both.
         individualBlockDirectory.mkdirs();
 
-        Block genesisBlock = frozenBlockForHeight(0L);
+        // Try to load the Genesis block from file.
+        loadBlockFromFile(0L);
+        Block genesisBlock = blockManagerMap.blockForHeight(0L);
         if (genesisBlock != null) {
 
             genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
+            setFrozenEdgeHeight(0L);
 
+            /*
             // Load the highest block available.
             long highestFileStartBlock = 0L;
             while (fileForBlockHeight(highestFileStartBlock + BlockManager.blocksPerFile).exists()) {
                 highestFileStartBlock += BlockManager.blocksPerFile;
             }
 
-            /*
             // Load the highest consolidated file.
             List<Block> blocks = loadBlocksInFile(fileForBlockHeight(highestFileStartBlock), true);
             Block block = null;
