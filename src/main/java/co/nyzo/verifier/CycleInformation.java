@@ -42,6 +42,6 @@ public class CycleInformation {
 
     @Override
     public String toString() {
-        return String.format("[CycleInformation (c=%d,n=%d,G=%d)]", cycleLengths[0], newVerifier, genesisCycle);
+        return String.format("[CycleInformation (c=%d,n=%b,G=%b)]", cycleLengths[0], newVerifier, genesisCycle);
     }
 }
