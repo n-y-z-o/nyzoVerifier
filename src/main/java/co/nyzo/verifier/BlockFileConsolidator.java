@@ -64,12 +64,13 @@ public class BlockFileConsolidator {
 
         // Get the blocks from the existing consolidated file for this index.
         long startBlockHeight = fileIndex * BlockManager.blocksPerFile;
-        List<Block> blocks = BlockManager.loadBlocksInFile(BlockManager.fileForBlockHeight(startBlockHeight),
-                startBlockHeight, startBlockHeight + BlockManager.blocksPerFile - 1, false);
+        File consolidatedFile = BlockManager.consolidatedFileForBlockHeight(startBlockHeight);
+        List<Block> blocks = BlockManager.loadBlocksInFile(consolidatedFile, startBlockHeight, startBlockHeight +
+                BlockManager.blocksPerFile - 1);
 
         // Add the blocks from the individual files.
         for (File file : individualFiles) {
-            blocks.addAll(BlockManager.loadBlocksInFile(file, 0, Long.MAX_VALUE, false));
+            blocks.addAll(BlockManager.loadBlocksInFile(file, 0, Long.MAX_VALUE));
         }
 
         // Sort the blocks on block height ascending.
@@ -88,7 +89,7 @@ public class BlockFileConsolidator {
         }
 
         // Write the combined file.
-        BlockManager.writeBlocksToFile(blocks, BlockManager.fileForBlockHeight(startBlockHeight));
+        BlockManager.writeBlocksToFile(blocks, consolidatedFile);
 
         // Delete the individual files.
         for (File file : individualFiles) {

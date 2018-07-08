@@ -8,51 +8,43 @@ import java.util.List;
 
 public class BootstrapResponse implements MessageObject {
 
-    private List<Node> mesh;
     private long firstHashHeight;
     private List<byte[]> frozenBlockHashes;
-    private List<Integer> cycleLengths;
+    private List<Long> startHeights;
     private List<Transaction> transactionPool;
     private List<Block> unfrozenBlockPool;
 
     public BootstrapResponse() {
 
-        this.mesh = NodeManager.getMesh();
-
         List<byte[]> frozenBlockHashes = new ArrayList<>();
-        List<Integer> cycleLengths = new ArrayList<>();
+        List<Long> startHeights = new ArrayList<>();
         long height = BlockManager.getFrozenEdgeHeight();
         Block block = BlockManager.frozenBlockForHeight(height);
         long firstHashHeight = -1;
         while (frozenBlockHashes.size() < 5 && block != null && block.getCycleInformation() != null) {
             frozenBlockHashes.add(0, block.getHash());
-            cycleLengths.add(0, block.getCycleInformation().getCycleLength());
+            startHeights.add(0, block.getCycleInformation().getWindowStartHeight());
             firstHashHeight = block.getBlockHeight();
             height--;
             block = BlockManager.frozenBlockForHeight(height);
         }
         this.firstHashHeight = firstHashHeight;
         this.frozenBlockHashes = frozenBlockHashes;
-        this.cycleLengths = cycleLengths;
+        this.startHeights = startHeights;
 
         this.transactionPool = TransactionPool.allTransactions();
         this.unfrozenBlockPool = UnfrozenBlockManager.allUnfrozenBlocks();
     }
 
-    public BootstrapResponse(List<Node> mesh, long firstHashHeight, List<byte[]> frozenBlockHashes,
-                             List<Integer> cycleLengths, List<Transaction> transactionPool,
+    public BootstrapResponse(long firstHashHeight, List<byte[]> frozenBlockHashes,
+                             List<Long> startHeights, List<Transaction> transactionPool,
                              List<Block> unfrozenBlockPool) {
 
-        this.mesh = mesh;
         this.firstHashHeight = firstHashHeight;
         this.frozenBlockHashes = frozenBlockHashes;
-        this.cycleLengths = cycleLengths;
+        this.startHeights = startHeights;
         this.transactionPool = transactionPool;
         this.unfrozenBlockPool = unfrozenBlockPool;
-    }
-
-    public List<Node> getMesh() {
-        return mesh;
     }
 
     public long getFirstHashHeight() {
@@ -63,8 +55,8 @@ public class BootstrapResponse implements MessageObject {
         return frozenBlockHashes;
     }
 
-    public List<Integer> getCycleLengths() {
-        return cycleLengths;
+    public List<Long> getStartHeights() {
+        return startHeights;
     }
 
     public List<Transaction> getTransactionPool() {
@@ -78,15 +70,12 @@ public class BootstrapResponse implements MessageObject {
     @Override
     public int getByteSize() {
 
-        // mesh
-        int byteSize = FieldByteSize.nodeListLength + mesh.size() * Node.getByteSizeStatic();
-
         // first hash height
-        byteSize += FieldByteSize.blockHeight;
+        int byteSize = FieldByteSize.blockHeight;
 
-        // frozen block hashes and cycle lengths
+        // frozen block hashes and start heights
         byteSize += FieldByteSize.hashListLength + frozenBlockHashes.size() * (FieldByteSize.hash +
-                FieldByteSize.cycleLength);
+                FieldByteSize.blockHeight);
 
         // transaction pool
         byteSize += FieldByteSize.transactionPoolLength;
@@ -107,15 +96,8 @@ public class BootstrapResponse implements MessageObject {
     public byte[] getBytes() {
 
         int size = getByteSize();
-        System.out.println("byte size of node list response: " + size);
         byte[] result = new byte[size];
         ByteBuffer buffer = ByteBuffer.wrap(result);
-
-        // mesh
-        buffer.putInt(mesh.size());
-        for (Node node : mesh) {
-            buffer.put(node.getBytes());
-        }
 
         // first hash height
         buffer.putLong(firstHashHeight);
@@ -125,7 +107,7 @@ public class BootstrapResponse implements MessageObject {
         buffer.put((byte) numberOfBlocks);
         for (int i = 0; i < numberOfBlocks; i++) {
             buffer.put(frozenBlockHashes.get(i));
-            buffer.putInt(cycleLengths.get(i));
+            buffer.putLong(startHeights.get(i));
         }
 
         // transaction pool
@@ -148,25 +130,18 @@ public class BootstrapResponse implements MessageObject {
         BootstrapResponse result = null;
 
         try {
-            // mesh
-            int meshSize = buffer.getInt();
-            List<Node> mesh = new ArrayList<>();
-            for (int i = 0; i < meshSize; i++) {
-                mesh.add(Node.fromByteBuffer(buffer));
-            }
-
             // first hash height
             long firstHashHeight = buffer.getLong();
 
             // frozen block hashes and discontinuity determination heights
             byte numberOfHashes = buffer.get();
             List<byte[]> frozenBlockHashes = new ArrayList<>();
-            List<Integer> cycleLengths = new ArrayList<>();
+            List<Long> startHeights = new ArrayList<>();
             for (int i = 0; i < numberOfHashes; i++) {
                 byte[] hash = new byte[FieldByteSize.hash];
                 buffer.get(hash);
                 frozenBlockHashes.add(hash);
-                cycleLengths.add(buffer.getInt());
+                startHeights.add(buffer.getLong());
             }
 
             // transaction pool
@@ -183,7 +158,7 @@ public class BootstrapResponse implements MessageObject {
                 unfrozenBlockPool.add(Block.fromByteBuffer(buffer));
             }
 
-            result = new BootstrapResponse(mesh, firstHashHeight, frozenBlockHashes, cycleLengths, transactionPool,
+            result = new BootstrapResponse(firstHashHeight, frozenBlockHashes, startHeights, transactionPool,
                     unfrozenBlockPool);
         } catch (Exception ignored) {
             ignored.printStackTrace();
@@ -194,7 +169,7 @@ public class BootstrapResponse implements MessageObject {
 
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder("[BootstrapResponse(mesh=" + mesh.size() + ",hashes=" +
+        StringBuilder result = new StringBuilder("[BootstrapResponse(hashes=" +
                 frozenBlockHashes.size() + ",transactions=" + transactionPool.size() + ",blocks=" +
                 unfrozenBlockPool.size() + "]");
 

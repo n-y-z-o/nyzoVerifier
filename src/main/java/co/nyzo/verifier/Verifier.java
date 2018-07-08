@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class Verifier {
 
@@ -161,7 +162,7 @@ public class Verifier {
             // we are starting a new mesh.
             long consensusFrozenEdge = -1;
             byte[] frozenEdgeHash = new byte[FieldByteSize.hash];
-            AtomicInteger frozenEdgeCycleLength = new AtomicInteger(-1);
+            AtomicLong frozenEdgeStartHeight = new AtomicLong(-1);
             while (consensusFrozenEdge < 0 && !UpdateUtil.shouldTerminate()) {
 
                 // Send bootstrap requests to all trusted entry points.
@@ -190,16 +191,16 @@ public class Verifier {
                 }
 
                 // Get the consensus frozen edge. If this can be determined, we can continue to the next step.
-                consensusFrozenEdge = ChainInitializationManager.frozenEdgeHeight(frozenEdgeHash, frozenEdgeCycleLength);
-                System.out.println("consensus frozen edge height: " + consensusFrozenEdge + ", cycle length " +
-                        frozenEdgeCycleLength.get());
+                consensusFrozenEdge = ChainInitializationManager.frozenEdgeHeight(frozenEdgeHash,
+                        frozenEdgeStartHeight);
+                System.out.println("consensus frozen edge height: " + consensusFrozenEdge + ", start height" +
+                        frozenEdgeStartHeight.get());
             }
 
             // If the consensus frozen edge is higher than the local frozen edge, fetch the necessary blocks to start
             // verifying.
             if (consensusFrozenEdge > BlockManager.getFrozenEdgeHeight()) {
-                long startBlock = Math.max(BlockManager.getFrozenEdgeHeight() + 1, consensusFrozenEdge -
-                        5 * frozenEdgeCycleLength.get());
+                long startBlock = Math.max(BlockManager.getFrozenEdgeHeight() + 1, frozenEdgeStartHeight.get());
                 System.out.println("need to fetch chain section " + startBlock + " to " + consensusFrozenEdge);
                 ChainInitializationManager.fetchChainSection(startBlock, consensusFrozenEdge, frozenEdgeHash);
             }
@@ -285,6 +286,11 @@ public class Verifier {
         } catch (Exception ignored) { }
     }
 
+    public static Transaction getSeedFundingTransaction() {
+
+        return seedFundingTransaction;
+    }
+
     private static void sendNodeJoinRequests() {
 
         List<Node> mesh = NodeManager.getMesh();
@@ -345,12 +351,6 @@ public class Verifier {
 
         System.out.println("Got Bootstrap response from " +
                 ByteUtil.arrayAsStringWithDashes(message.getSourceNodeIdentifier()) + ":" + response);
-
-        // Add the nodes to the node manager.
-        // TODO: we should be able to remove this -- the mesh is already provided earlier from the trusted verifiers
-        for (Node node : response.getMesh()) {
-            NodeManager.updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(), node.getQueueTimestamp());
-        }
 
         // Add the transactions to the transaction pool.
         for (Transaction transaction : response.getTransactionPool()) {
@@ -501,12 +501,13 @@ public class Verifier {
             System.out.println("have " + approvedTransactions.size() + " transactions after approval for block " +
                     blockHeight);
 
-            BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, approvedTransactions,
-                    Verifier.getIdentifier());
+            BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock);
+            BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
+                    approvedTransactions, Verifier.getIdentifier());
             if (balanceList != null) {
                 long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
                 block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
-                        HashUtil.doubleSHA256(balanceList.getBytes()), balanceList);
+                        balanceList.getHash());
             }
         }
 

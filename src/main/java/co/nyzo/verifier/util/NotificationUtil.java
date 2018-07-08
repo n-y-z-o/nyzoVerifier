@@ -27,7 +27,11 @@ public class NotificationUtil {
 
     public static void send(String message) {
 
-        if (endpoint != null) {
+        if (endpoint == null) {
+
+            System.out.println(message);
+
+        } else {
 
             // Our maximum/initial budget is 10 notifications, and we earn a new notification every 2 minutes.
             long notificationsEarned = (System.currentTimeMillis() - lastEarnedTimestamp) / interval;

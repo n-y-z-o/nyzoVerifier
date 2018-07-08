@@ -30,12 +30,12 @@ public class ChainInitializationManager {
             }
 
             byte[] hash = response.getFrozenBlockHashes().get(i);
-            int cycleLength = response.getCycleLengths().get(i);
-            voteTally.vote(message.getSourceNodeIdentifier(), hash, cycleLength);
+            long startHeight = response.getStartHeights().get(i);
+            voteTally.vote(message.getSourceNodeIdentifier(), hash, startHeight);
         }
     }
 
-    public static synchronized long frozenEdgeHeight(byte[] frozenEdgeHash, AtomicInteger frozenEdgeCycleLength) {
+    public static synchronized long frozenEdgeHeight(byte[] frozenEdgeHash, AtomicLong frozenEdgeStartHeight) {
 
         // Determine the maximum number of votes we have at any level. This determines our consensus threshold.
         int maximumVotesAtAnyLevel = 0;
@@ -46,15 +46,15 @@ public class ChainInitializationManager {
         // Determine the highest level at which consensus has been reached.
         long maximumConsensusHeight = -1;
         byte[] winnerHash = new byte[FieldByteSize.hash];
-        AtomicInteger cycleLength = new AtomicInteger();
         if (maximumVotesAtAnyLevel > 0) {
             for (long height : hashVotes.keySet()) {
                 if (height > maximumConsensusHeight) {
                     FrozenBlockVoteTally tally = hashVotes.get(height);
-                    if (tally.votesForWinner(winnerHash, cycleLength) > maximumVotesAtAnyLevel / 2) {
+                    AtomicLong startHeight = new AtomicLong();
+                    if (tally.votesForWinner(winnerHash, startHeight) > maximumVotesAtAnyLevel / 2) {
                         maximumConsensusHeight = height;
                         System.arraycopy(winnerHash, 0, frozenEdgeHash, 0, FieldByteSize.hash);
-                        frozenEdgeCycleLength.set(cycleLength.get());
+                        frozenEdgeStartHeight.set(startHeight.get());
                     }
                 }
             }
@@ -90,6 +90,7 @@ public class ChainInitializationManager {
                     long height = requestEndHeight;
                     boolean addedAllAvailable = false;
                     while (!addedAllAvailable) {
+
                         Block block = responseBlocks.get(height);
                         if (block != null) {
                             byte[] requiredHash = height == endHeight ? endBlockHash :
@@ -102,14 +103,6 @@ public class ChainInitializationManager {
                             }
                         }
 
-                        if (block != null && height == startHeight && response.getInitialBalanceList() != null) {
-                            block.setBalanceList(response.getInitialBalanceList());
-                            if (block.getBalanceList() == null) {
-                                System.err.println("discarded start block because balance list was not available");
-                                block = null;
-                            }
-                        }
-
                         if (block == null) {
                             addedAllAvailable = true;
                         } else {
@@ -117,6 +110,10 @@ public class ChainInitializationManager {
                             System.out.println("added block at height " + height);
                             height--;
                         }
+                    }
+
+                    if (response.getInitialBalanceList() != null) {
+                        BalanceListManager.registerBalanceList(response.getInitialBalanceList());
                     }
                 }
             });
@@ -141,7 +138,7 @@ public class ChainInitializationManager {
 
         // Now that the blocks are saved, we should be able to determine the continuity state of the end block.
         Block endBlock = BlockManager.frozenBlockForHeight(endHeight);
-        System.out.println("end block (" + endBlock.getBlockHeight() + ") discontinuity state: " +
+        System.out.println("end block (" + endBlock.getBlockHeight() + ") continuity state: " +
                 endBlock.getContinuityState() + ", cycle length: " +
                 endBlock.getCycleInformation().getCycleLength());
     }

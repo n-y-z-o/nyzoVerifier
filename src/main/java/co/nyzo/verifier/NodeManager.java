@@ -21,10 +21,7 @@ public class NodeManager {
     }
 
     public static synchronized void updateNode(byte[] identifier, byte[] ipAddress, int port, long queueTimestamp) {
-
-        System.out.println("adding node " + PrintUtil.compactPrintByteArray(identifier) + ", " +
-                IpUtil.addressAsString(ipAddress));
-
+        
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
                 ipAddress.length == FieldByteSize.ipAddress && !IpUtil.isPrivate(ipAddress)) {
 

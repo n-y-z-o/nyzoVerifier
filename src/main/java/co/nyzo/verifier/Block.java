@@ -34,7 +34,6 @@ public class Block implements MessageObject {
                                                    // block, in milliseconds
     private List<Transaction> transactions;        // 4 bytes for number + variable
     private byte[] balanceListHash;                // 32 bytes (this is the double-SHA-256 of the account balance list)
-    private BalanceList balanceList;               // stored separately - the hash is stored in the block
     private byte[] verifierIdentifier;             // 32 bytes
     private byte[] verifierSignature;              // 64 bytes
 
@@ -42,7 +41,7 @@ public class Block implements MessageObject {
     private CycleInformation cycleInformation = null;
 
     public Block(long height, byte[] previousBlockHash, long startTimestamp, List<Transaction> transactions,
-                 byte[] balanceListHash, BalanceList balanceList) {
+                 byte[] balanceListHash) {
 
         this.height = height;
         this.previousBlockHash = previousBlockHash;
@@ -50,7 +49,6 @@ public class Block implements MessageObject {
         this.verificationTimestamp = System.currentTimeMillis();
         this.transactions = new ArrayList<>(transactions);
         this.balanceListHash = balanceListHash;
-        this.balanceList = balanceList;
 
         try {
             this.verifierIdentifier = Verifier.getIdentifier();
@@ -61,7 +59,7 @@ public class Block implements MessageObject {
         }
     }
 
-    private Block(long height, byte[] previousBlockHash, long startTimestamp, long verificationTimestamp,
+    public Block(long height, byte[] previousBlockHash, long startTimestamp, long verificationTimestamp,
                   List<Transaction> transactions, byte[] balanceListHash, byte[] verifierIdentifier,
                   byte[] verifierSignature) {
 
@@ -101,30 +99,6 @@ public class Block implements MessageObject {
 
     public byte[] getBalanceListHash() {
         return balanceListHash;
-    }
-
-    public BalanceList getBalanceList() {
-
-        if (balanceList == null) {
-            Block previousBlock = getPreviousBlock();
-            if (previousBlock != null || height == 0L) {
-                setBalanceList(balanceListForNextBlock(previousBlock, transactions, verifierIdentifier));
-            }
-        }
-
-        return balanceList;
-    }
-
-    public void setBalanceList(BalanceList balanceList) {
-
-        if (balanceList != null) {
-            if (ByteUtil.arraysAreEqual(HashUtil.doubleSHA256(balanceList.getBytes()), balanceListHash)) {
-                this.balanceList = balanceList;
-            } else {
-                NotificationUtil.send("balance list does not match hash on " + Verifier.getNickname() + " - (h=" +
-                        balanceList.getBlockHeight() + ") " + DebugUtil.callingMethods(7));
-            }
-        }
     }
 
     public Block getPreviousBlock() {
@@ -289,8 +263,8 @@ public class Block implements MessageObject {
 
                 if (rule1Pass) {
 
-                    // Proof-of-diversity rule 2: All cycles must be longer than one more than half of the maximum of the
-                    // lengths of the three previous cycles.
+                    // Proof-of-diversity rule 2: All cycles must be longer than one more than half of the maximum of
+                    // the lengths of the three previous cycles.
 
                     int maximumPreviousLength = Math.max(cycleInformation.getCycleLength(1),
                             Math.max(cycleInformation.getCycleLength(2), cycleInformation.getCycleLength(3)));
@@ -383,8 +357,8 @@ public class Block implements MessageObject {
                 balanceListHash, verifierIdentifier, verifierSignature);
     }
 
-    public static BalanceList balanceListForNextBlock(Block previousBlock, List<Transaction> transactions,
-                                                      byte[] verifierIdentifier) {
+    public static BalanceList balanceListForNextBlock(Block previousBlock, BalanceList previousBalanceList,
+                                                      List<Transaction> transactions, byte[] verifierIdentifier) {
 
         BalanceList result = null;
         try {
@@ -401,7 +375,6 @@ public class Block implements MessageObject {
                 previousVerifiers = new ArrayList<>();
             } else {
                 blockHeight = previousBlock.getBlockHeight() + 1L;
-                BalanceList previousBalanceList = previousBlock.getBalanceList();
                 if (previousBalanceList != null) {
                     previousBalanceItems = previousBalanceList.getItems();
                     previousRolloverFees = previousBalanceList.getRolloverFees();

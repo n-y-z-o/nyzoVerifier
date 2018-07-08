@@ -58,7 +58,8 @@ public class BalanceManager {
         // Assemble the final list of transactions with valid amounts. This has to be done in ascending order of
         // timestamp, because older transactions take precedence over newer transactions.
         List<Transaction> approvedTransactions = new ArrayList<>();
-        Map<ByteBuffer, Long> identifierToBalanceMap = makeBalanceMap(previousBlock.getBalanceList());
+        BalanceList balanceList = BalanceListManager.balanceListForBlock(previousBlock);
+        Map<ByteBuffer, Long> identifierToBalanceMap = makeBalanceMap(balanceList);
         for (Transaction transaction : dedupedTransactions) {
             ByteBuffer senderIdentifier = ByteBuffer.wrap(transaction.getSenderIdentifier());
             Long senderBalance = identifierToBalanceMap.get(senderIdentifier);

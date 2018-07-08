@@ -3,6 +3,8 @@ package co.nyzo.verifier.util;
 import co.nyzo.verifier.BlockManager;
 import co.nyzo.verifier.MeshListener;
 import co.nyzo.verifier.Verifier;
+import co.nyzo.verifier.webSupport.ServerBalanceListManager;
+import co.nyzo.verifier.webSupport.ServerBlockManager;
 
 public class UpdateUtil {
 
