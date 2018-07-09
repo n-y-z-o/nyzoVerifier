@@ -53,6 +53,12 @@ public class BalanceListManager {
                     }
 
                     if (startBalanceList != null) {
+
+                        if (blocks.size() > 40) {
+                            NotificationUtil.send("built list of size " + blocks.size() + " to derive balance list " +
+                                    "for block " + block.getBlockHeight() + " on " + Verifier.getNickname());
+                        }
+
                         balanceList = startBalanceList;
                         for (int i = 0; i < blocks.size() - 1; i++) {
 
