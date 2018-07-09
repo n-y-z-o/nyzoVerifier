@@ -4,7 +4,6 @@ import co.nyzo.verifier.util.DebugUtil;
 import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.webSupport.ServerBlockManager;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -13,7 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockManager {
 

@@ -60,6 +60,7 @@ public class StatusResponse implements MessageObject {
             lines.add("block map size: " + BlockManagerMap.mapSize());
             lines.add("balance list map size: " + BalanceListManager.mapSize());
 
+
             Map<String, String> extraFields = getExtraFields();
             for (String key : extraFields.keySet()) {
                 lines.add(key + ": " + extraFields.get(key));
