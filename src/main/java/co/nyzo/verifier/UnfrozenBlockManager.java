@@ -197,7 +197,14 @@ public class UnfrozenBlockManager {
                             BlockManager.freezeBlock(blockToFreeze);
                         }
                     } else {
-                        NotificationUtil.sendOnce("issue trying to freeze blocks on " + Verifier.getNickname());
+                        StringBuilder heightsToFreeze = new StringBuilder();
+                        String separator = "";
+                        for (Block blockToFreeze : blocksToFreeze) {
+                            heightsToFreeze.append(separator).append(blockToFreeze.getBlockHeight());
+                            separator = ", ";
+                        }
+                        NotificationUtil.sendOnce("issue trying to freeze blocks on " + Verifier.getNickname() +
+                                ", heights of blocks are " + heightsToFreeze + ", frozen edge is " + frozenEdgeHeight);
                     }
                 }
             }
