@@ -51,7 +51,9 @@ public class BlockManager {
             // If initialization has not completed, load the block into the standard map.
             if (block == null && !initialized) {
                 block = loadBlockFromFile(blockHeight);
-                BlockManagerMap.addBlock(block);
+                if (block != null) {
+                    BlockManagerMap.addBlock(block);
+                }
             }
 
             // If initialization has completed, the only other option is the historical map.

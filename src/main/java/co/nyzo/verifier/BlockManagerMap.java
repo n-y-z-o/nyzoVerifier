@@ -14,24 +14,26 @@ public class BlockManagerMap {
 
     public static synchronized void addBlock(Block block) {
 
-        // Add the block to the map.
-        blockMap.put(block.getBlockHeight(), block);
+        if (block != null) {
+            // Add the block to the map.
+            blockMap.put(block.getBlockHeight(), block);
 
-        // Periodically remove old blocks.
-        if (iteration++ >= 10) {
+            // Periodically remove old blocks.
+            if (iteration++ >= 10) {
 
-            iteration = 0;
+                iteration = 0;
 
-            long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-            Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
-            if (frozenEdge.getCycleInformation() != null) {
+                long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+                Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
+                if (frozenEdge.getCycleInformation() != null) {
 
-                long startHeight = frozenEdge.getCycleInformation().getWindowStartHeight();
-                startHeight -= 20;  // keep some extra blocks to aid in initialization of new verifiers
+                    long startHeight = frozenEdge.getCycleInformation().getWindowStartHeight();
+                    startHeight -= 20;  // keep some extra blocks to aid in initialization of new verifiers
 
-                for (Long height : new HashSet<>(blockMap.keySet())) {
-                    if (height != 0 && height < startHeight) {
-                        blockMap.remove(height);
+                    for (Long height : new HashSet<>(blockMap.keySet())) {
+                        if (height != 0 && height < startHeight) {
+                            blockMap.remove(height);
+                        }
                     }
                 }
             }
