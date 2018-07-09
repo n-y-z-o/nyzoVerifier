@@ -266,7 +266,9 @@ public class BlockManager {
             // This allows us to immediately serve bootstrap response requests.
             for (int i = 0; i < 5; i++) {
                 Block block = frozenBlockForHeight(getFrozenEdgeHeight() - i);
-                block.getContinuityState();
+                if (block != null) {
+                    block.getContinuityState();
+                }
             }
 
             NotificationUtil.send("initialized frozen edge to " + BlockManager.getFrozenEdgeHeight() + " on " +
