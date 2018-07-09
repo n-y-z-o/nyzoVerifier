@@ -13,7 +13,7 @@ public class BalanceListManager {
     // This is a map from balance list hash to balance list.
     private static final Map<ByteBuffer, BalanceList> balanceListMap = new HashMap<>();
 
-    public static BalanceList balanceListForBlock(Block block) {
+    public static synchronized BalanceList balanceListForBlock(Block block) {
 
         // Only proceed if the block is at or past the frozen edge.
         BalanceList balanceList = null;
@@ -54,9 +54,17 @@ public class BalanceListManager {
 
                     if (startBalanceList != null) {
 
+                        // TODO: remove this notification
+                        StringBuilder availableHeights = new StringBuilder();
+                        String separator = "";
+                        for (BalanceList cachedBalanceList : balanceListMap.values()) {
+                            availableHeights.append(separator).append(cachedBalanceList.getBlockHeight());
+                            separator = ",";
+                        }
                         if (blocks.size() > 40) {
                             NotificationUtil.send("built list of size " + blocks.size() + " to derive balance list " +
-                                    "for block " + block.getBlockHeight() + " on " + Verifier.getNickname());
+                                    "for block " + block.getBlockHeight() + " on " + Verifier.getNickname() +
+                                    " because the only heights available are " + availableHeights);
                         }
 
                         balanceList = startBalanceList;
