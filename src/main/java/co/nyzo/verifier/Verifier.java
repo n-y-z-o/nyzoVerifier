@@ -214,6 +214,12 @@ public class Verifier {
                     @Override
                     public void run() {
                         NotificationUtil.send("started main verifier loop on " + getNickname());
+                        System.out.println("********************");
+                        StatusResponse statusResponse = new StatusResponse();
+                        for (String line : statusResponse.getLines()) {
+                            System.out.println(line);
+                        }
+                        System.out.println("********************");
                         verifierMain();
                         alive.set(false);
                     }

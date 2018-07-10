@@ -297,7 +297,11 @@ public class BlockManager {
 
             // Load the balance lists of the trailing and frozen edges into the balance list manager. This gives us the
             // balance lists necessary to immediately serve bootstrap response requests.
-            BalanceList trailingEdgeBalanceList = loadBalanceListFromFileForHeight(getTrailingEdgeHeight());
+            BalanceList trailingEdgeBalanceList = null;
+            for (long height = getTrailingEdgeHeight(); height < getFrozenEdgeHeight() &&
+                    trailingEdgeBalanceList == null; height++) {
+                trailingEdgeBalanceList = loadBalanceListFromFileForHeight(height);
+            }
             BalanceList frozenEdgeBalanceList = loadBalanceListFromFileForHeight(getFrozenEdgeHeight());
             BalanceListManager.registerBalanceList(trailingEdgeBalanceList);
             BalanceListManager.registerBalanceList(frozenEdgeBalanceList);
