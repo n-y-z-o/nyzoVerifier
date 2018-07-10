@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.BlockRequest;
 import co.nyzo.verifier.messages.BlockResponse;
 import co.nyzo.verifier.messages.BootstrapResponse;
+import co.nyzo.verifier.util.DebugUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
@@ -151,10 +152,15 @@ public class ChainInitializationManager {
             }
 
             // Now that the blocks are saved, we should be able to determine the continuity state of the end block.
-            Block endBlock = BlockManager.frozenBlockForHeight(endHeight);
-            System.out.println("end block (" + endBlock.getBlockHeight() + ") continuity state: " +
-                    endBlock.getContinuityState() + ", cycle length: " +
-                    endBlock.getCycleInformation().getCycleLength());
+            try {
+                Block endBlock = BlockManager.frozenBlockForHeight(endHeight);
+                System.out.println("end block (" + endBlock.getBlockHeight() + ") continuity state: " +
+                        endBlock.getContinuityState() + ", cycle length: " +
+                        endBlock.getCycleInformation().getCycleLength());
+            } catch (Exception reportOnly) {
+                NotificationUtil.send("unable to determine continuity state on " + Verifier.getNickname() +
+                        " at end of chain initialization: " + DebugUtil.callingMethods(8));
+            }
         }
     }
 
