@@ -37,6 +37,7 @@ public class BlockManager {
     }
 
     public static long getFrozenEdgeHeight() {
+
         return frozenEdgeHeight;
     }
 
@@ -263,9 +264,12 @@ public class BlockManager {
             }
 
             // Load from the trailing edge to the frozen edge. This gives us the blocks necessary to immediately serve
-            // bootstrap response requests.
-            for (long i = getTrailingEdgeHeight(); i <= getFrozenEdgeHeight(); i++) {
-                frozenBlockForHeight(i);
+            // bootstrap response requests. Skip this if the trailing edge is invalid, because we might have a gap
+            // but many old blocks.
+            if (getTrailingEdgeHeight() >= 0) {
+                for (long i = getTrailingEdgeHeight(); i <= getFrozenEdgeHeight(); i++) {
+                    frozenBlockForHeight(i);
+                }
             }
 
             NotificationUtil.send("initialized frozen edge to " + BlockManager.getFrozenEdgeHeight() + " on " +
@@ -402,7 +406,9 @@ public class BlockManager {
             System.err.println("Setting highest block frozen to a lesser value than is currently set.");
         } else {
             frozenEdgeHeight = block.getBlockHeight();
-            trailingEdgeHeight = block.getCycleInformation().getWindowStartHeight() - 20;
+            if (block.getCycleInformation() != null) {
+                trailingEdgeHeight = Math.max(block.getCycleInformation().getWindowStartHeight() - 20, 0);
+            }
         }
 
         // Always add the block to the map. This should be done after the frozen edge is set, because the map looks at
