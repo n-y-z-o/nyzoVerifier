@@ -37,6 +37,7 @@ public class StatusResponse implements MessageObject {
             lines.add("cycle length: " + BlockManager.currentCycleLength() +
                     (BlockManager.inGenesisCycle() ? "(G)" : ""));
             lines.add("transactions: " + TransactionPool.transactionPoolSize());
+            lines.add("trailing edge: " + BlockManager.getTrailingEdgeHeight());
             lines.add("frozen edge: " + frozenEdgeHeight);
             lines.add("leading edge: " + UnfrozenBlockManager.leadingEdgeHeight());
             lines.add("open edge: " + BlockManager.openEdgeHeight(false));
