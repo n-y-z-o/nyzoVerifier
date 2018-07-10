@@ -139,12 +139,16 @@ public class ChainInitializationManager {
 
         if (!missingBlocks && !missingBalanceList) {
 
+            BalanceList balanceList = initialBalanceList.isEmpty() ? null :
+                    initialBalanceList.iterator().next();
+            if (balanceList != null) {
+                BalanceListManager.registerBalanceList(balanceList);
+            }
+
             // Save the blocks.
             for (long height = startHeight; height <= endHeight; height++) {
                 Block block = blocksToSave.get(height);
                 if (height == startHeight && startHeight > frozenEdgeHeight + 1) {
-                    BalanceList balanceList = initialBalanceList.isEmpty() ? null :
-                            initialBalanceList.iterator().next();
                     BlockManager.freezeBlock(block, block.getPreviousBlockHash(), balanceList);
                 } else {
                     BlockManager.freezeBlock(block);
