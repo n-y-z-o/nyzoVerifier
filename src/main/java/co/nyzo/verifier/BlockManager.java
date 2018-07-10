@@ -165,8 +165,8 @@ public class BlockManager {
 
             BalanceList balanceList = BalanceListManager.balanceListForBlock(block);
             if (balanceList == null) {
-                NotificationUtil.send("unable to freeze block " + block.getBlockHeight() + " because its balance " +
-                        "list is null");
+                NotificationUtil.send("unable to freeze block " + block.getBlockHeight() + " on " +
+                        Verifier.getNickname() + " because its balance list is null");
             } else {
                 try {
                     setFrozenEdge(block);
@@ -263,7 +263,7 @@ public class BlockManager {
             }
 
             // Get the continuity state of the frozen edge and four back to load the appropriate blocks into the map.
-            // This allows us to immediately serve bootstrap response requests.
+            // This gives us the blocks necessary to immediately serve bootstrap response requests.
             for (int i = 0; i < 5; i++) {
                 Block block = frozenBlockForHeight(getFrozenEdgeHeight() - i);
                 if (block != null) {
@@ -274,9 +274,11 @@ public class BlockManager {
             NotificationUtil.send("initialized frozen edge to " + BlockManager.getFrozenEdgeHeight() + " on " +
                     Verifier.getNickname());
 
-            // Load the balance list of the frozen edge into the balance list manager.
-            Block frozenEdge = frozenBlockForHeight(getFrozenEdgeHeight());
-            BalanceList frozenEdgeBalanceList = loadBalanceListFromFileForHeight(frozenEdge.getBlockHeight());
+            // Load the balance lists of the trailing and frozen edges into the balance list manager. This gives us the
+            // balance lists necessary to immediately serve bootstrap response requests.
+            BalanceList trailingEdgeBalanceList = loadBalanceListFromFileForHeight(getTrailingEdgeHeight());
+            BalanceList frozenEdgeBalanceList = loadBalanceListFromFileForHeight(getFrozenEdgeHeight());
+            BalanceListManager.registerBalanceList(trailingEdgeBalanceList);
             BalanceListManager.registerBalanceList(frozenEdgeBalanceList);
 
             initialized = true;
