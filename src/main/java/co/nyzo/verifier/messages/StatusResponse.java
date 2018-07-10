@@ -41,6 +41,7 @@ public class StatusResponse implements MessageObject {
             lines.add("frozen edge: " + frozenEdgeHeight);
             lines.add("leading edge: " + UnfrozenBlockManager.leadingEdgeHeight());
             lines.add("open edge: " + BlockManager.openEdgeHeight(false));
+            lines.add("blocks created/transmitted: " + Verifier.getBlockCreationInformation());
             List<Long> unfrozenBlockHeights = new ArrayList<>(UnfrozenBlockManager.unfrozenBlockHeights());
             Collections.sort(unfrozenBlockHeights);
             for (int i = 0; i < 7 && i < unfrozenBlockHeights.size(); i++) {

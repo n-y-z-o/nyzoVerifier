@@ -27,6 +27,9 @@ public class Verifier {
     private static String nickname = null;
     private static int rejoinCount = 0;
 
+    private static int blocksCreated = 0;
+    private static int blocksTransmitted = 0;
+
     private static Transaction seedFundingTransaction = null;
 
     private static int recentMessageTimestampsIndex = 0;
@@ -437,8 +440,7 @@ public class Verifier {
                 }
 
             } catch (Exception reportOnly) {
-                System.err.println(PrintUtil.printException(reportOnly));
-                StatusResponse.setField("verifier main exception", PrintUtil.printException(reportOnly));
+                NotificationUtil.send("verifier main exception: " + PrintUtil.printException(reportOnly));
             }
 
             // Sleep for a short time to avoid consuming too much computational power.
@@ -457,6 +459,7 @@ public class Verifier {
                 !blocksExtended.containsKey(blockHash)) {
 
             Block nextBlock = createNextBlock(block);
+            blocksCreated++;
 
             if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Continuous) {
 
@@ -464,21 +467,14 @@ public class Verifier {
 
                 boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
                 if (shouldTransmitBlock) {
-                    StatusResponse.setField("sent +" + (nextBlock.getBlockHeight() -
-                            BlockManager.getFrozenEdgeHeight()), nextBlock.getBlockHeight() + "");
+                    blocksTransmitted++;
                     Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
-                } else {
-                    StatusResponse.setField("did not send +" + (nextBlock.getBlockHeight() -
-                            BlockManager.getFrozenEdgeHeight()), nextBlock.getBlockHeight() + "");
                 }
             } else if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Discontinuous) {
 
                 // If the next block is a definite discontinuity, mark that it has been extended so we do not extend it
                 // again.
                 blocksExtended.put(blockHash, block);
-
-                StatusResponse.setField("discontinuous @+" + (nextBlock.getBlockHeight() -
-                        BlockManager.getFrozenEdgeHeight()), nextBlock.getBlockHeight() + "");
             }
         }
     }
@@ -582,6 +578,12 @@ public class Verifier {
 
         return nickname;
     }
+
+    public static String getBlockCreationInformation() {
+
+        return blocksTransmitted + "/" + blocksCreated;
+    }
+
 
     public static int getRejoinCount() {
 
