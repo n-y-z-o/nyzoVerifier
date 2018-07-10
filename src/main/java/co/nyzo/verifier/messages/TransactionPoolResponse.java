@@ -35,8 +35,6 @@ public class TransactionPoolResponse implements MessageObject {
     public byte[] getBytes() {
 
         int size = getByteSize();
-        System.out.println("byte size of transaction pool response: " + size);
-        System.out.println("transaction pool size: " + transactions.size());
         byte[] result = new byte[size];
         ByteBuffer buffer = ByteBuffer.wrap(result);
         buffer.putInt(transactions.size());

@@ -26,6 +26,7 @@ public class BlockResponse implements MessageObject {
                 blocks.add(0, block);
                 totalByteSize += block.getByteSize();
                 if (blockHeight == startBlockHeight && includeInitialBalanceList) {
+                    System.out.println("trying to get balance list at height " + blockHeight);
                     initialBalanceList = BalanceListManager.balanceListForBlock(block);
                 }
             }
@@ -34,7 +35,7 @@ public class BlockResponse implements MessageObject {
         }
 
         System.out.println("built list of " + blocks.size() + " for block request [" + startBlockHeight + "-" +
-                endBlockHeight + "]");
+                endBlockHeight + "] with balance list ");
 
         this.initialBalanceList = initialBalanceList;
         this.blocks = blocks;
