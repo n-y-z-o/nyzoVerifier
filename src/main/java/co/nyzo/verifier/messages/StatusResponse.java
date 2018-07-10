@@ -164,4 +164,14 @@ public class StatusResponse implements MessageObject {
 
         return result;
     }
+
+    public static void print() {
+
+        System.out.println("********************");
+        StatusResponse statusResponse = new StatusResponse();
+        for (String line : statusResponse.getLines()) {
+            System.out.println(line);
+        }
+        System.out.println("********************");
+    }
 }

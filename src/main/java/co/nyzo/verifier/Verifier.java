@@ -205,22 +205,22 @@ public class Verifier {
                 ChainInitializationManager.fetchChainSection(startBlock, consensusFrozenEdge, frozenEdgeHash);
             }
 
-            // Start the proactive side of the verifier, initiating whatever actions are necessary to maintain the mesh
-            // and build the blockchain.
+            // Start the proactive side of the verifier, initiating the actions necessary to maintain the mesh and
+            // build the blockchain.
             if (UpdateUtil.shouldTerminate()) {
                 alive.set(false);
             } else {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        NotificationUtil.send("started main verifier loop on " + getNickname());
-                        System.out.println("********************");
-                        StatusResponse statusResponse = new StatusResponse();
-                        for (String line : statusResponse.getLines()) {
-                            System.out.println(line);
+                        try {
+                            NotificationUtil.send("started main verifier loop on " + getNickname());
+                            StatusResponse.print();
+                            verifierMain();
+                        } catch (Exception reportOnly) {
+                            NotificationUtil.send("exited verifierMain() on " + getNickname() + " due to exception: " +
+                                    reportOnly.getMessage());
                         }
-                        System.out.println("********************");
-                        verifierMain();
                         alive.set(false);
                     }
                 }, "Verifier-mainLoop").start();
