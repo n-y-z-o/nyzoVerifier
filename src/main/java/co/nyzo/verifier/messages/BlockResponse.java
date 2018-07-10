@@ -35,7 +35,7 @@ public class BlockResponse implements MessageObject {
         }
 
         System.out.println("built list of " + blocks.size() + " for block request [" + startBlockHeight + "-" +
-                endBlockHeight + "] with balance list ");
+                endBlockHeight + "] with balance list " + initialBalanceList);
 
         this.initialBalanceList = initialBalanceList;
         this.blocks = blocks;

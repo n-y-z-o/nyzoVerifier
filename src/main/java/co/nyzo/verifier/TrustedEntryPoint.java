@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
+
 public class TrustedEntryPoint {
 
     private String host;
@@ -40,5 +42,10 @@ public class TrustedEntryPoint {
         }
 
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return "[TrustedEntryPoint: host=" + getHost() + ", post=" + getPort() + "]";
     }
 }

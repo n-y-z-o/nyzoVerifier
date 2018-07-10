@@ -351,7 +351,7 @@ public class Verifier {
         BootstrapResponse response = (BootstrapResponse) message.getContent();
 
         System.out.println("Got Bootstrap response from " +
-                ByteUtil.arrayAsStringWithDashes(message.getSourceNodeIdentifier()) + ":" + response);
+                PrintUtil.compactPrintByteArray(message.getSourceNodeIdentifier()) + ":" + response);
 
         // Add the transactions to the transaction pool.
         for (Transaction transaction : response.getTransactionPool()) {
