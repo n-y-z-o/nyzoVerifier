@@ -193,7 +193,7 @@ public class Verifier {
                 // Get the consensus frozen edge. If this can be determined, we can continue to the next step.
                 consensusFrozenEdge = ChainInitializationManager.frozenEdgeHeight(frozenEdgeHash,
                         frozenEdgeStartHeight);
-                System.out.println("consensus frozen edge height: " + consensusFrozenEdge + ", start height" +
+                System.out.println("consensus frozen edge height: " + consensusFrozenEdge + ", start height " +
                         frozenEdgeStartHeight.get());
             }
 
@@ -250,7 +250,8 @@ public class Verifier {
                 } catch (Exception ignored) {
                 }
             } else {
-                BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash());
+                BalanceList balanceList = BalanceListManager.balanceListForBlock(genesisBlock);
+                BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash(), balanceList);
             }
         }
     }

@@ -17,7 +17,7 @@ public class BalanceListManager {
 
         // Only proceed if the block is at or past the frozen edge.
         BalanceList balanceList = null;
-        if (block.getBlockHeight() >= BlockManager.getTrailingEdgeHeight()) {
+        if (block.getBlockHeight() >= BlockManager.getTrailingEdgeHeight() || block.getBlockHeight() == 0) {
 
             // First, try to get the balance list from the map.
             balanceList = balanceListMap.get(ByteBuffer.wrap(block.getBalanceListHash()));

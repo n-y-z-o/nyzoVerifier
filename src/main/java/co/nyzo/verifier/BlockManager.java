@@ -148,11 +148,12 @@ public class BlockManager {
 
         Block previousBlock = frozenBlockForHeight(block.getBlockHeight() - 1);
         if (previousBlock != null) {
-            freezeBlock(block, previousBlock.getHash());
+            BalanceList balanceList = BalanceListManager.balanceListForBlock(block);
+            freezeBlock(block, previousBlock.getHash(), balanceList);
         }
     }
 
-    public static synchronized void freezeBlock(Block block, byte[] previousBlockHash) {
+    public static synchronized void freezeBlock(Block block, byte[] previousBlockHash, BalanceList balanceList) {
 
         if (block.getBlockHeight() == 0L) {
             NotificationUtil.send("freezing Genesis block on " + Verifier.getNickname() + ": " +
@@ -163,7 +164,6 @@ public class BlockManager {
         if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) &&
                 block.getBlockHeight() > getFrozenEdgeHeight()) {
 
-            BalanceList balanceList = BalanceListManager.balanceListForBlock(block);
             if (balanceList == null) {
                 NotificationUtil.send("unable to freeze block " + block.getBlockHeight() + " on " +
                         Verifier.getNickname() + " because its balance list is null");

@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.BlockRequest;
 import co.nyzo.verifier.messages.BlockResponse;
 import co.nyzo.verifier.messages.BootstrapResponse;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -66,21 +67,27 @@ public class ChainInitializationManager {
     public static void fetchChainSection(long startHeight, long endHeight, byte[] endBlockHash) {
 
         // Only fetch the balance list if the section does not connect to previously frozen blocks.
-        boolean fetchBalanceList = startHeight > BlockManager.getFrozenEdgeHeight() + 1;
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        boolean requireBalanceList = startHeight > frozenEdgeHeight + 1;
 
         Map<Long, Block> blocksToSave = new HashMap<>();
         int numberOfBlocksRequired = (int) (endHeight - startHeight + 1L);
-        while (blocksToSave.size() < numberOfBlocksRequired && !UpdateUtil.shouldTerminate()) {
+        Set<BalanceList> initialBalanceList = new HashSet<>();  // single item; using a set to allow access from thread
+        boolean missingBlocks = true;
+        boolean missingBalanceList = requireBalanceList;
+        while ((missingBlocks || missingBalanceList) && !UpdateUtil.shouldTerminate()) {
 
             // The chain is built from the end to the beginning so hashes can be confirmed.
             long minimumHeightAlreadyFetched = endHeight + 1;
             for (Long height : blocksToSave.keySet()) {
                 minimumHeightAlreadyFetched = Math.min(minimumHeightAlreadyFetched, height);
             }
-            final long requestEndHeight = Math.min(endHeight, minimumHeightAlreadyFetched - 1);
+            long requestEndHeight = Math.max(startHeight, Math.min(endHeight, minimumHeightAlreadyFetched - 1));
+
+            System.out.println("fetching from height " + startHeight + " to " + requestEndHeight);
 
             Message message = new Message(MessageType.BlockRequest11, new BlockRequest(startHeight, requestEndHeight,
-                    fetchBalanceList));
+                    requireBalanceList));
             Message.fetch(message, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
@@ -112,15 +119,16 @@ public class ChainInitializationManager {
                         }
                     }
 
-                    if (response.getInitialBalanceList() != null) {
-                        System.out.println("registering balance list at height " +
-                                response.getInitialBalanceList().getBlockHeight());
-                        BalanceListManager.registerBalanceList(response.getInitialBalanceList());
+                    if (response.getInitialBalanceList() != null &&
+                            response.getInitialBalanceList().getBlockHeight() == startHeight) {
+                        initialBalanceList.add(response.getInitialBalanceList());
                     }
                 }
             });
 
-            if (blocksToSave.size() < numberOfBlocksRequired && !UpdateUtil.shouldTerminate()) {
+            missingBlocks = blocksToSave.size() < numberOfBlocksRequired;
+            missingBalanceList = requireBalanceList && initialBalanceList.isEmpty();
+            if ((missingBlocks || missingBalanceList) && !UpdateUtil.shouldTerminate()) {
                 try {
                     Thread.sleep(2000);
                 } catch (Exception ignored) {
@@ -128,21 +136,26 @@ public class ChainInitializationManager {
             }
         }
 
-        // Save the blocks.
-        for (long height = startHeight; height <= endHeight; height++) {
-            Block block = blocksToSave.get(height);
-            if (height == startHeight) {
-                BlockManager.freezeBlock(block, block.getPreviousBlockHash());
-            } else {
-                BlockManager.freezeBlock(block);
-            }
-        }
+        if (!missingBlocks && !missingBalanceList) {
 
-        // Now that the blocks are saved, we should be able to determine the continuity state of the end block.
-        Block endBlock = BlockManager.frozenBlockForHeight(endHeight);
-        System.out.println("end block (" + endBlock.getBlockHeight() + ") continuity state: " +
-                endBlock.getContinuityState() + ", cycle length: " +
-                endBlock.getCycleInformation().getCycleLength());
+            // Save the blocks.
+            for (long height = startHeight; height <= endHeight; height++) {
+                Block block = blocksToSave.get(height);
+                if (height == startHeight && startHeight > frozenEdgeHeight + 1) {
+                    BalanceList balanceList = initialBalanceList.isEmpty() ? null :
+                            initialBalanceList.iterator().next();
+                    BlockManager.freezeBlock(block, block.getPreviousBlockHash(), balanceList);
+                } else {
+                    BlockManager.freezeBlock(block);
+                }
+            }
+
+            // Now that the blocks are saved, we should be able to determine the continuity state of the end block.
+            Block endBlock = BlockManager.frozenBlockForHeight(endHeight);
+            System.out.println("end block (" + endBlock.getBlockHeight() + ") continuity state: " +
+                    endBlock.getContinuityState() + ", cycle length: " +
+                    endBlock.getCycleInformation().getCycleLength());
+        }
     }
 
     private static Map<Long, Block> blockMap(List<Block> blocks) {
