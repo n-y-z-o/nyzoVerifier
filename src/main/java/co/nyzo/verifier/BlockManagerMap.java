@@ -39,8 +39,21 @@ public class BlockManagerMap {
     }
 
     // TODO: remove this; it is for debugging only
-    public static int mapSize() {
+    public static synchronized String mapInformation() {
 
-        return blockMap.size();
+        long minimumHeightInMap = -1L;
+        long maximumHeightInMap = -1L;
+        for (Block block : blockMap.values()) {
+            if (minimumHeightInMap < 0) {
+                minimumHeightInMap = block.getBlockHeight();
+                maximumHeightInMap = block.getBlockHeight();
+            } else {
+                minimumHeightInMap = Math.min(minimumHeightInMap, block.getBlockHeight());
+                maximumHeightInMap = Math.max(maximumHeightInMap, block.getBlockHeight());
+            }
+        }
+
+        return blockMap.size() + (minimumHeightInMap < 0 ? "" : "[" + minimumHeightInMap + "," +
+                maximumHeightInMap + "]");
     }
 }

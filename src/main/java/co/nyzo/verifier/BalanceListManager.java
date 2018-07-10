@@ -159,8 +159,22 @@ public class BalanceListManager {
         }
     }
 
-    public static int mapSize() {
+    // TODO: remove this; it is for debugging only
+    public static synchronized String mapInformation() {
 
-        return balanceListMap.size();
+        long minimumHeightInMap = -1L;
+        long maximumHeightInMap = -1L;
+        for (BalanceList balanceList : balanceListMap.values()) {
+            if (minimumHeightInMap < 0) {
+                minimumHeightInMap = balanceList.getBlockHeight();
+                maximumHeightInMap = balanceList.getBlockHeight();
+            } else {
+                minimumHeightInMap = Math.min(minimumHeightInMap, balanceList.getBlockHeight());
+                maximumHeightInMap = Math.max(maximumHeightInMap, balanceList.getBlockHeight());
+            }
+        }
+
+        return balanceListMap.size() + (minimumHeightInMap < 0 ? "" : "[" + minimumHeightInMap + "," +
+                maximumHeightInMap + "]");
     }
 }
