@@ -23,17 +23,10 @@ public class BlockManagerMap {
 
                 iteration = 0;
 
-                long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-                Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
-                if (frozenEdge.getCycleInformation() != null) {
-
-                    long startHeight = frozenEdge.getCycleInformation().getWindowStartHeight();
-                    startHeight -= 20;  // keep some extra blocks to aid in initialization of new verifiers
-
-                    for (Long height : new HashSet<>(blockMap.keySet())) {
-                        if (height != 0 && height < startHeight) {
-                            blockMap.remove(height);
-                        }
+                long trailingEdgeHeight = BlockManager.getTrailingEdgeHeight();
+                for (Long height : new HashSet<>(blockMap.keySet())) {
+                    if (height != 0 && height < trailingEdgeHeight) {
+                        blockMap.remove(height);
                     }
                 }
             }

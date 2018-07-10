@@ -113,6 +113,8 @@ public class ChainInitializationManager {
                     }
 
                     if (response.getInitialBalanceList() != null) {
+                        System.out.println("registering balance list at height " +
+                                response.getInitialBalanceList().getBlockHeight());
                         BalanceListManager.registerBalanceList(response.getInitialBalanceList());
                     }
                 }

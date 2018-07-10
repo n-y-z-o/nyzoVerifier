@@ -403,7 +403,7 @@ public class BlockManager {
             System.err.println("Setting highest block frozen to a lesser value than is currently set.");
         } else {
             frozenEdgeHeight = block.getBlockHeight();
-            trailingEdgeHeight = block.getCycleInformation().getWindowStartHeight();
+            trailingEdgeHeight = block.getCycleInformation().getWindowStartHeight() - 20;
         }
 
         // Always add the block to the map. This should be done after the frozen edge is set, because the map looks at

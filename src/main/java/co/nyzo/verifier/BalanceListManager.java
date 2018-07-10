@@ -17,7 +17,7 @@ public class BalanceListManager {
 
         // Only proceed if the block is at or past the frozen edge.
         BalanceList balanceList = null;
-        if (block.getBlockHeight() >= BlockManager.getFrozenEdgeHeight()) {
+        if (block.getBlockHeight() >= BlockManager.getTrailingEdgeHeight()) {
 
             // First, try to get the balance list from the map.
             balanceList = balanceListMap.get(ByteBuffer.wrap(block.getBalanceListHash()));
@@ -87,8 +87,9 @@ public class BalanceListManager {
                 }
             }
         } else {
-            NotificationUtil.send("trying to get balance list for height " + block.getBlockHeight() + " when frozen " +
-                    "edge height is " + BlockManager.getFrozenEdgeHeight() + " on " + Verifier.getNickname());
+            NotificationUtil.send("trying to get balance list for height " + block.getBlockHeight() +
+                    " when trailing edge height is " + BlockManager.getTrailingEdgeHeight() + " on " +
+                    Verifier.getNickname());
         }
 
         return balanceList;
