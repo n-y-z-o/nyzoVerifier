@@ -60,6 +60,7 @@ public class StatusResponse implements MessageObject {
             lines.add("old timestamp: " + Verifier.oldestTimestampAge());
             lines.add("block map: " + BlockManagerMap.mapInformation());
             lines.add("balance list map: " + BalanceListManager.mapInformation());
+            lines.add("avg. work/balance list: " + BalanceListManager.averageWork());
 
             Map<String, String> extraFields = getExtraFields();
             for (String key : extraFields.keySet()) {

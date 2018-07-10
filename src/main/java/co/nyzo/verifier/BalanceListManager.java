@@ -5,8 +5,12 @@ import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BalanceListManager {
+
+    private static long totalQueries = 0;
+    private static long totalWork = 0;
 
     private static final long maximumMapSize = 6;
 
@@ -19,6 +23,8 @@ public class BalanceListManager {
         BalanceList balanceList = null;
         if (block.getBlockHeight() >= BlockManager.getTrailingEdgeHeight() || block.getBlockHeight() == 0) {
 
+            totalQueries++;
+
             // First, try to get the balance list from the map.
             balanceList = balanceListMap.get(ByteBuffer.wrap(block.getBalanceListHash()));
 
@@ -30,6 +36,8 @@ public class BalanceListManager {
                     balanceList = Block.balanceListForNextBlock(null, null, block.getTransactions(),
                             block.getVerifierIdentifier());
                     registerBalanceList(balanceList);
+
+                    totalWork++;
 
                     if (!ByteUtil.arraysAreEqual(balanceList.getHash(), block.getBalanceListHash())) {
                         System.err.println("for Genesis block, derived hash: " +
@@ -54,6 +62,8 @@ public class BalanceListManager {
 
                     if (startBalanceList != null) {
 
+                        totalWork += blocks.size();
+
                         // TODO: remove this notification
                         StringBuilder availableHeights = new StringBuilder();
                         String separator = "";
@@ -61,7 +71,7 @@ public class BalanceListManager {
                             availableHeights.append(separator).append(cachedBalanceList.getBlockHeight());
                             separator = ",";
                         }
-                        if (blocks.size() > 40) {
+                        if (blocks.size() > 20) {
                             NotificationUtil.send("built list of size " + blocks.size() + " to derive balance list " +
                                     "for block " + block.getBlockHeight() + " on " + Verifier.getNickname() +
                                     " because the only heights available are " + availableHeights);
@@ -186,5 +196,11 @@ public class BalanceListManager {
 
         return balanceListMap.size() + (minimumHeightInMap < 0 ? "" : " [" + minimumHeightInMap + "," +
                 maximumHeightInMap + "]");
+    }
+
+    // TODO: remove this; it is for debugging only
+    public static long averageWork() {
+
+        return totalWork / Math.max(totalQueries, 1L);
     }
 }
