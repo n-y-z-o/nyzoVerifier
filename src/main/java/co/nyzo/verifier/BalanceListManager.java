@@ -174,7 +174,7 @@ public class BalanceListManager {
             }
         }
 
-        return balanceListMap.size() + (minimumHeightInMap < 0 ? "" : "[" + minimumHeightInMap + "," +
+        return balanceListMap.size() + (minimumHeightInMap < 0 ? "" : " [" + minimumHeightInMap + "," +
                 maximumHeightInMap + "]");
     }
 }

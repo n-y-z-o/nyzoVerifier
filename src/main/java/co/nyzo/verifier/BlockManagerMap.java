@@ -53,7 +53,7 @@ public class BlockManagerMap {
             }
         }
 
-        return blockMap.size() + (minimumHeightInMap < 0 ? "" : "[" + minimumHeightInMap + "," +
+        return blockMap.size() + (minimumHeightInMap < 0 ? "" : " [" + minimumHeightInMap + "," +
                 maximumHeightInMap + "]");
     }
 }
