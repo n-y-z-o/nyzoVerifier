@@ -117,8 +117,8 @@ public class UpdateResponse implements MessageObject {
                 while (Verifier.isAlive() || MeshListener.isAlive()) {
                     try {
                         Thread.sleep(300L);
-                        System.out.println("waiting for termination: v=" + Verifier.isAlive() + ", m=" +
-                                MeshListener.isAlive());
+                        System.out.println("waiting for termination: v=" + (Verifier.isAlive() ? "alive" :
+                                "terminated") + ", m=" + (MeshListener.isAlive() ? "alive" : "terminated"));
                     } catch (Exception ignored) { }
                 }
 

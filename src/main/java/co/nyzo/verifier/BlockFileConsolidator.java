@@ -62,6 +62,8 @@ public class BlockFileConsolidator {
 
     private static void consolidateFiles(long fileIndex, List<File> individualFiles) {
 
+        // TODO: reimplement this more efficiently
+        /*
         // Get the blocks from the existing consolidated file for this index.
         long startBlockHeight = fileIndex * BlockManager.blocksPerFile;
         File consolidatedFile = BlockManager.consolidatedFileForBlockHeight(startBlockHeight);
@@ -98,6 +100,7 @@ public class BlockFileConsolidator {
 
         NotificationUtil.send("consolidated " + individualFiles.size() + " files to a single file for start height " +
                 startBlockHeight + " on " + Verifier.getNickname());
+                */
     }
 
     private static long blockHeightForFile(File file) {

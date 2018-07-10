@@ -96,9 +96,14 @@ public class BlockManager {
         return blocks;
     }
 
-    public static boolean writeBlocksToFile(List<Block> blocks, File file) {
+    public static boolean writeBlocksToFile(List<Block> blocks, List<BalanceList> balanceLists, File file) {
 
-        boolean successful = false;
+        Map<Long, BalanceList> balanceListMap = new HashMap<>();
+        for (BalanceList balanceList : balanceLists) {
+            balanceListMap.put(balanceList.getBlockHeight(), balanceList);
+        }
+
+        boolean successful = true;
 
         // Sort the blocks on block height ascending.
         Collections.sort(blocks, new Comparator<Block>() {
@@ -116,8 +121,12 @@ public class BlockManager {
             // For the first block and all blocks with gaps, include the balance list.
             if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (block.getBlockHeight() - 1))) {
                 // TODO: confirm this works properly with balance list change
-                BalanceList balanceList = BalanceListManager.balanceListForBlock(block);
-                size += balanceList.getByteSize();
+                BalanceList balanceList = balanceListMap.get(block.getBlockHeight());
+                if (balanceList == null) {
+                    successful = false;
+                } else {
+                    size += balanceList.getByteSize();
+                }
             }
         }
 
@@ -129,17 +138,27 @@ public class BlockManager {
             buffer.put(block.getBytes());
             if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (block.getBlockHeight() - 1))) {
                 // TODO: confirm this works properly with balance list change
-                BalanceList balanceList = BalanceListManager.balanceListForBlock(block);
-                buffer.put(balanceList.getBytes());
+                BalanceList balanceList = balanceListMap.get(block.getBlockHeight());
+                if (balanceList == null) {
+                    successful = false;
+                } else {
+                    buffer.put(balanceList.getBytes());
+                }
             }
         }
 
-        try {
-            file.getParentFile().mkdirs();
-            FileUtil.writeFile(Paths.get(file.getAbsolutePath()), bytes);
-            successful = true;
-        } catch (Exception reportOnly) {
-            System.err.println(PrintUtil.printException(reportOnly));
+        if (successful) {
+            try {
+                file.getParentFile().mkdirs();
+                FileUtil.writeFile(Paths.get(file.getAbsolutePath()), bytes);
+                successful = true;
+            } catch (Exception reportOnly) {
+                System.err.println(PrintUtil.printException(reportOnly));
+            }
+        }
+
+        if (!successful) {
+            NotificationUtil.send("unable to write block file " + file.getName() + " on " + Verifier.getNickname());
         }
 
         return successful;
@@ -172,7 +191,8 @@ public class BlockManager {
                 try {
                     setFrozenEdge(block);
 
-                    writeBlocksToFile(Arrays.asList(block), individualFileForBlockHeight(block.getBlockHeight()));
+                    writeBlocksToFile(Arrays.asList(block), Arrays.asList(balanceList),
+                            individualFileForBlockHeight(block.getBlockHeight()));
 
                     if (block.getBlockHeight() == 0L) {
                         genesisBlockStartTimestamp = block.getStartTimestamp();
