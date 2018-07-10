@@ -41,8 +41,6 @@ public class FrozenBlockVoteTally {
 
             count++;
             voteMap.put(voteKey, count);
-            System.out.println("count is now " + count + " for hash " + PrintUtil.compactPrintByteArray(hash) +
-                    " at height " + blockHeight);
             hashMap.put(voteKey, hash);
             startHeightMap.put(voteKey, startHeight);
         }
@@ -65,7 +63,6 @@ public class FrozenBlockVoteTally {
             totalVotes += votes;
         }
 
-        System.out.println("have " + totalVotes + " total votes at height " + blockHeight);
         return totalVotes;
     }
 
@@ -81,8 +78,6 @@ public class FrozenBlockVoteTally {
             }
         }
 
-        System.out.println(votesForWinner + " votes for winner " + PrintUtil.compactPrintByteArray(winnerHash) +
-                ", height " + blockHeight + ", start height " + startHeight.get());
         return votesForWinner;
     }
 }

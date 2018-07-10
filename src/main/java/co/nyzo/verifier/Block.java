@@ -270,13 +270,9 @@ public class Block implements MessageObject {
                             Math.max(cycleInformation.getCycleLength(2), cycleInformation.getCycleLength(3)));
                     long threshold = (maximumPreviousLength + 1L) / 2L;
                     boolean rule2Pass = cycleInformation.getCycleLength() > threshold;
-                    if (!rule2Pass) {
-                        System.out.println("rule 2 fail " + cycleInformation.getCycleLength() + ", " + threshold);
-                    }
                     continuityState = rule2Pass ? ContinuityState.Continuous : ContinuityState.Discontinuous;
 
                 } else {
-                    System.out.println("rule 1 fail");
                     continuityState = ContinuityState.Discontinuous;
                 }
             }
