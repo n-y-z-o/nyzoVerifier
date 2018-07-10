@@ -46,6 +46,6 @@ public class TrustedEntryPoint {
 
     @Override
     public String toString() {
-        return "[TrustedEntryPoint: host=" + getHost() + ", post=" + getPort() + "]";
+        return "[TrustedEntryPoint: host=" + getHost() + ", port=" + getPort() + "]";
     }
 }

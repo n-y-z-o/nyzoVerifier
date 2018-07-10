@@ -262,13 +262,10 @@ public class BlockManager {
                 }
             }
 
-            // Get the continuity state of the frozen edge and four back to load the appropriate blocks into the map.
-            // This gives us the blocks necessary to immediately serve bootstrap response requests.
-            for (int i = 0; i < 5; i++) {
-                Block block = frozenBlockForHeight(getFrozenEdgeHeight() - i);
-                if (block != null) {
-                    block.getContinuityState();
-                }
+            // Load from the trailing edge to the frozen edge. This gives us the blocks necessary to immediately serve
+            // bootstrap response requests.
+            for (long i = getTrailingEdgeHeight(); i <= getFrozenEdgeHeight(); i++) {
+                frozenBlockForHeight(i);
             }
 
             NotificationUtil.send("initialized frozen edge to " + BlockManager.getFrozenEdgeHeight() + " on " +
