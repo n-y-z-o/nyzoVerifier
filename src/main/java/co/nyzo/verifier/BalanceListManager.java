@@ -8,14 +8,14 @@ import java.util.*;
 
 public class BalanceListManager {
 
-    private static final long maximumMapSize = 5;
+    private static final long maximumMapSize = 6;
 
     // This is a map from balance list hash to balance list.
     private static final Map<ByteBuffer, BalanceList> balanceListMap = new HashMap<>();
 
     public static synchronized BalanceList balanceListForBlock(Block block) {
 
-        // Only proceed if the block is at or past the frozen edge.
+        // Only proceed if the block is at or past the trailing edge or is the Genesis block.
         BalanceList balanceList = null;
         if (block.getBlockHeight() >= BlockManager.getTrailingEdgeHeight() || block.getBlockHeight() == 0) {
 
@@ -124,16 +124,22 @@ public class BalanceListManager {
             balanceListMap.put(ByteBuffer.wrap(balanceList.getHash()), balanceList);
 
             // If the map is too large, remove less-used entries, keeping the frozen edge and the trailing edge from
-            // the block manager.
+            // the block manager. Also keep the Genesis list, if present.
             if (balanceListMap.size() > maximumMapSize) {
 
                 // Find the balance lists for the frozen and trailing edges.
                 long trailingEdgeHeight = BlockManager.getTrailingEdgeHeight();
                 long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+                BalanceList genesisList = null;
                 BalanceList trailingEdgeList = null;
                 BalanceList frozenEdgeList = null;
                 for (BalanceList item : balanceListMap.values()) {
                     long itemHeight = item.getBlockHeight();
+
+                    // Find the Genesis list. This is not required.
+                    if (itemHeight == 0) {
+                        genesisList = item;
+                    }
 
                     // Find the highest balance list at or before the trailing edge. This is necessary for
                     // bootstrapping new verifiers.
@@ -151,7 +157,11 @@ public class BalanceListManager {
                 }
 
                 if (trailingEdgeList != null && frozenEdgeList != null) {
+
                     balanceListMap.clear();
+                    if (genesisList != null) {
+                        balanceListMap.put(ByteBuffer.wrap(genesisList.getHash()), genesisList);
+                    }
                     balanceListMap.put(ByteBuffer.wrap(trailingEdgeList.getHash()), trailingEdgeList);
                     balanceListMap.put(ByteBuffer.wrap(frozenEdgeList.getHash()), frozenEdgeList);
                 }

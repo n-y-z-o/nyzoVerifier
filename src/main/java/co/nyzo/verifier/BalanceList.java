@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -137,5 +139,11 @@ public class BalanceList implements MessageObject {
     public byte[] getHash() {
 
         return HashUtil.doubleSHA256(getBytes());
+    }
+
+    @Override
+    public String toString() {
+        return "[BalanceList: height=" + getBlockHeight() + ", hash=" +
+                PrintUtil.compactPrintByteArray(getHash()) + "]";
     }
 }

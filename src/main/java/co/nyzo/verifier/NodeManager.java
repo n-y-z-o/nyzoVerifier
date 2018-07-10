@@ -131,7 +131,9 @@ public class NodeManager {
     private static synchronized void removeNodeFromMesh(ByteBuffer addressBuffer) {
 
         Node node = ipAddressToNodeMap.get(addressBuffer);
-        node.setInactiveTimestamp(System.currentTimeMillis());
+        if (node != null) {
+            node.setInactiveTimestamp(System.currentTimeMillis());
+        }
     }
 
     public static boolean isActive(byte[] verifierIdentifier) {
