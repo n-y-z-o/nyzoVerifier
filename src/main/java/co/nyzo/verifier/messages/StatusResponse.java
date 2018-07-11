@@ -24,6 +24,7 @@ public class StatusResponse implements MessageObject {
         } else {
 
             long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+            Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
 
             int meshSize = NodeManager.getMeshSize();
             int activeMeshSize = NodeManager.getActiveMeshSize();
@@ -38,7 +39,8 @@ public class StatusResponse implements MessageObject {
                     (BlockManager.inGenesisCycle() ? "(G)" : ""));
             lines.add("transactions: " + TransactionPool.transactionPoolSize());
             lines.add("trailing edge: " + BlockManager.getTrailingEdgeHeight());
-            lines.add("frozen edge: " + frozenEdgeHeight);
+            lines.add("frozen edge: " + frozenEdgeHeight + "(" +
+                    PrintUtil.compactPrintByteArray(frozenEdge.getHash()) + ")");
             lines.add("leading edge: " + UnfrozenBlockManager.leadingEdgeHeight());
             lines.add("open edge: " + BlockManager.openEdgeHeight(false));
             lines.add("blocks transmitted/created: " + Verifier.getBlockCreationInformation());
