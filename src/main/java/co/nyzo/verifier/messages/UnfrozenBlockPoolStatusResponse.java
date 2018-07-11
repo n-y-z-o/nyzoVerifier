@@ -1,6 +1,7 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -38,8 +39,12 @@ public class UnfrozenBlockPoolStatusResponse implements MessageObject {
                 long chainScore = block.chainScore(frozenEdgeHeight);
                 String chainScoreString = chainScore == Long.MAX_VALUE ? "H" : (chainScore == Long.MAX_VALUE - 1 ?
                         "H-1" : chainScore + "");
-                lines.add(block.getBlockHeight() + " (" + NicknameManager.get(block.getVerifierIdentifier()) + "): " +
-                        chainScoreString);
+                BlockVote vote = BlockVoteManager.getLocalVoteForHeight(block.getBlockHeight());
+                String localVoteString = vote != null && ByteUtil.arraysAreEqual(block.getHash(), vote.getHash()) ?
+                        "*" : "";
+                lines.add(block.getBlockHeight() + " (" + PrintUtil.superCompactPrintByteArray(block.getHash()) + "/" +
+                        NicknameManager.get(block.getVerifierIdentifier()) + "): " + chainScoreString +
+                        localVoteString);
             }
 
             this.lines = lines;
