@@ -39,7 +39,7 @@ public class StatusResponse implements MessageObject {
                     (BlockManager.inGenesisCycle() ? "(G)" : ""));
             lines.add("transactions: " + TransactionPool.transactionPoolSize());
             lines.add("trailing edge: " + BlockManager.getTrailingEdgeHeight());
-            lines.add("frozen edge: " + frozenEdgeHeight + "(" +
+            lines.add("frozen edge: " + frozenEdgeHeight + " (" +
                     PrintUtil.compactPrintByteArray(frozenEdge.getHash()) + ")");
             lines.add("leading edge: " + UnfrozenBlockManager.leadingEdgeHeight());
             lines.add("open edge: " + BlockManager.openEdgeHeight(false));
@@ -97,8 +97,9 @@ public class StatusResponse implements MessageObject {
     @Override
     public byte[] getBytes() {
 
-        byte[] array = new byte[getByteSize()];
-        ByteBuffer buffer = ByteBuffer.wrap(array);
+        byte[] result = new byte[getByteSize()];
+        ByteBuffer buffer = ByteBuffer.wrap(result);
+
         buffer.put((byte) lines.size());
         for (String line : lines) {
             byte[] lineBytes = line.getBytes(StandardCharsets.UTF_8);
@@ -106,7 +107,7 @@ public class StatusResponse implements MessageObject {
             buffer.put(lineBytes);
         }
 
-        return array;
+        return result;
     }
 
     public static StatusResponse fromByteBuffer(ByteBuffer buffer) {

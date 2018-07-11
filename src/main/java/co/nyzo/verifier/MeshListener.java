@@ -191,10 +191,10 @@ public class MeshListener {
                     response = new Message(MessageType.UnfrozenBlockPoolPurgeResponse405,
                             new UnfrozenBlockPoolPurgeResponse(message));
 
-                } else if (messageType == MessageType.UnfrozenBlockPoolRequest406) {
+                } else if (messageType == MessageType.UnfrozenBlockPoolStatusRequest406) {
 
-                    response = new Message(MessageType.UnfrozenBlockPoolResponse407,
-                            new UnfrozenBlockPoolResponse(message));
+                    response = new Message(MessageType.UnfrozenBlockPoolStatusResponse407,
+                            new UnfrozenBlockPoolStatusResponse(message));
 
                 } else if (messageType == MessageType.ResetRequest500) {
 

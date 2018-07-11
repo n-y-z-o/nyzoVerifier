@@ -47,8 +47,8 @@ public enum MessageType {
     DetachmentResponse403(403),
     UnfrozenBlockPoolPurgeRequest404(404),  // clears the unfrozen block pool
     UnfrozenBlockPoolPurgeResponse405(405),
-    UnfrozenBlockPoolRequest406(406),  // gets the unfrozen block pool only
-    UnfrozenBlockPoolResponse407(407),
+    UnfrozenBlockPoolStatusRequest406(406),  // gets textual information about the unfrozen block pool
+    UnfrozenBlockPoolStatusResponse407(407),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain   TODO: key this to the local verifier before release
