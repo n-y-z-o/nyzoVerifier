@@ -198,8 +198,6 @@ public class BlockManager {
                         genesisBlockStartTimestamp = block.getStartTimestamp();
                     }
 
-                    updateVerifiersInCurrentCycle(block);
-
                 } catch (Exception reportOnly) {
                     reportOnly.printStackTrace();
                     System.err.println("exception writing block to file " + reportOnly.getMessage());
@@ -429,10 +427,13 @@ public class BlockManager {
         if (block.getBlockHeight() < frozenEdgeHeight) {
             System.err.println("Setting highest block frozen to a lesser value than is currently set.");
         } else {
+            // Set the frozen and trailing edge heights.
             frozenEdgeHeight = block.getBlockHeight();
             if (block.getCycleInformation() != null) {
                 trailingEdgeHeight = Math.max(block.getCycleInformation().getWindowStartHeight() - 20, 0);
             }
+
+            updateVerifiersInCurrentCycle(block);
         }
 
         // Always add the block to the map. This should be done after the frozen edge is set, because the map looks at

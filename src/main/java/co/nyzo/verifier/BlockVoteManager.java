@@ -22,7 +22,7 @@ public class BlockVoteManager {
         // Register the vote. The map ensures that each identifier only gets one vote. Some of the votes may not count.
         // Votes are only counted for verifiers in the previous cycle.
         long height = vote.getHeight();
-        if (height < BlockManager.openEdgeHeight(true)) {
+        if (height > BlockManager.getFrozenEdgeHeight() && height < BlockManager.openEdgeHeight(true)) {
             Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
             if (votesForHeight == null) {
                 votesForHeight = new HashMap<>();

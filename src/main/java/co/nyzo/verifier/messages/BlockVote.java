@@ -72,6 +72,12 @@ public class BlockVote implements MessageObject {
             }
         } catch (Exception ignored) { }
 
+        // If the result is null, create an invalid vote. The object cannot be null for a MissingBlockVoteResponse24
+        // message.
+        if (result == null) {
+            result = new BlockVote(-1, new byte[FieldByteSize.hash]);
+        }
+
         return result;
     }
 
