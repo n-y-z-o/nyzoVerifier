@@ -170,8 +170,8 @@ public class BlockVoteManager {
                         new MissingBlockVoteRequest(height));
                 for (ByteBuffer identifier : votingVerifiers.keySet()) {
                     if (!currentVotes.contains(identifier)) {
-                        NotificationUtil.send("sending request for vote for height " + height + " to " +
-                                NicknameManager.get(identifier.array()) + " from " + Verifier.getNickname());
+                        //NotificationUtil.send("sending request for vote for height " + height + " to " +
+                        //        NicknameManager.get(identifier.array()) + " from " + Verifier.getNickname());
 
                         Node node = votingVerifiers.get(identifier);
                         Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message,
