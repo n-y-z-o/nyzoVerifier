@@ -1,6 +1,7 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 
@@ -72,5 +73,10 @@ public class BlockVote implements MessageObject {
         } catch (Exception ignored) { }
 
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return "[BlockVote: height=" + getHeight() + ", hash=" + PrintUtil.compactPrintByteArray(getHash()) + "]";
     }
 }
