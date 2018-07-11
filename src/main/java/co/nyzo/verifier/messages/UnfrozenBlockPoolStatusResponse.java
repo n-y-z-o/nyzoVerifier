@@ -5,6 +5,8 @@ import co.nyzo.verifier.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class UnfrozenBlockPoolStatusResponse implements MessageObject {
@@ -17,6 +19,18 @@ public class UnfrozenBlockPoolStatusResponse implements MessageObject {
         if (ByteUtil.arraysAreEqual(request.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
 
             List<Block> blocks = UnfrozenBlockManager.allUnfrozenBlocks();
+            Collections.sort(blocks, new Comparator<Block>() {
+                @Override
+                public int compare(Block block1, Block block2) {
+                    if (block1.getBlockHeight() == block2.getBlockHeight()) {
+                        String nickname1 = NicknameManager.get(block1.getVerifierIdentifier());
+                        String nickname2 = NicknameManager.get(block2.getVerifierIdentifier());
+                        return nickname1.compareTo(nickname2);
+                    } else {
+                        return ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight());
+                    }
+                }
+            });
             long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
             List<String> lines = new ArrayList<>();
             for (int i = 0; i < blocks.size() && i < 100; i++) {
