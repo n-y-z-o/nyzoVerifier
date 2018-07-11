@@ -1,7 +1,6 @@
 package co.nyzo.verifier.messages;
 
-import co.nyzo.verifier.FieldByteSize;
-import co.nyzo.verifier.MessageObject;
+import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
 
@@ -53,6 +52,24 @@ public class BlockVote implements MessageObject {
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }
+
+        return result;
+    }
+
+    public static BlockVote forHeight(long height) {
+
+        BlockVote result = null;
+
+        try {
+            if (height <= BlockManager.getFrozenEdgeHeight()) {
+                Block block = BlockManager.frozenBlockForHeight(height);
+                if (block != null) {
+                    result = new BlockVote(height, block.getHash());
+                }
+            } else {
+                result = BlockVoteManager.getLocalVoteForHeight(height);
+            }
+        } catch (Exception ignored) { }
 
         return result;
     }

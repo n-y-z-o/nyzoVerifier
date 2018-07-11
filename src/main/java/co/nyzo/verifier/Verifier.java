@@ -431,6 +431,12 @@ public class Verifier {
                     // Remove old votes from the block vote manager.
                     BlockVoteManager.removeOldVotes();
 
+                    // Request any votes that appear to be missing.
+                    BlockVoteManager.requestMissingVotes();
+
+                    // Request and blocks that appear to be missing.
+                    BlockManager.requestMissingBlocks();
+
                     // If the frozen edge height has changed, update the new-verifier vote and update the frozen edge
                     // with the transaction pool.
                     if (frozenEdgeHeight != BlockManager.getFrozenEdgeHeight()) {

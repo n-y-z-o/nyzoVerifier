@@ -171,6 +171,12 @@ public class MeshListener {
                             (NewVerifierVote) message.getContent(), false);
                     response = new Message(MessageType.NewVerifierVoteResponse22, null);
 
+                } else if (messageType == MessageType.MissingBlockVoteRequest23) {
+
+                    MissingBlockVoteRequest request = (MissingBlockVoteRequest) message.getContent();
+                    response = new Message(MessageType.MissingBlockVoteResponse24,
+                            BlockVote.forHeight(request.getHeight()));
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +

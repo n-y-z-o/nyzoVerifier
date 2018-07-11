@@ -2,7 +2,6 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
@@ -347,6 +346,10 @@ public class Message {
             content = BlockVote.fromByteBuffer(buffer);
         } else if (type == MessageType.NewVerifierVote21) {
             content = NewVerifierVote.fromByteBuffer(buffer);
+        } else if (type == MessageType.MissingBlockVoteRequest23) {
+            content = MissingBlockVoteRequest.fromByteBuffer(buffer);
+        } else if (type == MessageType.MissingBlockVoteResponse24) {
+            content = BlockVote.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {

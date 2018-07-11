@@ -1,7 +1,10 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BlockVote;
+import co.nyzo.verifier.messages.MissingBlockVoteRequest;
 import co.nyzo.verifier.messages.StatusResponse;
+import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
@@ -129,5 +132,63 @@ public class BlockVoteManager {
         }
 
         return votes;
+    }
+
+    public static synchronized BlockVote getLocalVoteForHeight(long height) {
+
+        byte[] hash = localVotes.get(height);
+        return hash == null ? null : new BlockVote(height, hash);
+    }
+
+    public static synchronized void requestMissingVotes() {
+
+        // Start with a null map to avoid extra work if no heights are low enough to require use.
+        Map<ByteBuffer, Node> votingVerifiers = null;
+
+        // For any block more than 4 from the leading edge, request any votes that appear to be missing.
+        long leadingEdgeHeight = UnfrozenBlockManager.leadingEdgeHeight();
+        for (Long height : voteMap.keySet()) {
+            if (height < leadingEdgeHeight - 4) {
+
+                // Build the map if not yet built.
+                if (votingVerifiers == null) {
+                    votingVerifiers = new HashMap<>();
+                    Set<ByteBuffer> verifierIdentifiers = BlockManager.verifiersInCurrentCycle();
+                    for (Node node : NodeManager.getMesh()) {
+                        ByteBuffer identifier = ByteBuffer.wrap(node.getIdentifier());
+                        if (verifierIdentifiers.contains(identifier)) {
+                            votingVerifiers.put(identifier, node);
+                        }
+                    }
+                }
+
+                // Get the list of verifiers at this height for which votes are already registered.
+                Set<ByteBuffer> currentVotes = voteMap.get(height).keySet();
+
+                // Send a message to every verifier for which we have not registered a vote for this height.
+                Message message = new Message(MessageType.MissingBlockVoteRequest23,
+                        new MissingBlockVoteRequest(height));
+                for (ByteBuffer identifier : votingVerifiers.keySet()) {
+                    if (!currentVotes.contains(identifier)) {
+                        NotificationUtil.send("sending request for vote for height " + height + " to " +
+                                NicknameManager.get(identifier.array()) + " from " + Verifier.getNickname());
+
+                        Node node = votingVerifiers.get(identifier);
+                        Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message,
+                                new MessageCallback() {
+                                    @Override
+                                    public void responseReceived(Message message) {
+
+                                        BlockVote vote = (BlockVote) message.getContent();
+                                        if (vote != null) {
+                                            registerVote(message.getSourceNodeIdentifier(), vote, false);
+                                        }
+                                    }
+                                });
+                    }
+                }
+            }
+        }
+
     }
 }

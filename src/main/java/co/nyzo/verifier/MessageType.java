@@ -28,6 +28,8 @@ public enum MessageType {
     BlockVoteResponse20(20),
     NewVerifierVote21(21),
     NewVerifierVoteResponse22(22),
+    MissingBlockVoteRequest23(23),
+    MissingBlockVoteResponse24(24),
 
     // test messages
     Ping200(200),
