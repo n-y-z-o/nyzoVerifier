@@ -37,8 +37,7 @@ public class UnfrozenBlockPoolStatusResponse implements MessageObject {
             for (int i = 0; i < blocks.size() && i < 100; i++) {
                 Block block = blocks.get(i);
                 long chainScore = block.chainScore(frozenEdgeHeight);
-                String chainScoreString = chainScore == Long.MAX_VALUE ? "H" : (chainScore == Long.MAX_VALUE - 1 ?
-                        "H-1" : chainScore + "");
+                String chainScoreString = PrintUtil.printChainScore(chainScore);
                 BlockVote vote = BlockVoteManager.getLocalVoteForHeight(block.getBlockHeight());
                 String localVoteString = vote != null && ByteUtil.arraysAreEqual(block.getHash(), vote.getHash()) ?
                         "*" : "";

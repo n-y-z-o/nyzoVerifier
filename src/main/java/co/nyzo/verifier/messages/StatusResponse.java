@@ -56,7 +56,7 @@ public class StatusResponse implements MessageObject {
                     String heightString = "+" + (height - frozenEdgeHeight);
                     lines.add("- h: " + heightString + ", n: " + UnfrozenBlockManager.numberOfBlocksAtHeight(height) +
                             ", v: " + BlockVoteManager.votesAtHeight(height) +
-                            ", s: " + printScore(UnfrozenBlockManager.bestScoreForHeight(height)) +
+                            ", s: " + PrintUtil.printChainScore(UnfrozenBlockManager.bestScoreForHeight(height)) +
                             ", t: " + UnfrozenBlockManager.votingScoreThresholdForHeight(height));
                 }
             }
@@ -150,20 +150,6 @@ public class StatusResponse implements MessageObject {
         if (extraFields.size() > 10) {
             extraFields.clear();
         }
-    }
-
-    private static String printScore(long score) {
-
-        String result;
-        if (score == Long.MAX_VALUE) {
-            result = "H";
-        } else if (score == Long.MAX_VALUE - 1) {
-            result = "H-1";
-        } else {
-            result = score + "";
-        }
-
-        return result;
     }
 
     public static void print() {

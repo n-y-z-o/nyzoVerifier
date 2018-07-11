@@ -86,4 +86,20 @@ public class PrintUtil {
 
         return result;
     }
+
+    public static String printChainScore(long score) {
+
+        String result;
+        if (score < -100L) {
+            result = "INIT";
+        } else if (score < Long.MAX_VALUE - 1) {
+            result = score + "";
+        } else if (score == Long.MAX_VALUE - 1) {
+            result = "H-1";
+        } else {
+            result = "H";
+        }
+
+        return result;
+    }
 }
