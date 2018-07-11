@@ -123,6 +123,7 @@ public class MeshListener {
                     NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
                     NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
                             nodeJoinMessage.getPort());
+                    NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
 
                     response = new Message(MessageType.NodeJoinResponse4, new NodeJoinResponse());
 

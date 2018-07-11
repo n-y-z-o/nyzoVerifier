@@ -102,9 +102,7 @@ public class StatusResponse implements MessageObject {
 
         buffer.put((byte) lines.size());
         for (String line : lines) {
-            byte[] lineBytes = line.getBytes(StandardCharsets.UTF_8);
-            buffer.putShort((short) lineBytes.length);
-            buffer.put(lineBytes);
+            Message.putString(line, buffer);
         }
 
         return result;
@@ -118,10 +116,7 @@ public class StatusResponse implements MessageObject {
             int numberOfLines = buffer.get() & 0xff;
             List<String> lines = new ArrayList<>();
             for (int i = 0; i < numberOfLines; i++) {
-                short lineByteLength = buffer.getShort();
-                byte[] lineBytes = new byte[lineByteLength];
-                buffer.get(lineBytes);
-                lines.add(new String(lineBytes, StandardCharsets.UTF_8));
+                lines.add(Message.getString(buffer));
             }
 
             result = new StatusResponse(lines);

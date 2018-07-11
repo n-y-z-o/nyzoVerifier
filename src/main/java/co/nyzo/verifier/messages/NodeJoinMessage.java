@@ -1,9 +1,6 @@
 package co.nyzo.verifier.messages;
 
-import co.nyzo.verifier.FieldByteSize;
-import co.nyzo.verifier.MeshListener;
-import co.nyzo.verifier.MessageObject;
-import co.nyzo.verifier.Node;
+import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -12,24 +9,32 @@ import java.util.List;
 public class NodeJoinMessage implements MessageObject {
 
     private int port;
+    private String nickname;
 
     public NodeJoinMessage() {
 
         this.port = MeshListener.getPort();
+        this.nickname = Verifier.getNickname();
     }
 
-    public NodeJoinMessage(int port) {
+    public NodeJoinMessage(int port, String nickname) {
 
         this.port = port;
+        this.nickname = nickname;
     }
 
     public int getPort() {
         return port;
     }
 
+    public String getNickname() {
+        return nickname;
+    }
+
     @Override
     public int getByteSize() {
-        return FieldByteSize.port;
+
+        return FieldByteSize.port + FieldByteSize.string(nickname);
     }
 
     @Override
@@ -38,6 +43,7 @@ public class NodeJoinMessage implements MessageObject {
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.putInt(port);
+        Message.putString(nickname, buffer);
 
         return array;
     }
@@ -48,8 +54,9 @@ public class NodeJoinMessage implements MessageObject {
 
         try {
             int port = buffer.getInt();
+            String nickname = Message.getString(buffer);
 
-            result = new NodeJoinMessage(port);
+            result = new NodeJoinMessage(port, nickname);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }

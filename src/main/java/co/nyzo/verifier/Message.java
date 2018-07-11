@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class Message {
@@ -365,6 +366,22 @@ public class Message {
         }
 
         return content;
+    }
+
+    public static void putString(String value, ByteBuffer buffer) {
+
+        byte[] lineBytes = value.getBytes(StandardCharsets.UTF_8);
+        buffer.putShort((short) lineBytes.length);
+        buffer.put(lineBytes);
+    }
+
+    public static String getString(ByteBuffer buffer) {
+
+        short lineByteLength = buffer.getShort();
+        byte[] lineBytes = new byte[lineByteLength];
+        buffer.get(lineBytes);
+
+        return new String(lineBytes, StandardCharsets.UTF_8);
     }
 
     @Override
