@@ -121,9 +121,15 @@ public class MeshListener {
                 } else if (messageType == MessageType.NodeJoin3) {
 
                     NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
-                    NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
-                            nodeJoinMessage.getPort());
+                    boolean isNewNode = NodeManager.updateNode(message.getSourceNodeIdentifier(),
+                            message.getSourceIpAddress(), nodeJoinMessage.getPort());
                     NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
+
+                    // If this is a new node, send a node join to make the connection in the other direction.
+                    if (isNewNode) {
+                        Message.fetch(IpUtil.addressAsString(message.getSourceIpAddress()), nodeJoinMessage.getPort(),
+                                new Message(MessageType.NodeJoin3, null), null);
+                    }
 
                     response = new Message(MessageType.NodeJoinResponse4, new NodeJoinResponse());
 

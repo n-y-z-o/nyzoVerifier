@@ -15,13 +15,14 @@ public class NodeManager {
     private static final int consecutiveFailuresBeforeRemoval = 6;
     private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
 
-    public static void updateNode(byte[] identifier, byte[] ipAddress, int port) {
+    public static boolean updateNode(byte[] identifier, byte[] ipAddress, int port) {
 
-        updateNode(identifier, ipAddress, port, 0);
+        return updateNode(identifier, ipAddress, port, 0);
     }
 
-    public static synchronized void updateNode(byte[] identifier, byte[] ipAddress, int port, long queueTimestamp) {
-        
+    public static synchronized boolean updateNode(byte[] identifier, byte[] ipAddress, int port, long queueTimestamp) {
+
+        boolean isNewNode = false;
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
                 ipAddress.length == FieldByteSize.ipAddress && !IpUtil.isPrivate(ipAddress)) {
 
@@ -36,6 +37,7 @@ public class NodeManager {
                     node.setQueueTimestamp(queueTimestamp);
                 }
                 ipAddressToNodeMap.put(ipAddressBuffer, node);
+                isNewNode = true;
 
             } else {
                 // This is the case when there is already a node at the IP. We always update the port and mark the node
@@ -49,9 +51,12 @@ public class NodeManager {
                         verifierChangeAllowed(existingNode)) {
                     existingNode.setIdentifier(identifier);
                     existingNode.setQueueTimestamp(System.currentTimeMillis());
+                    isNewNode = true;
                 }
             }
         }
+
+        return isNewNode;
     }
 
     private static boolean verifierChangeAllowed(Node node) {
