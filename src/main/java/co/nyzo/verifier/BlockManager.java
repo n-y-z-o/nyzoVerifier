@@ -190,6 +190,7 @@ public class BlockManager {
             } else {
                 try {
                     setFrozenEdge(block);
+                    BalanceListManager.registerBalanceList(balanceList);
 
                     writeBlocksToFile(Arrays.asList(block), Arrays.asList(balanceList),
                             individualFileForBlockHeight(block.getBlockHeight()));
