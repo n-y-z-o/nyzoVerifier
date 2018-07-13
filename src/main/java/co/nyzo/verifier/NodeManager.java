@@ -164,4 +164,10 @@ public class NodeManager {
 
         NodeManager.activeVerifiers = activeVerifiers;
     }
+
+    public static synchronized void requestMissingNodes() {
+
+        // Ask other verifiers for information about nodes that are in the previous verification cycle but not in the
+        // mesh.
+    }
 }

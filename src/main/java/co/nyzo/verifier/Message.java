@@ -332,7 +332,7 @@ public class Message {
         } else if (type == MessageType.PreviousHashResponse8) {
             content = PreviousHashResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.NewBlock9) {
-            content = Block.fromByteBuffer(buffer);
+            content = NewBlockMessage.fromByteBuffer(buffer);
         } else if (type == MessageType.BlockRequest11) {
             content = BlockRequest.fromByteBuffer(buffer);
         }  else if (type == MessageType.BlockResponse12) {

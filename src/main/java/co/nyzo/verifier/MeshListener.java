@@ -144,7 +144,16 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NewBlock9) {
 
-                    UnfrozenBlockManager.registerBlock((Block) message.getContent());
+                    // If this is a new node, send a node join to make the connection in the other direction.
+                    NewBlockMessage blockMessage = (NewBlockMessage) message.getContent();
+                    boolean isNewNode = NodeManager.updateNode(message.getSourceNodeIdentifier(),
+                            message.getSourceIpAddress(), blockMessage.getPort());
+                    if (isNewNode) {
+                        Message.fetch(IpUtil.addressAsString(message.getSourceIpAddress()), blockMessage.getPort(),
+                                new Message(MessageType.NodeJoin3, null), null);
+                    }
+
+                    UnfrozenBlockManager.registerBlock(blockMessage.getBlock());
                     response = new Message(MessageType.NewBlockResponse10, null);
 
                 } else if (messageType == MessageType.BlockRequest11) {

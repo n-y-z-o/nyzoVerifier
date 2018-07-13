@@ -437,6 +437,9 @@ public class Verifier {
                     // Request and blocks that appear to be missing.
                     BlockManager.requestMissingBlocks();
 
+                    // Request any nodes that appear to be missing.
+                    NodeManager.requestMissingNodes();
+
                     // If the frozen edge height has changed, update the new-verifier vote and update the frozen edge
                     // with the transaction pool.
                     if (frozenEdgeHeight != BlockManager.getFrozenEdgeHeight()) {
@@ -474,7 +477,7 @@ public class Verifier {
                 boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
                 if (shouldTransmitBlock) {
                     blocksTransmitted++;
-                    Message.broadcast(new Message(MessageType.NewBlock9, nextBlock));
+                    Message.broadcast(new Message(MessageType.NewBlock9, new NewBlockMessage(nextBlock)));
                 }
             } else if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Discontinuous) {
 
