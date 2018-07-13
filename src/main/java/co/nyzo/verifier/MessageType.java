@@ -49,6 +49,8 @@ public enum MessageType {
     UnfrozenBlockPoolPurgeResponse405(405),
     UnfrozenBlockPoolStatusRequest406(406),  // gets textual information about the unfrozen block pool
     UnfrozenBlockPoolStatusResponse407(407),
+    MeshStatusRequest408(408),  // gets textual information about the mesh
+    MeshStatusResponse409(409),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain   TODO: key this to the local verifier before release

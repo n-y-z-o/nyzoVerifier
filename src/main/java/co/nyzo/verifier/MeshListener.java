@@ -212,6 +212,10 @@ public class MeshListener {
                     response = new Message(MessageType.UnfrozenBlockPoolStatusResponse407,
                             new UnfrozenBlockPoolStatusResponse(message));
 
+                } else if (messageType == MessageType.MeshStatusRequest408) {
+
+                    response = new Message(MessageType.MeshStatusResponse409, new MeshStatusResponse(message));
+
                 } else if (messageType == MessageType.ResetRequest500) {
 
                     boolean success = ByteUtil.arraysAreEqual(message.getSourceNodeIdentifier(), Block.genesisVerifier);

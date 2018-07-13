@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-public class UnfrozenBlockPoolStatusResponse implements MessageObject {
+public class UnfrozenBlockPoolStatusResponse implements MessageObject, MultilineTextResponse {
 
     private List<String> lines;
 
