@@ -214,6 +214,7 @@ public class Verifier {
             // build the blockchain.
             if (UpdateUtil.shouldTerminate() || consensusFrozenEdge > BlockManager.getFrozenEdgeHeight()) {
                 alive.set(false);
+                UpdateUtil.terminate();
                 MeshListener.closeSocket();
                 NotificationUtil.send("terminating verifier before main loop start on " + Verifier.getNickname() +
                         "; consensus frozen edge is " + consensusFrozenEdge + ", frozen edge is " +
