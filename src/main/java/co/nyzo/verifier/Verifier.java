@@ -212,8 +212,12 @@ public class Verifier {
 
             // Start the proactive side of the verifier, initiating the actions necessary to maintain the mesh and
             // build the blockchain.
-            if (UpdateUtil.shouldTerminate()) {
+            if (UpdateUtil.shouldTerminate() || consensusFrozenEdge > BlockManager.getFrozenEdgeHeight()) {
                 alive.set(false);
+                MeshListener.closeSocket();
+                NotificationUtil.send("terminating verifier before main loop start on " + Verifier.getNickname() +
+                        "; consensus frozen edge is " + consensusFrozenEdge + ", frozen edge is " +
+                        BlockManager.getFrozenEdgeHeight());
             } else {
                 new Thread(new Runnable() {
                     @Override

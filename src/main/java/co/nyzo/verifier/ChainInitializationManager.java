@@ -76,7 +76,8 @@ public class ChainInitializationManager {
         Set<BalanceList> initialBalanceList = new HashSet<>();  // single item; using a set to allow access from thread
         boolean missingBlocks = true;
         boolean missingBalanceList = requireBalanceList;
-        while ((missingBlocks || missingBalanceList) && !UpdateUtil.shouldTerminate()) {
+        int numberOfIterations = 0;
+        while ((missingBlocks || missingBalanceList) && numberOfIterations++ < 10 && !UpdateUtil.shouldTerminate()) {
 
             // The chain is built from the end to the beginning so hashes can be confirmed.
             long minimumHeightAlreadyFetched = endHeight + 1;
@@ -127,11 +128,17 @@ public class ChainInitializationManager {
                 }
             });
 
+            // Sleep to allow the request to return.
+            try {
+                Thread.sleep(1000L);
+            } catch (Exception ignored) { }
+
+            // Check if we have all the information we need. If not, sleep before the next iteration.
             missingBlocks = blocksToSave.size() < numberOfBlocksRequired;
             missingBalanceList = requireBalanceList && initialBalanceList.isEmpty();
             if ((missingBlocks || missingBalanceList) && !UpdateUtil.shouldTerminate()) {
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(1000L);
                 } catch (Exception ignored) {
                 }
             }
