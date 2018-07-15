@@ -99,15 +99,15 @@ public class Message {
         }
     }
 
-    public static void fetch(Message message, MessageCallback messageCallback) {
+    public static void fetchFromRandomNode(Message message, MessageCallback messageCallback) {
 
         Node node = null;
         List<Node> mesh = NodeManager.getMesh();
         Random random = new Random();
         while (node == null && !mesh.isEmpty()) {
-            Node testNode = mesh.remove(random.nextInt(mesh.size()));
-            if (!ByteUtil.arraysAreEqual(testNode.getIdentifier(), Verifier.getIdentifier())) {
-                node = testNode;
+            Node meshNode = mesh.remove(random.nextInt(mesh.size()));
+            if (!ByteUtil.arraysAreEqual(meshNode.getIdentifier(), Verifier.getIdentifier())) {
+                node = meshNode;
             }
         }
 
@@ -359,6 +359,8 @@ public class Message {
             content = UnfrozenBlockPoolPurgeResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UnfrozenBlockPoolStatusResponse407) {
             content = UnfrozenBlockPoolStatusResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.MeshStatusResponse409) {
+            content = MeshStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.ResetResponse501) {
             content = BooleanMessageResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Error65534) {

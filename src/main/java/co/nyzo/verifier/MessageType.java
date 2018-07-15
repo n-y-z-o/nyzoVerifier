@@ -30,6 +30,8 @@ public enum MessageType {
     NewVerifierVoteResponse22(22),
     MissingBlockVoteRequest23(23),
     MissingBlockVoteResponse24(24),
+    MissingBlockRequest25(25),
+    MissingBlockResponse26(26),
 
     // test messages
     Ping200(200),
@@ -51,6 +53,8 @@ public enum MessageType {
     UnfrozenBlockPoolStatusResponse407(407),
     MeshStatusRequest408(408),  // gets textual information about the mesh
     MeshStatusResponse409(409),
+    TogglePauseRequest410(410),  // pauses/un-pauses verifier
+    TogglePauseResponse411(411),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain   TODO: key this to the local verifier before release

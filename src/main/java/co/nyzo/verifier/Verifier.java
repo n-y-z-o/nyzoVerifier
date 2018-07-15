@@ -39,6 +39,8 @@ public class Verifier {
 
     private static Set<ByteBuffer> nodeJoinAcknowledgementsReceived = new HashSet<>();
 
+    private static boolean paused = false;
+
     static {
         // This ensures the seed is always available, even if this class is used from a test script.
         loadPrivateSeed();
@@ -383,7 +385,7 @@ public class Verifier {
             long sleepTime = 1000L;
             try {
                 // Only run the active verifier if connected to the mesh.
-                if (NodeManager.connectedToMesh()) {
+                if (NodeManager.connectedToMesh() && !paused) {
 
                     // If we have stopped receiving messages from the mesh, send new node-join messages. This is
                     // likely due to a changed IP address.
@@ -593,6 +595,13 @@ public class Verifier {
         return blocksTransmitted + "/" + blocksCreated;
     }
 
+    public static boolean isPaused() {
+        return paused;
+    }
+
+    public static void setPaused(boolean paused) {
+        Verifier.paused = paused;
+    }
 
     public static int getRejoinCount() {
 

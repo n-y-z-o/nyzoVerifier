@@ -43,35 +43,45 @@ public class MeshListener {
 
                         while (!UpdateUtil.shouldTerminate()) {
 
-                            try {
-                                Socket clientSocket = serverSocket.accept();
-                                new Thread(new Runnable() {
-                                    @Override
-                                    public void run() {
+                            if (Verifier.isPaused()) {
+                                try {
+                                    Thread.sleep(1000L);
+                                } catch (Exception ignored) { }
+                            } else {
+                                try {
+                                    Socket clientSocket = serverSocket.accept();
+                                    new Thread(new Runnable() {
+                                        @Override
+                                        public void run() {
 
-                                        try {
-                                            Message message = Message.readFromStream(clientSocket.getInputStream(),
-                                                    IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() +
-                                                            ""), MessageType.IncomingRequest65533);
-                                            if (message != null) {
-                                                Message response = response(message);
-                                                if (response != null) {
-                                                    clientSocket.getOutputStream().write(response
-                                                            .getBytesForTransmission());
+                                            try {
+                                                Message message = Message.readFromStream(clientSocket.getInputStream(),
+                                                        IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() +
+                                                                ""), MessageType.IncomingRequest65533);
+
+                                                // If the verifier is paused, do not process the message.
+                                                if (message != null) {
+                                                    Message response = response(message);
+                                                    if (response != null) {
+                                                        clientSocket.getOutputStream().write(response
+                                                                .getBytesForTransmission());
+                                                    }
                                                 }
+
+                                            } catch (Exception e) {
+                                                e.printStackTrace();
                                             }
 
-                                        } catch (Exception e) {
-                                            e.printStackTrace();
+                                            try {
+                                                Thread.sleep(3L);
+                                                clientSocket.close();
+                                            } catch (Exception ignored) {
+                                            }
                                         }
-
-                                        try {
-                                            Thread.sleep(3L);
-                                            clientSocket.close();
-                                        } catch (Exception ignored) { }
-                                    }
-                                }, "MeshListener-clientSocket").start();
-                            } catch (Exception ignored) { }
+                                    }, "MeshListener-clientSocket").start();
+                                } catch (Exception ignored) {
+                                }
+                            }
                         }
 
                         closeSocket();

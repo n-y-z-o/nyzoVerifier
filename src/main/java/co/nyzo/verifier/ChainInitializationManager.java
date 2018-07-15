@@ -89,7 +89,7 @@ public class ChainInitializationManager {
 
             Message message = new Message(MessageType.BlockRequest11, new BlockRequest(startHeight, requestEndHeight,
                     requireBalanceList));
-            Message.fetch(message, new MessageCallback() {
+            Message.fetchFromRandomNode(message, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
 

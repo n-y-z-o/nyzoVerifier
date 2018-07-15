@@ -31,7 +31,7 @@ public class StatusResponse implements MessageObject {
             int inactiveMeshSize = meshSize - activeMeshSize;
 
             List<String> lines = new ArrayList<>();
-            lines.add("nickname: " + Verifier.getNickname());
+            lines.add("nickname: " + Verifier.getNickname() + (Verifier.isPaused() ? "*** PAUSED ***" : ""));
             lines.add("version: " + Version.getVersion());
             lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
             lines.add("mesh: " + activeMeshSize + " active, " + inactiveMeshSize + " inactive");

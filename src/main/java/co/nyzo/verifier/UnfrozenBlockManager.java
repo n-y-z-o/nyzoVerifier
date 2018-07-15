@@ -1,6 +1,9 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.BlockRequest;
 import co.nyzo.verifier.messages.BlockVote;
+import co.nyzo.verifier.messages.MissingBlockRequest;
+import co.nyzo.verifier.messages.MissingBlockResponse;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -206,6 +209,24 @@ public class UnfrozenBlockManager {
                         NotificationUtil.sendOnce("issue trying to freeze blocks on " + Verifier.getNickname() +
                                 ", heights of blocks are " + heightsToFreeze + ", frozen edge is " + frozenEdgeHeight);
                     }
+                } else {
+
+                    // When the block is null, send a request to try to get it from another node.
+                    NotificationUtil.sendOnce("fetching block " + height + " (" +
+                            PrintUtil.compactPrintByteArray(hash) + " from mesh");
+                    Message blockRequest = new Message(MessageType.BlockRequest11, new MissingBlockRequest(height,
+                            hash));
+                    Message.fetchFromRandomNode(blockRequest, new MessageCallback() {
+                        @Override
+                        public void responseReceived(Message message) {
+
+                            MissingBlockResponse response = (MissingBlockResponse) message.getContent();
+                            Block responseBlock = response.getBlock();
+                            if (responseBlock != null && ByteUtil.arraysAreEqual(responseBlock.getHash(), hash)) {
+                                registerBlock(responseBlock);
+                            }
+                        }
+                    });
                 }
             }
         }
