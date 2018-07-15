@@ -143,7 +143,8 @@ public class NodeManager {
 
     public static boolean isActive(byte[] verifierIdentifier) {
 
-        return activeVerifiers.contains(ByteBuffer.wrap(verifierIdentifier));
+        return ByteUtil.arraysAreEqual(verifierIdentifier, Verifier.getIdentifier()) ||
+                activeVerifiers.contains(ByteBuffer.wrap(verifierIdentifier));
     }
 
     public static synchronized void updateActiveVerifiersAndRemoveOldNodes() {
