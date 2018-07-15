@@ -309,7 +309,7 @@ public class BlockManager {
         }
     }
 
-    private static BalanceList loadBalanceListFromFileForHeight(long blockHeight) {
+    public static BalanceList loadBalanceListFromFileForHeight(long blockHeight) {
 
         BalanceList balanceList = loadBalanceListFromFile(individualFileForBlockHeight(blockHeight), blockHeight);
         if (balanceList == null) {

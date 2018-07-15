@@ -1,8 +1,10 @@
 package co.nyzo.verifier.messages;
 
+import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.HashUtil;
 import co.nyzo.verifier.MessageObject;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -45,5 +47,10 @@ public class NewVerifierVote implements MessageObject {
         }
 
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return "[NewVerifierVote(identifier=" + PrintUtil.superCompactPrintByteArray(identifier) + ")]";
     }
 }

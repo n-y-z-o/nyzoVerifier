@@ -62,8 +62,6 @@ public class BlockFileConsolidator {
 
     private static void consolidateFiles(long fileIndex, List<File> individualFiles) {
 
-        // TODO: reimplement this more efficiently
-        /*
         // Get the blocks from the existing consolidated file for this index.
         long startBlockHeight = fileIndex * BlockManager.blocksPerFile;
         File consolidatedFile = BlockManager.consolidatedFileForBlockHeight(startBlockHeight);
@@ -90,8 +88,22 @@ public class BlockFileConsolidator {
             }
         }
 
+        // Get the balance lists.
+        List<BalanceList> balanceLists = new ArrayList<>();
+        for (int i = 0; i < blocks.size(); i++) {
+            if (i == 0 || blocks.get(i).getBlockHeight() != (blocks.get(i - 1).getBlockHeight() + 1)) {
+                BalanceList balanceList = BlockManager.loadBalanceListFromFileForHeight(blocks.get(i).getBlockHeight());
+                if (balanceList == null) {
+                    NotificationUtil.send("unexpected null balance list at height " + blocks.get(i).getBlockHeight() +
+                            " in block consolidation process on " + Verifier.getNickname());
+                } else {
+                    balanceLists.add(balanceList);
+                }
+            }
+        }
+
         // Write the combined file.
-        BlockManager.writeBlocksToFile(blocks, consolidatedFile);
+        BlockManager.writeBlocksToFile(blocks, balanceLists, consolidatedFile);
 
         // Delete the individual files.
         for (File file : individualFiles) {
@@ -99,8 +111,8 @@ public class BlockFileConsolidator {
         }
 
         NotificationUtil.send("consolidated " + individualFiles.size() + " files to a single file for start height " +
-                startBlockHeight + " on " + Verifier.getNickname());
-                */
+                startBlockHeight + " on " + Verifier.getNickname() + "; used " + balanceLists.size() +
+                " balance lists");
     }
 
     private static long blockHeightForFile(File file) {
