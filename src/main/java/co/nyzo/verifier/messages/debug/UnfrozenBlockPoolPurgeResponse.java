@@ -1,4 +1,4 @@
-package co.nyzo.verifier.messages;
+package co.nyzo.verifier.messages.debug;
 
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.PrintUtil;

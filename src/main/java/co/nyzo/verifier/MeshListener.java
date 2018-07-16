@@ -1,6 +1,9 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
+import co.nyzo.verifier.messages.debug.MeshStatusResponse;
+import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolPurgeResponse;
+import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolStatusResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;

@@ -441,7 +441,7 @@ public class Verifier {
                     // Request any votes that appear to be missing.
                     BlockVoteManager.requestMissingVotes();
 
-                    // Request and blocks that appear to be missing.
+                    // Request any blocks that appear to be missing.
                     BlockManager.requestMissingBlocks();
 
                     // Request any nodes that appear to be missing.

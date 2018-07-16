@@ -1,6 +1,8 @@
-package co.nyzo.verifier.messages;
+package co.nyzo.verifier.messages.debug;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.messages.BlockVote;
+import co.nyzo.verifier.messages.MultilineTextResponse;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
