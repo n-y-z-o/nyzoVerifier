@@ -12,6 +12,11 @@ public class BalanceListManager {
     private static long totalQueries = 0;
     private static long totalWork = 0;
 
+    // TODO: remove these; they are for debugging only
+    private static BalanceList genesisList = null;
+    private static BalanceList retentionEdgeList = null;
+    private static BalanceList frozenEdgeList = null;
+
     private static final long maximumMapSize = 6;
 
     // This is a map from balance list hash to balance list.
@@ -19,9 +24,9 @@ public class BalanceListManager {
 
     public static synchronized BalanceList balanceListForBlock(Block block) {
 
-        // Only proceed if the block is at or past the trailing edge or is the Genesis block.
+        // Only proceed if the block is at or past the retention window start height or is the Genesis block.
         BalanceList balanceList = null;
-        if (block.getBlockHeight() >= BlockManager.getTrailingEdgeHeight() || block.getBlockHeight() == 0) {
+        if (block.getBlockHeight() >= BlockManager.getRetentionEdgeHeight() || block.getBlockHeight() == 0) {
 
             totalQueries++;
 
@@ -93,6 +98,8 @@ public class BalanceListManager {
                                         " on " + Verifier.getNickname());
                             }
                         }
+
+                        registerBalanceList(balanceList);
                     }
                 }
             }
@@ -133,15 +140,15 @@ public class BalanceListManager {
         if (balanceList != null) {
             balanceListMap.put(ByteBuffer.wrap(balanceList.getHash()), balanceList);
 
-            // If the map is too large, remove less-used entries, keeping the frozen edge and the trailing edge from
-            // the block manager. Also keep the Genesis list, if present.
+            // If the map is too large, remove less-used entries, keeping the frozen edge and the retention edge.
+            // Also keep the Genesis list, if present.
             if (balanceListMap.size() > maximumMapSize) {
 
-                // Find the balance lists for the frozen and trailing edges.
-                long trailingEdgeHeight = BlockManager.getTrailingEdgeHeight();
+                // Find the balance lists for the frozen and retention edges.
+                long retentionEdgeHeight = BlockManager.getRetentionEdgeHeight();
                 long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
                 BalanceList genesisList = null;
-                BalanceList trailingEdgeList = null;
+                BalanceList retentionEdgeList = null;
                 BalanceList frozenEdgeList = null;
                 for (BalanceList item : balanceListMap.values()) {
                     long itemHeight = item.getBlockHeight();
@@ -151,11 +158,11 @@ public class BalanceListManager {
                         genesisList = item;
                     }
 
-                    // Find the highest balance list at or before the trailing edge. This is necessary for
+                    // Find the highest balance list at or before the retention edge. This is necessary for
                     // bootstrapping new verifiers.
-                    if (itemHeight <= trailingEdgeHeight &&
-                            (trailingEdgeList == null || itemHeight > trailingEdgeList.getBlockHeight())) {
-                        trailingEdgeList = item;
+                    if (itemHeight <= retentionEdgeHeight &&
+                            (retentionEdgeList == null || itemHeight > retentionEdgeList.getBlockHeight())) {
+                        retentionEdgeList = item;
                     }
 
                     // Find the highest balance list at or before the frozen edge. This is necessary for creating new
@@ -166,14 +173,19 @@ public class BalanceListManager {
                     }
                 }
 
-                if (trailingEdgeList != null && frozenEdgeList != null) {
+                if (retentionEdgeList != null && frozenEdgeList != null) {
 
                     balanceListMap.clear();
                     if (genesisList != null) {
                         balanceListMap.put(ByteBuffer.wrap(genesisList.getHash()), genesisList);
                     }
-                    balanceListMap.put(ByteBuffer.wrap(trailingEdgeList.getHash()), trailingEdgeList);
+                    balanceListMap.put(ByteBuffer.wrap(retentionEdgeList.getHash()), retentionEdgeList);
                     balanceListMap.put(ByteBuffer.wrap(frozenEdgeList.getHash()), frozenEdgeList);
+
+                    // TODO: remove this; it is for debugging only
+                    BalanceListManager.genesisList = genesisList;
+                    BalanceListManager.retentionEdgeList = retentionEdgeList;
+                    BalanceListManager.frozenEdgeList = frozenEdgeList;
                 }
             }
         }
@@ -182,20 +194,9 @@ public class BalanceListManager {
     // TODO: remove this; it is for debugging only
     public static synchronized String mapInformation() {
 
-        long minimumHeightInMap = -1L;
-        long maximumHeightInMap = -1L;
-        for (BalanceList balanceList : balanceListMap.values()) {
-            if (minimumHeightInMap < 0) {
-                minimumHeightInMap = balanceList.getBlockHeight();
-                maximumHeightInMap = balanceList.getBlockHeight();
-            } else {
-                minimumHeightInMap = Math.min(minimumHeightInMap, balanceList.getBlockHeight());
-                maximumHeightInMap = Math.max(maximumHeightInMap, balanceList.getBlockHeight());
-            }
-        }
-
-        return balanceListMap.size() + (minimumHeightInMap < 0 ? "" : " [" + minimumHeightInMap + "," +
-                maximumHeightInMap + "]");
+        return balanceListMap.size() + "(G=" + (genesisList == null ? "-" : genesisList.getBlockHeight() + ",r=" +
+                (retentionEdgeList == null ? "-" : retentionEdgeList.getBlockHeight()) + ",f=" +
+                (frozenEdgeList == null ? "-" : frozenEdgeList.getBlockHeight()) + ")");
     }
 
     // TODO: remove this; it is for debugging only

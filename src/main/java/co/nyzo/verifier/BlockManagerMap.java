@@ -23,9 +23,9 @@ public class BlockManagerMap {
 
                 iteration = 0;
 
-                long trailingEdgeHeight = BlockManager.getTrailingEdgeHeight();
+                long retentionEdgeHeight = BlockManager.getRetentionEdgeHeight();
                 for (Long height : new HashSet<>(blockMap.keySet())) {
-                    if (height != 0 && height < trailingEdgeHeight) {
+                    if (height != 0 && height < retentionEdgeHeight) {
                         blockMap.remove(height);
                     }
                 }
@@ -43,17 +43,22 @@ public class BlockManagerMap {
 
         long minimumHeightInMap = -1L;
         long maximumHeightInMap = -1L;
+        boolean hasGenesisBlock = false;
         for (Block block : blockMap.values()) {
-            if (minimumHeightInMap < 0) {
-                minimumHeightInMap = block.getBlockHeight();
-                maximumHeightInMap = block.getBlockHeight();
+            if (block.getBlockHeight() == 0L) {
+                hasGenesisBlock = true;
             } else {
-                minimumHeightInMap = Math.min(minimumHeightInMap, block.getBlockHeight());
-                maximumHeightInMap = Math.max(maximumHeightInMap, block.getBlockHeight());
+                if (minimumHeightInMap < 0) {
+                    minimumHeightInMap = block.getBlockHeight();
+                    maximumHeightInMap = block.getBlockHeight();
+                } else {
+                    minimumHeightInMap = Math.min(minimumHeightInMap, block.getBlockHeight());
+                    maximumHeightInMap = Math.max(maximumHeightInMap, block.getBlockHeight());
+                }
             }
         }
 
-        return blockMap.size() + (minimumHeightInMap < 0 ? "" : " [" + minimumHeightInMap + "," +
-                maximumHeightInMap + "]");
+        return blockMap.size() + ": " + (hasGenesisBlock ? "0," : "") +
+                (minimumHeightInMap < 0 ? "" : "[" + minimumHeightInMap + "," + maximumHeightInMap + "]");
     }
 }

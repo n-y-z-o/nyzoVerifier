@@ -31,14 +31,21 @@ public class BlockManager {
         initialize();
     }
 
+    public static long getFrozenEdgeHeight() {
+
+        return frozenEdgeHeight;
+    }
+
     public static long getTrailingEdgeHeight() {
 
         return trailingEdgeHeight;
     }
 
-    public static long getFrozenEdgeHeight() {
+    public static long getRetentionEdgeHeight() {
 
-        return frozenEdgeHeight;
+        // To keep the mesh playing smoothly while reasonably limiting resource usage, we retain information in memory
+        // to just behind the trailing edge. Twenty-four blocks gives us two minutes of leeway.
+        return trailingEdgeHeight - 24;
     }
 
     public static Block frozenBlockForHeight(long blockHeight) {
@@ -431,7 +438,7 @@ public class BlockManager {
             // Set the frozen and trailing edge heights.
             frozenEdgeHeight = block.getBlockHeight();
             if (block.getCycleInformation() != null) {
-                trailingEdgeHeight = Math.max(block.getCycleInformation().getWindowStartHeight() - 20, 0);
+                trailingEdgeHeight = Math.max(block.getCycleInformation().getWindowStartHeight(), 0);
             }
 
             updateVerifiersInCurrentCycle(block);
