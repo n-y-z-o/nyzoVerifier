@@ -194,9 +194,10 @@ public class BalanceListManager {
     // TODO: remove this; it is for debugging only
     public static synchronized String mapInformation() {
 
-        return balanceListMap.size() + "(G=" + (genesisList == null ? "-" : genesisList.getBlockHeight() + ",r=" +
-                (retentionEdgeList == null ? "-" : retentionEdgeList.getBlockHeight()) + ",f=" +
-                (frozenEdgeList == null ? "-" : frozenEdgeList.getBlockHeight()) + ")");
+        String genesisString = "G=" + (genesisList == null ? "-" : genesisList.getBlockHeight());
+        String retentionString = "r=" + (retentionEdgeList == null ? "-" : retentionEdgeList.getBlockHeight());
+        String frozenString = "f=" + (frozenEdgeList == null ? "-" : frozenEdgeList.getBlockHeight());
+        return balanceListMap.size() + "(" + genesisString + "," + retentionString + "," + frozenString + ")";
     }
 
     // TODO: remove this; it is for debugging only
