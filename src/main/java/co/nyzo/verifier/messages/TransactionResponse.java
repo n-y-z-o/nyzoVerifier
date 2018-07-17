@@ -51,6 +51,10 @@ public class TransactionResponse implements MessageObject {
         return accepted;
     }
 
+    public String getMessage() {
+        return message;
+    }
+
     @Override
     public int getByteSize() {
         return FieldByteSize.booleanField +   // transactionAccepted

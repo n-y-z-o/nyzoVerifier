@@ -333,6 +333,15 @@ public class Transaction implements MessageObject {
                         "0. ");
             }
 
+            // Check that the previous-block hash is contained in the chain.
+            Block previousHashBlock = BlockManager.frozenBlockForHeight(previousHashHeight);
+            if (valid && (previousHashBlock == null ||
+                    !ByteUtil.arraysAreEqual(previousHashBlock.getHash(), previousBlockHash))) {
+                valid = false;
+                validationError.append("The previous-block hash is invalid. ");
+            }
+
+
             // Check the signature.
             if (valid) {
                 if (!SignatureUtil.signatureIsValid(signature, getBytes(true), senderIdentifier)) {
@@ -342,34 +351,31 @@ public class Transaction implements MessageObject {
             }
 
             // Check that the amount is at least µ1.
-            if (amount < 1) {
+            if (valid && amount < 1) {
                 valid = false;
                 validationError.append("The transaction must be at least µ1. ");
             }
 
-            // Check that the previous-block hash is contained in the chain.
-            Block previousHashBlock = BlockManager.frozenBlockForHeight(previousHashHeight);
-            if (previousHashBlock == null || !ByteUtil.arraysAreEqual(previousHashBlock.getHash(), previousBlockHash)) {
-                valid = false;
-                validationError.append("The previous-block hash is invalid. ");
-            }
-
             // Check that the sender and receiver are the same address for seed transactions and different addresses
             // for standard transactions.
-            if (type == typeSeed) {
+            if (valid && type == typeSeed) {
                 if (!ByteUtil.arraysAreEqual(getSenderIdentifier(), getReceiverIdentifier())) {
                     valid = false;
                     validationError.append("The sender and receiver must be the same for seed transactions. ");
                 }
-            } else if (type == typeStandard) {
+            } else if (valid && type == typeStandard) {
                 if (ByteUtil.arraysAreEqual(getSenderIdentifier(), getReceiverIdentifier())) {
                     valid = false;
                     validationError.append("The sender and receiver must be different for standard transactions. ");
                 }
             }
 
-            // TODO: Check that the block for the specified timestamp has not yet been processed.
-
+            if (valid) {
+                long blockHeight = BlockManager.heightForTimestamp(timestamp);
+                if (blockHeight < BlockManager.openEdgeHeight(false)) {
+                    validationError.append("The block has already been processed. ");
+                }
+            }
 
             // Trim trailing spaces from the error and warning.
             if (validationError.length() > 0) {

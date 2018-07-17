@@ -38,8 +38,17 @@ public class HistoricalBlockManagerMap {
         File file = BlockManager.consolidatedFileForBlockHeight(startHeight);
         List<Block> blocks = BlockManager.loadBlocksInFile(file, startHeight, endHeight);
 
-        // If the list is non-empty, build the map.
-        if (!blocks.isEmpty()) {
+        if (blocks.isEmpty()) {
+            // If the list is empty, try to load the individual file and add it to the map.
+            File individualFile = BlockManager.individualFileForBlockHeight(height);
+            List<Block> individualList = BlockManager.loadBlocksInFile(individualFile, height, height);
+            if (!individualList.isEmpty()) {
+                Block block = individualList.get(0);
+                HistoricalBlockManagerMap.map.put(block.getBlockHeight(), block);
+            }
+
+        } else {
+            // If the list is non-empty, build the map.
             Map<Long, Block> map = new HashMap<>();
             for (Block block : blocks) {
                 map.put(block.getBlockHeight(), block);
