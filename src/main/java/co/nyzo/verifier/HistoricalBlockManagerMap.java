@@ -39,13 +39,19 @@ public class HistoricalBlockManagerMap {
         List<Block> blocks = BlockManager.loadBlocksInFile(file, startHeight, endHeight);
 
         if (blocks.isEmpty()) {
-            // If the list is empty, try to load the individual file and add it to the map.
-            File individualFile = BlockManager.individualFileForBlockHeight(height);
-            List<Block> individualList = BlockManager.loadBlocksInFile(individualFile, height, height);
-            if (!individualList.isEmpty()) {
-                Block block = individualList.get(0);
-                HistoricalBlockManagerMap.map.put(block.getBlockHeight(), block);
+
+            // If the list is empty, try to load the individual files and build the map.
+            Map<Long, Block> map = new HashMap<>();
+            for (long blockHeight = startHeight; blockHeight <= endHeight; blockHeight++) {
+                File individualFile = BlockManager.individualFileForBlockHeight(blockHeight);
+                List<Block> individualList = BlockManager.loadBlocksInFile(individualFile, blockHeight, blockHeight);
+                if (!individualList.isEmpty()) {
+                    Block block = individualList.get(0);
+                    map.put(block.getBlockHeight(), block);
+                }
             }
+
+            HistoricalBlockManagerMap.map = map;
 
         } else {
             // If the list is non-empty, build the map.
