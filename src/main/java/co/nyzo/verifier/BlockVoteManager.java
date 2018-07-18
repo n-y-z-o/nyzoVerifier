@@ -12,6 +12,8 @@ import java.util.*;
 
 public class BlockVoteManager {
 
+    private static final ByteBuffer invalidVote = ByteBuffer.wrap(new byte[FieldByteSize.hash]);
+
     // The local votes map is redundant, but it is a simple and efficient way to store local votes for responding to
     // node-join messages.
     private static final Map<Long, byte[]> localVotes = new HashMap<>();
@@ -20,7 +22,7 @@ public class BlockVoteManager {
     public static synchronized void registerVote(byte[] identifier, BlockVote vote, boolean isLocalVote) {
 
         // Register the vote. The map ensures that each identifier only gets one vote. Some of the votes may not count.
-        // Votes are only counted for verifiers in the previous cycle.
+        // Votes are only counted for verifiers in the current cycle.
         long height = vote.getHeight();
         if (height > BlockManager.getFrozenEdgeHeight() && height < BlockManager.openEdgeHeight(true)) {
             Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
@@ -28,7 +30,18 @@ public class BlockVoteManager {
                 votesForHeight = new HashMap<>();
                 voteMap.put(height, votesForHeight);
             }
-            votesForHeight.put(ByteBuffer.wrap(identifier), ByteBuffer.wrap(vote.getHash()));
+
+            // If the identifier has already voted for a different hash, we cancel the votes. Otherwise, we store the
+            // vote.
+            ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
+            if (votesForHeight.containsKey(identifierBuffer) &&
+                    !ByteUtil.arraysAreEqual(votesForHeight.get(identifierBuffer).array(), vote.getHash())) {
+                votesForHeight.put(identifierBuffer, invalidVote);
+                NotificationUtil.send("canceling vote for " + NicknameManager.get(identifier) + " on " +
+                        Verifier.getNickname());
+            } else {
+                votesForHeight.put(identifierBuffer, ByteBuffer.wrap(vote.getHash()));
+            }
         }
 
         if (isLocalVote) {
