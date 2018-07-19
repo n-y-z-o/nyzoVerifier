@@ -354,6 +354,10 @@ public class Message {
             content = MissingBlockVoteRequest.fromByteBuffer(buffer);
         } else if (type == MessageType.MissingBlockVoteResponse24) {
             content = BlockVote.fromByteBuffer(buffer);
+        } else if (type == MessageType.MissingBlockRequest25) {
+            content = MissingBlockRequest.fromByteBuffer(buffer);
+        } else if (type == MessageType.MissingBlockResponse26) {
+            content = MissingBlockResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
