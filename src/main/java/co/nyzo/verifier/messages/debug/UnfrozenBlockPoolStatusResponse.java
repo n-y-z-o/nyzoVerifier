@@ -7,10 +7,7 @@ import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 public class UnfrozenBlockPoolStatusResponse implements MessageObject, MultilineTextResponse {
 
@@ -21,31 +18,42 @@ public class UnfrozenBlockPoolStatusResponse implements MessageObject, Multiline
         // This is a debug request, so it must be signed by the local verifier.
         if (ByteUtil.arraysAreEqual(request.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
 
+            // Get and score the blocks.
             List<Block> blocks = UnfrozenBlockManager.allUnfrozenBlocks();
+            long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+            Map<Block, Long> chainScoreMap = new HashMap<>();
+            for (Block block : blocks) {
+                chainScoreMap.put(block, block.chainScore(frozenEdgeHeight));
+            }
+
+            // Sort the blocks.
             Collections.sort(blocks, new Comparator<Block>() {
                 @Override
                 public int compare(Block block1, Block block2) {
                     if (block1.getBlockHeight() == block2.getBlockHeight()) {
-                        String nickname1 = NicknameManager.get(block1.getVerifierIdentifier());
-                        String nickname2 = NicknameManager.get(block2.getVerifierIdentifier());
-                        return nickname1.compareTo(nickname2);
+                        Long chainScore1 = chainScoreMap.get(block1);
+                        Long chainScore2 = chainScoreMap.get(block2);
+                        return chainScore1.compareTo(chainScore2);
                     } else {
                         return ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight());
                     }
                 }
             });
-            long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+
+            // Produce the response.
             List<String> lines = new ArrayList<>();
             for (int i = 0; i < blocks.size() && i < 100; i++) {
                 Block block = blocks.get(i);
-                long chainScore = block.chainScore(frozenEdgeHeight);
-                String chainScoreString = PrintUtil.printChainScore(chainScore);
-                BlockVote vote = BlockVoteManager.getLocalVoteForHeight(block.getBlockHeight());
-                String localVoteString = vote != null && ByteUtil.arraysAreEqual(block.getHash(), vote.getHash()) ?
-                        "*" : "";
-                lines.add(block.getBlockHeight() + " (" + PrintUtil.superCompactPrintByteArray(block.getHash()) + "/" +
-                        NicknameManager.get(block.getVerifierIdentifier()) + "): " + chainScoreString +
-                        localVoteString);
+                if (block.getBlockHeight() > frozenEdgeHeight) {
+                    long chainScore = chainScoreMap.get(block);
+                    String chainScoreString = PrintUtil.printChainScore(chainScore);
+                    BlockVote vote = BlockVoteManager.getLocalVoteForHeight(block.getBlockHeight());
+                    String localVoteString = vote != null && ByteUtil.arraysAreEqual(block.getHash(), vote.getHash()) ?
+                            "*" : "";
+                    lines.add(block.getBlockHeight() + " (" + PrintUtil.superCompactPrintByteArray(block.getHash()) +
+                            "/" + NicknameManager.get(block.getVerifierIdentifier()) + "): " + chainScoreString +
+                            localVoteString);
+                }
             }
 
             this.lines = lines;
