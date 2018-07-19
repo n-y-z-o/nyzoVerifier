@@ -213,7 +213,7 @@ public class UnfrozenBlockManager {
 
                     // When the block is null, send a request to try to get it from another node.
                     NotificationUtil.send("fetching block " + height + " (" + PrintUtil.compactPrintByteArray(hash) +
-                            " from mesh");
+                            ") from mesh");
                     Message blockRequest = new Message(MessageType.MissingBlockRequest25,
                             new MissingBlockRequest(height, hash));
                     Message.fetchFromRandomNode(blockRequest, new MessageCallback() {
