@@ -86,6 +86,14 @@ public class BlockVoteManager {
         return numberOfVotes + "(" + maximumVotes + ")";
     }
 
+    public static synchronized List<Long> getHeights() {
+
+        List<Long> heights = new ArrayList<>(voteMap.keySet());
+        Collections.sort(heights);
+
+        return heights;
+    }
+
     public static synchronized byte[] winningHashForHeight(long height) {
 
         byte[] winningHash = null;

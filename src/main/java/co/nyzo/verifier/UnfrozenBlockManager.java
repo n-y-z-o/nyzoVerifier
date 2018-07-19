@@ -177,7 +177,7 @@ public class UnfrozenBlockManager {
     public static synchronized void freezeBlocks() {
 
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-        for (long height = frozenEdgeHeight + 1L; height < leadingEdgeHeight(); height++) {
+        for (long height : BlockVoteManager.getHeights()) {
 
             byte[] hash = BlockVoteManager.winningHashForHeight(height);
             if (hash != null) {
