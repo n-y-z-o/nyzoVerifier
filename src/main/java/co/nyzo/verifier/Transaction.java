@@ -1,17 +1,8 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.SignatureUtil;
-import net.i2p.crypto.eddsa.EdDSAEngine;
-import net.i2p.crypto.eddsa.EdDSAPrivateKey;
-import net.i2p.crypto.eddsa.EdDSAPublicKey;
-import net.i2p.crypto.eddsa.EdDSASecurityProvider;
-import net.i2p.crypto.eddsa.spec.EdDSANamedCurveTable;
-import net.i2p.crypto.eddsa.spec.EdDSAParameterSpec;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Arrays;
 
 public class Transaction implements MessageObject {
@@ -372,7 +363,8 @@ public class Transaction implements MessageObject {
 
             if (valid) {
                 long blockHeight = BlockManager.heightForTimestamp(timestamp);
-                if (blockHeight < BlockManager.openEdgeHeight(false)) {
+                long openEdgeHeight = BlockManager.openEdgeHeight(false);
+                if (blockHeight < openEdgeHeight) {
                     validationError.append("The block has already been processed. ");
                 }
             }
