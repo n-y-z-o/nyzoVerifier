@@ -20,13 +20,13 @@ public class TransactionResponse implements MessageObject {
 
         if (transactionValid) {
             TransactionPool.addTransaction(transaction);
+            long height = BlockManager.heightForTimestamp(transaction.getTimestamp());
             accepted = true;
             message = "Your transaction from wallet " +
                     PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + " to " +
                     PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
                     " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
-                    " has been accepted by the system and is scheduled for incorporation into block " +
-                    BlockManager.heightForTimestamp(transaction.getTimestamp()) + ".";
+                    " has been accepted by the system and is scheduled for incorporation into block " + height + ".";
         } else {
             accepted = false;
             String errorString = "";
