@@ -97,10 +97,11 @@ public class BalanceList implements MessageObject {
         long numberOfPairs = buffer.getInt();
         List<BalanceListItem> items = new ArrayList<>();
         for (int i = 0; i < numberOfPairs; i++) {
-            byte[] identifier = new byte[32];
+            byte[] identifier = new byte[FieldByteSize.identifier];
             buffer.get(identifier);
             long balance = buffer.getLong();
-            items.add(new BalanceListItem(identifier, balance));
+            short blocksUntilFee = buffer.getShort();
+            items.add(new BalanceListItem(identifier, balance, blocksUntilFee));
         }
 
         return new BalanceList(blockHeight, rolloverFees, previousVerifiers, items);
@@ -131,6 +132,7 @@ public class BalanceList implements MessageObject {
         for (BalanceListItem item : items) {
             buffer.put(item.getIdentifier());
             buffer.putLong(item.getBalance());
+            buffer.putShort(item.getBlocksUntilFee());
         }
 
         return result;

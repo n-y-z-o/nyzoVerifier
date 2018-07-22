@@ -23,6 +23,7 @@ public class Block implements MessageObject {
 
     public static final long blockDuration = 5000L;
     public static final long minimumVerificationInterval = 1500L;
+    public static final short blocksBetweenFee = 100;
 
     private long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,
                                                    // which has a height of 0
@@ -386,10 +387,10 @@ public class Block implements MessageObject {
 
             // Only continue if we have the necessary data.
             if (previousBalanceItems != null && previousRolloverFees >= 0) {
-                // Make a map of the identifiers to balances.
-                Map<ByteBuffer, Long> identifierToBalanceMap = new HashMap<>();
+                // Make a map of the identifiers to balance list items.
+                Map<ByteBuffer, BalanceListItem> identifierToItemMap = new HashMap<>();
                 for (BalanceListItem item : previousBalanceItems) {
-                    identifierToBalanceMap.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());
+                    identifierToItemMap.put(ByteBuffer.wrap(item.getIdentifier()), item);
                 }
 
                 // Add/subtract all transactions.
@@ -397,14 +398,23 @@ public class Block implements MessageObject {
                 for (Transaction transaction : transactions) {
                     feesThisBlock += transaction.getFee();
                     if (transaction.getType() != Transaction.typeCoinGeneration) {
-                        adjustBalance(transaction.getSenderIdentifier(), -transaction.getAmount(),
-                                identifierToBalanceMap);
+                        adjustBalance(transaction.getSenderIdentifier(), -transaction.getAmount(), identifierToItemMap);
                     }
                     long amountAfterFee = transaction.getAmount() - transaction.getFee();
                     if (amountAfterFee > 0) {
-                        adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToBalanceMap);
+                        adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToItemMap);
                     }
                 }
+
+                // Subtract fees for all balance list items that owe fees and whose values are greater than zero.
+                long periodicAccountFees = 0L;
+                for (ByteBuffer identifier : identifierToItemMap.keySet()) {
+                    BalanceListItem item = identifierToItemMap.get(identifier);
+                    if (item.getBlocksUntilFee() == 0 && item.getBalance() > 0L) {
+                        identifierToItemMap.put(identifier, item.adjustByAmount(-1L));
+                    }
+                }
+
 
                 // Split the transaction fees among the current and previous verifiers.
                 List<byte[]> verifiers = new ArrayList<>(previousVerifiers);
@@ -413,16 +423,16 @@ public class Block implements MessageObject {
                 long feesPerVerifier = totalFees / verifiers.size();
                 if (feesPerVerifier > 0L) {
                     for (byte[] verifier : verifiers) {
-                        adjustBalance(verifier, feesPerVerifier, identifierToBalanceMap);
+                        adjustBalance(verifier, feesPerVerifier, identifierToItemMap);
                     }
                 }
 
-                // Make the new balance items from the balance map.
+                // Make the new balance items from the balance map, decrementing the blocks-until-fee counter for each.
                 List<BalanceListItem> balanceItems = new ArrayList<>();
-                for (ByteBuffer identifier : identifierToBalanceMap.keySet()) {
-                    long balance = identifierToBalanceMap.get(identifier);
-                    if (balance > 0L) {
-                        balanceItems.add(new BalanceListItem(identifier.array(), balance));
+                for (ByteBuffer identifier : identifierToItemMap.keySet()) {
+                    BalanceListItem item = identifierToItemMap.get(identifier);
+                    if (item.getBalance() > 0L) {
+                        balanceItems.add(item.decrementBlocksUntilFee());
                     }
                 }
 
@@ -435,15 +445,16 @@ public class Block implements MessageObject {
         return result;
     }
 
-    private static void adjustBalance(byte[] identifier, long amount, Map<ByteBuffer, Long> identifierToBalanceMap) {
+    private static void adjustBalance(byte[] identifier, long amount,
+                                      Map<ByteBuffer, BalanceListItem> identifierToItemMap) {
 
         ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
-        Long balance = identifierToBalanceMap.get(identifierBuffer);
-        if (balance == null) {
-            balance = 0L;
+        BalanceListItem item = identifierToItemMap.get(identifierBuffer);
+        if (item == null) {
+            item = new BalanceListItem(identifier, 0L, Block.blocksBetweenFee);
         }
-        balance += amount;
-        identifierToBalanceMap.put(identifierBuffer, balance);
+        item = item.adjustByAmount(amount);
+        identifierToItemMap.put(identifierBuffer, item);
     }
     
     public long chainScore(long zeroBlockHeight) {
