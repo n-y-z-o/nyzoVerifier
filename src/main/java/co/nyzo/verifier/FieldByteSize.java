@@ -6,6 +6,7 @@ public class FieldByteSize {
 
     public static final int balanceListLength = 4;
     public static final int blockHeight = 8;
+    public static final int blocksUntilFee = 2;
     public static final int booleanField = 1;
     public static final int cycleLength = 4;
     public static final int frozenBlockListLength = 2;

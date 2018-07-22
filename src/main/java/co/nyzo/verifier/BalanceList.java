@@ -110,12 +110,13 @@ public class BalanceList implements MessageObject {
     @Override
     public int getByteSize() {
         int numberOfPreviousVerifiers = (int) Math.min(blockHeight, 9);
+        int bytesPerItem = FieldByteSize.identifier + FieldByteSize.transactionAmount + FieldByteSize.blocksUntilFee;
 
         return FieldByteSize.blockHeight +
                 FieldByteSize.rolloverTransactionFees +
                 FieldByteSize.identifier * numberOfPreviousVerifiers +
                 FieldByteSize.balanceListLength +
-                (FieldByteSize.identifier + FieldByteSize.transactionAmount) * items.size();
+                bytesPerItem * items.size();
     }
 
     @Override
