@@ -411,15 +411,15 @@ public class Block implements MessageObject {
                 for (ByteBuffer identifier : identifierToItemMap.keySet()) {
                     BalanceListItem item = identifierToItemMap.get(identifier);
                     if (item.getBlocksUntilFee() == 0 && item.getBalance() > 0L) {
+                        periodicAccountFees++;
                         identifierToItemMap.put(identifier, item.adjustByAmount(-1L));
                     }
                 }
 
-
                 // Split the transaction fees among the current and previous verifiers.
                 List<byte[]> verifiers = new ArrayList<>(previousVerifiers);
                 verifiers.add(verifierIdentifier);
-                long totalFees = feesThisBlock + previousRolloverFees;
+                long totalFees = feesThisBlock + previousRolloverFees + periodicAccountFees;
                 long feesPerVerifier = totalFees / verifiers.size();
                 if (feesPerVerifier > 0L) {
                     for (byte[] verifier : verifiers) {
