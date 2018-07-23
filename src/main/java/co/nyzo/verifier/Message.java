@@ -379,9 +379,13 @@ public class Message {
 
     public static void putString(String value, ByteBuffer buffer) {
 
-        byte[] lineBytes = value.getBytes(StandardCharsets.UTF_8);
-        buffer.putShort((short) lineBytes.length);
-        buffer.put(lineBytes);
+        if (value == null) {
+            buffer.putShort((short) 0);
+        } else {
+            byte[] lineBytes = value.getBytes(StandardCharsets.UTF_8);
+            buffer.putShort((short) lineBytes.length);
+            buffer.put(lineBytes);
+        }
     }
 
     public static String getString(ByteBuffer buffer) {
