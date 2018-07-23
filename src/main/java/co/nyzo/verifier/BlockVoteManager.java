@@ -94,6 +94,23 @@ public class BlockVoteManager {
         return heights;
     }
 
+    private static Set<ByteBuffer> votingVerifiers() {
+
+        // For most blocks, the voting verifiers are the verifiers in the cycle of the frozen edge.
+        Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycle();
+
+        // This is a work-around for the Genesis cycle only. This is not especially robust, but it does not matter,
+        // because it will only be used for the first cycle at the beginning of the block chain.
+        if (BlockManager.inGenesisCycle()) {
+            votingVerifiers.clear();
+            for (Node node : NodeManager.getMesh()) {
+                votingVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
+            }
+        }
+
+        return votingVerifiers;
+    }
+
     public static synchronized byte[] winningHashForHeight(long height) {
 
         byte[] winningHash = null;
@@ -101,16 +118,7 @@ public class BlockVoteManager {
         if (votesForHeight != null) {
 
             Map<ByteBuffer, Integer> votesPerHash = new HashMap<>();
-            Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycle();
-
-            // This is a work-around for the Genesis cycle only. This is not especially robust, but it does not matter,
-            // because it will only be used for the first cycle at the beginning of the block chain.
-            if (BlockManager.inGenesisCycle()) {
-                votingVerifiers.clear();
-                for (Node node : NodeManager.getMesh()) {
-                    votingVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
-                }
-            }
+            Set<ByteBuffer> votingVerifiers = votingVerifiers();
 
             // Build the vote map.
             for (ByteBuffer identifier : votesForHeight.keySet()) {
@@ -174,7 +182,7 @@ public class BlockVoteManager {
                 // Build the map if not yet built.
                 if (votingVerifiers == null) {
                     votingVerifiers = new HashMap<>();
-                    Set<ByteBuffer> verifierIdentifiers = BlockManager.verifiersInCurrentCycle();
+                    Set<ByteBuffer> verifierIdentifiers = votingVerifiers();
                     for (Node node : NodeManager.getMesh()) {
                         ByteBuffer identifier = ByteBuffer.wrap(node.getIdentifier());
                         if (verifierIdentifiers.contains(identifier)) {
