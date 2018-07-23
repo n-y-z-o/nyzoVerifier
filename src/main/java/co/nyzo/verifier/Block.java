@@ -23,7 +23,6 @@ public class Block implements MessageObject {
 
     public static final long blockDuration = 5000L;
     public static final long minimumVerificationInterval = 1500L;
-    public static final short blocksBetweenFee = 100;
 
     private long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,
                                                    // which has a height of 0
@@ -412,7 +411,7 @@ public class Block implements MessageObject {
                     BalanceListItem item = identifierToItemMap.get(identifier);
                     if (item.getBlocksUntilFee() == 0 && item.getBalance() > 0L) {
                         periodicAccountFees++;
-                        identifierToItemMap.put(identifier, item.adjustByAmount(-1L));
+                        identifierToItemMap.put(identifier, item.adjustByAmount(-1L).resetBlocksUntilFee());
                     }
                 }
 
@@ -451,7 +450,7 @@ public class Block implements MessageObject {
         ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
         BalanceListItem item = identifierToItemMap.get(identifierBuffer);
         if (item == null) {
-            item = new BalanceListItem(identifier, 0L, Block.blocksBetweenFee);
+            item = new BalanceListItem(identifier, 0L);
         }
         item = item.adjustByAmount(amount);
         identifierToItemMap.put(identifierBuffer, item);

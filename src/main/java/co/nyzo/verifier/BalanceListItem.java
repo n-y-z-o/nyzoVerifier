@@ -2,9 +2,17 @@ package co.nyzo.verifier;
 
 public class BalanceListItem {
 
+    private static final short blocksBetweenFee = 100;
+
     private byte[] identifier;
     private long balance;
     private short blocksUntilFee;
+
+    public BalanceListItem(byte[] identifier, long balance) {
+        this.identifier = identifier;
+        this.balance = balance;
+        this.blocksUntilFee = blocksBetweenFee;
+    }
 
     public BalanceListItem(byte[] identifier, long balance, short blocksUntilFee) {
         this.identifier = identifier;
@@ -23,6 +31,11 @@ public class BalanceListItem {
     public short getBlocksUntilFee() {
 
         return blocksUntilFee;
+    }
+
+    public BalanceListItem resetBlocksUntilFee() {
+
+        return new BalanceListItem(identifier, balance);
     }
 
     public BalanceListItem adjustByAmount(long amount) {
