@@ -148,12 +148,6 @@ public class BlockVoteManager {
                         PrintUtil.compactPrintByteArray(winningHash) + ", h: +" +
                         (height - BlockManager.getFrozenEdgeHeight()));
             }
-
-            if (winningHash != null) {
-                NotificationUtil.send("winning hash " + PrintUtil.superCompactPrintByteArray(winningHash) + " on " +
-                        Verifier.getNickname() + " at height " + (height - BlockManager.getFrozenEdgeHeight()) +
-                        " with " + maximumVotes + " votes and voting verifiers size " + votingVerifiers.size());
-            }
         }
 
         return winningHash;
