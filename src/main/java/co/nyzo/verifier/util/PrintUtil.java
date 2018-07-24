@@ -5,9 +5,13 @@ import co.nyzo.verifier.Transaction;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.TimeZone;
 
 public class PrintUtil {
+
+    private static Map<Long, Integer> initializerMap = new HashMap<>();
 
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
     static {
@@ -90,9 +94,7 @@ public class PrintUtil {
     public static String printChainScore(long score) {
 
         String result;
-        if (score < -100L) {
-            result = "INIT";
-        } else if (score < Long.MAX_VALUE - 1) {
+        if (score < Long.MAX_VALUE - 1) {
             result = score + "";
         } else if (score == Long.MAX_VALUE - 1) {
             result = "H-1";
