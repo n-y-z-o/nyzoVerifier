@@ -19,7 +19,7 @@ public class NodeManager {
     public static void updateNode(Message message) {
 
         if (message.getType() == MessageType.BootstrapRequest1 || message.getType() == MessageType.NodeJoin3 ||
-                message.getType() == MessageType.NewBlock9) {
+                message.getType() == MessageType.NodeJoinResponse4 || message.getType() == MessageType.NewBlock9) {
 
             int port = ((PortMessage) message.getContent()).getPort();
             boolean isNewNode = updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(), port);
@@ -185,8 +185,11 @@ public class NodeManager {
             public void responseReceived(Message message) {
                 if (message != null) {
 
+                    updateNode(message);
+
                     NodeJoinResponse response = (NodeJoinResponse) message.getContent();
                     if (response != null) {
+
                         NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
                         for (BlockVote vote : response.getBlockVotes()) {
                             BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote, false);

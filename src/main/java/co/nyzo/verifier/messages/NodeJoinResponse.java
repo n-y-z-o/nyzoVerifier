@@ -7,25 +7,28 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-public class NodeJoinResponse implements MessageObject {
+public class NodeJoinResponse implements MessageObject, PortMessage {
 
     private static final int maximumVotes = 100;
 
     private String nickname;
+    private int port;
     private List<BlockVote> blockVotes;
     private NewVerifierVote newVerifierVote;
 
     public NodeJoinResponse() {
 
         this.nickname = Verifier.getNickname();
+        this.port = MeshListener.getPort();
         this.blockVotes = BlockVoteManager.getLocalVotes();
         limitBlockVoteListSize();
         this.newVerifierVote = NewVerifierVoteManager.getLocalVote();
     }
 
-    public NodeJoinResponse(String nickname, List<BlockVote> blockVotes, NewVerifierVote newVerifierNote) {
+    public NodeJoinResponse(String nickname, int port, List<BlockVote> blockVotes, NewVerifierVote newVerifierNote) {
 
         this.nickname = nickname == null ? "" : nickname;
+        this.port = port;
         this.blockVotes = blockVotes;
         limitBlockVoteListSize();
         this.newVerifierVote = newVerifierNote;
@@ -43,6 +46,10 @@ public class NodeJoinResponse implements MessageObject {
         return nickname;
     }
 
+    public int getPort() {
+        return port;
+    }
+
     public List<BlockVote> getBlockVotes() {
 
         return blockVotes;
@@ -55,7 +62,7 @@ public class NodeJoinResponse implements MessageObject {
     @Override
     public int getByteSize() {
 
-        return FieldByteSize.string(nickname) + FieldByteSize.voteListLength + blockVotes.size() *
+        return FieldByteSize.string(nickname) + FieldByteSize.port + FieldByteSize.voteListLength + blockVotes.size() *
                 (FieldByteSize.blockHeight + FieldByteSize.hash) + FieldByteSize.identifier;
     }
 
@@ -65,9 +72,8 @@ public class NodeJoinResponse implements MessageObject {
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
 
-        byte[] nicknameBytes = nickname.getBytes(StandardCharsets.UTF_8);
-        buffer.putShort((short) nicknameBytes.length);
-        buffer.put(nicknameBytes);
+        Message.putString(nickname, buffer);
+        buffer.putInt(port);
 
         buffer.put((byte) blockVotes.size());
         for (BlockVote vote : blockVotes) {
@@ -85,10 +91,8 @@ public class NodeJoinResponse implements MessageObject {
         NodeJoinResponse result = null;
 
         try {
-            short nicknameByteLength = buffer.getShort();
-            byte[] nicknameBytes = new byte[nicknameByteLength];
-            buffer.get(nicknameBytes);
-            String nickname = new String(nicknameBytes, StandardCharsets.UTF_8);
+            String nickname = Message.getString(buffer);
+            int port = buffer.getInt();
 
             List<BlockVote> blockVotes = new ArrayList<>();
             int numberOfVotes = Math.min(buffer.get(), maximumVotes);
@@ -103,7 +107,7 @@ public class NodeJoinResponse implements MessageObject {
             buffer.get(newVerifierVoteIdentifier);
             NewVerifierVote newVerifierVote = new NewVerifierVote(newVerifierVoteIdentifier);
 
-            result = new NodeJoinResponse(nickname, blockVotes, newVerifierVote);
+            result = new NodeJoinResponse(nickname, port, blockVotes, newVerifierVote);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }
