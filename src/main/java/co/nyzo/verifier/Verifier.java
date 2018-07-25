@@ -99,7 +99,7 @@ public class Verifier {
                 }
             }
 
-            NodeManager.loadLocalVerifier();
+            NodeManager.addTempraryLocalVerifierEntry();
         }
     }
 

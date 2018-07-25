@@ -34,7 +34,7 @@ public class NodeManager {
         }
     }
 
-    public static void loadLocalVerifier() {
+    public static void addTempraryLocalVerifierEntry() {
 
         updateNode(Verifier.getIdentifier(), new byte[4], 0);
     }
@@ -54,6 +54,11 @@ public class NodeManager {
                 Node node = new Node(identifier, ipAddress, port);
                 ipAddressToNodeMap.put(ipAddressBuffer, node);
                 isNewNode = true;
+
+                // If the node that was just added is the local verifier, remove the temporary entry.
+                if (ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
+                    ipAddressToNodeMap.remove(ByteBuffer.wrap(new byte[4]));
+                }
 
             } else {
                 // This is the case when there is already a node at the IP. We always update the port and mark the node
