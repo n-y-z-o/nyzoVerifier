@@ -55,8 +55,9 @@ public class NodeManager {
                 ipAddressToNodeMap.put(ipAddressBuffer, node);
                 isNewNode = true;
 
-                // If the node that was just added is the local verifier, remove the temporary entry.
-                if (ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
+                // If the node that was just added is the local verifier and not the temporary entry, remove the
+                // temporary entry.
+                if (!ByteUtil.isAllZeros(ipAddress) && ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
                     ipAddressToNodeMap.remove(ByteBuffer.wrap(new byte[4]));
                 }
 
