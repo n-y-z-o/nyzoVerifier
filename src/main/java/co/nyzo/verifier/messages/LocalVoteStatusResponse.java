@@ -4,10 +4,7 @@ import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 public class LocalVoteStatusResponse implements MessageObject, MultilineTextResponse {
 
@@ -19,6 +16,9 @@ public class LocalVoteStatusResponse implements MessageObject, MultilineTextResp
         if (ByteUtil.arraysAreEqual(request.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
 
             this.lines = BlockVoteManager.getRecentVotes();
+            if (this.lines.isEmpty()) {
+                this.lines = Arrays.asList("*** no recent votes ***");
+            }
         } else {
             this.lines = new ArrayList<>();
         }

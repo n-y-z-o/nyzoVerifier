@@ -367,6 +367,8 @@ public class Message {
             content = UnfrozenBlockPoolStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.MeshStatusResponse409) {
             content = MeshStatusResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.LocalVoteStatusResponse413) {
+            content = LocalVoteStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.ResetResponse501) {
             content = BooleanMessageResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Error65534) {
