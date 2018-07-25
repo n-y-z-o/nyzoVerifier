@@ -5,6 +5,7 @@ import co.nyzo.verifier.messages.debug.MeshStatusResponse;
 import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolPurgeResponse;
 import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolStatusResponse;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -124,25 +125,16 @@ public class MeshListener {
 
                 if (messageType == MessageType.BootstrapRequest1) {
 
-                    // Update the node with the node manager so it will appear in the node list that it receives.
-                    BootstrapRequest requestMessage = (BootstrapRequest) message.getContent();
-                    NodeManager.updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(),
-                            requestMessage.getPort());
+                    NodeManager.updateNode(message);
 
                     response = new Message(MessageType.BootstrapResponse2, new BootstrapResponse());
 
                 } else if (messageType == MessageType.NodeJoin3) {
 
-                    NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
-                    boolean isNewNode = NodeManager.updateNode(message.getSourceNodeIdentifier(),
-                            message.getSourceIpAddress(), nodeJoinMessage.getPort());
-                    NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
+                    NodeManager.updateNode(message);
 
-                    // If this is a new node, send a node join to make the connection in the other direction.
-                    if (isNewNode) {
-                        Message.fetch(IpUtil.addressAsString(message.getSourceIpAddress()), nodeJoinMessage.getPort(),
-                                new Message(MessageType.NodeJoin3, new NodeJoinMessage()), null);
-                    }
+                    NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
+                    NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
 
                     response = new Message(MessageType.NodeJoinResponse4, new NodeJoinResponse());
 
@@ -157,15 +149,9 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NewBlock9) {
 
-                    // If this is a new node, send a node join to make the connection in the other direction.
-                    NewBlockMessage blockMessage = (NewBlockMessage) message.getContent();
-                    boolean isNewNode = NodeManager.updateNode(message.getSourceNodeIdentifier(),
-                            message.getSourceIpAddress(), blockMessage.getPort());
-                    if (isNewNode) {
-                        Message.fetch(IpUtil.addressAsString(message.getSourceIpAddress()), blockMessage.getPort(),
-                                new Message(MessageType.NodeJoin3, new NodeJoinMessage()), null);
-                    }
+                    NodeManager.updateNode(message);
 
+                    NewBlockMessage blockMessage = (NewBlockMessage) message.getContent();
                     UnfrozenBlockManager.registerBlock(blockMessage.getBlock());
                     response = new Message(MessageType.NewBlockResponse10, null);
 

@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
@@ -15,12 +16,25 @@ public class NodeManager {
     private static final int consecutiveFailuresBeforeRemoval = 6;
     private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
 
-    public static boolean updateNode(byte[] identifier, byte[] ipAddress, int port) {
+    public static void updateNode(Message message) {
 
-        return updateNode(identifier, ipAddress, port, 0);
+        if (message.getType() == MessageType.BootstrapRequest1 || message.getType() == MessageType.NodeJoin3 ||
+                message.getType() == MessageType.NewBlock9) {
+
+            int port = ((PortMessage) message.getContent()).getPort();
+            boolean isNewNode = updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(), port);
+            if (isNewNode) {
+                Message.fetch(IpUtil.addressAsString(message.getSourceIpAddress()), port,
+                        new Message(MessageType.NodeJoin3, new NodeJoinMessage()), null);
+            }
+
+        } else {
+
+            NotificationUtil.send("unrecognized message type in updateNode(): " + message.getType());
+        }
     }
 
-    public static synchronized boolean updateNode(byte[] identifier, byte[] ipAddress, int port, long queueTimestamp) {
+    private static synchronized boolean updateNode(byte[] identifier, byte[] ipAddress, int port) {
 
         boolean isNewNode = false;
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
@@ -33,9 +47,6 @@ public class NodeManager {
             if (existingNode == null) {
                 // This is the case when no other node is at the IP. We create a new node and add it to the map.
                 Node node = new Node(identifier, ipAddress, port);
-                if (queueTimestamp > 0) {
-                    node.setQueueTimestamp(queueTimestamp);
-                }
                 ipAddressToNodeMap.put(ipAddressBuffer, node);
                 isNewNode = true;
 
@@ -164,6 +175,32 @@ public class NodeManager {
         }
 
         NodeManager.activeVerifiers = activeVerifiers;
+    }
+
+    public static void sendNodeJoinMessage(byte[] ipAddress, int port) {
+
+        Message nodeJoinMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
+        Message.fetch(IpUtil.addressAsString(ipAddress), port, nodeJoinMessage, new MessageCallback() {
+            @Override
+            public void responseReceived(Message message) {
+                if (message != null) {
+
+                    NodeJoinResponse response = (NodeJoinResponse) message.getContent();
+                    if (response != null) {
+                        NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
+                        for (BlockVote vote : response.getBlockVotes()) {
+                            BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote, false);
+                        }
+
+                        if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
+                            NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
+                                    response.getNewVerifierVote(), false);
+                        }
+                    }
+                }
+            }
+        });
+
     }
 
     public static synchronized void requestMissingNodes() {

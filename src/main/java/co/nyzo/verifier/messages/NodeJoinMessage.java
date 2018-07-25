@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-public class NodeJoinMessage implements MessageObject {
+public class NodeJoinMessage implements MessageObject, PortMessage {
 
     private int port;
     private String nickname;

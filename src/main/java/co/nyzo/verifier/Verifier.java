@@ -37,8 +37,6 @@ public class Verifier {
 
     private static final Map<ByteBuffer, Block> blocksExtended = new HashMap<>();
 
-    private static Set<ByteBuffer> nodeJoinAcknowledgementsReceived = new HashSet<>();
-
     private static boolean paused = false;
 
     static {
@@ -109,7 +107,6 @@ public class Verifier {
 
             // Load the private seed. This seed is used to sign all messages, so this is done first.
             loadPrivateSeed();
-            nodeJoinAcknowledgementsReceived.add(ByteBuffer.wrap(getIdentifier()));  // avoids send node-join to self
 
             // Ensure that the Genesis block and the seed-funding transaction are loaded.
             loadGenesisBlock();
@@ -140,20 +137,18 @@ public class Verifier {
                 System.out.println("-" + entryPoint);
             }
 
-            // Send mesh requests to all trusted entry points.
+            // Send mesh requests to all trusted entry points. These will be used to send
             Message meshRequest = new Message(MessageType.MeshRequest15, null);
             for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
                 Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
 
-                        // Add the nodes to the mesh and send node-join requests.
+                        // Send node-join requests to all nodes in the response.
                         MeshResponse response = (MeshResponse) message.getContent();
                         for (Node node : response.getMesh()) {
-                            NodeManager.updateNode(node.getIdentifier(), node.getIpAddress(), node.getPort(),
-                                    node.getQueueTimestamp());
+                            NodeManager.sendNodeJoinMessage(node.getIpAddress(), node.getPort());
                         }
-                        sendNodeJoinRequests();
                     }
                 });
             }
@@ -183,7 +178,6 @@ public class Verifier {
                                 System.out.println("Bootstrap response is null");
                             } else {
                                 processBootstrapResponseMessage(message);
-                                sendNodeJoinRequests();
                             }
                         }
                     });
@@ -308,38 +302,6 @@ public class Verifier {
         return seedFundingTransaction;
     }
 
-    private static void sendNodeJoinRequests() {
-
-        List<Node> mesh = NodeManager.getMesh();
-        Message message = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
-        for (Node node : mesh) {
-            ByteBuffer identifierBuffer = ByteBuffer.wrap(node.getIdentifier());
-            if (!nodeJoinAcknowledgementsReceived.contains(identifierBuffer)) {
-                String address = IpUtil.addressAsString(node.getIpAddress());
-                Message.fetch(address, node.getPort(), message, new MessageCallback() {
-                    @Override
-                    public void responseReceived(Message message) {
-                        if (message != null) {
-                            nodeJoinAcknowledgementsReceived.add(ByteBuffer.wrap(message.getSourceNodeIdentifier()));
-
-                            NodeJoinResponse response = (NodeJoinResponse) message.getContent();
-                            if (response != null) {
-                                NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
-                                for (BlockVote vote : response.getBlockVotes()) {
-                                    BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote, false);
-                                }
-                                if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
-                                    NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
-                                            response.getNewVerifierVote(), false);
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-    }
-
     private static List<TrustedEntryPoint> getTrustedEntryPoints() {
 
         Path path = Paths.get(dataRootDirectory.getAbsolutePath() + "/trusted_entry_points");
@@ -394,10 +356,9 @@ public class Verifier {
 
                     // If we have stopped receiving messages from the mesh, send new node-join messages. This is
                     // likely due to a changed IP address.
+                    // TODO: re-implement this or remove
                     if (newestTimestampAge(1) > 5000L) {
                         rejoinCount++;
-                        nodeJoinAcknowledgementsReceived.clear();
-                        sendNodeJoinRequests();
                     }
 
                     // Perform setup tasks for the NodeManager.

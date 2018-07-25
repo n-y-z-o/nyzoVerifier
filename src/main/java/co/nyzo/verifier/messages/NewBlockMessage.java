@@ -4,7 +4,7 @@ import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
 
-public class NewBlockMessage implements MessageObject {
+public class NewBlockMessage implements MessageObject, PortMessage {
 
     private Block block;
     private int port;

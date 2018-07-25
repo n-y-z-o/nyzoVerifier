@@ -5,7 +5,7 @@ import co.nyzo.verifier.MessageObject;
 
 import java.nio.ByteBuffer;
 
-public class BootstrapRequest implements MessageObject {
+public class BootstrapRequest implements MessageObject, PortMessage {
 
     private int port;
 
