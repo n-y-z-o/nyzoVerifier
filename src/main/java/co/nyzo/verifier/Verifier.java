@@ -98,6 +98,8 @@ public class Verifier {
                     privateSeed = null;
                 }
             }
+
+            NodeManager.loadLocalVerifier();
         }
     }
 

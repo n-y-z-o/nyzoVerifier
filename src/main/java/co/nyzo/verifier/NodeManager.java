@@ -34,6 +34,11 @@ public class NodeManager {
         }
     }
 
+    public static void loadLocalVerifier() {
+
+        updateNode(Verifier.getIdentifier(), new byte[4], 0);
+    }
+
     private static synchronized boolean updateNode(byte[] identifier, byte[] ipAddress, int port) {
 
         boolean isNewNode = false;

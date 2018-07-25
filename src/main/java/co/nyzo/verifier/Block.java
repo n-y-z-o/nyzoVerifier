@@ -479,7 +479,7 @@ public class Block implements MessageObject {
 
                         // This is a special case for the Genesis cycle. We want a deterministic order that can be
                         // calculated locally, but we do not care what that order is.
-                        score = (Math.abs(HashUtil.longSHA256(block.getVerifierIdentifier())) % 900) * -1L - 100L;
+                        score = (Math.abs(HashUtil.longSHA256(block.getVerifierIdentifier())) % 9000) * -1L - 1000L;
 
                     } else {
                         score -= 6L;

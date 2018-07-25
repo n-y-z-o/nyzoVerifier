@@ -122,8 +122,7 @@ public class Message {
     public static void fetch(String hostNameOrIp, int port, Message message, MessageCallback messageCallback) {
 
         byte[] identifier = NodeManager.identifierForIpAddress(hostNameOrIp);
-        if (message.getType() == MessageType.NodeJoin3 ||
-                !ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
+        if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
 
             new Thread(new Runnable() {
                 @Override
