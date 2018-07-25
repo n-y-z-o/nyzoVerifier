@@ -221,6 +221,11 @@ public class MeshListener {
 
                     response = new Message(MessageType.MeshStatusResponse409, new MeshStatusResponse(message));
 
+                } else if (messageType == MessageType.LocalVoteStatusRequest412) {
+
+                    response = new Message(MessageType.LocalVoteStatusResponse413,
+                            new LocalVoteStatusResponse(message));
+
                 } else if (messageType == MessageType.ResetRequest500) {
 
                     boolean success = ByteUtil.arraysAreEqual(message.getSourceNodeIdentifier(), Block.genesisVerifier);

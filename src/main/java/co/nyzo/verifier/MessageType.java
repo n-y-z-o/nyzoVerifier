@@ -55,6 +55,8 @@ public enum MessageType {
     MeshStatusResponse409(409),
     TogglePauseRequest410(410),  // pauses/un-pauses verifier
     TogglePauseResponse411(411),
+    LocalVoteStatusRequest412(412),  // gets textual information about local votes
+    LocalVoteStatusResponse413(413),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain   TODO: key this to the local verifier before release

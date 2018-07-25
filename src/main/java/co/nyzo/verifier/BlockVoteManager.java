@@ -12,6 +12,8 @@ import java.util.*;
 
 public class BlockVoteManager {
 
+    private static final List<String> recentVotes = new ArrayList<>();
+
     private static final ByteBuffer invalidVote = ByteBuffer.wrap(new byte[FieldByteSize.hash]);
 
     // The local votes map is redundant, but it is a simple and efficient way to store local votes for responding to
@@ -46,6 +48,11 @@ public class BlockVoteManager {
 
         if (isLocalVote) {
             localVotes.put(vote.getHeight(), vote.getHash());
+
+            recentVotes.add("@" + vote.getHeight() + " for " + NicknameManager.get(vote.getHash()));
+            while (recentVotes.size() > 10) {
+                recentVotes.remove(0);
+            }
         }
     }
 
@@ -151,6 +158,11 @@ public class BlockVoteManager {
         }
 
         return winningHash;
+    }
+
+    public static synchronized List<String> getRecentVotes() {
+
+        return new ArrayList<>(recentVotes);
     }
 
     public static synchronized List<BlockVote> getLocalVotes() {
