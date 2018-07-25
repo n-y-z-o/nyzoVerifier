@@ -98,8 +98,6 @@ public class Verifier {
                     privateSeed = null;
                 }
             }
-
-            NodeManager.addTempraryLocalVerifierEntry();
         }
     }
 
@@ -109,6 +107,8 @@ public class Verifier {
 
             // Load the private seed. This seed is used to sign all messages, so this is done first.
             loadPrivateSeed();
+            NotificationUtil.send("setting temporary local verifier entry on " + Verifier.getNickname());
+            NodeManager.addTempraryLocalVerifierEntry();
 
             // Ensure that the Genesis block and the seed-funding transaction are loaded.
             loadGenesisBlock();
