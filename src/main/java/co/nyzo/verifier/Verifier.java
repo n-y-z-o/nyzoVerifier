@@ -262,7 +262,7 @@ public class Verifier {
                 } catch (Exception ignored) {
                 }
             } else {
-                BalanceList balanceList = BalanceListManager.balanceListForBlock(genesisBlock);
+                BalanceList balanceList = BalanceListManager.balanceListForBlock(genesisBlock, null);
                 BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash(), balanceList);
             }
         }
@@ -479,7 +479,7 @@ public class Verifier {
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
                     previousBlock);
 
-            BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock);
+            BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock, null);
             BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
                     approvedTransactions, Verifier.getIdentifier());
             if (balanceList != null) {

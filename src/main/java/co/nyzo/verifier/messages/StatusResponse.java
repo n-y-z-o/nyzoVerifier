@@ -40,9 +40,9 @@ public class StatusResponse implements MessageObject {
             lines.add("transactions: " + TransactionPool.transactionPoolSize());
             lines.add("retention edge: " + BlockManager.getRetentionEdgeHeight());
             lines.add("trailing edge: " + BlockManager.getTrailingEdgeHeight());
-            lines.add("frozen edge: " + frozenEdgeHeight + " (" +
+            lines.add("frozen edge: " + frozenEdgeHeight + " (" + (frozenEdge == null ? "null" :
                     PrintUtil.superCompactPrintByteArray(frozenEdge.getHash()) + ", " +
-                    NicknameManager.get(frozenEdge.getVerifierIdentifier()) + ")");
+                    NicknameManager.get(frozenEdge.getVerifierIdentifier())) + ")");
             lines.add("leading edge: " + UnfrozenBlockManager.leadingEdgeHeight());
             lines.add("open edge: " + BlockManager.openEdgeHeight(false));
             lines.add("blocks transmitted/created: " + Verifier.getBlockCreationInformation());

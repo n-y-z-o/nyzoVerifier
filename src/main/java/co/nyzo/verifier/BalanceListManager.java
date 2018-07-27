@@ -22,7 +22,11 @@ public class BalanceListManager {
     // This is a map from balance list hash to balance list.
     private static final Map<ByteBuffer, BalanceList> balanceListMap = new HashMap<>();
 
-    public static synchronized BalanceList balanceListForBlock(Block block) {
+    public static synchronized BalanceList balanceListForBlock(Block block, StringBuilder nullReason) {
+
+        if (nullReason == null) {
+            nullReason = new StringBuilder();
+        }
 
         // Only proceed if the block is at or past the retention window start height or is the Genesis block.
         BalanceList balanceList = null;
@@ -104,8 +108,10 @@ public class BalanceListManager {
                 }
             }
         } else {
+            nullReason.append("block height is ").append(block.getBlockHeight())
+                    .append(" and retention edge height is ").append(BlockManager.getRetentionEdgeHeight());
             NotificationUtil.send("trying to get balance list for height " + block.getBlockHeight() +
-                    " when trailing edge height is " + BlockManager.getTrailingEdgeHeight() + " on " +
+                    " when retention edge height is " + BlockManager.getRetentionEdgeHeight() + " on " +
                     Verifier.getNickname());
         }
 

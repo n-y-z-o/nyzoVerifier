@@ -175,7 +175,7 @@ public class BlockManager {
 
         Block previousBlock = frozenBlockForHeight(block.getBlockHeight() - 1);
         if (previousBlock != null) {
-            BalanceList balanceList = BalanceListManager.balanceListForBlock(block);
+            BalanceList balanceList = BalanceListManager.balanceListForBlock(block, null);
             freezeBlock(block, previousBlock.getHash(), balanceList);
         }
     }

@@ -27,7 +27,7 @@ public class BlockResponse implements MessageObject {
                 totalByteSize += block.getByteSize();
                 if (blockHeight == startBlockHeight && includeInitialBalanceList) {
                     System.out.println("trying to get balance list at height " + blockHeight);
-                    initialBalanceList = BalanceListManager.balanceListForBlock(block);
+                    initialBalanceList = BalanceListManager.balanceListForBlock(block, null);
                 }
             }
 
