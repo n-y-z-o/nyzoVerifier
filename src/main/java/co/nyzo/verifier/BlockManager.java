@@ -120,10 +120,10 @@ public class BlockManager {
             }
         });
 
-        int size = 2;  // number of blocks
+        int byteSize = 2;  // number of blocks is stored as a short
         for (int i = 0; i < blocks.size(); i++) {
             Block block = blocks.get(i);
-            size += block.getByteSize();
+            byteSize += block.getByteSize();
 
             // For the first block and all blocks with gaps, include the balance list.
             if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (block.getBlockHeight() - 1))) {
@@ -132,12 +132,12 @@ public class BlockManager {
                 if (balanceList == null) {
                     successful = false;
                 } else {
-                    size += balanceList.getByteSize();
+                    byteSize += balanceList.getByteSize();
                 }
             }
         }
 
-        byte[] bytes = new byte[size];
+        byte[] bytes = new byte[byteSize];
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
         buffer.putShort((short) blocks.size());  // number of blocks
         for (int i = 0; i < blocks.size(); i++) {

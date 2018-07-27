@@ -145,56 +145,35 @@ public class BalanceListManager {
 
         if (balanceList != null) {
             balanceListMap.put(ByteBuffer.wrap(balanceList.getHash()), balanceList);
-
-            // If the map is too large, remove less-used entries, keeping the frozen edge and the retention edge.
-            // Also keep the Genesis list, if present.
-            if (balanceListMap.size() > maximumMapSize) {
-
-                // Find the balance lists for the frozen and retention edges.
-                long retentionEdgeHeight = BlockManager.getRetentionEdgeHeight();
-                long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-                BalanceList genesisList = null;
-                BalanceList retentionEdgeList = null;
-                BalanceList frozenEdgeList = null;
-                for (BalanceList item : balanceListMap.values()) {
-                    long itemHeight = item.getBlockHeight();
-
-                    // Find the Genesis list. This is not required.
-                    if (itemHeight == 0) {
-                        genesisList = item;
-                    }
-
-                    // Find the highest balance list at or before the retention edge. This is necessary for
-                    // bootstrapping new verifiers.
-                    if (itemHeight <= retentionEdgeHeight &&
-                            (retentionEdgeList == null || itemHeight > retentionEdgeList.getBlockHeight())) {
-                        retentionEdgeList = item;
-                    }
-
-                    // Find the highest balance list at or before the frozen edge. This is necessary for creating new
-                    // blocks.
-                    if (itemHeight <= frozenEdgeHeight &&
-                            (frozenEdgeList == null || itemHeight > frozenEdgeList.getBlockHeight())) {
-                        frozenEdgeList = item;
-                    }
-                }
-
-                if (retentionEdgeList != null && frozenEdgeList != null) {
-
-                    balanceListMap.clear();
-                    if (genesisList != null) {
-                        balanceListMap.put(ByteBuffer.wrap(genesisList.getHash()), genesisList);
-                    }
-                    balanceListMap.put(ByteBuffer.wrap(retentionEdgeList.getHash()), retentionEdgeList);
-                    balanceListMap.put(ByteBuffer.wrap(frozenEdgeList.getHash()), frozenEdgeList);
-
-                    // TODO: remove this; it is for debugging only
-                    BalanceListManager.genesisList = genesisList;
-                    BalanceListManager.retentionEdgeList = retentionEdgeList;
-                    BalanceListManager.frozenEdgeList = frozenEdgeList;
-                }
-            }
         }
+    }
+
+    public static synchronized boolean cleanMap(Block retentionEdge, Block frozenEdge) {
+
+        BalanceList retentionEdgeList = balanceListForBlock(retentionEdge, null);
+        BalanceList frozenEdgeList = balanceListForBlock(frozenEdge, null);
+        boolean successful = false;
+        if (retentionEdgeList != null && frozenEdgeList != null) {
+
+            successful = true;
+            BalanceList genesisList = null;
+            Block genesisBlock = BlockManager.frozenBlockForHeight(0L);
+            if (genesisBlock != null) {
+                genesisList = balanceListForBlock(genesisBlock, null);
+            }
+
+            BalanceListManager.genesisList = genesisList;
+            BalanceListManager.retentionEdgeList = retentionEdgeList;
+            BalanceListManager.frozenEdgeList = frozenEdgeList;
+
+            // Clear the map and register the balance lists.
+            balanceListMap.clear();
+            registerBalanceList(genesisList);
+            registerBalanceList(retentionEdgeList);
+            registerBalanceList(frozenEdgeList);
+        }
+
+        return successful;
     }
 
     // TODO: remove this; it is for debugging only

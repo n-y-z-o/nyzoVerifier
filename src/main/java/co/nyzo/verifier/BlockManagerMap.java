@@ -24,9 +24,13 @@ public class BlockManagerMap {
                 iteration = 0;
 
                 long retentionEdgeHeight = BlockManager.getRetentionEdgeHeight();
-                for (Long height : new HashSet<>(blockMap.keySet())) {
-                    if (height != 0 && height < retentionEdgeHeight) {
-                        blockMap.remove(height);
+                Block retentionEdge = blockMap.get(retentionEdgeHeight);
+                Block frozenEdge = blockMap.get(BlockManager.getFrozenEdgeHeight());
+                if (BalanceListManager.cleanMap(retentionEdge, frozenEdge)) {
+                    for (Long height : new HashSet<>(blockMap.keySet())) {
+                        if (height != 0 && height < retentionEdgeHeight) {
+                            blockMap.remove(height);
+                        }
                     }
                 }
             }
