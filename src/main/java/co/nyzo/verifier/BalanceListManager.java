@@ -30,7 +30,8 @@ public class BalanceListManager {
 
         // Only proceed if the block is at or past the retention window start height or is the Genesis block.
         BalanceList balanceList = null;
-        if (block.getBlockHeight() >= BlockManager.getRetentionEdgeHeight() || block.getBlockHeight() == 0) {
+        if (block != null && (block.getBlockHeight() >= BlockManager.getRetentionEdgeHeight() ||
+                block.getBlockHeight() == 0)) {
 
             totalQueries++;
 
