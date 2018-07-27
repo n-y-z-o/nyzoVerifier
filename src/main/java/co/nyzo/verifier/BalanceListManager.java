@@ -109,11 +109,15 @@ public class BalanceListManager {
                 }
             }
         } else {
-            nullReason.append("block height is ").append(block.getBlockHeight())
-                    .append(" and retention edge height is ").append(BlockManager.getRetentionEdgeHeight());
-            NotificationUtil.send("trying to get balance list for height " + block.getBlockHeight() +
-                    " when retention edge height is " + BlockManager.getRetentionEdgeHeight() + " on " +
-                    Verifier.getNickname());
+            if (block == null) {
+                nullReason.append("block is null");
+            } else {
+                nullReason.append("block height is ").append(block.getBlockHeight())
+                        .append(" and retention edge height is ").append(BlockManager.getRetentionEdgeHeight());
+                NotificationUtil.send("trying to get balance list for height " + block.getBlockHeight() +
+                        " when retention edge height is " + BlockManager.getRetentionEdgeHeight() + " on " +
+                        Verifier.getNickname());
+            }
         }
 
         return balanceList;
