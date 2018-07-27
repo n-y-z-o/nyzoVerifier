@@ -198,6 +198,10 @@ public class MeshListener {
                     response = new Message(MessageType.MissingBlockResponse26,
                             new MissingBlockResponse(request.getHeight(), request.getHash()));
 
+                } else if (messageType == MessageType.TimestampRequest27) {
+
+                    response = new Message(MessageType.TimestampResponse28, new TimestampResponse());
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +

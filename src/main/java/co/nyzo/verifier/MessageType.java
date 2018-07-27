@@ -32,6 +32,8 @@ public enum MessageType {
     MissingBlockVoteResponse24(24),
     MissingBlockRequest25(25),
     MissingBlockResponse26(26),
+    TimestampRequest27(27),
+    TimestampResponse28(28),
 
     // test messages
     Ping200(200),

@@ -357,6 +357,8 @@ public class Message {
             content = MissingBlockRequest.fromByteBuffer(buffer);
         } else if (type == MessageType.MissingBlockResponse26) {
             content = MissingBlockResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.TimestampResponse28) {
+            content = TimestampResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
