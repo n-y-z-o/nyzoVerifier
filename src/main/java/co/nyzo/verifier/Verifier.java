@@ -238,6 +238,7 @@ public class Verifier {
 
         Block genesisBlock = BlockManager.frozenBlockForHeight(0);
         while (genesisBlock == null && !UpdateUtil.shouldTerminate()) {
+            System.out.println("genesis block is null");
             try {
 
                 URL url = new URL("https://s3-us-west-2.amazonaws.com/nyzo/genesis");

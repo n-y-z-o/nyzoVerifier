@@ -155,8 +155,10 @@ public class BalanceListManager {
 
     public static synchronized boolean cleanMap(Block retentionEdge, Block frozenEdge) {
 
-        BalanceList retentionEdgeList = balanceListForBlock(retentionEdge, null);
-        BalanceList frozenEdgeList = balanceListForBlock(frozenEdge, null);
+        BalanceList retentionEdgeList = retentionEdge == null ? null : 
+                balanceListMap.get(ByteBuffer.wrap(retentionEdge.getBalanceListHash()));
+        BalanceList frozenEdgeList = frozenEdge == null ? null :
+                balanceListMap.get(ByteBuffer.wrap(frozenEdge.getBalanceListHash()));
         boolean successful = false;
         if (retentionEdgeList != null && frozenEdgeList != null) {
 
