@@ -23,9 +23,16 @@ public class BlockManagerMap {
 
                 iteration = 0;
 
-                long retentionEdgeHeight = BlockManager.getRetentionEdgeHeight();
-                Block retentionEdge = blockMap.get(retentionEdgeHeight);
                 Block frozenEdge = blockMap.get(BlockManager.getFrozenEdgeHeight());
+
+                // The actual retention edge, for the purposes of balance lists, is the lowest block, greater than or
+                // equal to the desired retention height, that forms an unbroken chain to the frozen edge.
+                long retentionEdgeHeight = BlockManager.getRetentionEdgeHeight();
+                Block retentionEdge = frozenEdge;
+                while (blockMap.containsKey(retentionEdge.getBlockHeight() - 1) && retentionEdge.getBlockHeight() >
+                        retentionEdgeHeight) {
+                    retentionEdge = blockMap.get(retentionEdge.getBlockHeight() - 1);
+                }
                 if (BalanceListManager.cleanMap(retentionEdge, frozenEdge)) {
                     for (Long height : new HashSet<>(blockMap.keySet())) {
                         if (height != 0 && height < retentionEdgeHeight) {
