@@ -31,6 +31,11 @@ public class BlockManager {
         initialize();
     }
 
+    public static boolean isInitialized() {
+
+        return initialized;
+    }
+
     public static long getFrozenEdgeHeight() {
 
         return frozenEdgeHeight;

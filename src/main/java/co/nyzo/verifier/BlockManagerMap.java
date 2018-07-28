@@ -19,7 +19,7 @@ public class BlockManagerMap {
             blockMap.put(block.getBlockHeight(), block);
 
             // Periodically remove old blocks.
-            if (iteration++ >= 10) {
+            if (iteration++ >= 10 && BlockManager.isInitialized()) {
 
                 iteration = 0;
 
