@@ -68,4 +68,9 @@ public class MissingBlockResponse implements MessageObject {
 
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "MissingBlockResponse[block=" + block + "]";
+    }
 }

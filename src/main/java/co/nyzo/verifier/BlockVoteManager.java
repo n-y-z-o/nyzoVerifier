@@ -186,10 +186,12 @@ public class BlockVoteManager {
         // Start with a null map to avoid extra work if no heights are low enough to require use.
         Map<ByteBuffer, Node> votingVerifiers = null;
 
-        // For any block more than 4 from the leading edge, request any votes that appear to be missing.
-        long leadingEdgeHeight = UnfrozenBlockManager.leadingEdgeHeight();
+        // For any block more than 4 from the open edge, request any votes that appear to be missing. We are not using
+        // the leading edge here, because it could be influenced by missing blocks, also, and we are likely in a bad
+        // state if we need to request votes from the mesh.
+        long openEdgeHeight = BlockManager.openEdgeHeight(false);
         for (Long height : voteMap.keySet()) {
-            if (height < leadingEdgeHeight - 4) {
+            if (height < openEdgeHeight - 4) {
 
                 // Build the map if not yet built.
                 if (votingVerifiers == null) {
