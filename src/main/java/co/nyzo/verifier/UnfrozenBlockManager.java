@@ -167,7 +167,8 @@ public class UnfrozenBlockManager {
             votesCast.add(block.getBlockHeight());
 
             // Register the vote locally and send it to the network.
-            BlockVote vote = new BlockVote(block.getBlockHeight(), block.getHash());
+            // TODO: implement vote cancellation here
+            BlockVote vote = new BlockVote((short) 0, block.getBlockHeight(), block.getHash());
             BlockVoteManager.registerVote(Verifier.getIdentifier(), vote, true);
             Message message = new Message(MessageType.BlockVote19, vote);
             Message.broadcast(message);

@@ -169,7 +169,7 @@ public class BlockVoteManager {
 
         List<BlockVote> votes = new ArrayList<>();
         for (Long height : localVotes.keySet()) {
-            votes.add(new BlockVote(height, localVotes.get(height)));
+            votes.add(new BlockVote((short) 0, height, localVotes.get(height)));
         }
 
         return votes;
@@ -178,7 +178,7 @@ public class BlockVoteManager {
     public static synchronized BlockVote getLocalVoteForHeight(long height) {
 
         byte[] hash = localVotes.get(height);
-        return hash == null ? null : new BlockVote(height, hash);
+        return hash == null ? null : new BlockVote((short) 0, height, hash);
     }
 
     public static synchronized void requestMissingVotes() {

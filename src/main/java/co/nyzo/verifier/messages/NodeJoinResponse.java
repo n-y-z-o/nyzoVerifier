@@ -100,7 +100,8 @@ public class NodeJoinResponse implements MessageObject, PortMessage {
                 long height = buffer.getLong();
                 byte[] hash = new byte[FieldByteSize.hash];
                 buffer.get(hash);
-                blockVotes.add(new BlockVote(height, hash));
+                // TODO: add cancellation here, if necessary
+                blockVotes.add(new BlockVote((short) 0, height, hash));
             }
 
             byte[] newVerifierVoteIdentifier = new byte[FieldByteSize.identifier];
