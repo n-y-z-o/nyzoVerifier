@@ -54,11 +54,14 @@ public class StatusResponse implements MessageObject {
                 } else {
                     long height = i < 3 || unfrozenBlockHeights.size() <= 7 ? unfrozenBlockHeights.get(i) :
                             unfrozenBlockHeights.get(unfrozenBlockHeights.size() - 7 + i);
-                    String heightString = "+" + (height - frozenEdgeHeight);
-                    lines.add("- h: " + heightString + ", n: " + UnfrozenBlockManager.numberOfBlocksAtHeight(height) +
-                            ", v: " + BlockVoteManager.votesAtHeight(height) +
-                            ", s: " + PrintUtil.printChainScore(UnfrozenBlockManager.bestScoreForHeight(height)) +
-                            ", t: " + UnfrozenBlockManager.votingScoreThresholdForHeight(height));
+                    if (height > frozenEdgeHeight) {
+                        String heightString = "+" + (height - frozenEdgeHeight);
+                        lines.add("- h: " + heightString + ", n: " +
+                                UnfrozenBlockManager.numberOfBlocksAtHeight(height) +
+                                ", v: " + BlockVoteManager.votesAtHeight(height) +
+                                ", s: " + PrintUtil.printChainScore(UnfrozenBlockManager.bestScoreForHeight(height)) +
+                                ", t: " + UnfrozenBlockManager.votingScoreThresholdForHeight(height));
+                    }
                 }
             }
             lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
