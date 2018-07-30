@@ -67,7 +67,9 @@ public class UnfrozenBlockManager {
                 // block to be the highest-scored, and only remove another block if it has a higher score than the
                 // new block.
                 // TODO: make this bigger -- right now, it is small to test recovery when a good block is discarded
-                if (blocksAtHeight.size() > 3) {
+                // TODO: the check is bypassed while in the Genesis cycle, as it is less robust and we have no need to
+                // TODO: harden it
+                if (blocksAtHeight.size() > 3 && !BlockManager.inGenesisCycle()) {
                     Block highestScoredBlock = block;
                     long highestScore = highestScoredBlock.chainScore(frozenEdgeHeight);
                     for (Block blockAtHeight : blocksAtHeight.values()) {
