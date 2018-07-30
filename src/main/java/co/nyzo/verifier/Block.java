@@ -189,6 +189,7 @@ public class Block implements MessageObject {
         int index = 0;
         Block blockToCheck = this;
         boolean reachedGenesisBlock = false;
+        boolean newVerifier = true;
         while (index < 4 && blockToCheck != null) {
 
             Set<ByteBuffer> cycle = cycles.get(index);
@@ -196,6 +197,10 @@ public class Block implements MessageObject {
             if (cycle.contains(identifier)) {
                 index++;
             } else {
+                if (index == 1 && cycle.isEmpty() && ByteUtil.arraysAreEqual(blockToCheck.getVerifierIdentifier(),
+                        getVerifierIdentifier())) {
+                    newVerifier = false;
+                }
                 cycle.add(identifier);
                 reachedGenesisBlock = blockToCheck.getBlockHeight() == 0L;
                 blockToCheck = blockToCheck.getPreviousBlock();
@@ -208,7 +213,6 @@ public class Block implements MessageObject {
 
             ByteBuffer verifierIdentifier = ByteBuffer.wrap(getVerifierIdentifier());
 
-            boolean newVerifier = !cycles.get(1).contains(verifierIdentifier);
             boolean genesisCycle = cycles.get(1).isEmpty();
 
             int[] cycleLengths = { cycles.get(0).size(), cycles.get(1).size(), cycles.get(2).size(),

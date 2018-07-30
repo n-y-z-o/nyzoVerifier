@@ -2,7 +2,7 @@ package co.nyzo.verifier;
 
 public class BalanceListItem {
 
-    private static final short blocksBetweenFee = 100;
+    private static final short blocksBetweenFee = 100;  // TODO: change to 17280
 
     private byte[] identifier;
     private long balance;

@@ -3,11 +3,9 @@ package co.nyzo.verifier.util;
 import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.Transaction;
 
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TimeZone;
+import java.util.*;
 
 public class PrintUtil {
 
@@ -103,5 +101,18 @@ public class PrintUtil {
         }
 
         return result;
+    }
+
+    public static String superCompactPrintByteBufferList(List<ByteBuffer> list) {
+
+        StringBuilder result = new StringBuilder("[");
+        String separator = "";
+        for (ByteBuffer buffer : list) {
+            result.append(separator).append(superCompactPrintByteArray(buffer.array()));
+            separator = ", ";
+        }
+        result.append("]");
+
+        return result.toString();
     }
 }
