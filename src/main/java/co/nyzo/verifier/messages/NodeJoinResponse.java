@@ -62,8 +62,13 @@ public class NodeJoinResponse implements MessageObject, PortMessage {
     @Override
     public int getByteSize() {
 
-        return FieldByteSize.string(nickname) + FieldByteSize.port + FieldByteSize.voteListLength + blockVotes.size() *
-                (FieldByteSize.blockHeight + FieldByteSize.hash) + FieldByteSize.identifier;
+        int size = FieldByteSize.string(nickname) + FieldByteSize.port + FieldByteSize.voteListLength +
+                FieldByteSize.identifier;
+        for (BlockVote vote : blockVotes) {
+            size += vote.getByteSize();
+        }
+
+        return size;
     }
 
     @Override
@@ -97,6 +102,7 @@ public class NodeJoinResponse implements MessageObject, PortMessage {
             int numberOfVotes = Math.min(buffer.get(), maximumVotes);
             for (int i = 0; i < numberOfVotes; i++) {
                 blockVotes.add(BlockVote.fromByteBuffer(buffer));
+                System.out.println("got block vote: " + blockVotes.get(i));
             }
 
             byte[] newVerifierVoteIdentifier = new byte[FieldByteSize.identifier];
