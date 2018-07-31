@@ -65,12 +65,12 @@ public class BlockVote implements MessageObject {
         try {
             long height = buffer.getLong();
             byte[] hash = new byte[FieldByteSize.hash];
+            buffer.get(hash);
             short numberOfVotesToCancel = buffer.getShort();
             short numberOfVotesToSave = 0;
             if (numberOfVotesToCancel > 0) {
                 numberOfVotesToSave = buffer.getShort();  // only provided if numberOfVotesToCancel is non-zero
             }
-            buffer.get(hash);
 
             result = new BlockVote(height, hash, numberOfVotesToCancel, numberOfVotesToSave);
         } catch (Exception ignored) { }
