@@ -39,7 +39,8 @@ public class BlockVote implements MessageObject {
 
     @Override
     public int getByteSize() {
-        return FieldByteSize.unnamedShort + FieldByteSize.blockHeight + FieldByteSize.hash;
+        return FieldByteSize.blockHeight + FieldByteSize.hash + FieldByteSize.unnamedShort +
+                (numberOfVotesToCancel > 0 ? FieldByteSize.unnamedShort : 0);
     }
 
     @Override
@@ -67,12 +68,11 @@ public class BlockVote implements MessageObject {
             byte[] hash = new byte[FieldByteSize.hash];
             buffer.get(hash);
             short numberOfVotesToCancel = buffer.getShort();
-            short numberOfVotesToSave = 0;
-            if (numberOfVotesToCancel > 0) {
-                numberOfVotesToSave = buffer.getShort();  // only provided if numberOfVotesToCancel is non-zero
-            }
-
+            short numberOfVotesToSave = numberOfVotesToCancel > 0 ? buffer.getShort() : 0;  // only provided if
+                                                                                            // numberOfVotesToCancel
+                                                                                            // is non-zero
             result = new BlockVote(height, hash, numberOfVotesToCancel, numberOfVotesToSave);
+
         } catch (Exception ignored) { }
 
         return result;
@@ -108,7 +108,7 @@ public class BlockVote implements MessageObject {
 
     @Override
     public String toString() {
-        return "[BlockVote: numberOfVotesToCancel=" + getNumberOfVotesToCancel() + ", height=" + getHeight() +
-                ", hash=" + PrintUtil.compactPrintByteArray(getHash()) + "]";
+        return "[BlockVote: height=" + getHeight() + ", hash=" + PrintUtil.compactPrintByteArray(getHash()) +
+                ", nCancel=" + numberOfVotesToCancel + ", nSave=" + numberOfVotesToSave + "]";
     }
 }
