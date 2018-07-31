@@ -18,7 +18,7 @@ public class BlockVoteManager {
 
     // The local votes map is redundant, but it is a simple and efficient way to store local votes for responding to
     // node-join messages.
-    private static final Map<Long, byte[]> localVotes = new HashMap<>();
+    private static final Map<Long, BlockVote> localVotes = new HashMap<>();
     private static final Map<Long, Map<ByteBuffer, ByteBuffer>> voteMap = new HashMap<>();
 
     public static synchronized void registerVote(byte[] identifier, BlockVote vote, boolean isLocalVote) {
@@ -47,7 +47,7 @@ public class BlockVoteManager {
         }
 
         if (isLocalVote) {
-            localVotes.put(vote.getHeight(), vote.getHash());
+            localVotes.put(vote.getHeight(), vote);
 
             recentVotes.add("@" + vote.getHeight() + " for " + NicknameManager.get(vote.getHash()));
             while (recentVotes.size() > 10) {
@@ -167,18 +167,12 @@ public class BlockVoteManager {
 
     public static synchronized List<BlockVote> getLocalVotes() {
 
-        List<BlockVote> votes = new ArrayList<>();
-        for (Long height : localVotes.keySet()) {
-            votes.add(new BlockVote((short) 0, height, localVotes.get(height)));
-        }
-
-        return votes;
+        return new ArrayList<>(localVotes.values());
     }
 
     public static synchronized BlockVote getLocalVoteForHeight(long height) {
 
-        byte[] hash = localVotes.get(height);
-        return hash == null ? null : new BlockVote((short) 0, height, hash);
+        return localVotes.get(height);
     }
 
     public static synchronized void requestMissingVotes() {

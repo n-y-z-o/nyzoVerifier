@@ -77,8 +77,7 @@ public class NodeJoinResponse implements MessageObject, PortMessage {
 
         buffer.put((byte) blockVotes.size());
         for (BlockVote vote : blockVotes) {
-            buffer.putLong(vote.getHeight());
-            buffer.put(vote.getHash());
+            buffer.put(vote.getBytes());
         }
 
         buffer.put(newVerifierVote.getIdentifier());
@@ -97,11 +96,7 @@ public class NodeJoinResponse implements MessageObject, PortMessage {
             List<BlockVote> blockVotes = new ArrayList<>();
             int numberOfVotes = Math.min(buffer.get(), maximumVotes);
             for (int i = 0; i < numberOfVotes; i++) {
-                long height = buffer.getLong();
-                byte[] hash = new byte[FieldByteSize.hash];
-                buffer.get(hash);
-                // TODO: add cancellation here, if necessary
-                blockVotes.add(new BlockVote((short) 0, height, hash));
+                blockVotes.add(BlockVote.fromByteBuffer(buffer));
             }
 
             byte[] newVerifierVoteIdentifier = new byte[FieldByteSize.identifier];

@@ -168,9 +168,33 @@ public class UnfrozenBlockManager {
         if (!votesCast.contains(block.getBlockHeight())) {
             votesCast.add(block.getBlockHeight());
 
+            // For cancellations, we only need to look back to the highest block that we voted for that is not on this
+            // chain. If any earlier block was on this chain, its vote was cancelled when the vote on the other chain
+            // was cast.
+            List<Long> heightsToCancel = new ArrayList<>();
+            long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+            Block previousBlock = block.getPreviousBlock();
+            short numberOfVotesToCancel = 0;
+            short numberOfVotesToSave = 0;
+            while (previousBlock != null && previousBlock.getBlockHeight() > frozenEdgeHeight &&
+                    numberOfVotesToCancel == 0) {
+
+                BlockVote voteForHeight = BlockVoteManager.getLocalVoteForHeight(previousBlock.getBlockHeight());
+                if (voteForHeight != null && !ByteUtil.arraysAreEqual(voteForHeight.getHash(),
+                        previousBlock.getHash())) {
+                    numberOfVotesToCancel = (short) (previousBlock.getBlockHeight() - frozenEdgeHeight);
+                    numberOfVotesToSave = (short) (block.getBlockHeight() - previousBlock.getBlockHeight() - 1);
+                    NotificationUtil.send("canceling " + numberOfVotesToCancel + " votes and saving " +
+                            numberOfVotesToSave + " when voting on height " + block.getBlockHeight() +
+                            "; mismatch at " + previousBlock.getBlockHeight() + ", frozen edge " + frozenEdgeHeight);
+                }
+
+                previousBlock = previousBlock.getPreviousBlock();
+            }
+
             // Register the vote locally and send it to the network.
-            // TODO: implement vote cancellation here
-            BlockVote vote = new BlockVote((short) 0, block.getBlockHeight(), block.getHash());
+            BlockVote vote = new BlockVote(block.getBlockHeight(), block.getHash(), numberOfVotesToCancel,
+                    numberOfVotesToSave);
             BlockVoteManager.registerVote(Verifier.getIdentifier(), vote, true);
             Message message = new Message(MessageType.BlockVote19, vote);
             Message.broadcast(message);
