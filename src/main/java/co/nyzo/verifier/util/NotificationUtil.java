@@ -18,38 +18,49 @@ import java.util.Set;
 public class NotificationUtil {
 
 
-    private static int notificationBudget = 10;
     private static long lastEarnedTimestamp = 0L;
-    private static final long interval = 1000L * 60L * 2L;
     private static final Set<Integer> sendOnceNotifications = new HashSet<>();
 
-    private static final String endpoint = loadEndpointFromFile();
+    private static final String endpoint = loadFromFile("endpoint", "");
+    private static final int maximumBudget = loadFromFile("budget", 10);
+    private static int currentBudget = maximumBudget;
+    private static final long earnInterval = loadFromFile("interval", 1000 * 60 * 2);
 
     public static void send(String message) {
 
-        if (endpoint == null) {
+        send(message, -1L);
+    }
+
+    public static void send(String message, long height) {
+
+        if (endpoint == null || endpoint.isEmpty()) {
 
             System.out.println(message);
 
         } else {
 
             // Our maximum/initial budget is 10 notifications, and we earn a new notification every 2 minutes.
-            long notificationsEarned = (System.currentTimeMillis() - lastEarnedTimestamp) / interval;
+            long notificationsEarned = (System.currentTimeMillis() - lastEarnedTimestamp) / earnInterval;
             if (notificationsEarned > 0) {
-                notificationBudget = (int) Math.min(10, notificationBudget + notificationsEarned);
-                lastEarnedTimestamp += notificationsEarned * interval;
-                StatusResponse.setField("notif. budget", notificationBudget + "");
+                currentBudget = (int) Math.min(maximumBudget, currentBudget + notificationsEarned);
+                lastEarnedTimestamp += notificationsEarned * earnInterval;
+                StatusResponse.setField("notif. budget", currentBudget + "");
             }
 
-            if (notificationBudget > 0) {
+            if (currentBudget > 0) {
 
-                notificationBudget--;
-                if (notificationBudget == 0) {
+                currentBudget--;
+                if (currentBudget == 0) {
                     message += " *Message limit reached on " + Verifier.getNickname() + "*";
                 }
 
                 try {
-                    String jsonString = "{\"text\":\"" + message + "\"}";
+                    String jsonString = "{\"text\":\"" + message + "\"";
+                    if (height >= 0) {
+                        jsonString += ",\"height\":\"" + height + "\"";
+                    }
+                    jsonString += "}";
+                    System.out.println(jsonString);
 
                     URL url = new URL(endpoint);
                     HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
@@ -94,19 +105,28 @@ public class NotificationUtil {
         }
     }
 
-    private static String loadEndpointFromFile() {
+    private static String loadFromFile(String name, String defaultValue) {
 
-        String endpoint = null;
+        String value = null;
         try {
             List<String> fileContents = Files.readAllLines(Paths.get("/var/lib/nyzo/notification_config"));
-            if (fileContents.size() > 0) {
-                endpoint = fileContents.get(0).trim();
-                if (endpoint.isEmpty()) {
-                    endpoint = null;
+            for (String line : fileContents) {
+                if (line.startsWith(name + "=")) {
+                    value = line.substring(name.length() + 1).trim();
                 }
             }
         } catch (Exception ignored) { }
 
-        return endpoint;
+        return value;
+    }
+
+    private static int loadFromFile(String name, int defaultValue) {
+
+        int value = defaultValue;
+        try {
+            value = Integer.parseInt(loadFromFile(name, defaultValue + ""));
+        } catch (Exception ignored) { }
+
+        return value;
     }
 }
