@@ -40,9 +40,29 @@ public class BlockVoteManager {
                     !ByteUtil.arraysAreEqual(votesForHeight.get(identifierBuffer).array(), vote.getHash())) {
                 votesForHeight.put(identifierBuffer, invalidVote);
                 NotificationUtil.send("canceling vote for " + NicknameManager.get(identifier) + " on " +
-                        Verifier.getNickname());
+                        Verifier.getNickname() + " due to inconsistent votes");
             } else {
                 votesForHeight.put(identifierBuffer, ByteBuffer.wrap(vote.getHash()));
+            }
+
+            // We have a vote at 100, we cancelled 3, and we saved 2
+            // We could expect to vote for 100, keep 99 and 98, and cancel 97, 96, and 95.
+
+            // If any votes are explicitly cancelled, cancel them now.
+            if (vote.getNumberOfVotesToCancel() > 0) {
+                long startHeightToCancel = Math.max(BlockManager.getFrozenEdgeHeight() + 1, height -
+                        vote.getNumberOfVotesToSave() - vote.getNumberOfVotesToCancel());
+                long endHeightToCancel = vote.getHeight() - vote.getNumberOfVotesToSave() - 1;
+                for (long cancelHeight = startHeightToCancel; cancelHeight <= endHeightToCancel; cancelHeight++) {
+                    Map<ByteBuffer, ByteBuffer> votesForCancelHeight = voteMap.get(cancelHeight);
+                    if (votesForCancelHeight == null) {
+                        votesForCancelHeight = new HashMap<>();
+                        voteMap.put(height, votesForCancelHeight);
+                    }
+                    votesForCancelHeight.put(identifierBuffer, invalidVote);
+                    NotificationUtil.send("canceling vote for " + NicknameManager.get(identifier) + " at height " +
+                            cancelHeight + " on " + Verifier.getNickname() + " due to explicit cancellation");
+                }
             }
         }
 
