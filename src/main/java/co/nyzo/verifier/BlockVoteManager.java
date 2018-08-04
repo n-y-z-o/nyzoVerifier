@@ -188,7 +188,7 @@ public class BlockVoteManager {
                     } else if (hash.equals(invalidVote) || acceptAllBlocks ||
                             hashesToExtend.contains(ByteBuffer.wrap(block.getPreviousBlockHash()))) {
                         int numberOfHashVotes = votesPerHash.get(hash);
-                        result.add(new BlockVoteTally(height, block.getHash(), numberOfHashVotes,
+                        result.add(new BlockVoteTally(height, hash.array(), numberOfHashVotes,
                                 numberOfCancelledVotes, threshold));
                     }
                 }
