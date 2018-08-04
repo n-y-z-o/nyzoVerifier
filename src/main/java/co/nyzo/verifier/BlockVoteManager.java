@@ -6,6 +6,7 @@ import co.nyzo.verifier.messages.StatusResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
+import com.sun.javafx.image.ByteToBytePixelConverter;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -44,9 +45,6 @@ public class BlockVoteManager {
             } else {
                 votesForHeight.put(identifierBuffer, ByteBuffer.wrap(vote.getHash()));
             }
-
-            // We have a vote at 100, we cancelled 3, and we saved 2
-            // We could expect to vote for 100, keep 99 and 98, and cancel 97, 96, and 95.
 
             // If any votes are explicitly cancelled, cancel them now.
             if (vote.getNumberOfVotesToCancel() > 0) {
@@ -138,6 +136,62 @@ public class BlockVoteManager {
         return votingVerifiers;
     }
 
+    public static synchronized List<BlockVoteTally> talliesExtending(List<BlockVoteTally> talliesToExtend) {
+
+        List<BlockVoteTally> result = new ArrayList<>();
+
+        if (!talliesToExtend.isEmpty()) {
+
+            long height = talliesToExtend.get(0).getHeight() + 1;  // all are the same height
+            Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
+            if (votesForHeight != null) {
+
+                Map<ByteBuffer, Integer> votesPerHash = new HashMap<>();
+                Set<ByteBuffer> votingVerifiers = votingVerifiers();
+
+                // Build the vote map.
+                for (ByteBuffer identifier : votesForHeight.keySet()) {
+                    if (votingVerifiers.contains(identifier)) {
+                        ByteBuffer hash = votesForHeight.get(identifier);
+                        Integer votesForHash = votesPerHash.get(hash);
+                        if (votesForHash == null) {
+                            votesPerHash.put(hash, 1);
+                        } else {
+                            votesPerHash.put(hash, votesForHash + 1);
+                        }
+                    }
+                }
+
+                // Build the set of hashes that can be extended.
+                Set<ByteBuffer> hashesToExtend = new HashSet<>();
+                for (BlockVoteTally tally : talliesToExtend) {
+                    hashesToExtend.add(ByteBuffer.wrap(tally.getBlockHash()));
+                }
+
+                // Determine the number of cancelled votes.
+                Integer numberOfCancelledVotes = votesPerHash.get(invalidVote);
+                if (numberOfCancelledVotes == null) {
+                    numberOfCancelledVotes = 0;
+                }
+
+                // Build the result list.
+                int threshold = votingVerifiers.size() * 3 / 4;
+                for (ByteBuffer hash : votesPerHash.keySet()) {
+                    Block block = UnfrozenBlockManager.unfrozenBlockAtHeight(height, hash.array());
+                    if (block == null) {
+                        UnfrozenBlockManager.fetchMissingBlock(height, hash.array());
+                    } else if (hashesToExtend.contains(ByteBuffer.wrap(block.getPreviousBlockHash()))) {
+                        int numberOfHashVotes = votesPerHash.get(hash);
+                        result.add(new BlockVoteTally(height, block.getHash(), numberOfHashVotes,
+                                numberOfCancelledVotes, threshold));
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
     public static synchronized byte[] winningHashForHeight(long height) {
 
         byte[] winningHash = null;
@@ -160,7 +214,7 @@ public class BlockVoteManager {
                 }
             }
 
-            // Check the vote totals to see if any block should be frozen.
+            // Check the vote totals to see if any block passes the threshold.
             long threshold = votingVerifiers.size() * 3L / 4L;
             int maximumVotes = 0;
             for (ByteBuffer hash : votesPerHash.keySet()) {
@@ -168,12 +222,6 @@ public class BlockVoteManager {
                 if (votesPerHash.get(hash) > threshold) {
                     winningHash = hash.array();
                 }
-            }
-
-            if (height == BlockManager.getFrozenEdgeHeight() + 1L) {
-                StatusResponse.setField("vote", "m: " + maximumVotes + ", t: " + threshold + ", " +
-                        PrintUtil.compactPrintByteArray(winningHash) + ", h: +" +
-                        (height - BlockManager.getFrozenEdgeHeight()));
             }
         }
 

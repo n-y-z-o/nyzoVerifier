@@ -204,12 +204,40 @@ public class UnfrozenBlockManager {
     public static synchronized void freezeBlocks() {
 
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        long highestVoteHeight = frozenEdgeHeight;
         for (long height : BlockVoteManager.getHeights()) {
+            highestVoteHeight = Math.max(highestVoteHeight, height);
+        }
 
-            byte[] hash = BlockVoteManager.winningHashForHeight(height);
-            if (hash != null) {
+        // At each level, we have two possibilities:
+        // - a single hash that exceeds the threshold on its own - we vote for it
+        // - a set of hashes that exceed the threshold with cancellations - we
+
+        // To compute these, we simply need to know the threshold, and we need to know vote totals for
+        // each hash and for cancellations.
+
+        // We start at the frozen edge and step from
+        Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
+        List<BlockVoteTally> viableTallies = new ArrayList<>();
+        viableTallies.add(new BlockVoteTally(frozenEdgeHeight, frozenEdge.getHash(), 1, 0, 0));
+
+        while (!viableTallies.isEmpty()) {
+
+            List<BlockVoteTally> talliesForHeight = BlockVoteManager.talliesExtending(viableTallies);
+            List<BlockVoteTally> talliesToExtend = new ArrayList<>();
+            BlockVoteTally tallyToFreeze = null;
+            for (BlockVoteTally tally : talliesForHeight) {
+
+                if (tally.getNumberOfHashVotes() > tally.getThreshold()) {
+                    tallyToFreeze = tally;
+                } else if (tally.getNumberOfHashVotes() + tally.getNumberOfCancelledVotes() > tally.getThreshold()) {
+                    talliesToExtend.add(tally);
+                }
+            }
+
+            if (tallyToFreeze != null) {
                 // Get the block.
-                Block block = unfrozenBlockAtHeight(height, hash);
+                Block block = unfrozenBlockAtHeight(tallyToFreeze.getHeight(), tallyToFreeze.getBlockHash());
 
                 // If the block is not null, get all the blocks going back to the frozen edge. Typically, this will
                 // only be a single block, but we may be freezing several, and must freeze in order starting with the
@@ -239,22 +267,10 @@ public class UnfrozenBlockManager {
                 } else {
 
                     // When the block is null, send a request to try to get it from another node.
-                    NotificationUtil.send("fetching block " + height + " (" + PrintUtil.compactPrintByteArray(hash) +
-                            ") from mesh on " + Verifier.getNickname());
-                    Message blockRequest = new Message(MessageType.MissingBlockRequest25,
-                            new MissingBlockRequest(height, hash));
-                    Message.fetchFromRandomNode(blockRequest, new MessageCallback() {
-                        @Override
-                        public void responseReceived(Message message) {
-
-                            MissingBlockResponse response = (MissingBlockResponse) message.getContent();
-                            Block responseBlock = response.getBlock();
-                            if (responseBlock != null && ByteUtil.arraysAreEqual(responseBlock.getHash(), hash)) {
-                                registerBlock(responseBlock);
-                            }
-                        }
-                    });
+                    fetchMissingBlock(tallyToFreeze.getHeight(), tallyToFreeze.getBlockHash());
                 }
+            } else {
+                viableTallies = talliesToExtend;
             }
         }
 
@@ -265,6 +281,25 @@ public class UnfrozenBlockManager {
                 unfrozenBlocks.remove(unfrozenHeight);
             }
         }
+    }
+
+    public static void fetchMissingBlock(long height, byte[] hash) {
+
+        NotificationUtil.send("fetching block " + height + " (" + PrintUtil.compactPrintByteArray(hash) +
+                ") from mesh on " + Verifier.getNickname());
+        Message blockRequest = new Message(MessageType.MissingBlockRequest25,
+                new MissingBlockRequest(height, hash));
+        Message.fetchFromRandomNode(blockRequest, new MessageCallback() {
+            @Override
+            public void responseReceived(Message message) {
+
+                MissingBlockResponse response = (MissingBlockResponse) message.getContent();
+                Block responseBlock = response.getBlock();
+                if (responseBlock != null && ByteUtil.arraysAreEqual(responseBlock.getHash(), hash)) {
+                    registerBlock(responseBlock);
+                }
+            }
+        });
     }
 
     public static synchronized long leadingEdgeHeight() {
