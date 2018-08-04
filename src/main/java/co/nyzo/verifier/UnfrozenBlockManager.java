@@ -269,6 +269,8 @@ public class UnfrozenBlockManager {
                     // When the block is null, send a request to try to get it from another node.
                     fetchMissingBlock(tallyToFreeze.getHeight(), tallyToFreeze.getBlockHash());
                 }
+
+                viableTallies = new ArrayList<>();
             } else {
                 viableTallies = talliesToExtend;
             }
