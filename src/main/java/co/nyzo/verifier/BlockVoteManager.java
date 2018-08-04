@@ -175,15 +175,13 @@ public class BlockVoteManager {
                 // Build the result list.
                 int threshold = votingVerifiers.size() * 3 / 4;
                 for (ByteBuffer hash : votesPerHash.keySet()) {
-                    if (!hash.equals(invalidVote)) {
-                        Block block = UnfrozenBlockManager.unfrozenBlockAtHeight(height, hash.array());
-                        if (block == null) {
-                            UnfrozenBlockManager.fetchMissingBlock(height, hash.array());
-                        } else if (hashesToExtend.contains(ByteBuffer.wrap(block.getPreviousBlockHash()))) {
-                            int numberOfHashVotes = votesPerHash.get(hash);
-                            result.add(new BlockVoteTally(height, block.getHash(), numberOfHashVotes,
-                                    numberOfCancelledVotes, threshold));
-                        }
+                    Block block = UnfrozenBlockManager.unfrozenBlockAtHeight(height, hash.array());
+                    if (block == null) {
+                        UnfrozenBlockManager.fetchMissingBlock(height, hash.array());
+                    } else if (hashesToExtend.contains(ByteBuffer.wrap(block.getPreviousBlockHash()))) {
+                        int numberOfHashVotes = votesPerHash.get(hash);
+                        result.add(new BlockVoteTally(height, block.getHash(), numberOfHashVotes,
+                                numberOfCancelledVotes, threshold));
                     }
                 }
             }

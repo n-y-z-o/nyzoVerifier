@@ -228,7 +228,7 @@ public class UnfrozenBlockManager {
             BlockVoteTally tallyToFreeze = null;
             for (BlockVoteTally tally : talliesForHeight) {
 
-                if (tally.getNumberOfHashVotes() > tally.getThreshold()) {
+                if (tally.isValid() && tally.getNumberOfHashVotes() > tally.getThreshold()) {
                     tallyToFreeze = tally;
                 } else if (tally.getNumberOfHashVotes() + tally.getNumberOfCancelledVotes() > tally.getThreshold()) {
                     talliesToExtend.add(tally);

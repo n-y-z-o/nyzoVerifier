@@ -40,4 +40,9 @@ public class BlockVoteTally {
     public int getThreshold() {
         return threshold;
     }
+
+    public boolean isValid() {
+
+        return !ByteUtil.isAllZeros(blockHash);
+    }
 }
