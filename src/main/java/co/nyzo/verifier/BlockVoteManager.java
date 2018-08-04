@@ -172,13 +172,21 @@ public class BlockVoteManager {
                     numberOfCancelledVotes = 0;
                 }
 
-                // Build the result list.
+                // If the number of cancelled votes exceeds the threshold at the previous level, we accept all blocks
+                // at this level. These values are the same for all tallies at the previous level.
+                boolean acceptAllBlocks = talliesToExtend.get(0).getNumberOfCancelledVotes() >
+                        talliesToExtend.get(0).getThreshold();
+
+                // Build the result list. If a block is missing, we cannot extend it, but we fetch it to allow us to
+                // process it the next cycle. We also automatically add the "invalid" block, as it allows us to continue
+                // to extend if only cancelled votes exist at this level.
                 int threshold = votingVerifiers.size() * 3 / 4;
                 for (ByteBuffer hash : votesPerHash.keySet()) {
                     Block block = UnfrozenBlockManager.unfrozenBlockAtHeight(height, hash.array());
-                    if (block == null) {
+                    if (!hash.equals(invalidVote) && block == null) {
                         UnfrozenBlockManager.fetchMissingBlock(height, hash.array());
-                    } else if (hashesToExtend.contains(ByteBuffer.wrap(block.getPreviousBlockHash()))) {
+                    } else if (hash.equals(invalidVote) || acceptAllBlocks ||
+                            hashesToExtend.contains(ByteBuffer.wrap(block.getPreviousBlockHash()))) {
                         int numberOfHashVotes = votesPerHash.get(hash);
                         result.add(new BlockVoteTally(height, block.getHash(), numberOfHashVotes,
                                 numberOfCancelledVotes, threshold));
