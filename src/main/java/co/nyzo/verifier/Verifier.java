@@ -383,7 +383,7 @@ public class Verifier {
                     // than the block that is extended).
                     long endHeight = Math.min(Math.max(UnfrozenBlockManager.leadingEdgeHeight(), frozenEdgeHeight),
                             BlockManager.openEdgeHeight(false) - 1);
-                    endHeight = Math.min(endHeight, frozenEdgeHeight + 10);  // TODO: remove this; for testing only
+                    endHeight = Math.min(endHeight, frozenEdgeHeight + 100);  // TODO: remove this; for testing only
                     for (long height = frozenEdgeHeight; height <= endHeight; height++) {
 
                         // Get the block to extend for the height from the chain option manager.
