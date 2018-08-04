@@ -5,8 +5,6 @@ import co.nyzo.verifier.messages.MissingBlockVoteRequest;
 import co.nyzo.verifier.messages.StatusResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.NotificationUtil;
-import co.nyzo.verifier.util.PrintUtil;
-import com.sun.javafx.image.ByteToBytePixelConverter;
 
 import java.nio.ByteBuffer;
 import java.util.*;
