@@ -209,6 +209,9 @@ public class BlockManager {
 
                     if (block.getBlockHeight() == 0L) {
                         genesisBlockStartTimestamp = block.getStartTimestamp();
+                        initialized = true;
+                        NotificationUtil.send("setting initialized=true after freezing Genesis block on " +
+                                Verifier.getNickname());
                     }
 
                 } catch (Exception reportOnly) {

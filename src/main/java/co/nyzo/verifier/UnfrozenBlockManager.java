@@ -155,7 +155,7 @@ public class UnfrozenBlockManager {
 
                     // If the best score is less than or equal to the threshold, cast a vote for the block.
                     if (Math.max(lowestChainScore, 0) <= threshold) {
-                        castVote(lowestScoredBlock);
+                        castVote(lowestScoredBlock);  // guaranteed not null because it is set when the score is set
                     }
                 }
             }
