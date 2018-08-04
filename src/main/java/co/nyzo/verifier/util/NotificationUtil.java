@@ -92,6 +92,8 @@ public class NotificationUtil {
                 } catch (Exception ignored) {
                     ignored.printStackTrace();
                 }
+            } else {
+                System.out.println(height + ": " + message);
             }
         }
     }
