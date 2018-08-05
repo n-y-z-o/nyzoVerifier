@@ -60,24 +60,32 @@ public class UnfrozenBlockManager {
 
             if (!alreadyContainsBlock && !alreadyContainsVerifierOnSameChain && verificationTimestampIntervalValid) {
 
-                blocksAtHeight.put(ByteBuffer.wrap(block.getHash()), block);
-                registeredBlock = true;
+                // At this point, it is prudent to independently calculate the balance list. We only register the block
+                // if we can calculate the balance list and if the has matches what we expect. This will ensure that no
+                // blocks with invalid transactions are registered (they will be removed in the balance-list
+                // calculation, and the hash will not match).
+                BalanceList balanceList = BalanceListManager.balanceListForBlock(block, new StringBuilder());
+                if (balanceList != null && ByteUtil.arraysAreEqual(balanceList.getHash(), block.getBalanceListHash())) {
 
-                // Only keep the best three blocks at any level. For stability in the list, consider the just-added
-                // block to be the highest-scored, and only remove another block if it has a higher score than the
-                // new block.
-                if (blocksAtHeight.size() > 500 && !BlockManager.inGenesisCycle()) {
-                    Block highestScoredBlock = block;
-                    long highestScore = highestScoredBlock.chainScore(frozenEdgeHeight);
-                    for (Block blockAtHeight : blocksAtHeight.values()) {
-                        long score = blockAtHeight.chainScore(frozenEdgeHeight);
-                        if (score > highestScore) {
-                            highestScore = score;
-                            highestScoredBlock = blockAtHeight;
+                    blocksAtHeight.put(ByteBuffer.wrap(block.getHash()), block);
+                    registeredBlock = true;
+
+                    // Only keep the best 500 blocks at any level. For stability in the list, consider the just-added
+                    // block to be the highest-scored, and only remove another block if it has a higher score than the
+                    // new block.
+                    if (blocksAtHeight.size() > 500 && !BlockManager.inGenesisCycle()) {
+                        Block highestScoredBlock = block;
+                        long highestScore = highestScoredBlock.chainScore(frozenEdgeHeight);
+                        for (Block blockAtHeight : blocksAtHeight.values()) {
+                            long score = blockAtHeight.chainScore(frozenEdgeHeight);
+                            if (score > highestScore) {
+                                highestScore = score;
+                                highestScoredBlock = blockAtHeight;
+                            }
                         }
-                    }
 
-                    blocksAtHeight.remove(ByteBuffer.wrap(highestScoredBlock.getHash()));
+                        blocksAtHeight.remove(ByteBuffer.wrap(highestScoredBlock.getHash()));
+                    }
                 }
             }
         }
