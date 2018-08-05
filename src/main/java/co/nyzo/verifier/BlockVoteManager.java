@@ -123,6 +123,7 @@ public class BlockVoteManager {
         if (voteMap.containsKey(height)) {
             hashes.addAll(voteMap.get(height).values());
         }
+        hashes.remove(invalidVote);  // remove the invalid hash (cancelled vote), if present
 
         return hashes;
     }
