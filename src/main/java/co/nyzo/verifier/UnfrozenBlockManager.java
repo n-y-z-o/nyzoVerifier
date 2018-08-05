@@ -221,7 +221,7 @@ public class UnfrozenBlockManager {
         // To compute these, we simply need to know the threshold, and we need to know vote totals for
         // each hash and for cancellations.
 
-        // We start at the frozen edge and step from
+        // We start at the frozen edge and step.
         Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
         List<BlockVoteTally> viableTallies = new ArrayList<>();
         viableTallies.add(new BlockVoteTally(frozenEdgeHeight, frozenEdge.getHash(), 1, 0, 0));
@@ -407,5 +407,20 @@ public class UnfrozenBlockManager {
     public static synchronized void purge() {
 
         unfrozenBlocks.clear();
+    }
+
+    public static synchronized void requestMissingBlocks() {
+
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        for (long height : BlockVoteManager.getHeights()) {
+            if (height > frozenEdgeHeight) {
+                for (ByteBuffer hash : BlockVoteManager.getHashesForHeight(height)) {
+                    Block block = UnfrozenBlockManager.unfrozenBlockAtHeight(height, hash.array());
+                    if (block == null) {
+                        fetchMissingBlock(height, hash.array());
+                    }
+                }
+            }
+        }
     }
 }

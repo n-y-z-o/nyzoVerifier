@@ -117,6 +117,16 @@ public class BlockVoteManager {
         return heights;
     }
 
+    public static synchronized Set<ByteBuffer> getHashesForHeight(long height) {
+
+        Set<ByteBuffer> hashes = new HashSet<>();
+        if (voteMap.containsKey(height)) {
+            hashes.addAll(voteMap.get(height).values());
+        }
+
+        return hashes;
+    }
+
     private static Set<ByteBuffer> votingVerifiers() {
 
         // For most blocks, the voting verifiers are the verifiers in the cycle of the frozen edge.

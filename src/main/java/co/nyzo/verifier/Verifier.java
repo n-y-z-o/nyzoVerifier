@@ -406,7 +406,7 @@ public class Verifier {
                     BlockVoteManager.requestMissingVotes();
 
                     // Request any blocks that appear to be missing.
-                    BlockManager.requestMissingBlocks();
+                    UnfrozenBlockManager.requestMissingBlocks();
 
                     // Request any nodes that appear to be missing.
                     NodeManager.requestMissingNodes();

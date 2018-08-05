@@ -533,9 +533,4 @@ public class BlockManager {
         // Update the cycle value. This is stored separately so the method can be made un-synchronized without question.
         currentCycleLength = verifiersInCurrentCycle.size();
     }
-
-    public static synchronized void requestMissingBlocks() {
-
-        // TODO: implement
-    }
 }
