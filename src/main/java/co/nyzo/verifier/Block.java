@@ -431,17 +431,22 @@ public class Block implements MessageObject {
                 }
 
                 // Make the new balance items from the balance map, decrementing the blocks-until-fee counter for each.
+                long micronyzosInSystem = 0L;
                 List<BalanceListItem> balanceItems = new ArrayList<>();
                 for (ByteBuffer identifier : identifierToItemMap.keySet()) {
                     BalanceListItem item = identifierToItemMap.get(identifier);
                     if (item.getBalance() > 0L) {
                         balanceItems.add(item.decrementBlocksUntilFee());
+                        micronyzosInSystem += item.getBalance();
                     }
                 }
 
                 // Make the balance list. The pairs are sorted in the constructor.
                 byte rolloverFees = (byte) (totalFees % verifiers.size());
-                result = new BalanceList(blockHeight, rolloverFees, previousVerifiers, balanceItems);
+                micronyzosInSystem += rolloverFees;
+                if (micronyzosInSystem == Transaction.micronyzosInSystem) {
+                    result = new BalanceList(blockHeight, rolloverFees, previousVerifiers, balanceItems);
+                }
             }
         } catch (Exception ignored) { ignored.printStackTrace(); }
 

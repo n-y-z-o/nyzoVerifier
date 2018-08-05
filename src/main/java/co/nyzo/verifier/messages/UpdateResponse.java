@@ -1,6 +1,7 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.bootstrap.ProcessUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.*;
@@ -123,6 +124,7 @@ public class UpdateResponse implements MessageObject {
                 }
 
                 // Pull the latest code and compile.
+                runProcess(new ProcessBuilder("git", "reset", "--hard", "HEAD"));
                 runProcess(new ProcessBuilder("git", "pull", "origin", "master"));
                 runProcess(new ProcessBuilder("./gradlew", "build"));
             }
