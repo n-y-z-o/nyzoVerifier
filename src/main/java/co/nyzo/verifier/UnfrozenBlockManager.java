@@ -387,6 +387,12 @@ public class UnfrozenBlockManager {
         return allBlocks;
     }
 
+    public static synchronized List<Block> unfrozenBlocksAtHeight(long height) {
+
+        return unfrozenBlocks.containsKey(height) ? new ArrayList<>(unfrozenBlocks.get(height).values()) :
+                new ArrayList<>();
+    }
+
     public static synchronized Block unfrozenBlockAtHeight(long height, byte[] hash) {
 
         Block block = null;
