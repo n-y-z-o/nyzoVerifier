@@ -1,7 +1,6 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.bootstrap.ProcessUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.*;
