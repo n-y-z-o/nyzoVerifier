@@ -19,13 +19,13 @@ import java.util.*;
 public class SeedTransactionManager {
 
     public static final long blocksPerFile = 10000L;
-    private static long lastBlockRequested = -1L;
+    private static long lastBlockRequested = 0L;
 
     public static final long blocksPerDay = 12 * 60 * 24;
-    public static final long startHeight = 5;  // start at block 5
     public static final long transactionsPerYear = blocksPerDay * 365L;  // one year of seed transactions
     public static final long totalSeedTransactions = transactionsPerYear * 5L + blocksPerDay * 30L;  // five years
-    public static final long highestSeedTransactionHeight = startHeight + totalSeedTransactions - 1;
+    public static final long lowestSeedTransactionHeight = 5;  // start at block 5
+    public static final long highestSeedTransactionHeight = lowestSeedTransactionHeight + totalSeedTransactions - 1;
 
     private static final Map<Long, Transaction> transactionMap = new HashMap<>();
 
@@ -41,59 +41,51 @@ public class SeedTransactionManager {
 
                 while (!UpdateUtil.shouldTerminate() && lastBlockRequested < highestSeedTransactionHeight) {
 
-                    if (lastBlockRequested < 0) {
+                    long currentFileIndex = lastBlockRequested / blocksPerFile;
 
-                        // If the last block request is less than zero, we have not hit the Genesis block yet. Sleep
-                        // for two seconds and hit the loop again.
-                        try {
-                            Thread.sleep(2000L);
-                        } catch (Exception ignored) { }
-                    } else {
-                        long currentFileIndex = lastBlockRequested / blocksPerFile;
+                    // Check if we have transactions for the next 20 blocks (100 seconds). If we do, we can skip
+                    // the rest of the process for this iteration.
+                    boolean haveBlocks = true;
+                    for (int i = 0; i < 20 && haveBlocks; i++) {
+                        long height = lastBlockRequested + i + 1;
+                        if (height >= lowestSeedTransactionHeight && height <= highestSeedTransactionHeight &&
+                                transactionMap.get(height) == null) {
+                            haveBlocks = false;
+                        }
+                    }
 
-                        // Check if we have transactions for the next 20 blocks (100 seconds). If we do, we can skip
-                        // the rest of the process for this iteration.
-                        boolean haveBlocks = true;
-                        for (int i = 0; i < 20 && haveBlocks; i++) {
-                            long height = lastBlockRequested + i + 1;
-                            if (height <= highestSeedTransactionHeight && transactionMap.get(height) == null) {
-                                haveBlocks = false;
+                    if (!haveBlocks) {
+
+                        // Ensure that we have both the current file and the next file and load them into memory.
+                        for (long fileIndex = currentFileIndex; fileIndex < currentFileIndex + 2; fileIndex++) {
+                            File file = fileForIndex(fileIndex);
+                            if (!file.exists()) {
+                                fetchFile(file);
                             }
+                            loadFile(file);
                         }
 
-                        if (!haveBlocks) {
-
-                            // Ensure that we have both the current file and the next file and load them into memory.
-                            for (long fileIndex = currentFileIndex; fileIndex < currentFileIndex + 2; fileIndex++) {
-                                File file = fileForIndex(fileIndex);
-                                if (!file.exists()) {
-                                    fetchFile(file);
-                                }
-                                loadFile(file);
-                            }
-
-                            // If the previous file exists, delete it.
-                            File previousFile = fileForIndex(currentFileIndex - 1);
-                            if (previousFile.exists()) {
-                                previousFile.delete();
-                            }
-
-                            // Remove any items from the map below the last-requested height.
-                            Set<Long> keys = new HashSet<>(transactionMap.keySet());
-                            for (Long key : keys) {
-                                if (key < lastBlockRequested) {
-                                    transactionMap.remove(key);
-                                }
-                            }
+                        // If the previous file exists, delete it.
+                        File previousFile = fileForIndex(currentFileIndex - 1);
+                        if (previousFile.exists()) {
+                            previousFile.delete();
                         }
 
-                        // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
-                        for (int i = 0; i < 15; i++) {
-                            if (!UpdateUtil.shouldTerminate()) {
-                                try {
-                                    Thread.sleep(2000L);
-                                } catch (Exception ignored) {
-                                }
+                        // Remove any items from the map below the last-requested height.
+                        Set<Long> keys = new HashSet<>(transactionMap.keySet());
+                        for (Long key : keys) {
+                            if (key < lastBlockRequested) {
+                                transactionMap.remove(key);
+                            }
+                        }
+                    }
+
+                    // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
+                    for (int i = 0; i < 15; i++) {
+                        if (!UpdateUtil.shouldTerminate()) {
+                            try {
+                                Thread.sleep(2000L);
+                            } catch (Exception ignored) {
                             }
                         }
                     }
