@@ -18,14 +18,14 @@ import java.util.*;
 
 public class SeedTransactionManager {
 
-    public static final long blocksPerFile = 1000L;
+    public static final long blocksPerFile = 10000L;
     private static long lastBlockRequested = 0L;
 
     public static final long blocksPerDay = 12 * 60 * 24;
     public static final long startHeight = 5;  // start at block 5
     public static final long transactionsPerYear = blocksPerDay * 365L;  // one year of seed transactions
-    public static final long totalSeedTransactions = blocksPerDay; // transactionsPerYear * 5L + blocksPerDay * 30L;  // five years
-    public static final long highestSeedHeight = startHeight + totalSeedTransactions;
+    public static final long totalSeedTransactions = transactionsPerYear * 5L + blocksPerDay * 30L;  // five years
+    public static final long highestSeedTransactionHeight = startHeight + totalSeedTransactions - 1;
 
     private static final Map<Long, Transaction> transactionMap = new HashMap<>();
 
@@ -39,7 +39,7 @@ public class SeedTransactionManager {
                     Thread.sleep(100L);
                 } catch (Exception e) { }
 
-                while (!UpdateUtil.shouldTerminate() && lastBlockRequested < highestSeedHeight) {
+                while (!UpdateUtil.shouldTerminate() && lastBlockRequested < highestSeedTransactionHeight) {
 
                     long currentFileIndex = lastBlockRequested / blocksPerFile;
 
@@ -48,7 +48,7 @@ public class SeedTransactionManager {
                     boolean haveBlocks = true;
                     for (int i = 0; i < 20 && haveBlocks; i++) {
                         long height = lastBlockRequested + i + 1;
-                        if (height <= highestSeedHeight && transactionMap.get(height) == null) {
+                        if (height <= highestSeedTransactionHeight && transactionMap.get(height) == null) {
                             haveBlocks = false;
                         }
                     }
