@@ -110,6 +110,9 @@ public class Verifier {
             NotificationUtil.send("setting temporary local verifier entry on " + Verifier.getNickname());
             NodeManager.addTempraryLocalVerifierEntry();
 
+            // Update the mesh limit. We need to have this before we start calculating scores for blocks.
+            NewVerifierVoteManager.updateMeshLimit();
+
             // Ensure that the Genesis block and the seed-funding transaction are loaded.
             loadGenesisBlock();
             loadSeedFundingTransaction();
@@ -245,7 +248,7 @@ public class Verifier {
                 ReadableByteChannel channel = Channels.newChannel(url.openStream());
                 byte[] array = new byte[2048];
                 ByteBuffer buffer = ByteBuffer.wrap(array);
-                while (channel.read(buffer) > 0);
+                while (channel.read(buffer) > 0) { }
                 channel.close();
 
                 buffer.rewind();
@@ -412,10 +415,15 @@ public class Verifier {
                     NodeManager.requestMissingNodes();
 
                     // If the frozen edge height has changed, update the new-verifier vote and update the frozen edge
-                    // with the transaction pool.
+                    // with the transaction pool. Also, if the new frozen edge height is a multiple of ten, update the
+                    // mesh limit.
                     if (frozenEdgeHeight != BlockManager.getFrozenEdgeHeight()) {
                         NewVerifierQueueManager.updateVote();
                         TransactionPool.updateFrozenEdge();
+
+                        if (BlockManager.getFrozenEdgeHeight() % 10 == 0) {
+                            NewVerifierVoteManager.updateMeshLimit();
+                        }
                     }
                 }
 

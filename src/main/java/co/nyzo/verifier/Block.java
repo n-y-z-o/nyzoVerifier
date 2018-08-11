@@ -497,7 +497,7 @@ public class Block implements MessageObject {
                         List<ByteBuffer> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
                         ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());
                         int indexInQueue = topNewVerifiers.indexOf(verifierIdentifier);
-                        if (indexInQueue < 0) {
+                        if (indexInQueue < 0 || indexInQueue > 2) {
                             score += 12L;  // maximum of three new in queue; this is behind the queue
                         } else {
                             score += indexInQueue * 4L;
