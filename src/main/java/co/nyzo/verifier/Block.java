@@ -398,22 +398,16 @@ public class Block implements MessageObject {
 
                 // Add/subtract all transactions.
                 long feesThisBlock = 0L;
-                Set<ByteBuffer> transactionSignatures = new HashSet<>();
                 for (Transaction transaction : transactions) {
-                    ByteBuffer transactionSignature = ByteBuffer.wrap(transaction.getSignature());
-                    if (((blockHeight == 0L && transaction.getType() == Transaction.typeCoinGeneration) ||
-                            transaction.signatureIsValid()) && !transactionSignatures.contains(transactionSignature)) {
-                        transactionSignatures.add(transactionSignature);
 
-                        feesThisBlock += transaction.getFee();
-                        if (transaction.getType() != Transaction.typeCoinGeneration) {
-                            adjustBalance(transaction.getSenderIdentifier(), -transaction.getAmount(),
-                                    identifierToItemMap);
-                        }
-                        long amountAfterFee = transaction.getAmount() - transaction.getFee();
-                        if (amountAfterFee > 0) {
-                            adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToItemMap);
-                        }
+                    feesThisBlock += transaction.getFee();
+                    if (transaction.getType() != Transaction.typeCoinGeneration) {
+                        adjustBalance(transaction.getSenderIdentifier(), -transaction.getAmount(),
+                                identifierToItemMap);
+                    }
+                    long amountAfterFee = transaction.getAmount() - transaction.getFee();
+                    if (amountAfterFee > 0) {
+                        adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToItemMap);
                     }
                 }
 
