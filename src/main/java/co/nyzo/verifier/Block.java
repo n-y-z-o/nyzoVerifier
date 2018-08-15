@@ -401,7 +401,8 @@ public class Block implements MessageObject {
                 Set<ByteBuffer> transactionSignatures = new HashSet<>();
                 for (Transaction transaction : transactions) {
                     ByteBuffer transactionSignature = ByteBuffer.wrap(transaction.getSignature());
-                    if (transaction.signatureIsValid() && !transactionSignatures.contains(transactionSignature)) {
+                    if (((blockHeight == 0L && transaction.getType() == Transaction.typeCoinGeneration) ||
+                            transaction.signatureIsValid()) && !transactionSignatures.contains(transactionSignature)) {
                         transactionSignatures.add(transactionSignature);
 
                         feesThisBlock += transaction.getFee();
