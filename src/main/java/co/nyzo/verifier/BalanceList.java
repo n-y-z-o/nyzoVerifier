@@ -48,9 +48,10 @@ public class BalanceList implements MessageObject {
             }
         });
 
-        // Remove any entries with balances of zero.
+        // Remove any entries with balances of zero or less. This is actually a protection against overdrafts, because
+        // it will ensure that the signature does not match to a balance list that contains overdrafts.
         for (int i = sorted.size() - 1; i >= 0; i--) {
-            if (sorted.get(i).getBalance() == 0L) {
+            if (sorted.get(i).getBalance() <= 0L) {
                 sorted.remove(i);
             }
         }
