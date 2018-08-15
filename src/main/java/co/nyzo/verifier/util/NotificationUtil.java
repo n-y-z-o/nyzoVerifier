@@ -89,9 +89,7 @@ public class NotificationUtil {
                     } else {
                         System.out.println(connection.getResponseMessage());
                     }
-                } catch (Exception ignored) {
-                    ignored.printStackTrace();
-                }
+                } catch (Exception ignored) { }
             } else {
                 System.out.println(height + ": " + message);
             }
