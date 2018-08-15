@@ -67,10 +67,31 @@ public class Block implements MessageObject {
         this.previousBlockHash = previousBlockHash;
         this.startTimestamp = startTimestamp;
         this.verificationTimestamp = verificationTimestamp;
-        this.transactions = transactions;
+        this.transactions = validTransactions(transactions, startTimestamp);
         this.balanceListHash = balanceListHash;
         this.verifierIdentifier = verifierIdentifier;
         this.verifierSignature = verifierSignature;
+    }
+
+    private static List<Transaction> validTransactions(List<Transaction> transactions, long startTimestamp) {
+
+        List<Transaction> validTransactions = new ArrayList<>();
+        Set<ByteBuffer> signatures = new HashSet<>();
+        long endTimestamp = startTimestamp + Block.blockDuration;
+        for (Transaction transaction : transactions) {
+            if ((transaction.getType() == Transaction.typeCoinGeneration || transaction.signatureIsValid()) &&
+                    transaction.getTimestamp() >= startTimestamp && transaction.getTimestamp() < endTimestamp) {
+
+                ByteBuffer signature = ByteBuffer.wrap(transaction.getType() == Transaction.typeCoinGeneration ?
+                        new byte[FieldByteSize.hash] : transaction.getSignature());
+                if (!signatures.contains(signature)) {
+                    signatures.add(signature);
+                    validTransactions.add(transaction);
+                }
+            }
+        }
+
+        return validTransactions;
     }
 
     public long getBlockHeight() {
