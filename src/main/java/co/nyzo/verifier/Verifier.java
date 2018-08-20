@@ -27,8 +27,8 @@ public class Verifier {
     private static String nickname = null;
     private static int rejoinCount = 0;
 
-    private static int blocksCreated = 0;
-    private static int blocksTransmitted = 0;
+    private static int numberOfBlocksCreated = 0;
+    private static int numberOfBlocksTransmitted = 0;
 
     private static Transaction seedFundingTransaction = null;
 
@@ -36,6 +36,8 @@ public class Verifier {
     private static final long[] recentMessageTimestamps = new long[10];
 
     private static final Map<ByteBuffer, Block> blocksExtended = new HashMap<>();
+    private static final Map<ByteBuffer, Block> blocksCreated = new HashMap<>();
+    private static final Map<ByteBuffer, Block> blocksTransmitted = new HashMap<>();
 
     private static boolean paused = false;
 
@@ -381,19 +383,52 @@ public class Verifier {
                         }
                     }
 
+                    // Clean up the maps of blocks we have created and transmitted. These maps only needs entries past
+                    // the frozen edge. We can iterate over the keys from the created map, because the transmitted
+                    // map is a subset of the created map.
+                    for (ByteBuffer blockHash : new HashSet<>(blocksCreated.keySet())) {
+                        Block block = blocksCreated.get(blockHash);
+                        if (block.getBlockHeight() <= frozenEdgeHeight) {
+                            blocksCreated.remove(blockHash);
+                            blocksTransmitted.remove(blockHash);
+                        }
+                    }
+
                     // Try to extend blocks from the frozen edge to the leading edge. Limit to one behind the open
                     // edge, because we cannot create a block that is not yet open (the block created is one higher
                     // than the block that is extended).
                     long endHeight = Math.min(Math.max(UnfrozenBlockManager.leadingEdgeHeight(), frozenEdgeHeight),
                             BlockManager.openEdgeHeight(false) - 1);
-                    endHeight = Math.min(endHeight, frozenEdgeHeight + 100);  // TODO: remove this; for testing only
+                    endHeight = Math.min(endHeight, frozenEdgeHeight + 100);  // TODO: consider adjusting this
                     for (long height = frozenEdgeHeight; height <= endHeight; height++) {
 
-                        // Get the block to extend for the height from the chain option manager.
+                        // Get the block to extend for the height from the chain option manager. Try to extend it.
                         Block blockToExtend = UnfrozenBlockManager.blockToExtendForHeight(height);
                         if (blockToExtend != null && blockToExtend.getVerificationTimestamp() <
                                 System.currentTimeMillis() - Block.minimumVerificationInterval) {
                             extendBlock(blockToExtend);
+                        }
+                    }
+
+                    // Now, transmit blocks with suitable scores that have not been transmitted yet.
+                    for (ByteBuffer blockHash : new HashSet<>(blocksCreated.keySet())) {
+
+                        Block block = blocksCreated.get(blockHash);
+                        if (!blocksTransmitted.containsKey(blockHash) &&
+                                block.getContinuityState() == Block.ContinuityState.Continuous) {
+
+                            // Only transmit the block if the score is within 10 of the threshold. The threshold changes
+                            // slowly enough that the block will still be transmitted in appropriate time if it has a
+                            // chance to be approved.
+                            long threshold = UnfrozenBlockManager.votingScoreThresholdForHeight(block.getBlockHeight());
+                            if (block.chainScore(frozenEdgeHeight) <= threshold + 10) {
+
+                                numberOfBlocksTransmitted++;
+                                Message.broadcast(new Message(MessageType.NewBlock9, new NewBlockMessage(block)));
+
+                                blocksTransmitted.put(blockHash, block);
+                            }
+
                         }
                     }
 
@@ -442,30 +477,28 @@ public class Verifier {
 
         CycleInformation cycleInformation = block.getCycleInformation();
         ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
-        if (cycleInformation != null &&
-                block.getContinuityState() == Block.ContinuityState.Continuous &&
+        if (cycleInformation != null && block.getContinuityState() == Block.ContinuityState.Continuous &&
                 !blocksExtended.containsKey(blockHash)) {
 
+            // Create the next block. If the next block is not null, mark that the previous block has been extended so
+            // we do not extend it again. Also, if the next block is not discontinuous, add it to the set of blocks
+            // that have been created and register it with UnfrozenBlockManager.
             Block nextBlock = createNextBlock(block);
-            blocksCreated++;
-
-            if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Continuous) {
-
+            numberOfBlocksCreated++;
+            if (nextBlock != null) {
                 blocksExtended.put(blockHash, block);
 
-                boolean shouldTransmitBlock = UnfrozenBlockManager.registerBlock(nextBlock);
-                if (shouldTransmitBlock) {
-                    blocksTransmitted++;
-                    Message.broadcast(new Message(MessageType.NewBlock9, new NewBlockMessage(nextBlock)));
+                if (block.getContinuityState() != Block.ContinuityState.Discontinuous) {
+                    ByteBuffer nextBlockHash = ByteBuffer.wrap(nextBlock.getHash());
+                    blocksCreated.put(nextBlockHash, nextBlock);
+
+                    UnfrozenBlockManager.registerBlock(block);
                 }
-            } else if (nextBlock != null && nextBlock.getContinuityState() == Block.ContinuityState.Discontinuous) {
-
-                // If the next block is a definite discontinuity, mark that it has been extended so we do not extend it
-                // again.
-                blocksExtended.put(blockHash, block);
             }
         }
     }
+
+
 
     private static Block createNextBlock(Block previousBlock) {
 
@@ -569,7 +602,7 @@ public class Verifier {
 
     public static String getBlockCreationInformation() {
 
-        return blocksTransmitted + "/" + blocksCreated;
+        return numberOfBlocksTransmitted + "/" + numberOfBlocksCreated;
     }
 
     public static boolean isPaused() {

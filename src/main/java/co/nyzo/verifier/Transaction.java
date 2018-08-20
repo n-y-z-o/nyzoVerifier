@@ -7,6 +7,12 @@ import java.util.Arrays;
 
 public class Transaction implements MessageObject {
 
+    private enum SignatureState {
+        Undetermined,
+        Valid,
+        Invalid
+    }
+
     // We want this to be a functioning monetary system. The maximum number of coins is 100 million. The fraction used
     // for dividing coins is 1 million (all transactions must be a whole-number multiple of 1/1000000 coins).
 
@@ -34,6 +40,8 @@ public class Transaction implements MessageObject {
     private byte[] senderIdentifier;     // 32 bytes (256-bit public key of the sender)
     private byte[] senderData;           // up to 32 bytes
     private byte[] signature;            // 64 bytes (512-bit signature)
+
+    private SignatureState signatureState = SignatureState.Undetermined;
 
     private Transaction() {
     }
@@ -335,7 +343,7 @@ public class Transaction implements MessageObject {
 
             // Check the signature.
             if (valid) {
-                if (!SignatureUtil.signatureIsValid(signature, getBytes(true), senderIdentifier)) {
+                if (!signatureIsValid()) {
                     valid = false;
                     validationError.append("The signature is not valid. ");
                 }
@@ -387,7 +395,13 @@ public class Transaction implements MessageObject {
     }
 
     public boolean signatureIsValid() {
-        return SignatureUtil.signatureIsValid(signature, getBytes(true), senderIdentifier);
+
+        if (signatureState == SignatureState.Undetermined) {
+            signatureState = SignatureUtil.signatureIsValid(signature, getBytes(true), senderIdentifier) ?
+                    SignatureState.Valid : SignatureState.Invalid;
+        }
+
+        return signatureState == SignatureState.Valid;
     }
 
     public boolean previousHashIsValid() {

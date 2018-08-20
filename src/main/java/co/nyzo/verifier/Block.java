@@ -16,6 +16,12 @@ public class Block implements MessageObject {
         Continuous
     }
 
+    private enum SignatureState {
+        Undetermined,
+        Valid,
+        Invalid
+    }
+
     public static final byte[] genesisVerifier = ByteUtil.byteArrayFromHexString("6b32332d4b28e6ad-" +
             "d7b8f86f374045ca-fc6453344a1c47b6-feaf485f8c2e0d47", 32);
 
@@ -38,6 +44,7 @@ public class Block implements MessageObject {
     private byte[] verifierSignature;              // 64 bytes
 
     private ContinuityState continuityState = ContinuityState.Undetermined;
+    private SignatureState signatureState = SignatureState.Undetermined;
     private CycleInformation cycleInformation = null;
 
     public Block(long height, byte[] previousBlockHash, long startTimestamp, List<Transaction> transactions,
@@ -346,7 +353,13 @@ public class Block implements MessageObject {
     }
 
     public boolean signatureIsValid() {
-        return SignatureUtil.signatureIsValid(verifierSignature, getBytes(false), verifierIdentifier);
+
+        if (signatureState == SignatureState.Undetermined) {
+            signatureState = SignatureUtil.signatureIsValid(verifierSignature, getBytes(false), verifierIdentifier) ?
+                    SignatureState.Valid : SignatureState.Invalid;
+        }
+
+        return signatureState == SignatureState.Valid;
     }
 
     public static Block fromBytes(byte[] bytes) {

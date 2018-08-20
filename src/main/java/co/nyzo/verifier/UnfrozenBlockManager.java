@@ -158,7 +158,10 @@ public class UnfrozenBlockManager {
                         }
                     }
 
-                    // If the best score is less than or equal to the threshold, cast a vote for the block.
+                    // If the best score is less than or equal to the threshold, cast a vote for the block. Ensuring
+                    // that the lowest chain score is limit to no less than zero is redundant with the outer condition
+                    // that the threshold is greater than or equal to zero (we never want to cast a vote with a negative
+                    // threshold), but such redundancy may prevent errors as this code evolves.
                     if (Math.max(lowestChainScore, 0) <= threshold) {
                         castVote(lowestScoredBlock);  // guaranteed not null because it is set when the score is set
                     }
