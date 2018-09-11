@@ -34,7 +34,7 @@ public class NodeManager {
         }
     }
 
-    public static void addTempraryLocalVerifierEntry() {
+    public static void addTemporaryLocalVerifierEntry() {
 
         updateNode(Verifier.getIdentifier(), new byte[4], 0);
     }

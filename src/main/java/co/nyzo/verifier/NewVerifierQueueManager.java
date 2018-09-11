@@ -17,11 +17,13 @@ public class NewVerifierQueueManager {
         ByteBuffer vote = calculateVote();
 
         // Only update if the new vote is not null and the current vote is either null or different than the new vote.
-        if (vote != null && (currentVote == null || !vote.equals(currentVote))) {
+        if (vote != null && !vote.equals(currentVote)) {
 
-            Message message = new Message(MessageType.NewVerifierVote21, new NewVerifierVote(vote.array()));
+            NewVerifierVote wrappedVote = new NewVerifierVote(vote.array());
+            Message message = new Message(MessageType.NewVerifierVote21, wrappedVote);
             Message.broadcast(message);
             NotificationUtil.send("sent vote for verifier " + NicknameManager.get(vote.array()));
+            NewVerifierVoteManager.registerVote(Verifier.getIdentifier(), wrappedVote, true);
 
             currentVote = vote;
         }

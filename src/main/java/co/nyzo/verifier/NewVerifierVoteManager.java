@@ -113,6 +113,14 @@ public class NewVerifierVoteManager {
                     return voteCount2.compareTo(voteCount1);
                 }
             });
+
+            // If the verifiers list is empty and this is a new verifier, add it to the list now.
+            if (topVerifiers.isEmpty()) {
+                ByteBuffer verifierIdentifier = ByteBuffer.wrap(Verifier.getIdentifier());
+                if (!votingVerifiers.contains(verifierIdentifier)) {
+                    topVerifiers.add(verifierIdentifier);
+                }
+            }
         }
 
         StatusResponse.setField("top new", topVerifiers.size() + "");

@@ -109,7 +109,7 @@ public class Verifier {
             // Load the private seed. This seed is used to sign all messages, so this is done first.
             loadPrivateSeed();
             NotificationUtil.send("setting temporary local verifier entry on " + Verifier.getNickname());
-            NodeManager.addTempraryLocalVerifierEntry();
+            NodeManager.addTemporaryLocalVerifierEntry();
 
             // Update the mesh limit. We need to have this before we start calculating scores for blocks.
             NewVerifierVoteManager.updateMeshLimit();
