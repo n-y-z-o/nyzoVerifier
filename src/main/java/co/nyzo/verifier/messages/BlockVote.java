@@ -9,16 +9,13 @@ public class BlockVote implements MessageObject {
 
     private long height;
     private byte[] hash;
-    private short numberOfVotesToCancel;  // the number of votes under this vote that should be cancelled; typically
-                                          // zero
-    private short numberOfVotesToSave;  // the number of votes to save between this vote and the first cancelled vote
+    private long timestamp;  // used to prevent replay attacks of old votes
 
-    public BlockVote(long height, byte[] hash, short numberOfVotesToCancel, short numberOfVotesToSave) {
+    public BlockVote(long height, byte[] hash, long timestamp) {
 
         this.height = height;
         this.hash = hash;
-        this.numberOfVotesToCancel = (short) Math.min(numberOfVotesToCancel, 100);  // currently limited to 100 votes
-        this.numberOfVotesToSave = (short) Math.min(numberOfVotesToSave, 100);  // also currently limited to 100 votes
+        this.timestamp = timestamp;
     }
 
     public long getHeight() {
@@ -29,18 +26,13 @@ public class BlockVote implements MessageObject {
         return hash;
     }
 
-    public short getNumberOfVotesToCancel() {
-        return numberOfVotesToCancel;
-    }
-
-    public short getNumberOfVotesToSave() {
-        return numberOfVotesToSave;
+    public long getTimestamp() {
+        return timestamp;
     }
 
     @Override
     public int getByteSize() {
-        return FieldByteSize.blockHeight + FieldByteSize.hash + FieldByteSize.unnamedShort +
-                (numberOfVotesToCancel > 0 ? FieldByteSize.unnamedShort : 0);
+        return FieldByteSize.blockHeight + FieldByteSize.hash + FieldByteSize.timestamp;
     }
 
     @Override
@@ -51,10 +43,7 @@ public class BlockVote implements MessageObject {
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.putLong(height);
         buffer.put(hash);
-        buffer.putShort(numberOfVotesToCancel);
-        if (numberOfVotesToCancel > 0) {
-            buffer.putShort(numberOfVotesToSave);
-        }
+        buffer.putLong(timestamp);
 
         return array;
     }
@@ -67,11 +56,9 @@ public class BlockVote implements MessageObject {
             long height = buffer.getLong();
             byte[] hash = new byte[FieldByteSize.hash];
             buffer.get(hash);
-            short numberOfVotesToCancel = buffer.getShort();
-            short numberOfVotesToSave = numberOfVotesToCancel > 0 ? buffer.getShort() : 0;  // only provided if
-                                                                                            // numberOfVotesToCancel
-                                                                                            // is non-zero
-            result = new BlockVote(height, hash, numberOfVotesToCancel, numberOfVotesToSave);
+            long timestamp = buffer.getLong();
+
+            result = new BlockVote(height, hash, timestamp);
 
         } catch (Exception ignored) { }
 
@@ -83,24 +70,24 @@ public class BlockVote implements MessageObject {
         BlockVote result = null;
 
         try {
-            // For a frozen block, return the hash of the block. It does not matter whether we originally voted
-            // for this block or another.
+            // For a frozen block, return the hash of the block. If does not matter what our final vote was.
             if (height <= BlockManager.getFrozenEdgeHeight()) {
                 Block block = BlockManager.frozenBlockForHeight(height);
                 if (block != null) {
-                    result = new BlockVote(height, block.getHash(), (short) 0, (short) 0);
+                    result = new BlockVote(height, block.getHash(), System.currentTimeMillis());
                 }
             } else {
                 // For an unfrozen block, return the local vote, if present.
-                result = BlockVoteManager.getLocalVoteForHeight(height);
+                byte[] hash = BlockVoteManager.getLocalVoteForHeight(height);
+                if (hash != null) {
+                    result = new BlockVote(height, hash, System.currentTimeMillis());
+                }
             }
         } catch (Exception ignored) { }
 
-        // If the result is null, create a vote for an invalid height. The object cannot be null for a
-        // MissingBlockVoteResponse24 message, and an invalid vote for a valid height would nullify this verifier's
-        // valid vote for that height.
+        // If the result is null, vote with an empty hash.
         if (result == null) {
-            result = new BlockVote(-1, new byte[FieldByteSize.hash], (short) 0, (short) 0);
+            result = new BlockVote(height, new byte[FieldByteSize.hash], System.currentTimeMillis());
         }
 
         return result;
@@ -108,7 +95,6 @@ public class BlockVote implements MessageObject {
 
     @Override
     public String toString() {
-        return "[BlockVote: height=" + getHeight() + ", hash=" + PrintUtil.compactPrintByteArray(getHash()) +
-                ", nCancel=" + numberOfVotesToCancel + ", nSave=" + numberOfVotesToSave + "]";
+        return "[BlockVote: height=" + getHeight() + ", hash=" + PrintUtil.compactPrintByteArray(getHash()) + "]";
     }
 }

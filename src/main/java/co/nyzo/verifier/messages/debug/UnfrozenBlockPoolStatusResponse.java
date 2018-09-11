@@ -47,9 +47,8 @@ public class UnfrozenBlockPoolStatusResponse implements MessageObject, Multiline
                 if (block.getBlockHeight() > frozenEdgeHeight) {
                     long chainScore = chainScoreMap.get(block);
                     String chainScoreString = PrintUtil.printChainScore(chainScore);
-                    BlockVote vote = BlockVoteManager.getLocalVoteForHeight(block.getBlockHeight());
-                    String localVoteString = vote != null && ByteUtil.arraysAreEqual(block.getHash(), vote.getHash()) ?
-                            "*" : "";
+                    byte[] vote = BlockVoteManager.getLocalVoteForHeight(block.getBlockHeight());
+                    String localVoteString = ByteUtil.arraysAreEqual(block.getHash(), vote) ? "*" : "";
                     lines.add(block.getBlockHeight() + " (" + PrintUtil.superCompactPrintByteArray(block.getHash()) +
                             "/" + NicknameManager.get(block.getVerifierIdentifier()) + "): " + chainScoreString +
                             localVoteString);

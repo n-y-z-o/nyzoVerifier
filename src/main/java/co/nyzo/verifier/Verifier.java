@@ -14,13 +14,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Verifier {
 
-    public static final File dataRootDirectory = new File("/var/lib/nyzo");
-    public static final File seedFundingFile = new File(dataRootDirectory, "seed_funding");
+    public static final File dataRootDirectory = TestnetUtil.testnet ?  new File("/var/lib/nyzo/testnet") :
+            new File("/var/lib/nyzo/production");
 
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
@@ -30,7 +29,7 @@ public class Verifier {
     private static int numberOfBlocksCreated = 0;
     private static int numberOfBlocksTransmitted = 0;
 
-    private static Transaction seedFundingTransaction = null;
+    private static long lastBlockFrozenTimestamp = 0;
 
     private static int recentMessageTimestampsIndex = 0;
     private static final long[] recentMessageTimestamps = new long[10];
@@ -58,7 +57,7 @@ public class Verifier {
                 System.out.println("executing class " + args[0]);
                 Class<?> classToRun = Class.forName(args[0]);
                 Method mainMethod = classToRun.getDeclaredMethod("main", String[].class);
-                mainMethod.invoke(classToRun, new Object[] { arguments.toArray(new String[arguments.size()]) });
+                mainMethod.invoke(classToRun, new Object[]{arguments.toArray(new String[arguments.size()])});
                 System.out.println("fin.");
             } catch (Exception e) {
 
@@ -115,9 +114,8 @@ public class Verifier {
             // Update the mesh limit. We need to have this before we start calculating scores for blocks.
             NewVerifierVoteManager.updateMeshLimit();
 
-            // Ensure that the Genesis block and the seed-funding transaction are loaded.
+            // Ensure that the Genesis block is loaded.
             loadGenesisBlock();
-            loadSeedFundingTransaction();
 
             // Load the nickname. This is purely for display purposes.
             loadNickname();
@@ -143,8 +141,12 @@ public class Verifier {
             for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
                 System.out.println("-" + entryPoint);
             }
+            if (trustedEntryPoints.isEmpty()) {
+                System.err.println("trusted entry points list is empty -- unable to initialize");
+                UpdateUtil.terminate();
+            }
 
-            // Send mesh requests to all trusted entry points. These will be used to send
+            // Send mesh requests to all trusted entry points.
             Message meshRequest = new Message(MessageType.MeshRequest15, null);
             for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
                 Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, new MessageCallback() {
@@ -246,7 +248,7 @@ public class Verifier {
             System.out.println("genesis block is null");
             try {
 
-                URL url = new URL("https://s3-us-west-2.amazonaws.com/nyzo/genesis");
+                URL url = new URL(SeedTransactionManager.s3UrlForFile("genesis"));
                 ReadableByteChannel channel = Channels.newChannel(url.openStream());
                 byte[] array = new byte[2048];
                 ByteBuffer buffer = ByteBuffer.wrap(array);
@@ -274,42 +276,6 @@ public class Verifier {
         }
     }
 
-    public static void loadSeedFundingTransaction() {
-
-        while (seedFundingTransaction == null && !UpdateUtil.shouldTerminate()) {
-            try {
-                SeedTransactionManager.fetchFile(seedFundingFile);
-                loadSeedFundingTransactionFromFile();
-
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
-            }
-
-            // The verifier should not start without the transaction. If there was a problem, sleep for two seconds and
-            // try again.
-            if (seedFundingTransaction == null && !UpdateUtil.shouldTerminate()) {
-                try {
-                    Thread.sleep(2000L);
-                } catch (Exception ignored) {
-                }
-            }
-        }
-    }
-
-    private static void loadSeedFundingTransactionFromFile() {
-
-        try {
-            byte[] fileBytes = Files.readAllBytes(Paths.get(seedFundingFile.getAbsolutePath()));
-            ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
-            seedFundingTransaction = Transaction.fromByteBuffer(buffer);
-        } catch (Exception ignored) { }
-    }
-
-    public static Transaction getSeedFundingTransaction() {
-
-        return seedFundingTransaction;
-    }
-
     private static List<TrustedEntryPoint> getTrustedEntryPoints() {
 
         Path path = Paths.get(dataRootDirectory.getAbsolutePath() + "/trusted_entry_points");
@@ -327,7 +293,9 @@ public class Verifier {
                     entryPoints.add(entryPoint);
                 }
             }
-        } catch (Exception ignored) { }
+        } catch (Exception e) {
+            System.out.println("issue getting trusted entry points: " + PrintUtil.printException(e));
+        }
 
         return entryPoints;
     }
@@ -383,7 +351,7 @@ public class Verifier {
                         }
                     }
 
-                    // Clean up the maps of blocks we have created and transmitted. These maps only needs entries past
+                    // Clean up the maps of blocks we have created and transmitted. These maps only need entries past
                     // the frozen edge. We can iterate over the keys from the created map, because the transmitted
                     // map is a subset of the created map.
                     for (ByteBuffer blockHash : new HashSet<>(blocksCreated.keySet())) {
@@ -394,20 +362,13 @@ public class Verifier {
                         }
                     }
 
-                    // Try to extend blocks from the frozen edge to the leading edge. Limit to one behind the open
-                    // edge, because we cannot create a block that is not yet open (the block created is one higher
-                    // than the block that is extended).
-                    long endHeight = Math.min(Math.max(UnfrozenBlockManager.leadingEdgeHeight(), frozenEdgeHeight),
-                            BlockManager.openEdgeHeight(false) - 1);
-                    endHeight = Math.min(endHeight, frozenEdgeHeight + 100);  // TODO: consider adjusting this
-                    for (long height = frozenEdgeHeight; height <= endHeight; height++) {
-
-                        // Get the block to extend for the height from the chain option manager. Try to extend it.
-                        Block blockToExtend = UnfrozenBlockManager.blockToExtendForHeight(height);
-                        if (blockToExtend != null && blockToExtend.getVerificationTimestamp() <
-                                System.currentTimeMillis() - Block.minimumVerificationInterval) {
-                            extendBlock(blockToExtend);
-                        }
+                    // Try to extend the frozen edge. We extend the frozen edge if the minimum verification interval
+                    // has passed and if the edge is open.
+                    Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
+                    if (frozenEdge.getVerificationTimestamp() <=
+                            System.currentTimeMillis() - Block.minimumVerificationInterval &&
+                            frozenEdge.getBlockHeight() < BlockManager.openEdgeHeight(false)) {
+                        extendBlock(frozenEdge);
                     }
 
                     // Now, transmit blocks with suitable scores that have not been transmitted yet.
@@ -417,11 +378,8 @@ public class Verifier {
                         if (!blocksTransmitted.containsKey(blockHash) &&
                                 block.getContinuityState() == Block.ContinuityState.Continuous) {
 
-                            // Only transmit the block if the score is within 10 of the threshold. The threshold changes
-                            // slowly enough that the block will still be transmitted in appropriate time if it has a
-                            // chance to be approved.
-                            long threshold = UnfrozenBlockManager.votingScoreThresholdForHeight(block.getBlockHeight());
-                            if (block.chainScore(frozenEdgeHeight) <= threshold + 10) {
+                            // Only transmit a block if other verifiers would cast a vote for it in the next 10 seconds.
+                            if (block.getMinimumVoteTimestamp() <= System.currentTimeMillis() + 10000L) {
 
                                 numberOfBlocksTransmitted++;
                                 Message.broadcast(new Message(MessageType.NewBlock9, new NewBlockMessage(block)));
@@ -432,10 +390,12 @@ public class Verifier {
                         }
                     }
 
-                    // The next steps are all about trying to freeze blocks. First, we freeze blocks based on votes
-                    // we have received. Then, we cast votes based on the new state of the unfrozen blocks.
-                    UnfrozenBlockManager.freezeBlocks();
-                    UnfrozenBlockManager.castVotes();
+                    // Update the local vote with the unfrozen block manager. This may change for several reasons,
+                    // and it should always be updated before attempting to freeze a block.
+                    UnfrozenBlockManager.updateVote();
+
+                    // Try to freeze a block.
+                    UnfrozenBlockManager.attemptToFreezeBlock();
 
                     // Remove old votes from the block vote manager.
                     BlockVoteManager.removeOldVotes();
@@ -449,16 +409,30 @@ public class Verifier {
                     // Request any nodes that appear to be missing.
                     NodeManager.requestMissingNodes();
 
-                    // If the frozen edge height has changed, update the new-verifier vote and update the frozen edge
-                    // with the transaction pool. Also, if the new frozen edge height is a multiple of ten, update the
-                    // mesh limit.
+                    // These are operations that only have to happen when a block is frozen.
                     if (frozenEdgeHeight != BlockManager.getFrozenEdgeHeight()) {
+
+                        // Update the new-verifier vote. This is necessary if the previous choice is now in the
+                        // cycle.
                         NewVerifierQueueManager.updateVote();
+
+                        // Clean old transactions from the transaction pool.
                         TransactionPool.updateFrozenEdge();
 
+                        // Update the mesh limit every 10 blocks. This is something that does not need to happen
+                        // often.
                         if (BlockManager.getFrozenEdgeHeight() % 10 == 0) {
                             NewVerifierVoteManager.updateMeshLimit();
                         }
+
+                        // Store the timestamp of when the block was frozen. This is used for determining when to
+                        // cast a vote for the next block. It is also used for determining when to start requesting
+                        // missing votes.
+                        lastBlockFrozenTimestamp = System.currentTimeMillis();
+
+                        // Since the frozen edge height has changed, reduce the sleep time to zero to allow the next
+                        // block to be produced as quickly as possible.
+                        sleepTime = 0L;
                     }
                 }
 
@@ -467,9 +441,12 @@ public class Verifier {
             }
 
             // Sleep for a short time to avoid consuming too much computational power.
-            try {
-                Thread.sleep(sleepTime);
-            } catch (Exception ignored) { }
+            if (sleepTime > 0L) {
+                try {
+                    Thread.sleep(sleepTime);
+                } catch (Exception ignored) {
+                }
+            }
         }
     }
 
@@ -477,7 +454,9 @@ public class Verifier {
 
         CycleInformation cycleInformation = block.getCycleInformation();
         ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
-        if (cycleInformation != null && block.getContinuityState() == Block.ContinuityState.Continuous &&
+        if (cycleInformation != null &&
+                block.getContinuityState() == Block.ContinuityState.Continuous &&
+                !ByteUtil.arraysAreEqual(block.getVerifierIdentifier(), Verifier.getIdentifier()) &&
                 !blocksExtended.containsKey(blockHash)) {
 
             // Create the next block. If the next block is not null, mark that the previous block has been extended so
@@ -492,13 +471,11 @@ public class Verifier {
                     ByteBuffer nextBlockHash = ByteBuffer.wrap(nextBlock.getHash());
                     blocksCreated.put(nextBlockHash, nextBlock);
 
-                    UnfrozenBlockManager.registerBlock(block);
+                    UnfrozenBlockManager.registerBlock(nextBlock);
                 }
             }
         }
     }
-
-
 
     private static Block createNextBlock(Block previousBlock) {
 
@@ -509,13 +486,11 @@ public class Verifier {
             // Get the transactions for the block.
             long blockHeight = previousBlock.getBlockHeight() + 1L;
             List<Transaction> transactions = TransactionPool.transactionsForHeight(blockHeight);
-            if (blockHeight == 1) {
-                transactions.add(seedFundingTransaction);
-            } else {
-                Transaction seedTransaction = SeedTransactionManager.transactionForBlock(blockHeight);
-                if (seedTransaction != null) {
-                    transactions.add(seedTransaction);
-                }
+
+            // Add the seed transaction, if one is available.
+            Transaction seedTransaction = SeedTransactionManager.transactionForBlock(blockHeight);
+            if (seedTransaction != null) {
+                transactions.add(seedTransaction);
             }
 
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
@@ -611,6 +586,11 @@ public class Verifier {
 
     public static void setPaused(boolean paused) {
         Verifier.paused = paused;
+    }
+
+    public static long getLastBlockFrozenTimestamp() {
+
+        return lastBlockFrozenTimestamp;
     }
 
     public static int getRejoinCount() {

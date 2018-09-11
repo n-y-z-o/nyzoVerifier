@@ -203,7 +203,7 @@ public class NodeManager {
 
                         NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
                         for (BlockVote vote : response.getBlockVotes()) {
-                            BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote, false);
+                            BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote);
                         }
 
                         if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {

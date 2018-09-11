@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class ChainInitializationManager {
 
-    private static final Map<Long, FrozenBlockVoteTally> hashVotes = new HashMap<>();
+    private static final Map<Long, BootstrapVoteTally> hashVotes = new HashMap<>();
 
     public static synchronized void processBootstrapResponseMessage(Message message) {
 
@@ -23,9 +23,9 @@ public class ChainInitializationManager {
         int numberOfHashes = response.getFrozenBlockHashes().size();
         for (int i = 0; i < numberOfHashes; i++) {
             long blockHeight = response.getFirstHashHeight() + i;
-            FrozenBlockVoteTally voteTally = hashVotes.get(blockHeight);
+            BootstrapVoteTally voteTally = hashVotes.get(blockHeight);
             if (voteTally == null) {
-                voteTally = new FrozenBlockVoteTally(blockHeight);
+                voteTally = new BootstrapVoteTally(blockHeight);
                 hashVotes.put(blockHeight, voteTally);
             }
 
@@ -39,7 +39,7 @@ public class ChainInitializationManager {
 
         // Determine the maximum number of votes we have at any level. This determines our consensus threshold.
         int maximumVotesAtAnyLevel = 0;
-        for (FrozenBlockVoteTally tally : hashVotes.values()) {
+        for (BootstrapVoteTally tally : hashVotes.values()) {
             maximumVotesAtAnyLevel = Math.max(maximumVotesAtAnyLevel, tally.totalVotes());
         }
 
@@ -49,7 +49,7 @@ public class ChainInitializationManager {
         if (maximumVotesAtAnyLevel > 0) {
             for (long height : hashVotes.keySet()) {
                 if (height > maximumConsensusHeight) {
-                    FrozenBlockVoteTally tally = hashVotes.get(height);
+                    BootstrapVoteTally tally = hashVotes.get(height);
                     AtomicLong startHeight = new AtomicLong();
                     if (tally.votesForWinner(winnerHash, startHeight) > maximumVotesAtAnyLevel / 2) {
                         maximumConsensusHeight = height;
@@ -168,7 +168,8 @@ public class ChainInitializationManager {
                         endBlock.getCycleInformation().getCycleLength());
             } catch (Exception reportOnly) {
                 NotificationUtil.send("unable to determine continuity state on " + Verifier.getNickname() +
-                        " at end of chain initialization: " + DebugUtil.callingMethods(8));
+                        " at end of chain initialization: " + DebugUtil.callingMethods(8) + ", exception is " +
+                        PrintUtil.printException(reportOnly));
             }
         }
     }

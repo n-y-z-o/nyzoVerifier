@@ -109,7 +109,8 @@ public class NotificationUtil {
 
         String value = null;
         try {
-            List<String> fileContents = Files.readAllLines(Paths.get("/var/lib/nyzo/notification_config"));
+            List<String> fileContents = Files.readAllLines(Paths.get(Verifier.dataRootDirectory.getAbsolutePath() +
+                    "/notification_config"));
             for (String line : fileContents) {
                 if (line.startsWith(name + "=")) {
                     value = line.substring(name.length() + 1).trim();

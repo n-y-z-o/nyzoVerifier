@@ -1,6 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.TestnetUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.BufferedReader;
@@ -15,95 +16,111 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SeedTransactionManager {
+
+    public static final File rootDirectory = new File(Verifier.dataRootDirectory, "seed_transactions");
 
     public static final long blocksPerFile = 10000L;
     private static long lastBlockRequested = 0L;
 
-    public static final long blocksPerDay = 12 * 60 * 24;
-    public static final long transactionsPerYear = blocksPerDay * 365L;  // one year of seed transactions
-    public static final long totalSeedTransactions = transactionsPerYear * 5L + blocksPerDay * 30L;  // five years
-    public static final long lowestSeedTransactionHeight = 5;  // start at block 5
+    public static final long transactionsPerYear = (60L * 60L * 24L * 365L * 1000L + Block.blockDuration - 1) /
+            Block.blockDuration;  // round up
+    public static final long totalSeedTransactions = TestnetUtil.testnet ? 40000 :
+            transactionsPerYear * 6L;  // 40k testnet, six years production
+    public static final long lowestSeedTransactionHeight = 2;  // start at block 2
     public static final long highestSeedTransactionHeight = lowestSeedTransactionHeight + totalSeedTransactions - 1;
 
     private static final Map<Long, Transaction> transactionMap = new HashMap<>();
 
+    private static final AtomicBoolean alive = new AtomicBoolean(false);
+
+    public static boolean isAlive() {
+        return alive.get();
+    }
+
     public static void start() {
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        if (!alive.getAndSet(true)) {
 
-                try {
-                    Thread.sleep(100L);
-                } catch (Exception e) { }
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
 
-                while (!UpdateUtil.shouldTerminate() && lastBlockRequested < highestSeedTransactionHeight) {
+                    try {
+                        Thread.sleep(100L);
+                    } catch (Exception e) {
+                    }
 
-                    long currentFileIndex = lastBlockRequested / blocksPerFile;
+                    while (!UpdateUtil.shouldTerminate() && lastBlockRequested < highestSeedTransactionHeight) {
 
-                    // Check if we have transactions for the next 20 blocks (100 seconds). If we do, we can skip
-                    // the rest of the process for this iteration.
-                    boolean haveBlocks = true;
-                    for (int i = 0; i < 20 && haveBlocks; i++) {
-                        long height = lastBlockRequested + i + 1;
-                        if (height >= lowestSeedTransactionHeight && height <= highestSeedTransactionHeight &&
-                                transactionMap.get(height) == null) {
-                            haveBlocks = false;
+                        long currentFileIndex = lastBlockRequested / blocksPerFile;
+
+                        // Check if we have transactions for the next 20 blocks (100 seconds). If we do, we can skip
+                        // the rest of the process for this iteration.
+                        boolean haveBlocks = true;
+                        for (int i = 0; i < 20 && haveBlocks; i++) {
+                            long height = lastBlockRequested + i + 1;
+                            if (height >= lowestSeedTransactionHeight && height <= highestSeedTransactionHeight &&
+                                    transactionMap.get(height) == null) {
+                                haveBlocks = false;
+                            }
+                        }
+
+                        if (!haveBlocks) {
+
+                            // Ensure that we have both the current file and the next file and load them into memory.
+                            for (long fileIndex = currentFileIndex; fileIndex < currentFileIndex + 2; fileIndex++) {
+                                File file = fileForIndex(fileIndex);
+                                if (!file.exists()) {
+                                    fetchFile(file);
+                                }
+                                loadFile(file);
+                            }
+
+                            // If the previous file exists, delete it.
+                            File previousFile = fileForIndex(currentFileIndex - 1);
+                            if (previousFile.exists()) {
+                                previousFile.delete();
+                            }
+
+                            // Remove any items from the map below the last-requested height.
+                            Set<Long> keys = new HashSet<>(transactionMap.keySet());
+                            for (Long key : keys) {
+                                if (key < lastBlockRequested) {
+                                    transactionMap.remove(key);
+                                }
+                            }
+                        }
+
+                        // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
+                        for (int i = 0; i < 15; i++) {
+                            if (!UpdateUtil.shouldTerminate()) {
+                                try {
+                                    Thread.sleep(2000L);
+                                } catch (Exception ignored) {
+                                }
+                            }
                         }
                     }
 
-                    if (!haveBlocks) {
-
-                        // Ensure that we have both the current file and the next file and load them into memory.
-                        for (long fileIndex = currentFileIndex; fileIndex < currentFileIndex + 2; fileIndex++) {
-                            File file = fileForIndex(fileIndex);
-                            if (!file.exists()) {
-                                fetchFile(file);
-                            }
-                            loadFile(file);
-                        }
-
-                        // If the previous file exists, delete it.
-                        File previousFile = fileForIndex(currentFileIndex - 1);
-                        if (previousFile.exists()) {
-                            previousFile.delete();
-                        }
-
-                        // Remove any items from the map below the last-requested height.
-                        Set<Long> keys = new HashSet<>(transactionMap.keySet());
-                        for (Long key : keys) {
-                            if (key < lastBlockRequested) {
-                                transactionMap.remove(key);
-                            }
-                        }
-                    }
-
-                    // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
-                    for (int i = 0; i < 15; i++) {
-                        if (!UpdateUtil.shouldTerminate()) {
-                            try {
-                                Thread.sleep(2000L);
-                            } catch (Exception ignored) {
-                            }
-                        }
-                    }
+                    System.out.println("exiting SeedTransactionManager thread");
+                    alive.set(false);
                 }
-
-                System.out.println("exiting SeedTransactionManager thread");
-            }
-        }, "SeedTransactionManager").start();
+            }, "SeedTransactionManager").start();
+        }
     }
 
     private static File fileForIndex(long index) {
 
-        return new File(Verifier.dataRootDirectory, String.format("%06d.nyzotransaction", index));
+        return new File(rootDirectory, String.format("%06d.nyzotransaction", index));
     }
 
-    private static String s3UrlForFile(File file) {
+    public static String s3UrlForFile(String filename) {
 
-        return "https://s3-us-west-2.amazonaws.com/nyzo/" + file.getName();
+        String bucket = TestnetUtil.testnet ? "nyzo-testnet" : "nyzo";
+        return "https://s3-us-west-2.amazonaws.com/" + bucket + "/" + filename;
     }
 
     public static void fetchFile(File file) {
@@ -112,7 +129,7 @@ public class SeedTransactionManager {
 
             file.getParentFile().mkdirs();
 
-            URL url = new URL(s3UrlForFile(file));
+            URL url = new URL(s3UrlForFile(file.getName()));
             ReadableByteChannel channel = Channels.newChannel(url.openStream());
             FileOutputStream outputStream = new FileOutputStream(file);
             outputStream.getChannel().transferFrom(channel, 0, Long.MAX_VALUE);

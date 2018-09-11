@@ -5,20 +5,27 @@ import co.nyzo.verifier.Block.ContinuityState;
 public class CycleInformation {
 
     private long blockHeight;
+    private int maximumCycleLength;
     private int[] cycleLengths;
     private boolean newVerifier;
-    private boolean genesisCycle;
+    private boolean inGenesisCycle;
 
-    public CycleInformation(long blockHeight, int[] cycleLengths, boolean newVerifier, boolean genesisCycle) {
+    public CycleInformation(long blockHeight, int maximumCycleLength, int[] cycleLengths, boolean newVerifier,
+                            boolean inGenesisCycle) {
 
         this.blockHeight = blockHeight;
+        this.maximumCycleLength = maximumCycleLength;
         this.cycleLengths = cycleLengths;
         this.newVerifier = newVerifier;
-        this.genesisCycle = genesisCycle;
+        this.inGenesisCycle = inGenesisCycle;
     }
 
     public int getCycleLength() {
         return cycleLengths[0];
+    }
+
+    public int getMaximumCycleLength() {
+        return maximumCycleLength;
     }
 
     public int getCycleLength(int index) {
@@ -29,11 +36,15 @@ public class CycleInformation {
         return newVerifier;
     }
 
-    public boolean isGenesisCycle() {
-        return genesisCycle;
+    public boolean isInGenesisCycle() {
+        return inGenesisCycle;
     }
 
     public long getWindowStartHeight() {
+        return blockHeight - cycleLengths[0] - cycleLengths[1] - cycleLengths[2] + 1;
+    }
+
+    public long getDeterminationHeight() {
 
         // This is the height of the lowest block that affects this cycle information. This will give us the last four
         // cycles plus the first block from the fifth cycle.
@@ -43,6 +54,6 @@ public class CycleInformation {
     @Override
     public String toString() {
         return String.format("[CycleInformation (length=%d,new verifier=%b,Genesis cycle=%b)]", cycleLengths[0],
-                newVerifier, genesisCycle);
+                newVerifier, inGenesisCycle);
     }
 }

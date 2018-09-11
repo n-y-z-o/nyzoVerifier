@@ -2,7 +2,10 @@ package co.nyzo.verifier;
 
 public class BalanceListItem {
 
-    private static final short blocksBetweenFee = 100;
+    public static final byte[] transferIdentifier = ByteUtil.byteArrayFromHexString("0000000000000000-" +
+            "0000000000000000-0000000000000000-0000000000000001", FieldByteSize.identifier);
+
+    private static final short blocksBetweenFee = 500;
 
     private byte[] identifier;
     private long balance;
@@ -11,7 +14,7 @@ public class BalanceListItem {
     public BalanceListItem(byte[] identifier, long balance) {
         this.identifier = identifier;
         this.balance = balance;
-        this.blocksUntilFee = blocksBetweenFee;
+        this.blocksUntilFee = ByteUtil.arraysAreEqual(identifier, transferIdentifier) ? 0 : blocksBetweenFee;
     }
 
     public BalanceListItem(byte[] identifier, long balance, short blocksUntilFee) {

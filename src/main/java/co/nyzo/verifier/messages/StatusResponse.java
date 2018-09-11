@@ -2,6 +2,7 @@ package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.TestnetUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +33,9 @@ public class StatusResponse implements MessageObject {
 
             List<String> lines = new ArrayList<>();
             lines.add("nickname: " + Verifier.getNickname() + (Verifier.isPaused() ? "*** PAUSED ***" : ""));
+            if (TestnetUtil.testnet) {
+                lines.add("*** IN TESTNET MODE ***");
+            }
             lines.add("version: " + Version.getVersion());
             lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
             lines.add("mesh: " + activeMeshSize + " active, " + inactiveMeshSize + " inactive");
@@ -41,11 +45,10 @@ public class StatusResponse implements MessageObject {
             lines.add("retention edge: " + BlockManager.getRetentionEdgeHeight());
             lines.add("trailing edge: " + BlockManager.getTrailingEdgeHeight());
             lines.add("frozen edge: " + frozenEdgeHeight + " (" + (frozenEdge == null ? "null" :
-                    PrintUtil.superCompactPrintByteArray(frozenEdge.getHash()) + ", " +
                     NicknameManager.get(frozenEdge.getVerifierIdentifier())) + ")");
-            lines.add("leading edge: " + UnfrozenBlockManager.leadingEdgeHeight());
             lines.add("open edge: " + BlockManager.openEdgeHeight(false));
             lines.add("blocks transmitted/created: " + Verifier.getBlockCreationInformation());
+            lines.add("votes requested: " + BlockVoteManager.getNumberOfVotesRequested());
             List<Long> unfrozenBlockHeights = new ArrayList<>(UnfrozenBlockManager.unfrozenBlockHeights());
             Collections.sort(unfrozenBlockHeights);
             for (int i = 0; i < 7 && i < unfrozenBlockHeights.size(); i++) {
@@ -58,17 +61,26 @@ public class StatusResponse implements MessageObject {
                         String heightString = "+" + (height - frozenEdgeHeight);
                         lines.add("- h: " + heightString + ", n: " +
                                 UnfrozenBlockManager.numberOfBlocksAtHeight(height) +
-                                ", v: " + BlockVoteManager.votesAtHeight(height) +
-                                ", s: " + PrintUtil.printChainScore(UnfrozenBlockManager.bestScoreForHeight(height)) +
-                                ", t: " + UnfrozenBlockManager.votingScoreThresholdForHeight(height));
+                                ", v: " + BlockVoteManager.votesAtHeight(height));
                     }
                 }
             }
             lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
             lines.add("old timestamp: " + Verifier.oldestTimestampAge());
-            lines.add("block map: " + BlockManagerMap.mapInformation());
-            lines.add("balance list map: " + BalanceListManager.mapInformation());
+            lines.add("blocks: " + BlockManagerMap.mapInformation());
+            lines.add("balance lists: " + BalanceListManager.mapInformation());
             lines.add("avg. work/balance list: " + BalanceListManager.averageWork());
+
+            Map<Long, Integer> thresholdOverrides = UnfrozenBlockManager.getThresholdOverrides();
+            for (Long height : thresholdOverrides.keySet()) {
+                lines.add("override @+" + (height - frozenEdgeHeight) + ": " + thresholdOverrides.get(height) + "%");
+            }
+
+            Map<Long, byte[]> hashOverrides = UnfrozenBlockManager.getHashOverrides();
+            for (Long height : hashOverrides.keySet()) {
+                lines.add("override @+" + (height - frozenEdgeHeight) + ": " +
+                        PrintUtil.superCompactPrintByteArray(hashOverrides.get(height)));
+            }
 
             Map<String, String> extraFields = getExtraFields();
             for (String key : extraFields.keySet()) {

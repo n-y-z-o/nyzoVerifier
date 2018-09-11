@@ -1,9 +1,6 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.DebugUtil;
-import co.nyzo.verifier.util.NotificationUtil;
-import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.SignatureUtil;
+import co.nyzo.verifier.util.*;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -22,12 +19,16 @@ public class Block implements MessageObject {
         Invalid
     }
 
-    public static final byte[] genesisVerifier = ByteUtil.byteArrayFromHexString("6b32332d4b28e6ad-" +
-            "d7b8f86f374045ca-fc6453344a1c47b6-feaf485f8c2e0d47", 32);
+    private static final byte[] genesisVerifierTestnet = ByteUtil.byteArrayFromHexString("94d3d58bdcf294bd-" +
+            "a4737c8c5a16fa2c-a2b5ac2ceafd75e7-fd725acda40b37d6", FieldByteSize.identifier);
+    private static final byte[] genesisVerifierProduction = ByteUtil.byteArrayFromHexString("64afc20a4a4097e8-" +
+            "494239f2e7d1b1db-de59a9b157453138-f4716b72a0424fef", FieldByteSize.identifier);
+    public static final byte[] genesisVerifier = TestnetUtil.testnet ? genesisVerifierTestnet :
+            genesisVerifierProduction;
 
     public static final byte[] genesisBlockHash = HashUtil.doubleSHA256(new byte[0]);
 
-    public static final long blockDuration = 5000L;
+    public static final long blockDuration = 7000L;
     public static final long minimumVerificationInterval = 1500L;
 
     private long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,
@@ -207,45 +208,94 @@ public class Block implements MessageObject {
 
     private void calculateCycleInformation() {
 
-        // Make a list of sets for the last four cycles.
-        List<Set<ByteBuffer>> cycles = new ArrayList<>();
-        for (int i = 0; i < 4; i++) {
-            cycles.add(new HashSet<>());
-        }
-
-        // Starting at this block, stepping backward in the chain, build the last four cycles.
-        int index = 0;
+        // This is the new method. It finds the maximum cycle length of any block in the previous three cycles.
         Block blockToCheck = this;
         boolean reachedGenesisBlock = false;
-        boolean newVerifier = true;
-        while (index < 4 && blockToCheck != null) {
+        Set<ByteBuffer> identifiers = new HashSet<>();
+        List<ByteBuffer> orderedIdentifiers = new ArrayList<>();
+        int maximumCycleLength = 0;
+        long cycleEndHeight = getBlockHeight();
+        long primaryCycleEndHeight = cycleEndHeight;
+        int primaryCycleIndex = 0;
+        int[] primaryCycleLengths = new int[4];
+        boolean inGenesisCycle = false;
+        boolean newVerifier = false;
+        while (primaryCycleIndex < 4 && blockToCheck != null) {
 
-            Set<ByteBuffer> cycle = cycles.get(index);
             ByteBuffer identifier = ByteBuffer.wrap(blockToCheck.getVerifierIdentifier());
-            if (cycle.contains(identifier)) {
-                index++;
-            } else {
-                if (index == 1 && cycle.isEmpty() && ByteUtil.arraysAreEqual(blockToCheck.getVerifierIdentifier(),
-                        getVerifierIdentifier())) {
-                    newVerifier = false;
+
+            // Each pass of this loop calculated the cycle length for one end block height. If a new verifier was
+            // added to the cycle, multiple end blocks may have the same start block.
+            while (identifiers.contains(identifier) && primaryCycleIndex < 4) {
+
+                int cycleLength = orderedIdentifiers.size();
+
+                // Verifiers are always in the same order. So, if the verifier does not close its own cycle, then it
+                // is a new verifier.
+                if (primaryCycleIndex == 0) {
+                    newVerifier = !identifier.equals(ByteBuffer.wrap(getVerifierIdentifier()));
                 }
-                cycle.add(identifier);
-                reachedGenesisBlock = blockToCheck.getBlockHeight() == 0L;
-                blockToCheck = blockToCheck.getPreviousBlock();
+
+                // If this is a primary cycle (one of the cycles stepping back from the current block), step back
+                // another cycle.
+                if (cycleEndHeight == primaryCycleEndHeight) {
+                    primaryCycleLengths[primaryCycleIndex] = cycleLength;
+                    primaryCycleEndHeight -= cycleLength;
+                    primaryCycleIndex++;
+                }
+
+                // If this was not the final cycle outside the area we want to analyze, consider the cycle length.
+                if (primaryCycleIndex < 4 && cycleEndHeight != getBlockHeight()) {
+                    maximumCycleLength = Math.max(maximumCycleLength, cycleLength);
+                }
+
+                // Step back to the previous block.
+                cycleEndHeight--;
+                ByteBuffer removedIdentifier = orderedIdentifiers.remove(orderedIdentifiers.size() - 1);
+                identifiers.remove(removedIdentifier);
             }
+
+            orderedIdentifiers.add(0, identifier);
+            identifiers.add(identifier);
+
+            // This is the special case when we reach the Genesis block.
+            if (blockToCheck.getBlockHeight() == 0) {
+
+                reachedGenesisBlock = true;
+
+                // The cycle length of this cycle is from the Genesis block to the currently marked end.
+                int cycleLength = (int) primaryCycleEndHeight + 1;
+                primaryCycleLengths[primaryCycleIndex] = cycleLength;
+                maximumCycleLength = Math.max(maximumCycleLength, cycleLength - 1);
+
+                // If we have not yet found a cycle, mark as Genesis and a new verifier. Otherwise, consider the
+                // ordered identifiers list for a previous maximum, as it is a cycle that has not yet been processed.
+                if (primaryCycleIndex == 0) {
+                    inGenesisCycle = true;
+                    newVerifier = true;
+                } else if (primaryCycleIndex < 3 ||
+                        (primaryCycleIndex < 4 && cycleEndHeight != primaryCycleEndHeight)) {
+                    maximumCycleLength = Math.max(maximumCycleLength, orderedIdentifiers.size());
+                }
+            }
+
+            blockToCheck = blockToCheck.getPreviousBlock();
         }
 
         // If we found four full cycles or if we reached the beginning of the chain, we can build the
         // cycle information.
-        if (index == 4 || reachedGenesisBlock) {
+        if (primaryCycleIndex == 4 || reachedGenesisBlock) {
+
+            // This considers the current cycle length as part of the maximum cycle length. This is inconsequential,
+            // but it does make the properties of the maximum cycle length cleaner. Precisely, it means that the
+            // maximum cycle length will not increase from one block to the next without an increase in the cycle
+            // length.
+            maximumCycleLength = Math.max(maximumCycleLength, primaryCycleLengths[0]);
 
             ByteBuffer verifierIdentifier = ByteBuffer.wrap(getVerifierIdentifier());
 
-            boolean genesisCycle = cycles.get(1).isEmpty();
-
-            int[] cycleLengths = { cycles.get(0).size(), cycles.get(1).size(), cycles.get(2).size(),
-                    cycles.get(3).size() };
-            cycleInformation = new CycleInformation(height, cycleLengths, newVerifier, genesisCycle);
+            cycleInformation = new CycleInformation(height, maximumCycleLength, primaryCycleLengths, newVerifier,
+                    inGenesisCycle);
         }
     }
 
@@ -260,7 +310,7 @@ public class Block implements MessageObject {
 
             boolean rule1Pass;
             boolean sufficientInformation;
-            if (cycleInformation.isGenesisCycle() || !cycleInformation.isNewVerifier()) {
+            if (cycleInformation.isInGenesisCycle() || !cycleInformation.isNewVerifier()) {
                 rule1Pass = true;
                 sufficientInformation = true;
             } else {
@@ -295,13 +345,11 @@ public class Block implements MessageObject {
 
                 if (rule1Pass) {
 
-                    // Proof-of-diversity rule 2: All cycles must be longer than one more than half of the maximum of
-                    // the lengths of the three previous cycles.
+                    // Proof-of-diversity rule 2: Past the Genesis block, the cycle of a block must be longer than half
+                    // of one more than the maximum of the all cycle lengths in this cycle and the previous two cycles.
 
-                    int maximumPreviousLength = Math.max(cycleInformation.getCycleLength(1),
-                            Math.max(cycleInformation.getCycleLength(2), cycleInformation.getCycleLength(3)));
-                    long threshold = (maximumPreviousLength + 1L) / 2L;
-                    boolean rule2Pass = cycleInformation.getCycleLength() > threshold;
+                    long threshold = (cycleInformation.getMaximumCycleLength() + 1L) / 2L;
+                    boolean rule2Pass = getBlockHeight() == 0 || cycleInformation.getCycleLength() > threshold;
                     continuityState = rule2Pass ? ContinuityState.Continuous : ContinuityState.Discontinuous;
 
                 } else {
@@ -360,6 +408,22 @@ public class Block implements MessageObject {
         }
 
         return signatureState == SignatureState.Valid;
+    }
+
+    public long getMinimumVoteTimestamp() {
+
+        long timestamp = Long.MAX_VALUE;
+        long chainScore = chainScore(BlockManager.getFrozenEdgeHeight());
+        if (chainScore < 0) {
+            // Allow voting immediately for a new verifier.
+            timestamp = Verifier.getLastBlockFrozenTimestamp();
+        } else if (chainScore < 100000) {
+            // Wait a minimum of two seconds to vote for an existing verifier, adding 20 seconds for each score above
+            // zero.
+            timestamp = Verifier.getLastBlockFrozenTimestamp() + 2000L + chainScore * 20000L;
+        }
+
+        return timestamp;
     }
 
     public static Block fromBytes(byte[] bytes) {
@@ -439,6 +503,7 @@ public class Block implements MessageObject {
                         adjustBalance(transaction.getSenderIdentifier(), -transaction.getAmount(),
                                 identifierToItemMap);
                     }
+
                     long amountAfterFee = transaction.getAmount() - transaction.getFee();
                     if (amountAfterFee > 0) {
                         adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToItemMap);
@@ -449,7 +514,8 @@ public class Block implements MessageObject {
                 long periodicAccountFees = 0L;
                 for (ByteBuffer identifier : identifierToItemMap.keySet()) {
                     BalanceListItem item = identifierToItemMap.get(identifier);
-                    if (item.getBlocksUntilFee() == 0 && item.getBalance() > 0L) {
+                    if (item.getBlocksUntilFee() <= 0 && item.getBalance() > 0L &&
+                            !ByteUtil.arraysAreEqual(identifier.array(), BalanceListItem.transferIdentifier)) {
                         periodicAccountFees++;
                         identifierToItemMap.put(identifier, item.adjustByAmount(-1L).resetBlocksUntilFee());
                     }
@@ -521,7 +587,7 @@ public class Block implements MessageObject {
                 if (continuityState == ContinuityState.Discontinuous) {
                     score = Long.MAX_VALUE;  // invalid
                 } else if (cycleInformation.isNewVerifier()) {
-                    if (cycleInformation.isGenesisCycle()) {
+                    if (cycleInformation.isInGenesisCycle()) {
 
                         // This is a special case for the Genesis cycle. We want a deterministic order that can be
                         // calculated locally, but we do not care what that order is.
@@ -546,10 +612,10 @@ public class Block implements MessageObject {
                     } else {
                         score += (previousBlock.getCycleInformation().getCycleLength() -
                                 cycleInformation.getCycleLength()) * 4L;
-                    }
 
-                    if (!NodeManager.isActive(verifierIdentifier)) {
-                        score += 5L;
+                        if (!NodeManager.isActive(verifierIdentifier)) {
+                            score += 5L;
+                        }
                     }
                 }
             }

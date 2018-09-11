@@ -8,10 +8,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class FrozenBlockVoteTally {
+public class BootstrapVoteTally {
 
     private long blockHeight;  // helpful for debugging; not necessary otherwise
     private Set<ByteBuffer> identifiersThatHaveVoted;
@@ -19,7 +18,7 @@ public class FrozenBlockVoteTally {
     private Map<ByteBuffer, byte[]> hashMap;
     private Map<ByteBuffer, Long> startHeightMap;
 
-    public FrozenBlockVoteTally(long blockHeight) {
+    public BootstrapVoteTally(long blockHeight) {
         this.blockHeight = blockHeight;
         this.identifiersThatHaveVoted = new HashSet<>();
         this.voteMap = new HashMap<>();
@@ -27,7 +26,7 @@ public class FrozenBlockVoteTally {
         this.startHeightMap = new HashMap<>();
     }
 
-    public void vote(byte[] identifier, byte[] hash, long startHeight) {
+    public synchronized void vote(byte[] identifier, byte[] hash, long startHeight) {
 
         ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
         if (!identifiersThatHaveVoted.contains(identifierBuffer)) {

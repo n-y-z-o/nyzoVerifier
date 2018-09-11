@@ -34,6 +34,10 @@ public enum MessageType {
     MissingBlockResponse26(26),
     TimestampRequest27(27),
     TimestampResponse28(28),
+    HashVoteOverrideRequest29(29),
+    HashVoteOverrideResponse30(30),
+    ConsensusThresholdOverrideRequest31(31),
+    ConsensusThresholdOverrideResponse32(32),
 
     // test messages
     Ping200(200),
@@ -57,8 +61,8 @@ public enum MessageType {
     MeshStatusResponse409(409),
     TogglePauseRequest410(410),  // pauses/un-pauses verifier
     TogglePauseResponse411(411),
-    LocalVoteStatusRequest412(412),  // gets textual information about local votes
-    LocalVoteStatusResponse413(413),
+    ConsensusTallyStatusRequest412(412),
+    ConsensusTallyStatusResponse413(413),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain   TODO: key this to the local verifier before release

@@ -2,72 +2,44 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MissingBlockVoteRequest;
-import co.nyzo.verifier.messages.StatusResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BlockVoteManager {
 
-    private static final List<String> recentVotes = new ArrayList<>();
+    private static final Map<Long, Map<ByteBuffer, BlockVote>> voteMap = new HashMap<>();
 
-    private static final ByteBuffer invalidVote = ByteBuffer.wrap(new byte[FieldByteSize.hash]);
+    private static int numberOfVotesRequested = 0;
+    private static long lastVoteRequestTimestamp = 0L;
 
-    // The local votes map is redundant, but it is a simple and efficient way to store local votes for responding to
-    // node-join messages.
-    private static final Map<Long, BlockVote> localVotes = new HashMap<>();
-    private static final Map<Long, Map<ByteBuffer, ByteBuffer>> voteMap = new HashMap<>();
+    public static synchronized void registerVote(byte[] identifier, BlockVote vote) {
 
-    public static synchronized void registerVote(byte[] identifier, BlockVote vote, boolean isLocalVote) {
-
-        // Register the vote. The map ensures that each identifier only gets one vote. Some of the votes may not count.
-        // Votes are only counted for verifiers in the current cycle.
+        // Register the vote. The map ensures that each identifier only gets one vote. Votes are only counted for
+        // verifiers in the current cycle, except in the Genesis cycle, where all votes are counted. We accept votes
+        // all the way to the open edge, in case we have gotten behind and need to catch up.
         long height = vote.getHeight();
-        if (height > BlockManager.getFrozenEdgeHeight() && height < BlockManager.openEdgeHeight(true)) {
-            Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
+        if (height > frozenEdgeHeight && 
+                height <= BlockManager.openEdgeHeight(true) &&
+                !ByteUtil.isAllZeros(vote.getHash()) &&
+                (BlockManager.verifierInCurrentCycle(identifierBuffer) || BlockManager.inGenesisCycle())) {
+
+            // Get the map for the height.
+            Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
             if (votesForHeight == null) {
                 votesForHeight = new HashMap<>();
                 voteMap.put(height, votesForHeight);
             }
 
-            // If the identifier has already voted for a different hash, we cancel the votes. Otherwise, we store the
-            // vote.
-            ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
-            if (votesForHeight.containsKey(identifierBuffer) &&
-                    !ByteUtil.arraysAreEqual(votesForHeight.get(identifierBuffer).array(), vote.getHash())) {
-                votesForHeight.put(identifierBuffer, invalidVote);
-                NotificationUtil.send("canceling vote for " + NicknameManager.get(identifier) + " on " +
-                        Verifier.getNickname() + " due to inconsistent votes");
-            } else {
-                votesForHeight.put(identifierBuffer, ByteBuffer.wrap(vote.getHash()));
-            }
-
-            // If any votes are explicitly cancelled, cancel them now.
-            if (vote.getNumberOfVotesToCancel() > 0) {
-                long startHeightToCancel = Math.max(BlockManager.getFrozenEdgeHeight() + 1, height -
-                        vote.getNumberOfVotesToSave() - vote.getNumberOfVotesToCancel());
-                long endHeightToCancel = vote.getHeight() - vote.getNumberOfVotesToSave() - 1;
-                for (long cancelHeight = startHeightToCancel; cancelHeight <= endHeightToCancel; cancelHeight++) {
-                    Map<ByteBuffer, ByteBuffer> votesForCancelHeight = voteMap.get(cancelHeight);
-                    if (votesForCancelHeight == null) {
-                        votesForCancelHeight = new HashMap<>();
-                        voteMap.put(height, votesForCancelHeight);
-                    }
-                    votesForCancelHeight.put(identifierBuffer, invalidVote);
-                    NotificationUtil.send("canceling vote for " + NicknameManager.get(identifier) + " at height " +
-                            cancelHeight + " on " + Verifier.getNickname() + " due to explicit cancellation");
-                }
-            }
-        }
-
-        if (isLocalVote) {
-            localVotes.put(vote.getHeight(), vote);
-
-            recentVotes.add("@" + vote.getHeight() + " for " + NicknameManager.get(vote.getHash()));
-            while (recentVotes.size() > 10) {
-                recentVotes.remove(0);
+            // Get the existing vote for the identifier. Only override if this vote has a greater timestamp.
+            BlockVote existingVote = votesForHeight.get(identifierBuffer);
+            if (existingVote == null || vote.getTimestamp() > existingVote.getTimestamp()) {
+                votesForHeight.put(identifierBuffer, vote);
             }
         }
     }
@@ -79,7 +51,6 @@ public class BlockVoteManager {
         for (long height : heights) {
             if (height <= frozenEdgeHeight) {
                 voteMap.remove(height);
-                localVotes.remove(height);
             }
         }
     }
@@ -89,24 +60,31 @@ public class BlockVoteManager {
 
         int numberOfVotes = 0;
         int maximumVotes = 0;
-        Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
+        Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
         if (votesForHeight != null) {
             numberOfVotes = votesForHeight.size();
 
             Map<ByteBuffer, Integer> voteCounts = new HashMap<>();
-            for (ByteBuffer byteBuffer : votesForHeight.values()) {
-                Integer count = voteCounts.get(byteBuffer);
+            for (BlockVote vote : votesForHeight.values()) {
+                ByteBuffer hash = ByteBuffer.wrap(vote.getHash());
+                Integer count = voteCounts.get(hash);
                 if (count == null) {
                     count = 1;
                 } else {
                     count++;
                 }
-                voteCounts.put(byteBuffer, count);
+                voteCounts.put(hash, count);
                 maximumVotes = Math.max(maximumVotes, count);
             }
         }
 
         return numberOfVotes + "(" + maximumVotes + ")";
+    }
+
+    public static synchronized Map<ByteBuffer, BlockVote> votesForHeight(long height) {
+
+        Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
+        return votesForHeight == null ? null : new HashMap<>(votesForHeight);
     }
 
     public static synchronized List<Long> getHeights() {
@@ -120,168 +98,117 @@ public class BlockVoteManager {
     public static synchronized Set<ByteBuffer> getHashesForHeight(long height) {
 
         Set<ByteBuffer> hashes = new HashSet<>();
-        if (voteMap.containsKey(height)) {
-            hashes.addAll(voteMap.get(height).values());
+        Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
+        if (votesForHeight != null) {
+            for (BlockVote vote : votesForHeight.values()) {
+                hashes.add(ByteBuffer.wrap(vote.getHash()));
+            }
         }
-        hashes.remove(invalidVote);  // remove the invalid hash (cancelled vote), if present
+        hashes.remove(ByteBuffer.wrap(new byte[FieldByteSize.hash]));  // remove the empty hash, if present
 
         return hashes;
     }
 
-    private static Set<ByteBuffer> votingVerifiers() {
+    public static synchronized byte[] leadingHashForHeight(long height, AtomicInteger leadingHashVoteCount) {
 
-        // For most blocks, the voting verifiers are the verifiers in the cycle of the frozen edge.
-        Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycle();
-
-        // This is a work-around for the Genesis cycle only. This is not especially robust, but it does not matter,
-        // because it will only be used for the first cycle at the beginning of the block chain.
-        if (BlockManager.inGenesisCycle()) {
-            votingVerifiers.clear();
-            for (Node node : NodeManager.getMesh()) {
-                votingVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
-            }
-        }
-
-        return votingVerifiers;
-    }
-
-    public static synchronized List<BlockVoteTally> talliesExtending(List<BlockVoteTally> talliesToExtend) {
-
-        List<BlockVoteTally> result = new ArrayList<>();
-
-        if (!talliesToExtend.isEmpty()) {
-
-            long height = talliesToExtend.get(0).getHeight() + 1;  // all are the same height
-            Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
-            if (votesForHeight != null) {
-
-                Map<ByteBuffer, Integer> votesPerHash = new HashMap<>();
-                Set<ByteBuffer> votingVerifiers = votingVerifiers();
-
-                // Build the vote map.
-                for (ByteBuffer identifier : votesForHeight.keySet()) {
-                    if (votingVerifiers.contains(identifier)) {
-                        ByteBuffer hash = votesForHeight.get(identifier);
-                        Integer votesForHash = votesPerHash.get(hash);
-                        if (votesForHash == null) {
-                            votesPerHash.put(hash, 1);
-                        } else {
-                            votesPerHash.put(hash, votesForHash + 1);
-                        }
-                    }
-                }
-
-                // Build the set of hashes that can be extended.
-                Set<ByteBuffer> hashesToExtend = new HashSet<>();
-                for (BlockVoteTally tally : talliesToExtend) {
-                    hashesToExtend.add(ByteBuffer.wrap(tally.getBlockHash()));
-                }
-
-                // Build the result list. We iterate over blocks, not votes, because we may have levels that only
-                // contain cancelled votes.
-                int threshold = votingVerifiers.size() * 3 / 4;
-                int numberOfCancelledVotes = votesPerHash.getOrDefault(invalidVote, 0);
-                for (Block block : UnfrozenBlockManager.unfrozenBlocksAtHeight(height)) {
-                    if (hashesToExtend.contains(ByteBuffer.wrap(block.getPreviousBlockHash()))) {
-                        ByteBuffer hash = ByteBuffer.wrap(block.getHash());
-                        int numberOfHashVotes = votesPerHash.getOrDefault(hash, 0);
-                        result.add(new BlockVoteTally(height, hash.array(), numberOfHashVotes,
-                                numberOfCancelledVotes, threshold));
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
-    public static synchronized byte[] winningHashForHeight(long height) {
-
-        byte[] winningHash = null;
-        Map<ByteBuffer, ByteBuffer> votesForHeight = voteMap.get(height);
+        byte[] leadingHash = null;
+        Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
         if (votesForHeight != null) {
 
             Map<ByteBuffer, Integer> votesPerHash = new HashMap<>();
-            Set<ByteBuffer> votingVerifiers = votingVerifiers();
 
             // Build the vote map.
             for (ByteBuffer identifier : votesForHeight.keySet()) {
-                if (votingVerifiers.contains(identifier)) {
-                    ByteBuffer hash = votesForHeight.get(identifier);
-                    Integer votesForHash = votesPerHash.get(hash);
-                    if (votesForHash == null) {
-                        votesPerHash.put(hash, 1);
-                    } else {
-                        votesPerHash.put(hash, votesForHash + 1);
-                    }
+                ByteBuffer hash = ByteBuffer.wrap(votesForHeight.get(identifier).getHash());
+                Integer votesForHash = votesPerHash.get(hash);
+                if (votesForHash == null) {
+                    votesPerHash.put(hash, 1);
+                } else {
+                    votesPerHash.put(hash, votesForHash + 1);
                 }
             }
 
-            // Check the vote totals to see if any block passes the threshold.
-            long threshold = votingVerifiers.size() * 3L / 4L;
-            int maximumVotes = 0;
+            // Get the hash with the most votes.
             for (ByteBuffer hash : votesPerHash.keySet()) {
-                maximumVotes = Math.max(maximumVotes, votesPerHash.get(hash));
-                if (votesPerHash.get(hash) > threshold) {
-                    winningHash = hash.array();
+                int hashVoteCount = votesPerHash.get(hash);
+                if (hashVoteCount > leadingHashVoteCount.get()) {
+                    leadingHashVoteCount.set(hashVoteCount);
+                    leadingHash = hash.array();
                 }
             }
         }
 
-        return winningHash;
-    }
-
-    public static synchronized List<String> getRecentVotes() {
-
-        return new ArrayList<>(recentVotes);
+        return leadingHash;
     }
 
     public static synchronized List<BlockVote> getLocalVotes() {
 
-        return new ArrayList<>(localVotes.values());
+        List<BlockVote> localVotes = new ArrayList<>();
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        byte[] hash = getLocalVoteForHeight(frozenEdgeHeight);
+        if (hash != null) {
+            localVotes.add(new BlockVote(frozenEdgeHeight, hash, System.currentTimeMillis()));
+        }
+
+        return localVotes;
     }
 
-    public static synchronized BlockVote getLocalVoteForHeight(long height) {
+    public static synchronized byte[] getLocalVoteForHeight(long height) {
 
-        return localVotes.get(height);
+        byte[] hash = null;
+        if (voteMap.containsKey(height)) {
+            BlockVote vote = voteMap.get(height).get(ByteBuffer.wrap(Verifier.getIdentifier()));
+            if (vote != null) {
+                hash = vote.getHash();
+            }
+        }
+
+        return hash;
+    }
+
+    public static int getNumberOfVotesRequested() {
+
+        return numberOfVotesRequested;
     }
 
     public static synchronized void requestMissingVotes() {
 
-        // Start with a null map to avoid extra work if no heights are low enough to require use.
-        Map<ByteBuffer, Node> votingVerifiers = null;
+        // Only request missing votes outside the Genesis cycle, and only request if the frozen edge was verified more
+        // than 30 seconds ago.
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
+        if (!BlockManager.inGenesisCycle() &&
+                frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 30000L) {
 
-        // For any block more than 4 from the open edge, request any votes that appear to be missing. We are not using
-        // the leading edge here, because it could be influenced by missing blocks, also, and we are likely in a bad
-        // state if we need to request votes from the mesh.
-        long openEdgeHeight = BlockManager.openEdgeHeight(false);
-        for (Long height : voteMap.keySet()) {
-            if (height < openEdgeHeight - 4) {
+            // Only work on the height directly after the current frozen edge.
+            long height = frozenEdgeHeight + 1;
 
-                // Build the map if not yet built.
-                if (votingVerifiers == null) {
-                    votingVerifiers = new HashMap<>();
-                    Set<ByteBuffer> verifierIdentifiers = votingVerifiers();
-                    for (Node node : NodeManager.getMesh()) {
-                        ByteBuffer identifier = ByteBuffer.wrap(node.getIdentifier());
-                        if (verifierIdentifiers.contains(identifier)) {
-                            votingVerifiers.put(identifier, node);
-                        }
-                    }
-                }
+            Set<ByteBuffer> verifiersMissing = BlockManager.verifiersInCurrentCycle();
+            if (voteMap.containsKey(height)) {
+                verifiersMissing.removeAll(voteMap.get(height).keySet());
+            }
+            verifiersMissing.remove(ByteBuffer.wrap(Verifier.getIdentifier()));
 
-                // Get the list of verifiers at this height for which votes are already registered.
-                Set<ByteBuffer> currentVotes = voteMap.get(height).keySet();
+            // Only continue if it has been more than 15 seconds since a block was last frozen. Also, do not request
+            // votes more frequently than every 15 seconds.
+            long currentTimestamp = System.currentTimeMillis();
+            if (verifiersMissing.size() > 0 &&
+                    currentTimestamp - Verifier.getLastBlockFrozenTimestamp() > 15000L &&
+                    currentTimestamp - lastVoteRequestTimestamp > 15000L) {
 
-                // Send a message to every verifier for which we have not registered a vote for this height.
+                // Set the last-vote-request timestamp now. We will also set it in the response to ensure a minimum gap.
+                lastVoteRequestTimestamp = System.currentTimeMillis();
+
+                NotificationUtil.send("Need to request " + verifiersMissing.size() + " votes for height " + height +
+                        " on " + Verifier.getNickname(), height);
+
                 Message message = new Message(MessageType.MissingBlockVoteRequest23,
                         new MissingBlockVoteRequest(height));
-                for (ByteBuffer identifier : votingVerifiers.keySet()) {
-                    if (!currentVotes.contains(identifier)) {
-                        //NotificationUtil.send("sending request for vote for height " + height + " to " +
-                        //        NicknameManager.get(identifier.array()) + " from " + Verifier.getNickname());
+                for (Node node : NodeManager.getMesh()) {
+                    if (verifiersMissing.contains(ByteBuffer.wrap(node.getIdentifier()))) {
 
-                        Node node = votingVerifiers.get(identifier);
+                        numberOfVotesRequested++;
+
                         Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message,
                                 new MessageCallback() {
                                     @Override
@@ -289,7 +216,13 @@ public class BlockVoteManager {
 
                                         BlockVote vote = (BlockVote) message.getContent();
                                         if (vote != null) {
-                                            registerVote(message.getSourceNodeIdentifier(), vote, false);
+                                            registerVote(message.getSourceNodeIdentifier(), vote);
+
+                                            // Each time a good vote is received, the last-vote-request timestamp is
+                                            // updated. This ensures that, if we take some time to request all the
+                                            // votes, we do not start requesting soon after, or even before, we are done
+                                            // with the current round of requests.
+                                            lastVoteRequestTimestamp = System.currentTimeMillis();
                                         }
                                     }
                                 });
@@ -297,6 +230,5 @@ public class BlockVoteManager {
                 }
             }
         }
-
     }
 }

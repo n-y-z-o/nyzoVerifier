@@ -1,9 +1,6 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.DebugUtil;
-import co.nyzo.verifier.util.FileUtil;
-import co.nyzo.verifier.util.NotificationUtil;
-import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.*;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -49,8 +46,8 @@ public class BlockManager {
     public static long getRetentionEdgeHeight() {
 
         // To keep the mesh playing smoothly while reasonably limiting resource usage, we retain information in memory
-        // to just behind the trailing edge. Twenty-four blocks gives us two minutes of leeway.
-        return trailingEdgeHeight - 24;
+        // to just behind the trailing edge. Twenty-four blocks gives us 2.8 minutes of leeway.
+        return Math.max(0, trailingEdgeHeight - 24);
     }
 
     public static Block frozenBlockForHeight(long blockHeight) {
@@ -192,32 +189,28 @@ public class BlockManager {
                     DebugUtil.callingMethods(8));
         }
 
-        // Only continue if the block's previous hash is correct and the block is past the frozen edge.
-        if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) &&
-                block.getBlockHeight() > getFrozenEdgeHeight()) {
+        // Only continue if the block's previous hash is correct and the balance list is available.
+        if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) && balanceList != null) {
 
-            if (balanceList == null) {
-                NotificationUtil.send("unable to freeze block " + block.getBlockHeight() + " on " +
-                        Verifier.getNickname() + " because its balance list is null");
-            } else {
-                try {
-                    setFrozenEdge(block);
-                    BalanceListManager.registerBalanceList(balanceList);
+            try {
+                setFrozenEdge(block);
+                BalanceListManager.registerBalanceList(balanceList);
 
-                    writeBlocksToFile(Arrays.asList(block), Arrays.asList(balanceList),
-                            individualFileForBlockHeight(block.getBlockHeight()));
+                writeBlocksToFile(Arrays.asList(block), Arrays.asList(balanceList),
+                        individualFileForBlockHeight(block.getBlockHeight()));
 
-                    if (block.getBlockHeight() == 0L) {
-                        genesisBlockStartTimestamp = block.getStartTimestamp();
-                        initialized = true;
-                        NotificationUtil.send("setting initialized=true after freezing Genesis block on " +
-                                Verifier.getNickname());
-                    }
+                if (block.getBlockHeight() == 0L) {
 
-                } catch (Exception reportOnly) {
-                    reportOnly.printStackTrace();
-                    System.err.println("exception writing block to file " + reportOnly.getMessage());
+                    genesisBlockStartTimestamp = block.getStartTimestamp();
+                    initialized = true;
+                    NotificationUtil.send("setting initialized=true after freezing Genesis block on " +
+                            Verifier.getNickname());
+
                 }
+
+            } catch (Exception reportOnly) {
+                reportOnly.printStackTrace();
+                System.err.println("exception writing block to file " + reportOnly.getMessage());
             }
         }
     }
@@ -446,7 +439,7 @@ public class BlockManager {
             // Set the frozen and trailing edge heights.
             frozenEdgeHeight = block.getBlockHeight();
             if (block.getCycleInformation() != null) {
-                trailingEdgeHeight = Math.max(block.getCycleInformation().getWindowStartHeight(), 0);
+                trailingEdgeHeight = Math.max(block.getCycleInformation().getDeterminationHeight(), 0);
             }
 
             updateVerifiersInCurrentCycle(block);
@@ -484,10 +477,9 @@ public class BlockManager {
 
     public static long openEdgeHeight(boolean forRegistration) {
 
-        // A block is considered open for processing 1.5 seconds after it completes, which is 6.5 seconds after it
-        // starts. For registration, we reduce the offset to 0.5 seconds to avoid rejecting blocks due to minor clock
-        // differences.
-        long offset = forRegistration ? 5500L : 6500L;
+        // A block is considered open for processing 1.5 seconds after it completes. For registration, we reduce the
+        // offset to 0.5 seconds to avoid rejecting blocks due to minor clock differences.
+        long offset = Block.blockDuration + (forRegistration ? 500L : 1500L);
 
         return genesisBlockStartTimestamp > 0 ?
                 ((System.currentTimeMillis() - offset - genesisBlockStartTimestamp) / Block.blockDuration) : -1;

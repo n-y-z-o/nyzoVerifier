@@ -62,8 +62,10 @@ public class BalanceManager {
         Map<ByteBuffer, Long> identifierToBalanceMap = makeBalanceMap(balanceList);
         for (Transaction transaction : dedupedTransactions) {
             ByteBuffer senderIdentifier = ByteBuffer.wrap(transaction.getSenderIdentifier());
-            Long senderBalance = identifierToBalanceMap.get(senderIdentifier);
-            if (senderBalance != null && transaction.getAmount() <= senderBalance) {
+            Long senderBalance = identifierToBalanceMap.getOrDefault(senderIdentifier, 0L);
+            if (transaction.getAmount() <= senderBalance || (transaction.getType() == Transaction.typeSeed &&
+                    transaction.getFee() <= senderBalance)) {
+
                 approvedTransactions.add(transaction);
                 identifierToBalanceMap.put(senderIdentifier, senderBalance - transaction.getAmount());
 

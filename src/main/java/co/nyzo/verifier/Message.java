@@ -1,6 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
+import co.nyzo.verifier.messages.debug.ConsensusTallyStatusResponse;
 import co.nyzo.verifier.messages.debug.MeshStatusResponse;
 import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolPurgeResponse;
 import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolStatusResponse;
@@ -17,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class Message {
+
+    private static final long maximumMessageLength = 4194304;  // 4 MB
 
     private long timestamp;  // millisecond precision -- when the message is first generated
     private MessageType type;
@@ -206,29 +209,32 @@ public class Message {
             bufferedInputStream.read(lengthBytes);
             int messageLength = ByteBuffer.wrap(lengthBytes).getInt();
 
-            result = new byte[messageLength - 4];
-            int totalBytesRead = 0;
-            boolean readFailure = false;
-            int waitCycles = 0;
-            while (totalBytesRead < result.length && !readFailure && waitCycles < 10) {
-                int numberOfBytesRead = bufferedInputStream.read(result, totalBytesRead,
-                        result.length - totalBytesRead);
-                if (numberOfBytesRead < 0) {
-                    readFailure = true;
-                } else {
-                    if (numberOfBytesRead == 0) {
-                        waitCycles++;
+            if (messageLength <= maximumMessageLength) {
+                result = new byte[messageLength - 4];
+                int totalBytesRead = 0;
+                boolean readFailure = false;
+                int waitCycles = 0;
+                while (totalBytesRead < result.length && !readFailure && waitCycles < 10) {
+                    int numberOfBytesRead = bufferedInputStream.read(result, totalBytesRead,
+                            result.length - totalBytesRead);
+                    if (numberOfBytesRead < 0) {
+                        readFailure = true;
+                    } else {
+                        if (numberOfBytesRead == 0) {
+                            waitCycles++;
+                        }
+                        totalBytesRead += numberOfBytesRead;
                     }
-                    totalBytesRead += numberOfBytesRead;
+
+                    try {
+                        Thread.sleep(10);
+                    } catch (Exception ignore) {
+                    }
                 }
 
-                try {
-                    Thread.sleep(10);
-                } catch (Exception ignore) { }
-            }
-
-            if (totalBytesRead < result.length) {
-                System.err.println("only read " + totalBytesRead + " of " + result.length);
+                if (totalBytesRead < result.length) {
+                    System.err.println("only read " + totalBytesRead + " of " + result.length + " for message");
+                }
             }
 
         } catch (Exception ignore) { }
@@ -359,6 +365,14 @@ public class Message {
             content = MissingBlockResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.TimestampResponse28) {
             content = TimestampResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.HashVoteOverrideRequest29) {
+            content = HashVoteOverrideRequest.fromByteBuffer(buffer);
+        } else if (type == MessageType.HashVoteOverrideResponse30) {
+            content = HashVoteOverrideResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.ConsensusThresholdOverrideRequest31) {
+            content = ConsensusThresholdOverrideRequest.fromByteBuffer(buffer);
+        } else if (type == MessageType.ConsensusThresholdOverrideResponse32) {
+            content = ConsensusThresholdOverrideResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
@@ -369,8 +383,8 @@ public class Message {
             content = UnfrozenBlockPoolStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.MeshStatusResponse409) {
             content = MeshStatusResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.LocalVoteStatusResponse413) {
-            content = LocalVoteStatusResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.ConsensusTallyStatusResponse413) {
+            content = ConsensusTallyStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.ResetResponse501) {
             content = BooleanMessageResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Error65534) {

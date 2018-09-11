@@ -1,6 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
+import co.nyzo.verifier.messages.debug.ConsensusTallyStatusResponse;
 import co.nyzo.verifier.messages.debug.MeshStatusResponse;
 import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolPurgeResponse;
 import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolStatusResponse;
@@ -176,8 +177,7 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.BlockVote19) {
 
-                    BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), (BlockVote) message.getContent(),
-                            false);
+                    BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), (BlockVote) message.getContent());
                     response = new Message(MessageType.BlockVoteResponse20, null);
 
                 } else if (messageType == MessageType.NewVerifierVote21) {
@@ -202,6 +202,16 @@ public class MeshListener {
 
                     response = new Message(MessageType.TimestampResponse28, new TimestampResponse());
 
+                } else if (messageType == MessageType.HashVoteOverrideRequest29) {
+
+                    response = new Message(MessageType.HashVoteOverrideResponse30,
+                            new HashVoteOverrideResponse(message));
+
+                } else if (messageType == MessageType.ConsensusThresholdOverrideRequest31) {
+
+                    response = new Message(MessageType.ConsensusThresholdOverrideResponse32,
+                            new ConsensusThresholdOverrideResponse(message));
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
@@ -225,10 +235,10 @@ public class MeshListener {
 
                     response = new Message(MessageType.MeshStatusResponse409, new MeshStatusResponse(message));
 
-                } else if (messageType == MessageType.LocalVoteStatusRequest412) {
+                } else if (messageType == MessageType.ConsensusTallyStatusRequest412) {
 
-                    response = new Message(MessageType.LocalVoteStatusResponse413,
-                            new LocalVoteStatusResponse(message));
+                    response = new Message(MessageType.ConsensusTallyStatusResponse413,
+                            new ConsensusTallyStatusResponse(message));
 
                 } else if (messageType == MessageType.ResetRequest500) {
 

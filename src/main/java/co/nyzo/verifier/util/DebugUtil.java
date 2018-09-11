@@ -1,5 +1,9 @@
 package co.nyzo.verifier.util;
 
+import co.nyzo.verifier.Verifier;
+
+import java.io.File;
+
 public class DebugUtil {
 
     public static String callingMethod() {
@@ -38,7 +42,11 @@ public class DebugUtil {
         String separator = "";
         for (int i = 1; i < 1 + length && i < stackTrace.length; i++) {
             String filename = stackTrace[i].getFileName();
-            filename = filename.substring(0, filename.length() - 5);
+            if (filename == null) {
+                filename = "<null>";
+            } else if (filename.length() > 5) {
+                filename = filename.substring(0, filename.length() - 5);
+            }
             result.append(separator).append(filename).append(".").append(stackTrace[i].getMethodName());
             result.append("(").append(stackTrace[i].getLineNumber()).append(")");
             separator = ",";
