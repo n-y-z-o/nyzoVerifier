@@ -2,7 +2,7 @@
 
 This is the source for the Nyzo verifier. This is the code that we run on all of our verifier instances (verifier0.nyzo.co through verifier9.nyzo.co).
 
-To start your own verifier, we recommend creating a t2.micro AWS instance with the latest Ubuntu LTS version, a 30GB EBS volume, and port 9444 open to the world. Also open the SSH port to your IP address so you can access the instance. Then, when you have SSHed into the instance, run the following commands:
+To start your own verifier, we recommend creating a t3.micro AWS instance with the latest Ubuntu LTS version, a 30GB EBS volume, and port 9444 open to the world. Also open the SSH port to your IP address so you can access the instance. Then, when you have SSHed into the instance, run the following commands:
 
 ```
 sudo apt update
