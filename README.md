@@ -40,5 +40,5 @@ sudo supervisorctl reload
 You may now see the private key that was generated for your verifier. You need to use this to access the tokens you will earn on your verifier. **_Keep a copy of this somewhere safe, and do not share it with anyone._** To see the key, run:
 
 ```
-more /var/lib/nyzo/verifier_private_seed
+more /var/lib/nyzo/production/verifier_private_seed
 ```
