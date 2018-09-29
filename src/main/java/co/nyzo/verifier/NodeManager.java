@@ -16,6 +16,9 @@ public class NodeManager {
     private static final int consecutiveFailuresBeforeRemoval = 6;
     private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
 
+    private static final int minimumMissingNodeRequestInterval = 30;
+    private static int missingNodeRequestWait = minimumMissingNodeRequestInterval;
+
     public static void updateNode(Message message) {
 
         if (message.getType() == MessageType.BootstrapRequest1 || message.getType() == MessageType.NodeJoin3 ||
@@ -133,7 +136,11 @@ public class NodeManager {
                 count++;
             }
 
-            if (count < consecutiveFailuresBeforeRemoval) {
+            // Only mark a node inactive if the consecutive failure count has been exceeded and the node is not in the
+            // current cycle.
+            Node node = ipAddressToNodeMap.get(addressBuffer);
+            if (count < consecutiveFailuresBeforeRemoval || node == null ||
+                    BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(node.getIdentifier()))) {
                 ipAddressToFailureCountMap.put(addressBuffer, count);
             } else {
                 ipAddressToFailureCountMap.remove(addressBuffer);
@@ -219,7 +226,25 @@ public class NodeManager {
 
     public static synchronized void requestMissingNodes() {
 
-        // Ask other verifiers for information about nodes that are in the previous verification cycle but not in the
-        // mesh.
+        // Once per cycle, but no more frequently than every 30 iterations, request the mesh from an arbitrary node and
+        // send a node-join request to every node in that node's response. This helps to ensure a tightly integrated
+        // mesh, with all nodes being aware of all other nodes.
+        if (missingNodeRequestWait-- <= 0) {
+
+            missingNodeRequestWait = Math.max(BlockManager.currentCycleLength(), minimumMissingNodeRequestInterval);
+
+            Message meshRequest = new Message(MessageType.MeshRequest15, null);
+            Message.fetchFromRandomNode(meshRequest, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
+
+                    // Send node-join requests to all nodes in the response.
+                    MeshResponse response = (MeshResponse) message.getContent();
+                    for (Node node : response.getMesh()) {
+                        NodeManager.sendNodeJoinMessage(node.getIpAddress(), node.getPort());
+                    }
+                }
+            });
+        }
     }
 }

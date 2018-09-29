@@ -406,11 +406,12 @@ public class Verifier {
                     // Request any blocks that appear to be missing.
                     UnfrozenBlockManager.requestMissingBlocks();
 
-                    // Request any nodes that appear to be missing.
-                    NodeManager.requestMissingNodes();
-
                     // These are operations that only have to happen when a block is frozen.
                     if (frozenEdgeHeight != BlockManager.getFrozenEdgeHeight()) {
+
+                        // Request any nodes that appear to be missing. This is called only when an edge is frozen, and
+                        // the node manager maintains a counter to ensure it is only performed once per cycle.
+                        NodeManager.requestMissingNodes();
 
                         // Update the new-verifier vote. This is necessary if the previous choice is now in the
                         // cycle.
