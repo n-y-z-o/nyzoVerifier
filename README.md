@@ -6,7 +6,7 @@ If you are interested in this project, we recommend reading our white paper: htt
 
 **Please note: the proof-of-diversity system requires that new verifiers be added to the cycle at a controlled rate. The length of time that a verifier must wait is related to the current cycle length and the number of verifiers waiting to join. As the cycle length increases, this may be a considerable amount of time. For instance, with a cycle length of 500, the minimum spacing between new verifiers will be approximately 2 hours. Please consult the Nyzo white paper for further details.**
 
-To start your own verifier, we recommend creating a t3.micro AWS instance with the latest Ubuntu LTS version, a 30GB EBS volume, and port 9444 open to the world. Also open the SSH port to your IP address so you can access the instance. Then, when you have SSHed into the instance, run the following commands:
+To start your own verifier, we recommend creating a t3.micro AWS instance with the latest Ubuntu LTS version, a 30GB EBS volume, and port 9444 open to the world. Also open the SSH port to your IP address so you can access the instance. Then, when you have SSHed into the instance, run the following commands (enter each command separately):
 
 ```
 sudo apt update
