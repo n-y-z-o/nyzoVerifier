@@ -10,14 +10,41 @@ To start your own verifier, we recommend creating a t3.micro AWS instance with t
 
 ```
 sudo apt update
+```
+
+```
 sudo apt install haveged -y
-sudo apt install default-jdk -y
+```
+
+```
+sudo apt install openjdk-8-jdk -y
+```
+
+```
 sudo apt install supervisor -y
+```
+
+```
 git clone https://github.com/n-y-z-o/nyzoVerifier.git
+```
+
+```
 cd nyzoVerifier
+```
+
+```
 ./gradlew build
+```
+
+```
 sudo mkdir -p /var/lib/nyzo/production
+```
+
+```
 sudo cp trusted_entry_points /var/lib/nyzo/production
+```
+
+```
 sudo cp nyzoVerifier.conf /etc/supervisor/conf.d/
 ```
 
