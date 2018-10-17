@@ -48,8 +48,9 @@ public class Verifier {
     public static void main(String[] args) {
 
         if (args.length > 0) {
+
             try {
-                List<String> arguments = new ArrayList<String>();
+                List<String> arguments = new ArrayList<>();
                 for (int i = 1; i < args.length; i++) {
                     arguments.add(args[i]);
                 }
