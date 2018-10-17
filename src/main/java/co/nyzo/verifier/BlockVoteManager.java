@@ -173,39 +173,51 @@ public class BlockVoteManager {
 
     public static synchronized void requestMissingVotes() {
 
-        // Only request missing votes outside the Genesis cycle, and only request if the frozen edge was verified more
-        // than 30 seconds ago.
+        // Only request missing votes outside the Genesis cycle, and only request if we have more than 50% of votes
+        // as a height more than one past the frozen edge. This indicates that this verifier is receiving messages
+        // from the mesh again but had an outage that caused it to miss earlier votes.
+
+        // Also, to conserve local CPU and mesh bandwidth, limit vote requests to no more frequently than once every
+        // two seconds.
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-        Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
-        if (!BlockManager.inGenesisCycle() &&
-                frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 30000L) {
+        long currentTimestamp = System.currentTimeMillis();
+        if (!BlockManager.inGenesisCycle() && System.currentTimeMillis() - lastVoteRequestTimestamp > 2000L) {
 
-            // Only work on the height directly after the current frozen edge.
-            long height = frozenEdgeHeight + 1;
-
-            Set<ByteBuffer> verifiersMissing = BlockManager.verifiersInCurrentCycle();
-            if (voteMap.containsKey(height)) {
-                verifiersMissing.removeAll(voteMap.get(height).keySet());
+            // Look through all heights in the vote map. If the vote is greater than 50% and the height is greater than
+            // one more than the frozen edge, a vote request should be performed.
+            boolean shouldRequest = false;
+            for (Long height : voteMap.keySet()) {
+                if (!shouldRequest && height > frozenEdgeHeight + 1 &&  // check of !shouldRequest for performance only
+                        voteMap.get(height).size() > BlockManager.currentCycleLength() / 2) {
+                    shouldRequest = true;
+                }
             }
-            verifiersMissing.remove(ByteBuffer.wrap(Verifier.getIdentifier()));
 
-            // Only continue if it has been more than 15 seconds since a block was last frozen. Also, do not request
-            // votes more frequently than every 15 seconds.
-            long currentTimestamp = System.currentTimeMillis();
-            if (verifiersMissing.size() > 0 &&
-                    currentTimestamp - Verifier.getLastBlockFrozenTimestamp() > 15000L &&
-                    currentTimestamp - lastVoteRequestTimestamp > 15000L) {
+            // As a fallback, also request if the last block was frozen two minutes ago or more and the last
+            // vote request was one minute ago or more.
+            shouldRequest |= currentTimestamp - Verifier.getLastBlockFrozenTimestamp() > 120000L &&
+                    currentTimestamp - lastVoteRequestTimestamp > 60000L;
+
+            if (shouldRequest) {
+                // We will request votes from all verifiers in the current cycle, even those we already have. Some
+                // votes may have changed.
+                Set<ByteBuffer> verifiersInCurrentCycle = BlockManager.verifiersInCurrentCycle();
 
                 // Set the last-vote-request timestamp now. We will also set it in the response to ensure a minimum gap.
                 lastVoteRequestTimestamp = System.currentTimeMillis();
 
-                NotificationUtil.send("Need to request " + verifiersMissing.size() + " votes for height " + height +
-                        " on " + Verifier.getNickname(), height);
+                // We only work to freeze one past the frozen edge.
+                long heightToRequest = frozenEdgeHeight + 1;
 
+                NotificationUtil.send("Need to request " + verifiersInCurrentCycle.size() + " votes for height " +
+                        heightToRequest + " on " + Verifier.getNickname(), frozenEdgeHeight);
+
+                // Finally, request the votes.
                 Message message = new Message(MessageType.MissingBlockVoteRequest23,
-                        new MissingBlockVoteRequest(height));
+                        new MissingBlockVoteRequest(heightToRequest));
                 for (Node node : NodeManager.getMesh()) {
-                    if (verifiersMissing.contains(ByteBuffer.wrap(node.getIdentifier()))) {
+
+                    if (verifiersInCurrentCycle.contains(ByteBuffer.wrap(node.getIdentifier()))) {
 
                         numberOfVotesRequested++;
 
@@ -219,9 +231,9 @@ public class BlockVoteManager {
                                             registerVote(message.getSourceNodeIdentifier(), vote);
 
                                             // Each time a good vote is received, the last-vote-request timestamp is
-                                            // updated. This ensures that, if we take some time to request all the
-                                            // votes, we do not start requesting soon after, or even before, we are done
-                                            // with the current round of requests.
+                                            // updated. If we take some time to request all the votes, this helps to
+                                            // avoid starting a new round of requests soon after, or even before, this
+                                            // round of requests completes.
                                             lastVoteRequestTimestamp = System.currentTimeMillis();
                                         }
                                     }
