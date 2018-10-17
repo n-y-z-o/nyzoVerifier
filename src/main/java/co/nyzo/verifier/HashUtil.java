@@ -88,4 +88,22 @@ public class HashUtil {
 
         return bLongSHA256(array);
     }
+
+    public static byte[] byteArray(int value) {
+
+        byte[] array = new byte[4];
+        ByteBuffer buffer = ByteBuffer.wrap(array);
+        buffer.putInt(value);
+
+        return array;
+    }
+
+    public static byte[] byteArray(long value) {
+
+        byte[] array = new byte[8];
+        ByteBuffer buffer = ByteBuffer.wrap(array);
+        buffer.putLong(value);
+
+        return array;
+    }
 }
