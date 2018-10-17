@@ -1,7 +1,5 @@
 package co.nyzo.verifier.util;
 
-import co.nyzo.verifier.Verifier;
-
 import java.io.File;
 
 public class TestnetUtil {
