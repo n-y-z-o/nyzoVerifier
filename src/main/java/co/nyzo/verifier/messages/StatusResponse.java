@@ -69,7 +69,6 @@ public class StatusResponse implements MessageObject {
             lines.add("old timestamp: " + Verifier.oldestTimestampAge());
             lines.add("blocks: " + BlockManagerMap.mapInformation());
             lines.add("balance lists: " + BalanceListManager.mapInformation());
-            lines.add("avg. work/balance list: " + BalanceListManager.averageWork());
 
             Map<Long, Integer> thresholdOverrides = UnfrozenBlockManager.getThresholdOverrides();
             for (Long height : thresholdOverrides.keySet()) {
