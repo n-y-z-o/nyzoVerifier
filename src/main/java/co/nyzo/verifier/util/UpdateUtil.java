@@ -20,6 +20,15 @@ public class UpdateUtil {
         shouldTerminate = true;
     }
 
+    public static void terminateAfterDelay(long delayMilliseconds) {
+
+        try {
+            Thread.sleep(delayMilliseconds);
+        } catch (Exception ignored) { }
+
+        terminate();
+    }
+
     public static void reset() {
 
         new Thread(new Runnable() {
