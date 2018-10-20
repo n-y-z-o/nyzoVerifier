@@ -181,7 +181,7 @@ public class BlockVoteManager {
         // two seconds.
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         long currentTimestamp = System.currentTimeMillis();
-        if (!BlockManager.inGenesisCycle() && System.currentTimeMillis() - lastVoteRequestTimestamp > 2000L) {
+        if (!BlockManager.inGenesisCycle() && currentTimestamp - lastVoteRequestTimestamp > 2000L) {
 
             // Look through all heights in the vote map. If the vote is greater than 50% and the height is greater than
             // one more than the frozen edge, a vote request should be performed.
