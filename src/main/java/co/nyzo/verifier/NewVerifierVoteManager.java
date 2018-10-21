@@ -25,6 +25,16 @@ public class NewVerifierVoteManager {
 
     private static int meshLimit = Integer.MAX_VALUE;
 
+    private static byte[] override = new byte[FieldByteSize.identifier];
+
+    public static void setOverride(byte[] override) {
+        NewVerifierVoteManager.override = override;
+    }
+
+    public static byte[] getOverride() {
+        return override;
+    }
+
     public static void updateMeshLimit() {
 
         try {

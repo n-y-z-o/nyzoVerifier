@@ -373,6 +373,10 @@ public class Message {
             content = ConsensusThresholdOverrideRequest.fromByteBuffer(buffer);
         } else if (type == MessageType.ConsensusThresholdOverrideResponse32) {
             content = ConsensusThresholdOverrideResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.NewVerifierVoteOverrideRequest33) {
+            content = NewVerifierVoteOverrideRequest.fromByteBuffer(buffer);
+        } else if (type == MessageType.NewVerifierVoteOverrideResponse34) {
+            content = NewVerifierVoteOverrideResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
@@ -412,6 +416,14 @@ public class Message {
         buffer.get(lineBytes);
 
         return new String(lineBytes, StandardCharsets.UTF_8);
+    }
+
+    public static byte[] getByteArray(ByteBuffer buffer, int size) {
+
+        byte[] array = new byte[size];
+        buffer.get(array);
+
+        return array;
     }
 
     @Override

@@ -43,6 +43,25 @@ public class NewVerifierQueueManager {
             }
         }
 
-        return oldestNewVerifier == null ? null : ByteBuffer.wrap(oldestNewVerifier.getIdentifier());
+        // Wrap the identifier in a buffer to get ready to check for the override.
+        ByteBuffer result = oldestNewVerifier == null ? null : ByteBuffer.wrap(oldestNewVerifier.getIdentifier());
+
+        // If the override is not all zeros (it is never null), check if it is in the current cycle. If the override
+        // vote is in the current cycle, remove it (set it to all zeros). Otherwise, use it. If you really think out
+        // this code, there is a race condition where we might check an old override, a new override could be set, and
+        // then we might erase the new override. This is ***extremely** unlikely, though, and not a serious issue if
+        // it does happen (the override would not stick, and it would need to be sent again). So, we won't bother
+        // addressing it.
+        byte[] overrideIdentifier = NewVerifierVoteManager.getOverride();
+        if (!ByteUtil.isAllZeros(overrideIdentifier)) {
+            ByteBuffer overrideBuffer = ByteBuffer.wrap(overrideIdentifier);
+            if (BlockManager.verifierInCurrentCycle(overrideBuffer)) {
+                NewVerifierVoteManager.setOverride(new byte[FieldByteSize.identifier]);  // erase the override
+            } else {
+                result = overrideBuffer;  // use the override
+            }
+        }
+
+        return result;
     }
 }

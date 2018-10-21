@@ -212,6 +212,11 @@ public class MeshListener {
                     response = new Message(MessageType.ConsensusThresholdOverrideResponse32,
                             new ConsensusThresholdOverrideResponse(message));
 
+                } else if (messageType == MessageType.NewVerifierVoteOverrideRequest33) {
+
+                    response = new Message(MessageType.NewVerifierVoteOverrideResponse34,
+                            new NewVerifierVoteOverrideResponse(message));
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +

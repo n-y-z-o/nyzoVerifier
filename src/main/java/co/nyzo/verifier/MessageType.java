@@ -38,6 +38,8 @@ public enum MessageType {
     HashVoteOverrideResponse30(30),
     ConsensusThresholdOverrideRequest31(31),
     ConsensusThresholdOverrideResponse32(32),
+    NewVerifierVoteOverrideRequest33(33),
+    NewVerifierVoteOverrideResponse34(34),
 
     // test messages
     Ping200(200),
