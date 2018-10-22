@@ -272,6 +272,9 @@ public class BlockManager {
             File consolidatedFile = consolidatedFileForBlockHeight(highestConsolidatedFileStartHeight);
             List<Block> blocks = loadBlocksInFile(consolidatedFile, highestConsolidatedFileStartHeight,
                     highestConsolidatedFileEndHeight);
+            for (Block block : blocks) {
+                BlockManagerMap.addBlock(block);
+            }
             if (blocks.size() > 0) {
                 Block block = blocks.get(blocks.size() - 1);
                 setFrozenEdge(block);
@@ -321,7 +324,7 @@ public class BlockManager {
 
         BalanceList balanceList = loadBalanceListFromFile(individualFileForBlockHeight(blockHeight), blockHeight);
         if (balanceList == null) {
-            loadBalanceListFromFile(consolidatedFileForBlockHeight(blockHeight), blockHeight);
+            balanceList = loadBalanceListFromFile(consolidatedFileForBlockHeight(blockHeight), blockHeight);
         }
 
         return balanceList;
