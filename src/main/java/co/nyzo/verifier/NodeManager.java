@@ -19,10 +19,14 @@ public class NodeManager {
     private static final int minimumMissingNodeRequestInterval = 30;
     private static int missingNodeRequestWait = minimumMissingNodeRequestInterval;
 
+    private static final Map<String, Long> nodeJoinRequestTimestamps = new HashMap<>();
+
     public static void updateNode(Message message) {
 
-        if (message.getType() == MessageType.BootstrapRequest1 || message.getType() == MessageType.NodeJoin3 ||
-                message.getType() == MessageType.NodeJoinResponse4 || message.getType() == MessageType.NewBlock9) {
+        // In previous versions, more types of requests were registered to increase mesh density. However, to make the
+        // system more flexible, we have changed this to only update a node when explicitly requested to do so through
+        // a node join.
+        if (message.getType() == MessageType.NodeJoin3 || message.getType() == MessageType.NodeJoinResponse4) {
 
             int port = ((PortMessage) message.getContent()).getPort();
             boolean isNewNode = updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(), port);
@@ -197,30 +201,50 @@ public class NodeManager {
 
     public static void sendNodeJoinMessage(byte[] ipAddress, int port) {
 
-        Message nodeJoinMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
-        Message.fetch(IpUtil.addressAsString(ipAddress), port, nodeJoinMessage, new MessageCallback() {
-            @Override
-            public void responseReceived(Message message) {
-                if (message != null) {
+        // Get the timestamp of when we sent the last node-join message. We do not want to send a node-join any more
+        // frequently than every 60 seconds to any node.
+        String ipAddressString = IpUtil.addressAsString(ipAddress);
+        Long lastRequestTimestamp = nodeJoinRequestTimestamps.get(ipAddressString);
 
-                    updateNode(message);
+        long currentTimestamp = System.currentTimeMillis();
+        if (lastRequestTimestamp == null || lastRequestTimestamp < currentTimestamp - 60000L) {
 
-                    NodeJoinResponse response = (NodeJoinResponse) message.getContent();
-                    if (response != null) {
-
-                        NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
-                        for (BlockVote vote : response.getBlockVotes()) {
-                            BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote);
-                        }
-
-                        if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
-                            NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
-                                    response.getNewVerifierVote(), false);
-                        }
+            // Set the timestamp in the map. Every 100 additions, cull old timestamps.
+            nodeJoinRequestTimestamps.put(ipAddressString, currentTimestamp);
+            if (nodeJoinRequestTimestamps.size() % 100 == 0) {
+                Set<String> keys = nodeJoinRequestTimestamps.keySet();
+                for (String key : keys) {
+                    if (nodeJoinRequestTimestamps.get(key) < currentTimestamp - 60000L) {
+                        nodeJoinRequestTimestamps.remove(key);
                     }
                 }
             }
-        });
+
+            Message nodeJoinMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
+            Message.fetch(ipAddressString, port, nodeJoinMessage, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
+                    if (message != null) {
+
+                        updateNode(message);
+
+                        NodeJoinResponse response = (NodeJoinResponse) message.getContent();
+                        if (response != null) {
+
+                            NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
+                            for (BlockVote vote : response.getBlockVotes()) {
+                                BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote);
+                            }
+
+                            if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
+                                NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
+                                        response.getNewVerifierVote(), false);
+                            }
+                        }
+                    }
+                }
+            });
+        }
 
     }
 

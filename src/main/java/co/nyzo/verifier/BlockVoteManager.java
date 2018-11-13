@@ -4,6 +4,7 @@ import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MissingBlockVoteRequest;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.NotificationUtil;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -11,12 +12,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class BlockVoteManager {
 
+    public static final long minimumVoteInterval = 2000L;
+
     private static final Map<Long, Map<ByteBuffer, BlockVote>> voteMap = new HashMap<>();
 
     private static int numberOfVotesRequested = 0;
     private static long lastVoteRequestTimestamp = 0L;
 
     public static synchronized void registerVote(byte[] identifier, BlockVote vote) {
+
+        // Set the receipt timestamp on the incoming vote. This fights against manipulation by quick vote-flipping
+        // by verifiers.
+        vote.setReceiptTimestamp(System.currentTimeMillis());
 
         // Register the vote. The map ensures that each identifier only gets one vote. Votes are only counted for
         // verifiers in the current cycle, except in the Genesis cycle, where all votes are counted. We accept votes
@@ -36,9 +43,11 @@ public class BlockVoteManager {
                 voteMap.put(height, votesForHeight);
             }
 
-            // Get the existing vote for the identifier. Only override if this vote has a greater timestamp.
+            // Get the existing vote for the identifier. Only override if this vote has a greater timestamp and the
+            // minimum interval has been exceeded.
             BlockVote existingVote = votesForHeight.get(identifierBuffer);
-            if (existingVote == null || vote.getTimestamp() > existingVote.getTimestamp()) {
+            if (existingVote == null || (vote.getTimestamp() > existingVote.getTimestamp() &&
+                    vote.getReceiptTimestamp() >= existingVote.getReceiptTimestamp() + minimumVoteInterval)) {
                 votesForHeight.put(identifierBuffer, vote);
             }
         }
@@ -201,7 +210,7 @@ public class BlockVoteManager {
             if (shouldRequest) {
                 // We will request votes from all verifiers in the current cycle, even those we already have. Some
                 // votes may have changed.
-                Set<ByteBuffer> verifiersInCurrentCycle = BlockManager.verifiersInCurrentCycle();
+                Set<ByteBuffer> verifiersInCurrentCycle = BlockManager.verifiersInCurrentCycleSet();
 
                 // Set the last-vote-request timestamp now. We will also set it in the response to ensure a minimum gap.
                 lastVoteRequestTimestamp = System.currentTimeMillis();

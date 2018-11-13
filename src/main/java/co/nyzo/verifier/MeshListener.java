@@ -1,10 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
-import co.nyzo.verifier.messages.debug.ConsensusTallyStatusResponse;
-import co.nyzo.verifier.messages.debug.MeshStatusResponse;
-import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolPurgeResponse;
-import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolStatusResponse;
+import co.nyzo.verifier.messages.debug.*;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
@@ -91,7 +88,11 @@ public class MeshListener {
 
                         closeSocket();
 
-                    } catch (Exception ignored) { }
+                    } catch (Exception e) {
+
+                        System.err.println("Exception trying to open mesh listener. Exiting.");
+                        UpdateUtil.terminate();
+                    }
 
                     alive.set(false);
                 }
@@ -124,13 +125,7 @@ public class MeshListener {
 
                 MessageType messageType = message.getType();
 
-                if (messageType == MessageType.BootstrapRequest1) {
-
-                    NodeManager.updateNode(message);
-
-                    response = new Message(MessageType.BootstrapResponse2, new BootstrapResponse());
-
-                } else if (messageType == MessageType.NodeJoin3) {
+                if (messageType == MessageType.NodeJoin3) {
 
                     NodeManager.updateNode(message);
 
@@ -149,8 +144,6 @@ public class MeshListener {
                     response = new Message(MessageType.PreviousHashResponse8, new PreviousHashResponse());
 
                 } else if (messageType == MessageType.NewBlock9) {
-
-                    NodeManager.updateNode(message);
 
                     NewBlockMessage blockMessage = (NewBlockMessage) message.getContent();
                     UnfrozenBlockManager.registerBlock(blockMessage.getBlock());
@@ -217,6 +210,12 @@ public class MeshListener {
                     response = new Message(MessageType.NewVerifierVoteOverrideResponse34,
                             new NewVerifierVoteOverrideResponse(message));
 
+                } else if (messageType == MessageType.BootstrapRequestV2_35) {
+
+                        NodeManager.updateNode(message);
+
+                        response = new Message(MessageType.BootstrapResponseV2_36, new BootstrapResponseV2());
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
@@ -244,6 +243,11 @@ public class MeshListener {
 
                     response = new Message(MessageType.ConsensusTallyStatusResponse413,
                             new ConsensusTallyStatusResponse(message));
+
+                } else if (messageType == MessageType.NewVerifierTallyStatusRequest414) {
+
+                    response = new Message(MessageType.NewVerifierTallyStatusResponse415,
+                            new NewVerifierTallyStatusResponse(message));
 
                 } else if (messageType == MessageType.ResetRequest500) {
 

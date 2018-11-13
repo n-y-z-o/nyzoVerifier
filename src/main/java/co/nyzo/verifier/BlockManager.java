@@ -19,13 +19,21 @@ public class BlockManager {
     public static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
     private static boolean inGenesisCycle = false;
-    private static final Set<ByteBuffer> verifiersInCurrentCycle = new HashSet<>();
+    private static long currentCycleEndHeight = -2L;
+    private static List<ByteBuffer> currentCycleList = new ArrayList<>();
+    private static Set<ByteBuffer> currentCycleSet = new HashSet<>();
     private static long genesisBlockStartTimestamp = -1L;
-    private static int currentCycleLength = 0;
     private static boolean initialized = false;
+    private static boolean cycleComplete = false;
 
     static {
         initialize();
+    }
+
+    public static void main(String[] args) {
+
+        initialize();
+        UpdateUtil.terminate();
     }
 
     public static boolean isInitialized() {
@@ -40,6 +48,15 @@ public class BlockManager {
 
     public static long getTrailingEdgeHeight() {
 
+        if (trailingEdgeHeight < 0) {
+            Block frozenEdge = frozenBlockForHeight(getFrozenEdgeHeight());
+            if (frozenEdge == null || frozenEdge.getCycleInformation() == null) {
+                trailingEdgeHeight = -1L;
+            } else {
+                trailingEdgeHeight = Math.max(frozenEdge.getCycleInformation().getDeterminationHeight(), 0);
+            }
+        }
+
         return trailingEdgeHeight;
     }
 
@@ -47,7 +64,8 @@ public class BlockManager {
 
         // To keep the mesh playing smoothly while reasonably limiting resource usage, we retain information in memory
         // to just behind the trailing edge. Twenty-four blocks gives us 2.8 minutes of leeway.
-        return Math.max(0, trailingEdgeHeight - 24);
+        long trailingEdgeHeight = getTrailingEdgeHeight();
+        return trailingEdgeHeight == -1L ? -1L : Math.max(0, trailingEdgeHeight - 24);
     }
 
     public static Block frozenBlockForHeight(long blockHeight) {
@@ -64,11 +82,6 @@ public class BlockManager {
                 if (block != null) {
                     BlockManagerMap.addBlock(block);
                 }
-            }
-
-            // If initialization has completed, the only other option is the historical map.
-            if (block == null) {
-                block = HistoricalBlockManagerMap.blockForHeight(blockHeight);
             }
         }
 
@@ -129,7 +142,7 @@ public class BlockManager {
 
             // For the first block and all blocks with gaps, include the balance list.
             if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (block.getBlockHeight() - 1))) {
-                // TODO: confirm this works properly with balance list change
+
                 BalanceList balanceList = balanceListMap.get(block.getBlockHeight());
                 if (balanceList == null) {
                     successful = false;
@@ -146,7 +159,7 @@ public class BlockManager {
             Block block = blocks.get(i);
             buffer.put(block.getBytes());
             if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (block.getBlockHeight() - 1))) {
-                // TODO: confirm this works properly with balance list change
+
                 BalanceList balanceList = balanceListMap.get(block.getBlockHeight());
                 if (balanceList == null) {
                     successful = false;
@@ -178,22 +191,18 @@ public class BlockManager {
         Block previousBlock = frozenBlockForHeight(block.getBlockHeight() - 1);
         if (previousBlock != null) {
             BalanceList balanceList = BalanceListManager.balanceListForBlock(block, null);
-            freezeBlock(block, previousBlock.getHash(), balanceList);
+            freezeBlock(block, previousBlock.getHash(), balanceList, null);
         }
     }
 
-    public static synchronized void freezeBlock(Block block, byte[] previousBlockHash, BalanceList balanceList) {
-
-        if (block.getBlockHeight() == 0L) {
-            NotificationUtil.send("freezing Genesis block on " + Verifier.getNickname() + ": " +
-                    DebugUtil.callingMethods(8));
-        }
+    public static synchronized void freezeBlock(Block block, byte[] previousBlockHash, BalanceList balanceList,
+                                                List<ByteBuffer> cycleVerifiers) {
 
         // Only continue if the block's previous hash is correct and the balance list is available.
         if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) && balanceList != null) {
 
             try {
-                setFrozenEdge(block);
+                setFrozenEdge(block, cycleVerifiers);
                 BalanceListManager.registerBalanceList(balanceList);
 
                 writeBlocksToFile(Arrays.asList(block), Arrays.asList(balanceList),
@@ -203,9 +212,6 @@ public class BlockManager {
 
                     genesisBlockStartTimestamp = block.getStartTimestamp();
                     initialized = true;
-                    NotificationUtil.send("setting initialized=true after freezing Genesis block on " +
-                            Verifier.getNickname());
-
                 }
 
             } catch (Exception reportOnly) {
@@ -232,14 +238,17 @@ public class BlockManager {
 
     private static Block loadBlockFromFile(long blockHeight) {
 
-        // Try to first load the block from the individual file. If the block is not there, try to load the block from
-        // the consolidated file.
+        // Try to first load the block from the individual file. If the block is not there, extract the consolidated
+        // file and try to load the block from there. In time, no consolidated files should need to be read, but this
+        // provides a smooth transition from the old, more aggressive behavior of the file consolidator.
         List<Block> blocks = loadBlocksInFile(individualFileForBlockHeight(blockHeight), blockHeight, blockHeight);
         Block block = null;
         if (!blocks.isEmpty() && blocks.get(0).getBlockHeight() == blockHeight) {
             block = blocks.get(0);
         } else {
-            blocks = loadBlocksInFile(consolidatedFileForBlockHeight(blockHeight), blockHeight, blockHeight);
+            extractConsolidatedFile(consolidatedFileForBlockHeight(blockHeight));
+
+            blocks = loadBlocksInFile(individualFileForBlockHeight(blockHeight), blockHeight, blockHeight);
             if (!blocks.isEmpty() && blocks.get(0).getBlockHeight() == blockHeight) {
                 block = blocks.get(0);
             }
@@ -249,74 +258,63 @@ public class BlockManager {
 
     private static synchronized void initialize() {
 
-        // This method only needs to load the locally stored blocks, and it can do so synchronously.
+        if (!initialized) {
 
-        // Ensure that both the block directory and the individual block directory exist. The individual block directory
-        // is a subdirectory of the block directory, so a single call can ensure both.
-        individualBlockDirectory.mkdirs();
+            // This method only needs to load the locally stored blocks, and it can do so synchronously.
 
-        // Try to load the Genesis block from file.
-        Block genesisBlock = loadBlockFromFile(0L);
-        if (genesisBlock != null) {
+            // Ensure that both the block directory and the individual block directory exist. The individual block
+            // directory is a subdirectory of the block directory, so a single call can ensure both.
+            individualBlockDirectory.mkdirs();
 
-            // Set the frozen edge height to the Genesis block level.
-            genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
-            setFrozenEdge(genesisBlock);
+            // Try to load the Genesis block from file.
+            Block genesisBlock = loadBlockFromFile(0L);
+            if (genesisBlock != null) {
 
-            // Find the highest consolidated file.
-            // TODO: test this with several million blocks to ensure correct and efficient loading
-            long highestConsolidatedFileStartHeight = findHighestConsolidatedFileStartHeight();
-            long highestConsolidatedFileEndHeight = highestConsolidatedFileStartHeight + blocksPerFile - 1L;
+                // Set the frozen edge height to the Genesis block level.
+                genesisBlockStartTimestamp = genesisBlock.getStartTimestamp();
+                setFrozenEdge(genesisBlock, null);
 
-            // Load the highest block in the consolidated file and set it as the frozen edge.
-            File consolidatedFile = consolidatedFileForBlockHeight(highestConsolidatedFileStartHeight);
-            List<Block> blocks = loadBlocksInFile(consolidatedFile, highestConsolidatedFileStartHeight,
-                    highestConsolidatedFileEndHeight);
-            for (Block block : blocks) {
-                BlockManagerMap.addBlock(block);
-            }
-            if (blocks.size() > 0) {
-                Block block = blocks.get(blocks.size() - 1);
-                setFrozenEdge(block);
-            }
+                // Try to load the highest block that has not yet been consolidated.
+                long highestIndividualFileHeight = findHighestIndividualFileHeight();
+                if (highestIndividualFileHeight > getFrozenEdgeHeight()) {
 
-            // Now try to load the highest block that has not yet been consolidated.
-            long highestIndividualFileHeight = findHighestIndividualFileHeight();
-            if (highestIndividualFileHeight > getFrozenEdgeHeight()) {
-
-                File individualFile = individualFileForBlockHeight(highestIndividualFileHeight);
-                List<Block> individualBlockList = loadBlocksInFile(individualFile, highestIndividualFileHeight,
-                        highestIndividualFileHeight);
-                if (individualBlockList.size() > 0) {
-                    Block block = individualBlockList.get(0);
-                    setFrozenEdge(block);
+                    File individualFile = individualFileForBlockHeight(highestIndividualFileHeight);
+                    List<Block> individualBlockList = loadBlocksInFile(individualFile, highestIndividualFileHeight,
+                            highestIndividualFileHeight);
+                    if (individualBlockList.size() > 0) {
+                        Block block = individualBlockList.get(0);
+                        setFrozenEdge(block, null);
+                        System.out.println("set frozen edge to " + block.getBlockHeight() + " in individual loading");
+                    }
                 }
-            }
 
-            // Load from the trailing edge to the frozen edge. This gives us the blocks necessary to immediately serve
-            // bootstrap response requests. Skip this if the trailing edge is invalid, because we might have a gap
-            // but many old blocks.
-            if (getTrailingEdgeHeight() >= 0) {
-                for (long i = getTrailingEdgeHeight(); i <= getFrozenEdgeHeight(); i++) {
-                    frozenBlockForHeight(i);
+                // Step back in the chain until the cycle information for the frozen edge can be calculated.
+                long blockHeight = getFrozenEdgeHeight();
+                Block frozenEdge = frozenBlockForHeight(blockHeight);
+                boolean foundBreak = false;
+                while (frozenEdge.getCycleInformation() == null && !foundBreak) {
+                    blockHeight--;
+                    Block block = frozenBlockForHeight(blockHeight);
+                    if (block == null) {
+                        foundBreak = true;
+                    }
                 }
+
+                // Load the balance lists of the trailing and frozen edges into the balance list manager. This gives us the
+                // balance lists necessary to immediately serve bootstrap response requests.
+                BalanceList trailingEdgeBalanceList = null;
+                for (long height = getTrailingEdgeHeight(); height < getFrozenEdgeHeight() &&
+                        trailingEdgeBalanceList == null; height++) {
+                    trailingEdgeBalanceList = loadBalanceListFromFileForHeight(height);
+                }
+                BalanceList frozenEdgeBalanceList = loadBalanceListFromFileForHeight(getFrozenEdgeHeight());
+                BalanceListManager.registerBalanceList(trailingEdgeBalanceList);
+                BalanceListManager.registerBalanceList(frozenEdgeBalanceList);
+
+                initialized = true;
+
+                System.out.println("completed BlockManager initialization");
             }
-
-            NotificationUtil.send("initialized frozen edge to " + BlockManager.getFrozenEdgeHeight() + " on " +
-                    Verifier.getNickname());
-
-            // Load the balance lists of the trailing and frozen edges into the balance list manager. This gives us the
-            // balance lists necessary to immediately serve bootstrap response requests.
-            BalanceList trailingEdgeBalanceList = null;
-            for (long height = getTrailingEdgeHeight(); height < getFrozenEdgeHeight() &&
-                    trailingEdgeBalanceList == null; height++) {
-                trailingEdgeBalanceList = loadBalanceListFromFileForHeight(height);
-            }
-            BalanceList frozenEdgeBalanceList = loadBalanceListFromFileForHeight(getFrozenEdgeHeight());
-            BalanceListManager.registerBalanceList(trailingEdgeBalanceList);
-            BalanceListManager.registerBalanceList(frozenEdgeBalanceList);
-
-            initialized = true;
         }
     }
 
@@ -324,10 +322,67 @@ public class BlockManager {
 
         BalanceList balanceList = loadBalanceListFromFile(individualFileForBlockHeight(blockHeight), blockHeight);
         if (balanceList == null) {
-            balanceList = loadBalanceListFromFile(consolidatedFileForBlockHeight(blockHeight), blockHeight);
+            extractConsolidatedFile(consolidatedFileForBlockHeight(blockHeight));
+
+            balanceList = loadBalanceListFromFile(individualFileForBlockHeight(blockHeight), blockHeight);
         }
 
         return balanceList;
+    }
+
+    private static void extractConsolidatedFile(File file) {
+
+        // This method will stay in the code because it doesn't do any harm, but it is a migration method, and it will
+        // be used less and less over time. The old behavior of the file consolidator would consolidate files as soon
+        // as they fell behind the frozen edge. This slowed down restarts, as consolidated files had to be read
+        // directly.
+
+        if (file.exists()) {
+            System.out.println("extracting consolidated file: " + file);
+
+            Path path = Paths.get(file.getAbsolutePath());
+            try {
+                byte[] fileBytes = Files.readAllBytes(path);
+                ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
+                int numberOfBlocks = buffer.getShort();
+                Block previousBlock = null;
+                BalanceList previousBalanceList = null;
+
+                System.out.println("need to extract " + numberOfBlocks + " blocks");
+
+                for (int i = 0; i < numberOfBlocks; i++) {
+
+                    // Read the block.
+                    Block block = Block.fromByteBuffer(buffer);
+
+                    // Derive the balance list, if possible. Otherwise, read it.
+                    BalanceList balanceList;
+                    if (previousBlock != null && block.getBlockHeight() == previousBlock.getBlockHeight() + 1L) {
+                        balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
+                                block.getTransactions(), block.getVerifierIdentifier());
+                    } else {
+                        System.out.println("reading balance list for height " + block.getBlockHeight());
+                        balanceList = BalanceList.fromByteBuffer(buffer);
+                    }
+
+                    // Confirm that the balance list hash matches.
+                    if (!ByteUtil.arraysAreEqual(balanceList.getHash(), block.getBalanceListHash())) {
+                        throw new RuntimeException("balance list hash does not match for block " +
+                                block.getBlockHeight());
+                    }
+
+                    // Write the individual file.
+                    writeBlocksToFile(Collections.singletonList(block), Collections.singletonList(balanceList),
+                            individualFileForBlockHeight(block.getBlockHeight()));
+
+                    // Store the block and balance list for the next iteration.
+                    previousBlock = block;
+                    previousBalanceList = balanceList;
+                }
+            } catch (Exception e) {
+                System.out.println("problem extracting consolidated file: " + e.getMessage());
+            }
+        }
     }
 
     private static BalanceList loadBalanceListFromFile(File file, long blockHeight) {
@@ -367,47 +422,6 @@ public class BlockManager {
         return blockBalanceList;
     }
 
-    private static long findHighestConsolidatedFileStartHeight() {
-
-        long startHeight = -1L;
-
-        List<File> directories = Arrays.asList(blockRootDirectory.listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File file) {
-                return file.isDirectory();
-            }
-        }));
-
-        Collections.sort(directories, new Comparator<File>() {
-            @Override
-            public int compare(File file1, File file2) {
-                return file2.getName().compareTo(file1.getName());
-            }
-        });
-
-        for (int j = 0; j < directories.size() && startHeight < 0; j++) {
-            try {
-                List<File> files = Arrays.asList(directories.get(j).listFiles());
-                Collections.sort(files, new Comparator<File>() {
-                    @Override
-                    public int compare(File file1, File file2) {
-                        return file2.compareTo(file1);
-                    }
-                });
-
-                for (int i = 0; i < files.size() && startHeight < 0; i++) {
-                    try {
-                        long fileIndex = Long.parseLong(files.get(i).getName().replace(".nyzoblock", ""));
-                        startHeight = fileIndex * blocksPerFile;
-                    } catch (Exception ignored) { }
-                }
-
-            } catch (Exception ignored) { }
-        }
-
-        return startHeight;
-    }
-
     private static long findHighestIndividualFileHeight() {
 
         long height = -1L;
@@ -433,19 +447,22 @@ public class BlockManager {
         return height;
     }
 
-    public static synchronized void setFrozenEdge(Block block) {
+    public static synchronized void setFrozenEdge(Block block, List<ByteBuffer> cycleVerifiers) {
 
         // Freezing a block under the frozen edge is not allowed.
         if (block.getBlockHeight() < frozenEdgeHeight) {
             System.err.println("Setting highest block frozen to a lesser value than is currently set.");
         } else {
-            // Set the frozen and trailing edge heights.
+            // Set the frozen and trailing edge heights. If the cycle information is null, set the trailing edge to
+            // invalid.
             frozenEdgeHeight = block.getBlockHeight();
-            if (block.getCycleInformation() != null) {
+            if (block.getCycleInformation() == null) {
+                trailingEdgeHeight = -1L;
+            } else {
                 trailingEdgeHeight = Math.max(block.getCycleInformation().getDeterminationHeight(), 0);
             }
 
-            updateVerifiersInCurrentCycle(block);
+            updateVerifiersInCurrentCycle(block, cycleVerifiers);
         }
 
         // Always add the block to the map. This should be done after the frozen edge is set, because the map looks at
@@ -495,37 +512,101 @@ public class BlockManager {
 
     public static int currentCycleLength() {
 
-        return currentCycleLength;
+        return currentCycleList.size();
     }
 
-    public static synchronized Set<ByteBuffer> verifiersInCurrentCycle() {
+    public static synchronized List<ByteBuffer> verifiersInCurrentCycleList() {
 
-        return new HashSet<>(verifiersInCurrentCycle);
+        return new ArrayList<>(currentCycleList);
+    }
+
+    public static synchronized Set<ByteBuffer> verifiersInCurrentCycleSet() {
+
+        return new HashSet<>(currentCycleSet);
     }
 
     public static synchronized boolean verifierInCurrentCycle(ByteBuffer identifier) {
 
-        return verifiersInCurrentCycle.contains(identifier);
+        return currentCycleSet.contains(identifier);
     }
 
-    private static synchronized void updateVerifiersInCurrentCycle(Block block) {
+    private static synchronized void updateVerifiersInCurrentCycle(Block block,
+                                                                   List<ByteBuffer> bootstrapCycleVerifiers) {
 
+        // Store this now before we step back in the chain.
+        ByteBuffer edgeIdentifierBuffer = ByteBuffer.wrap(block.getVerifierIdentifier());
+        long edgeHeight = block.getBlockHeight();
+
+        // Perform the standard cycle calculation using blocks.
         boolean foundCycle = false;
-        verifiersInCurrentCycle.clear();
+        List<ByteBuffer> currentCycleList = new ArrayList<>();
+        boolean inGenesisCycle = false;
         while (block != null && !foundCycle) {
 
             ByteBuffer identifierBuffer = ByteBuffer.wrap(block.getVerifierIdentifier());
-            if (verifiersInCurrentCycle.contains(identifierBuffer)) {
+            if (currentCycleList.contains(identifierBuffer)) {
                 foundCycle = true;
             } else {
-                verifiersInCurrentCycle.add(identifierBuffer);
+                currentCycleList.add(0, identifierBuffer);
             }
 
             inGenesisCycle = block.getBlockHeight() == 0 && !foundCycle;
             block = block.getPreviousBlock();
         }
 
-        // Update the cycle value. This is stored separately so the method can be made un-synchronized without question.
-        currentCycleLength = verifiersInCurrentCycle.size();
+        // If we are in the Genesis cycle (we hit block 0), mark that we also found the cycle.
+        if (inGenesisCycle) {
+            foundCycle = true;
+        }
+
+        if (block == null && !foundCycle) {
+
+            // Get the alternate cycle list. If we are extending a complete cycle, we can use the current cycle as a
+            // basis. Otherwise, we can only use a provided bootstrap cycle.
+            List<ByteBuffer> alternateCycleList = null;
+            if (edgeHeight == currentCycleEndHeight + 1 && cycleComplete) {
+                alternateCycleList = new ArrayList<>(BlockManager.currentCycleList);
+
+                // Remove the up to the current verifier, if present.
+                int indexOfVerifierInPreviousCycle = alternateCycleList.indexOf(edgeIdentifierBuffer);
+                for (int i = 0; i <= indexOfVerifierInPreviousCycle; i++) {
+                    alternateCycleList.remove(0);
+                }
+
+                // Add the current verifier.
+                alternateCycleList.add(edgeIdentifierBuffer);
+
+            } else if (bootstrapCycleVerifiers != null) {
+
+                // Use the provided cycle without modification.
+                alternateCycleList = new ArrayList<>(bootstrapCycleVerifiers);
+            }
+
+            if (alternateCycleList == null) {
+                // Both calculations failed.
+                cycleComplete = false;
+                System.out.println("*** both calculations failed for block " + edgeHeight + " ***");
+            } else {
+                // The alternate calculation succeeded.
+                System.out.println("*** using alternate calculation for block " + edgeHeight + " ***");
+                currentCycleList = alternateCycleList;
+                cycleComplete = true;
+            }
+        } else {
+            // The standard calculation succeeded.
+            cycleComplete = true;
+        }
+
+        if (cycleComplete) {
+            BlockManager.currentCycleEndHeight = edgeHeight;
+            BlockManager.currentCycleList = currentCycleList;
+            BlockManager.currentCycleSet = new HashSet<>(currentCycleList);
+            BlockManager.inGenesisCycle = inGenesisCycle;
+        }
+    }
+
+    public static boolean isCycleComplete() {
+
+        return cycleComplete;
     }
 }

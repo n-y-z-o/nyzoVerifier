@@ -1,7 +1,5 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.Block.ContinuityState;
-
 public class CycleInformation {
 
     private long blockHeight;

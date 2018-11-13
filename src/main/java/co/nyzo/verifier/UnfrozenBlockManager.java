@@ -17,6 +17,29 @@ public class UnfrozenBlockManager {
     private static Map<Long, Integer> thresholdOverrides = new HashMap<>();
     private static Map<Long, byte[]> hashOverrides = new HashMap<>();
 
+    private static Map<Long, Map<ByteBuffer, Block>> disconnectedBlocks = new HashMap<>();
+
+    private static long lastBlockVoteTimestamp = 0L;
+
+    public static synchronized void attemptToRegisterDisconnectedBlocks() {
+
+        // Remove the disconnected blocks one past the frozen edge from the disconnected map. Attempt to register them.
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        Map<ByteBuffer, Block> disconnectedBlocksForHeight = disconnectedBlocks.remove(frozenEdgeHeight + 1);
+        if (disconnectedBlocksForHeight != null) {
+            for (Block block : disconnectedBlocksForHeight.values()) {
+                registerBlock(block);
+            }
+        }
+
+        // Remove lower heights that may have been skipped.
+        for (long height : new HashSet<>(disconnectedBlocks.keySet())) {
+            if (height <= frozenEdgeHeight) {
+                disconnectedBlocks.remove(height);
+            }
+        }
+    }
+
     public static synchronized boolean registerBlock(Block block) {
 
         boolean registeredBlock = false;
@@ -76,6 +99,18 @@ public class UnfrozenBlockManager {
 
                         blocksAtHeight.remove(ByteBuffer.wrap(highestScoredBlock.getHash()));
                     }
+                } else if (balanceList == null && block.getBlockHeight() > frozenEdgeHeight + 1) {
+
+                    // This is a special case when we have fallen behind the frozen edge. We may get a block for which
+                    // the balance list is currently null, but it might not be null later. So, we should save it for now
+                    // to avoid having to request it later.
+                    Map<ByteBuffer, Block> disconnectedBlocksForHeight = disconnectedBlocks.get(block.getBlockHeight());
+                    if (disconnectedBlocksForHeight == null) {
+                        disconnectedBlocksForHeight = new HashMap<>();
+                        disconnectedBlocks.put(block.getBlockHeight(), disconnectedBlocksForHeight);
+                    }
+
+                    disconnectedBlocksForHeight.put(ByteBuffer.wrap(block.getHash()), block);
                 }
             }
         }
@@ -85,11 +120,14 @@ public class UnfrozenBlockManager {
 
     public static synchronized void updateVote() {
 
-        // Only vote for the first height past the frozen edge, and only continue if we have blocks.
+        // Only vote for the first height past the frozen edge, and only continue if we have blocks and have not voted
+        // for this height in less than the minimum interval time (the additional 200ms is to account for network
+        // jitter).
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         long height = frozenEdgeHeight + 1;
         Map<ByteBuffer, Block> blocksForHeight = unfrozenBlocks.get(height);
-        if (blocksForHeight != null && !blocksForHeight.isEmpty()) {
+        if (blocksForHeight != null && !blocksForHeight.isEmpty() &&
+                lastBlockVoteTimestamp < System.currentTimeMillis() - BlockVoteManager.minimumVoteInterval - 200L) {
 
             // This will be the vote that we determine based on the current state. If this is different than our
             // current vote, we will broadcast it to the mesh.
@@ -158,11 +196,18 @@ public class UnfrozenBlockManager {
 
     private static synchronized void castVote(long height, byte[] hash) {
 
+        System.out.println("^^^^^^^^^^^^^^^^^^^^^ casting vote for height " + height);
+        lastBlockVoteTimestamp = System.currentTimeMillis();
+
         // Register the vote locally and send it to the network.
         BlockVote vote = new BlockVote(height, hash, System.currentTimeMillis());
         BlockVoteManager.registerVote(Verifier.getIdentifier(), vote);
         Message message = new Message(MessageType.BlockVote19, vote);
-        Message.broadcast(message);
+
+        if (BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier())) ||
+                BlockManager.inGenesisCycle()) {
+            Message.broadcast(message);
+        }
     }
 
     public static synchronized void attemptToFreezeBlock() {
@@ -201,8 +246,12 @@ public class UnfrozenBlockManager {
             }
         }
 
-        // Clean up maps if we froze a block.
+        // Clean up if we froze a block.
         if (BlockManager.getFrozenEdgeHeight() > frozenEdgeHeight) {
+
+            // Reset the block vote timestamp. This allows us to vote immediately for the next block if we are catching
+            // up.
+            lastBlockVoteTimestamp = 0L;
 
             // Remove blocks at or below the new frozen edge.
             frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
@@ -241,6 +290,7 @@ public class UnfrozenBlockManager {
                 MissingBlockResponse response = (MissingBlockResponse) message.getContent();
                 Block responseBlock = response.getBlock();
                 if (responseBlock != null && ByteUtil.arraysAreEqual(responseBlock.getHash(), hash)) {
+                    System.out.println("got block for height " + responseBlock.getBlockHeight());
                     registerBlock(responseBlock);
                 }
             }
@@ -301,7 +351,8 @@ public class UnfrozenBlockManager {
 
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         for (long height : BlockVoteManager.getHeights()) {
-            if (height > frozenEdgeHeight) {
+            if (height == frozenEdgeHeight + 1) {
+
                 for (ByteBuffer hash : BlockVoteManager.getHashesForHeight(height)) {
                     Block block = UnfrozenBlockManager.unfrozenBlockAtHeight(height, hash.array());
                     if (block == null) {

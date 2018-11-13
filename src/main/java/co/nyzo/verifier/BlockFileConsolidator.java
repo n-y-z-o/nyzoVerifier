@@ -36,20 +36,23 @@ public class BlockFileConsolidator {
         // Get all files in the individual directory.
         File[] individualFiles = BlockManager.individualBlockDirectory.listFiles();
 
-        // Build a map of all files that need to be consolidated.
+        // Build a map of all files that need to be consolidated. Before, files were consolidated as soon as the frozen
+        // edge passed them. Now, files are consolidated when the retention edge passes them.
         Map<Long, List<File>> fileMap = new HashMap<>();
-        long currentFileIndex = BlockManager.getFrozenEdgeHeight() / BlockManager.blocksPerFile;
+        long currentFileIndex = BlockManager.getRetentionEdgeHeight() / BlockManager.blocksPerFile;
         if (individualFiles != null) {
             for (File file : individualFiles) {
                 long blockHeight = blockHeightForFile(file);
-                long fileIndex = blockHeight / BlockManager.blocksPerFile;
-                if (fileIndex < currentFileIndex) {
-                    List<File> filesForIndex = fileMap.get(fileIndex);
-                    if (filesForIndex == null) {
-                        filesForIndex = new ArrayList<>();
-                        fileMap.put(fileIndex, filesForIndex);
+                if (blockHeight > 0) {
+                    long fileIndex = blockHeight / BlockManager.blocksPerFile;
+                    if (fileIndex < currentFileIndex) {
+                        List<File> filesForIndex = fileMap.get(fileIndex);
+                        if (filesForIndex == null) {
+                            filesForIndex = new ArrayList<>();
+                            fileMap.put(fileIndex, filesForIndex);
+                        }
+                        filesForIndex.add(file);
                     }
-                    filesForIndex.add(file);
                 }
             }
         }
@@ -105,7 +108,9 @@ public class BlockFileConsolidator {
         // Write the combined file.
         BlockManager.writeBlocksToFile(blocks, balanceLists, consolidatedFile);
 
-        // Delete the individual files.
+        // Delete the individual files. Do not delete the Genesis file, because it will continue to be used in regular
+        // operation.
+        individualFiles.remove(BlockManager.individualFileForBlockHeight(0L));
         for (File file : individualFiles) {
             file.delete();
         }

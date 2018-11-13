@@ -1,10 +1,7 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
-import co.nyzo.verifier.messages.debug.ConsensusTallyStatusResponse;
-import co.nyzo.verifier.messages.debug.MeshStatusResponse;
-import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolPurgeResponse;
-import co.nyzo.verifier.messages.debug.UnfrozenBlockPoolStatusResponse;
+import co.nyzo.verifier.messages.debug.*;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
@@ -95,10 +92,15 @@ public class Message {
 
     public static void broadcast(Message message) {
 
-        // Send the message to all nodes in the mesh.
+        System.out.println("broadcasting message: " + message.getType());
+
+        // Send the message to all nodes in the current cycle and the top in the new-verifier queue.
+        Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
+        currentCycle.addAll(NewVerifierVoteManager.topVerifiers());
         List<Node> mesh = NodeManager.getMesh();
         for (Node node : mesh) {
-            if (node.isActive() && !ByteUtil.arraysAreEqual(node.getIdentifier(), Verifier.getIdentifier())) {
+            if (node.isActive() && !ByteUtil.arraysAreEqual(node.getIdentifier(), Verifier.getIdentifier()) &&
+                    currentCycle.contains(ByteBuffer.wrap(node.getIdentifier()))) {
                 String ipAddress = IpUtil.addressAsString(node.getIpAddress());
                 fetch(ipAddress, node.getPort(), message, null);
             }
@@ -306,14 +308,23 @@ public class Message {
             long timestamp = buffer.getLong();
             typeValue = buffer.getShort() & 0xffff;
             type = MessageType.forValue(typeValue);
+
             MessageObject content = processContent(type, buffer);
 
             byte[] sourceNodeIdentifier = new byte[FieldByteSize.identifier];
             buffer.get(sourceNodeIdentifier);
-            byte[] sourceNodeSignature = new byte[FieldByteSize.signature];
-            buffer.get(sourceNodeSignature);
 
-            message = new Message(timestamp, type, content, sourceNodeIdentifier, sourceNodeSignature, sourceIpAddress);
+            // For the sake of efficiency, we discard block votes from non-cycle verifiers here and do not even
+            // respond.
+            if (type != MessageType.BlockVote19 ||
+                    BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(sourceNodeIdentifier))) {
+
+                byte[] sourceNodeSignature = new byte[FieldByteSize.signature];
+                buffer.get(sourceNodeSignature);
+
+                message = new Message(timestamp, type, content, sourceNodeIdentifier, sourceNodeSignature,
+                        sourceIpAddress);
+            }
         } catch (Exception reportOnly) {
             System.err.println("problem getting message from bytes, message type is " + typeValue + ", " +
                     type + ", " + PrintUtil.printException(reportOnly));
@@ -325,11 +336,8 @@ public class Message {
     private static MessageObject processContent(MessageType type, ByteBuffer buffer) {
 
         MessageObject content = null;
-        if (type == MessageType.BootstrapRequest1) {
-            content = BootstrapRequest.fromByteBuffer(buffer);
-        } else if (type == MessageType.BootstrapResponse2) {
-            content = BootstrapResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.NodeJoin3) {
+        // Messages 1 and 2 are no longer used.
+        if (type == MessageType.NodeJoin3) {
             content = NodeJoinMessage.fromByteBuffer(buffer);
         } else if (type == MessageType.NodeJoinResponse4) {
             content = NodeJoinResponse.fromByteBuffer(buffer);
@@ -377,6 +385,10 @@ public class Message {
             content = NewVerifierVoteOverrideRequest.fromByteBuffer(buffer);
         } else if (type == MessageType.NewVerifierVoteOverrideResponse34) {
             content = NewVerifierVoteOverrideResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.BootstrapRequestV2_35) {
+            content = BootstrapRequest.fromByteBuffer(buffer);
+        } else if (type == MessageType.BootstrapResponseV2_36) {
+            content = BootstrapResponseV2.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
@@ -389,6 +401,8 @@ public class Message {
             content = MeshStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.ConsensusTallyStatusResponse413) {
             content = ConsensusTallyStatusResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.NewVerifierTallyStatusResponse415) {
+            content = NewVerifierTallyStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.ResetResponse501) {
             content = BooleanMessageResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Error65534) {

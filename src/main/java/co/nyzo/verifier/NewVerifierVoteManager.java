@@ -77,7 +77,7 @@ public class NewVerifierVoteManager {
         // reality, we are highly unlikely to ever lose more than one vote at a time due to this simplification.
 
         Set<ByteBuffer> verifiers = new HashSet<>(voteMap.keySet());
-        Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycle();
+        Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
         for (ByteBuffer verifier : verifiers) {
             if (!currentCycle.contains(verifier)) {
                 voteMap.remove(verifier);
@@ -85,41 +85,44 @@ public class NewVerifierVoteManager {
         }
     }
 
+    public static synchronized Map<ByteBuffer, Integer> voteTotals() {
+
+
+        // If the voting verifiers list is empty, accept votes from all verifiers. This will happen only rarely, if
+        // ever, but this condition is helpful for testing.
+        Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycleSet();
+        boolean acceptAllVotes = votingVerifiers.isEmpty();
+
+        Map<ByteBuffer, Integer> voteTotals = new HashMap<>();
+        for (ByteBuffer votingVerifier : voteMap.keySet()) {
+            if (votingVerifiers.contains(votingVerifier) || acceptAllVotes) {
+                ByteBuffer vote = voteMap.get(votingVerifier);
+                if (!BlockManager.verifierInCurrentCycle(vote) && NodeManager.isActive(vote.array())) {
+                    Integer votesForVerifier = voteTotals.getOrDefault(vote, 0);
+                    voteTotals.put(vote, votesForVerifier + 1);
+                }
+            }
+        }
+
+        return voteTotals;
+    }
+
     public static synchronized List<ByteBuffer> topVerifiers() {
 
         List<ByteBuffer> topVerifiers = new ArrayList<>();
 
-        Map<ByteBuffer, Integer> votesPerVerifier = new HashMap<>();
-        Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycle();
-
+        // Only build the list if we still have room under the cycle limit.
+        Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycleSet();
         if (votingVerifiers.size() < meshLimit) {
 
-            // If the voting verifiers list is empty, accept votes from all verifiers. This will happen only rarely, if
-            // ever, but this condition is helpful for testing.
-            boolean acceptAllVotes = votingVerifiers.isEmpty();
-
-            // Build the vote map.
-            for (ByteBuffer votingVerifier : voteMap.keySet()) {
-                if (votingVerifiers.contains(votingVerifier) || acceptAllVotes) {
-                    ByteBuffer vote = voteMap.get(votingVerifier);
-                    if (!BlockManager.verifierInCurrentCycle(vote) && NodeManager.isActive(vote.array())) {
-                        Integer votesForVerifier = votesPerVerifier.get(vote);
-                        if (votesForVerifier == null) {
-                            votesPerVerifier.put(vote, 1);
-                        } else {
-                            votesPerVerifier.put(vote, votesForVerifier + 1);
-                        }
-                    }
-                }
-            }
-
             // Make and sort the list descending on votes.
-            topVerifiers.addAll(votesPerVerifier.keySet());
+            Map<ByteBuffer, Integer> voteTotals = voteTotals();
+            topVerifiers.addAll(voteTotals.keySet());
             Collections.sort(topVerifiers, new Comparator<ByteBuffer>() {
                 @Override
                 public int compare(ByteBuffer verifierVote1, ByteBuffer verifierVote2) {
-                    Integer voteCount1 = votesPerVerifier.get(verifierVote1);
-                    Integer voteCount2 = votesPerVerifier.get(verifierVote2);
+                    Integer voteCount1 = voteTotals.get(verifierVote1);
+                    Integer voteCount2 = voteTotals.get(verifierVote2);
                     return voteCount2.compareTo(voteCount1);
                 }
             });
@@ -132,8 +135,6 @@ public class NewVerifierVoteManager {
                 }
             }
         }
-
-        StatusResponse.setField("top new", topVerifiers.size() + "");
 
         return topVerifiers;
     }

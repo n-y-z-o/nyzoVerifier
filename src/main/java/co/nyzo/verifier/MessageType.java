@@ -6,8 +6,8 @@ public enum MessageType {
 
     // standard-operation messages
     Invalid0(0),
-    BootstrapRequest1(1),
-    BootstrapResponse2(2),
+    // BootstrapRequest1(1), replaced with BootstrapRequestV2_35
+    // BootstrapResponse2(2), replaced with BootstrapResponseV2_36
     NodeJoin3(3),
     NodeJoinResponse4(4),
     Transaction5(5),
@@ -40,6 +40,8 @@ public enum MessageType {
     ConsensusThresholdOverrideResponse32(32),
     NewVerifierVoteOverrideRequest33(33),
     NewVerifierVoteOverrideResponse34(34),
+    BootstrapRequestV2_35(35),
+    BootstrapResponseV2_36(36),
 
     // test messages
     Ping200(200),
@@ -65,6 +67,8 @@ public enum MessageType {
     TogglePauseResponse411(411),
     ConsensusTallyStatusRequest412(412),
     ConsensusTallyStatusResponse413(413),
+    NewVerifierTallyStatusRequest414(414),
+    NewVerifierTallyStatusResponse415(415),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain   TODO: key this to the local verifier before release

@@ -10,6 +10,7 @@ public class BlockVote implements MessageObject {
     private long height;
     private byte[] hash;
     private long timestamp;  // used to prevent replay attacks of old votes
+    private long receiptTimestamp;  // local-only field used to ensure minimum spacing between votes
 
     public BlockVote(long height, byte[] hash, long timestamp) {
 
@@ -28,6 +29,14 @@ public class BlockVote implements MessageObject {
 
     public long getTimestamp() {
         return timestamp;
+    }
+
+    public long getReceiptTimestamp() {
+        return receiptTimestamp;
+    }
+
+    public void setReceiptTimestamp(long receiptTimestamp) {
+        this.receiptTimestamp = receiptTimestamp;
     }
 
     @Override

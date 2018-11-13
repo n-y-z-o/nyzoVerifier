@@ -14,7 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Verifier {
 
@@ -43,6 +43,8 @@ public class Verifier {
     static {
         // This ensures the seed is always available, even if this class is used from a test script.
         loadPrivateSeed();
+
+        System.out.println("verifier identifier is " + ByteUtil.arrayAsStringWithDashes(getIdentifier()));
     }
 
     public static void main(String[] args) {
@@ -74,7 +76,7 @@ public class Verifier {
         return alive.get();
     }
 
-    private static void loadPrivateSeed() {
+    private static synchronized void loadPrivateSeed() {
 
         dataRootDirectory.mkdirs();
 
@@ -112,27 +114,33 @@ public class Verifier {
             NotificationUtil.send("setting temporary local verifier entry on " + Verifier.getNickname());
             NodeManager.addTemporaryLocalVerifierEntry();
 
+            // Start the mesh listener and wait for it to start and for the port to settle.
+            System.out.println("starting mesh listener");
+            MeshListener.start();
+            try {
+                Thread.sleep(20L);
+            } catch (Exception ignored) { }
+
             // Update the mesh limit. We need to have this before we start calculating scores for blocks.
+            System.out.println("updating mesh limit");
             NewVerifierVoteManager.updateMeshLimit();
 
             // Ensure that the Genesis block is loaded.
+            System.out.println("loading genesis block");
             loadGenesisBlock();
 
             // Load the nickname. This is purely for display purposes.
+            System.out.println("loading nickname");
             loadNickname();
 
             // Start the seed transaction manager. This loads all the seed transactions in the background.
+            System.out.println("starting seed transaction manager");
             SeedTransactionManager.start();
 
             // Start the block file consolidator. This bundles every 1000 blocks into one file to avoiding using
             // too many inodes.
+            System.out.println("starting block file consolidator");
             BlockFileConsolidator.start();
-
-            // Start the node listener and wait for it to start and for the port to settle.
-            MeshListener.start();
-            try {
-                Thread.sleep(20L);
-            } catch (Exception e) { }
 
             System.out.println("starting verifier");
 
@@ -166,79 +174,105 @@ public class Verifier {
             // Wait two seconds for the node-join requests to reach other nodes so we start receiving blocks.
             try {
                 Thread.sleep(2000L);
-            } catch (Exception ignored) { }
-
-            // Attempt to jump into the blockchain. This should succeed on the first attempt, but it may take longer if
-            // we are starting a new mesh.
-            long consensusFrozenEdge = -1;
-            byte[] frozenEdgeHash = new byte[FieldByteSize.hash];
-            AtomicLong frozenEdgeStartHeight = new AtomicLong(-1);
-            while (consensusFrozenEdge < 0 && !UpdateUtil.shouldTerminate()) {
-
-                // Send bootstrap requests to all trusted entry points.
-                Message bootstrapRequest = new Message(MessageType.BootstrapRequest1,
-                        new BootstrapRequest(MeshListener.getPort()));
-                for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
-
-                    System.out.println("sending Bootstrap request to " + entryPoint);
-                    Message.fetch(entryPoint.getHost(), entryPoint.getPort(), bootstrapRequest, new MessageCallback() {
-                        @Override
-                        public void responseReceived(Message message) {
-                            if (message == null) {
-                                System.out.println("Bootstrap response is null");
-                            } else {
-                                processBootstrapResponseMessage(message);
-                            }
-                        }
-                    });
-                }
-
-                // Wait 2 seconds for requests to return.
-                try {
-                    Thread.sleep(2000);
-                } catch (Exception ignored) {
-                }
-
-                // Get the consensus frozen edge. If this can be determined, we can continue to the next step.
-                consensusFrozenEdge = ChainInitializationManager.frozenEdgeHeight(frozenEdgeHash,
-                        frozenEdgeStartHeight);
-                System.out.println("consensus frozen edge height: " + consensusFrozenEdge + ", start height " +
-                        frozenEdgeStartHeight.get());
+            } catch (Exception ignored) {
             }
 
-            // If the consensus frozen edge is higher than the local frozen edge, fetch the necessary blocks to start
-            // verifying.
-            if (consensusFrozenEdge > BlockManager.getFrozenEdgeHeight()) {
-                long startBlock = Math.max(BlockManager.getFrozenEdgeHeight() + 1, frozenEdgeStartHeight.get());
-                System.out.println("need to fetch chain section " + startBlock + " to " + consensusFrozenEdge);
-                ChainInitializationManager.fetchChainSection(startBlock, consensusFrozenEdge, frozenEdgeHash);
+            // Only continue with the edge-initialization process if we might need to fetch a new frozen edge. If the
+            // open edge is fewer than 20 blocks ahead of the local frozen edge, and we have a complete cycle in the
+            // block manager, we can treat the restart as a temporary outage and use standard recovery mechanisms.
+            long openEdgeHeight = BlockManager.openEdgeHeight(false);
+            if (BlockManager.isCycleComplete() && openEdgeHeight < BlockManager.getFrozenEdgeHeight() + 20) {
+                System.out.println("skipping frozen-edge consensus process due to short downtime and complete cycle");
+            } else {
+
+                System.out.println("entering frozen-edge consensus process because open edge, " + openEdgeHeight +
+                        ", is " + (openEdgeHeight - BlockManager.getFrozenEdgeHeight()) + " past frozen edge, " +
+                        BlockManager.getFrozenEdgeHeight() + " and cycleComplete=" + BlockManager.isCycleComplete());
+
+                // Attempt to jump into the blockchain. This should succeed on the first attempt, but it may take
+                // longer if we are starting a new mesh.
+                BootstrapResponseV2 consensusBootstrapResponse = null;
+                while (consensusBootstrapResponse == null && !UpdateUtil.shouldTerminate()) {
+
+                    // Wait for the incoming message queue to clear. This will prevent a potential problem where this
+                    // loop continues to pile on more and more requests while not getting responses in time because the
+                    // queue is overfilled.
+                    MessageQueue.blockThisThreadUntilClear();
+
+                    AtomicInteger numberOfResponsesReceived = new AtomicInteger(0);
+
+                    // Send bootstrap requests to all trusted entry points.
+                    Message bootstrapRequest = new Message(MessageType.BootstrapRequestV2_35,
+                            new BootstrapRequest(MeshListener.getPort()));
+                    for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
+
+                        System.out.println("sending Bootstrap request to " + entryPoint);
+                        Message.fetch(entryPoint.getHost(), entryPoint.getPort(), bootstrapRequest,
+                                new MessageCallback() {
+                                    @Override
+                                    public void responseReceived(Message message) {
+                                        if (message == null) {
+                                            System.out.println("Bootstrap response is null");
+                                        } else {
+                                            numberOfResponsesReceived.incrementAndGet();
+                                            ChainInitializationManager.processBootstrapResponseMessage(message);
+                                        }
+                                    }
+                                });
+                    }
+
+                    // Wait up to 20 seconds for requests to return.
+                    try {
+                        for (int i = 0; i < 20 && numberOfResponsesReceived.get() < trustedEntryPoints.size(); i++) {
+                            Thread.sleep(1000L);
+                        }
+                    } catch (Exception ignored) {
+                    }
+
+                    // Get the consensus response. If this can be determined, we can move to the next step.
+                    consensusBootstrapResponse = ChainInitializationManager.winningResponse();
+                    System.out.println("consensus bootstrap response: " + consensusBootstrapResponse);
+                }
+
+                // If the consensus frozen edge is more than 20 past the local frozen edge, and we are not in the cycle,
+                // fetch the consensus frozen edge. If the consensus frozen edge is more than the cycle length past the
+                // frozen edge, it does not matter if we were in the cycle. We have lost our place, and the frozen edge
+                // needs to be fetched. If we do not fetch the frozen edge here, the recovery mechanisms will attempt to
+                // catch us back up in time to verify a block.
+                if (consensusBootstrapResponse != null) {
+
+                    long consensusFrozenEdge = consensusBootstrapResponse.getFrozenEdgeHeight();
+                    boolean fetchRequiredNotInCycle = (consensusFrozenEdge > BlockManager.getFrozenEdgeHeight() + 20 &&
+                            !BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier())));
+                    boolean fetchRequiredInCycle = consensusFrozenEdge > BlockManager.getFrozenEdgeHeight() +
+                            BlockManager.currentCycleLength();
+
+                    System.out.println("local frozen edge: " + BlockManager.getFrozenEdgeHeight() +
+                            ", consensus frozen edge: " + consensusFrozenEdge + ", fetch required (not-in-cycle): " +
+                            fetchRequiredNotInCycle + ", fetch required (in-cycle): " + fetchRequiredInCycle);
+
+                    if (fetchRequiredNotInCycle || fetchRequiredInCycle || !BlockManager.isCycleComplete()) {
+                        ChainInitializationManager.fetchBlock(consensusBootstrapResponse);
+                    }
+                }
             }
 
             // Start the proactive side of the verifier, initiating the actions necessary to maintain the mesh and
             // build the blockchain.
-            if (UpdateUtil.shouldTerminate() || consensusFrozenEdge > BlockManager.getFrozenEdgeHeight()) {
-                alive.set(false);
-                UpdateUtil.terminate();
-                MeshListener.closeSocket();
-                NotificationUtil.send("terminating verifier before main loop start on " + Verifier.getNickname() +
-                        "; consensus frozen edge is " + consensusFrozenEdge + ", frozen edge is " +
-                        BlockManager.getFrozenEdgeHeight());
-            } else {
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            NotificationUtil.send("started main verifier loop on " + getNickname());
-                            StatusResponse.print();
-                            verifierMain();
-                        } catch (Exception reportOnly) {
-                            NotificationUtil.send("exited verifierMain() on " + getNickname() + " due to exception: " +
-                                    reportOnly.getMessage());
-                        }
-                        alive.set(false);
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        NotificationUtil.send("started main verifier loop on " + getNickname());
+                        StatusResponse.print();
+                        verifierMain();
+                    } catch (Exception reportOnly) {
+                        NotificationUtil.send("exited verifierMain() on " + getNickname() + " due to exception: " +
+                                reportOnly.getMessage());
                     }
-                }, "Verifier-mainLoop").start();
-            }
+                    alive.set(false);
+                }
+            }, "Verifier-mainLoop").start();
         }
     }
 
@@ -272,7 +306,7 @@ public class Verifier {
                 }
             } else {
                 BalanceList balanceList = BalanceListManager.balanceListForBlock(genesisBlock, null);
-                BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash(), balanceList);
+                BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash(), balanceList, null);
             }
         }
     }
@@ -301,42 +335,16 @@ public class Verifier {
         return entryPoints;
     }
 
-    private static void processBootstrapResponseMessage(Message message) {
-
-        BootstrapResponse response = (BootstrapResponse) message.getContent();
-
-        System.out.println("Got Bootstrap response from " +
-                PrintUtil.compactPrintByteArray(message.getSourceNodeIdentifier()) + ":" + response);
-
-        // Add the transactions to the transaction pool.
-        for (Transaction transaction : response.getTransactionPool()) {
-            TransactionPool.addTransaction(transaction);
-        }
-
-        // Add the unfrozen blocks to the chain-option manager.
-        for (Block block : response.getUnfrozenBlockPool()) {
-            UnfrozenBlockManager.registerBlock(block);
-        }
-
-        // Cast hash votes with the chain initialization manager.
-        ChainInitializationManager.processBootstrapResponseMessage(message);
-    }
-
     private static void verifierMain() {
 
         while (!UpdateUtil.shouldTerminate()) {
+
+            MessageQueue.blockThisThreadUntilClear();
 
             long sleepTime = 1000L;
             try {
                 // Only run the active verifier if connected to the mesh.
                 if (NodeManager.connectedToMesh() && !paused) {
-
-                    // If we have stopped receiving messages from the mesh, send new node-join messages. This is
-                    // likely due to a changed IP address.
-                    // TODO: re-implement this or remove
-                    if (newestTimestampAge(1) > 5000L) {
-                        rejoinCount++;
-                    }
 
                     // Perform setup tasks for the NodeManager.
                     NodeManager.updateActiveVerifiersAndRemoveOldNodes();
@@ -394,6 +402,9 @@ public class Verifier {
                     // Update the local vote with the unfrozen block manager. This may change for several reasons,
                     // and it should always be updated before attempting to freeze a block.
                     UnfrozenBlockManager.updateVote();
+
+                    // Attempt to register any blocks that were previously disconnected.
+                    UnfrozenBlockManager.attemptToRegisterDisconnectedBlocks();
 
                     // Try to freeze a block.
                     UnfrozenBlockManager.attemptToFreezeBlock();

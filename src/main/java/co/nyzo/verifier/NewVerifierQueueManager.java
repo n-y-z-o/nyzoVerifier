@@ -2,7 +2,6 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NewVerifierVote;
 import co.nyzo.verifier.util.NotificationUtil;
-import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -16,8 +15,10 @@ public class NewVerifierQueueManager {
 
         ByteBuffer vote = calculateVote();
 
-        // Only update if the new vote is not null and the current vote is either null or different than the new vote.
-        if (vote != null && !vote.equals(currentVote)) {
+        // Only update if the new vote is not null, the current vote is either null or different than the new vote,
+        // and this verifier is in the cycle.
+        if (vote != null && !vote.equals(currentVote) &&
+                BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier()))) {
 
             NewVerifierVote wrappedVote = new NewVerifierVote(vote.array());
             Message message = new Message(MessageType.NewVerifierVote21, wrappedVote);
@@ -31,8 +32,9 @@ public class NewVerifierQueueManager {
 
     private static synchronized ByteBuffer calculateVote() {
 
-        Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycle();
+        Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
 
+        // Find the verifier that has been on the mesh longest but is not in the current cycle.
         List<Node> mesh = NodeManager.getMesh();
         Node oldestNewVerifier = null;
         for (Node node : mesh) {

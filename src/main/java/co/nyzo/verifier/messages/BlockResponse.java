@@ -15,23 +15,27 @@ public class BlockResponse implements MessageObject {
 
         BalanceList initialBalanceList = null;
         List<Block> blocks = new ArrayList<>();
-        int totalByteSize = 0;
-        boolean foundNullBlock = false;
-        long blockHeight = endBlockHeight;
-        while (totalByteSize < 50000 && !foundNullBlock && blockHeight >= startBlockHeight) {
-            Block block = BlockManager.frozenBlockForHeight(blockHeight);
-            if (block == null) {
-                foundNullBlock = true;
-            } else {
-                blocks.add(0, block);
-                totalByteSize += block.getByteSize();
-                if (blockHeight == startBlockHeight && includeInitialBalanceList) {
-                    System.out.println("trying to get balance list at height " + blockHeight);
-                    initialBalanceList = BalanceListManager.balanceListForBlock(block, null);
-                }
-            }
 
-            blockHeight--;
+        // To conserve resources, only respond to block requests for 10 or fewer blocks.
+        if (endBlockHeight - startBlockHeight < 10) {
+            int totalByteSize = 0;
+            boolean foundNullBlock = false;
+            long blockHeight = endBlockHeight;
+            while (totalByteSize < 1000000 && !foundNullBlock && blockHeight >= startBlockHeight) {
+                Block block = BlockManager.frozenBlockForHeight(blockHeight);
+                if (block == null) {
+                    foundNullBlock = true;
+                } else {
+                    blocks.add(0, block);
+                    totalByteSize += block.getByteSize();
+                    if (blockHeight == startBlockHeight && includeInitialBalanceList) {
+                        System.out.println("trying to get balance list at height " + blockHeight);
+                        initialBalanceList = BalanceListManager.balanceListForBlock(block, null);
+                    }
+                }
+
+                blockHeight--;
+            }
         }
 
         System.out.println("built list of " + blocks.size() + " for block request [" + startBlockHeight + "-" +

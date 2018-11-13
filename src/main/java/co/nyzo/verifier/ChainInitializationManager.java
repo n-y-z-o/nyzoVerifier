@@ -2,175 +2,102 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BlockRequest;
 import co.nyzo.verifier.messages.BlockResponse;
-import co.nyzo.verifier.messages.BootstrapResponse;
+import co.nyzo.verifier.messages.BootstrapResponseV2;
 import co.nyzo.verifier.util.DebugUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
+import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ChainInitializationManager {
 
-    private static final Map<Long, BootstrapVoteTally> hashVotes = new HashMap<>();
+    // This is a map from the identifier to the bootstrap response.
+    private static final Map<ByteBuffer, BootstrapResponseV2> bootstrapResponses = new HashMap<>();
 
     public static synchronized void processBootstrapResponseMessage(Message message) {
 
-        BootstrapResponse response = (BootstrapResponse) message.getContent();
-
-        // Accumulate votes for the hashes.
-        int numberOfHashes = response.getFrozenBlockHashes().size();
-        for (int i = 0; i < numberOfHashes; i++) {
-            long blockHeight = response.getFirstHashHeight() + i;
-            BootstrapVoteTally voteTally = hashVotes.get(blockHeight);
-            if (voteTally == null) {
-                voteTally = new BootstrapVoteTally(blockHeight);
-                hashVotes.put(blockHeight, voteTally);
-            }
-
-            byte[] hash = response.getFrozenBlockHashes().get(i);
-            long startHeight = response.getStartHeights().get(i);
-            voteTally.vote(message.getSourceNodeIdentifier(), hash, startHeight);
-        }
+        BootstrapResponseV2 response = (BootstrapResponseV2) message.getContent();
+        bootstrapResponses.put(ByteBuffer.wrap(message.getSourceNodeIdentifier()), response);
     }
 
-    public static synchronized long frozenEdgeHeight(byte[] frozenEdgeHash, AtomicLong frozenEdgeStartHeight) {
+    public static synchronized BootstrapResponseV2 winningResponse() {
 
-        // Determine the maximum number of votes we have at any level. This determines our consensus threshold.
-        int maximumVotesAtAnyLevel = 0;
-        for (BootstrapVoteTally tally : hashVotes.values()) {
-            maximumVotesAtAnyLevel = Math.max(maximumVotesAtAnyLevel, tally.totalVotes());
-        }
+        // Determine the response with the highest number of votes.
+        Map<ByteBuffer, Integer> voteCounts = new HashMap<>();
+        BootstrapResponseV2 winningResponse = null;
+        int winningVoteCount = 0;
+        for (BootstrapResponseV2 response : bootstrapResponses.values()) {
 
-        // Determine the highest level at which consensus has been reached.
-        long maximumConsensusHeight = -1;
-        byte[] winnerHash = new byte[FieldByteSize.hash];
-        if (maximumVotesAtAnyLevel > 0) {
-            for (long height : hashVotes.keySet()) {
-                if (height > maximumConsensusHeight) {
-                    BootstrapVoteTally tally = hashVotes.get(height);
-                    AtomicLong startHeight = new AtomicLong();
-                    if (tally.votesForWinner(winnerHash, startHeight) > maximumVotesAtAnyLevel / 2) {
-                        maximumConsensusHeight = height;
-                        System.arraycopy(winnerHash, 0, frozenEdgeHash, 0, FieldByteSize.hash);
-                        frozenEdgeStartHeight.set(startHeight.get());
-                    }
-                }
+            // This is a simple count of each unique response. This considers all fields of the response to prevent
+            // potential manipulation by omitting a cycle verifier.
+            ByteBuffer responseBytes = ByteBuffer.wrap(response.getBytes());
+            int voteCount = voteCounts.getOrDefault(responseBytes, 0) + 1;
+            voteCounts.put(responseBytes, voteCount);
+
+            // If this is the winning response so far, store it so we don't have to loop over the responses again.
+            if (voteCount > winningVoteCount) {
+                winningVoteCount = voteCount;
+                winningResponse = response;
             }
         }
 
-        return maximumConsensusHeight;
+        // Return the winning response. In most cases, all votes will be the same, or votes will be split between two
+        // frozen edges if the responses are built right around when a block is frozen.
+        return winningResponse;
     }
 
-    public static void fetchChainSection(long startHeight, long endHeight, byte[] endBlockHash) {
+    public static void fetchBlock(BootstrapResponseV2 bootstrapResponse) {
 
-        // Only fetch the balance list if the section does not connect to previously frozen blocks.
-        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-        boolean requireBalanceList = startHeight > frozenEdgeHeight + 1;
+        Set<BalanceList> balanceListSet = new HashSet<>();  // single item; using a set to allow access from thread
+        Set<Block> blockSet = new HashSet<>();  // single item; using a set to allow access from thread
 
-        Map<Long, Block> blocksToSave = new HashMap<>();
-        int numberOfBlocksRequired = (int) (endHeight - startHeight + 1L);
-        Set<BalanceList> initialBalanceList = new HashSet<>();  // single item; using a set to allow access from thread
-        boolean missingBlocks = true;
-        boolean missingBalanceList = requireBalanceList;
-        int numberOfIterations = 0;
-        while ((missingBlocks || missingBalanceList) && numberOfIterations++ < 10 && !UpdateUtil.shouldTerminate()) {
+        while (!UpdateUtil.shouldTerminate() && (balanceListSet.isEmpty() || blockSet.isEmpty())) {
 
-            // The chain is built from the end to the beginning so hashes can be confirmed.
-            long minimumHeightAlreadyFetched = endHeight + 1;
-            for (Long height : blocksToSave.keySet()) {
-                minimumHeightAlreadyFetched = Math.min(minimumHeightAlreadyFetched, height);
-            }
-            long requestEndHeight = Math.max(startHeight, Math.min(endHeight, minimumHeightAlreadyFetched - 1));
+            AtomicBoolean processedResponse = new AtomicBoolean(false);
 
-            System.out.println("fetching from height " + startHeight + " to " + requestEndHeight);
-
-            Message message = new Message(MessageType.BlockRequest11, new BlockRequest(startHeight, requestEndHeight,
-                    requireBalanceList));
+            long height = bootstrapResponse.getFrozenEdgeHeight();
+            Message message = new Message(MessageType.BlockRequest11, new BlockRequest(height, height, true));
             Message.fetchFromRandomNode(message, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
 
                     BlockResponse response = (BlockResponse) message.getContent();
-                    Map<Long, Block> responseBlocks = blockMap(response.getBlocks());
-                    long height = requestEndHeight;
-                    boolean addedAllAvailable = false;
-                    while (!addedAllAvailable) {
+                    List<Block> responseBlocks = response.getBlocks();
 
-                        Block block = responseBlocks.get(height);
-                        if (block != null) {
-                            byte[] requiredHash = height == endHeight ? endBlockHash :
-                                    blocksToSave.get(height + 1).getPreviousBlockHash();
-                            if (!ByteUtil.arraysAreEqual(block.getHash(), requiredHash)) {
-                                System.out.println("discarded block at height " + height + " due to incorrect hash, " +
-                                        "hash=" + PrintUtil.compactPrintByteArray(block.getHash()) + ", required=" +
-                                        PrintUtil.compactPrintByteArray(requiredHash));
-                                block = null;
-                            }
-                        }
+                    if (!responseBlocks.isEmpty() && response.getInitialBalanceList() != null) {
 
-                        if (block == null) {
-                            addedAllAvailable = true;
-                        } else {
-                            blocksToSave.put(height, block);
-                            System.out.println("added block at height " + height);
-                            height--;
+                        // If the hashes of the block and balance list are correct, they can be saved.
+                        Block responseBlock = responseBlocks.get(0);
+                        if (ByteUtil.arraysAreEqual(responseBlock.getHash(), bootstrapResponse.getFrozenEdgeHash()) &&
+                                ByteUtil.arraysAreEqual(response.getInitialBalanceList().getHash(),
+                                        responseBlock.getBalanceListHash())) {
+
+                            blockSet.add(responseBlock);
+                            balanceListSet.add(response.getInitialBalanceList());
                         }
                     }
 
-                    if (response.getInitialBalanceList() != null &&
-                            response.getInitialBalanceList().getBlockHeight() == startHeight) {
-                        initialBalanceList.add(response.getInitialBalanceList());
-                    }
+                    processedResponse.set(true);
                 }
             });
 
-            // Sleep to allow the request to return.
+            // Sleep up to five seconds to allow the request to return.
             try {
-                Thread.sleep(1000L);
-            } catch (Exception ignored) { }
-
-            // Check if we have all the information we need. If not, sleep before the next iteration.
-            missingBlocks = blocksToSave.size() < numberOfBlocksRequired;
-            missingBalanceList = requireBalanceList && initialBalanceList.isEmpty();
-            if ((missingBlocks || missingBalanceList) && !UpdateUtil.shouldTerminate()) {
-                try {
-                    Thread.sleep(1000L);
-                } catch (Exception ignored) {
+                for (int i = 0; i < 10 && !processedResponse.get(); i++) {
+                    Thread.sleep(500L);
                 }
-            }
+            } catch (Exception ignored) { }
         }
 
-        if (!missingBlocks && !missingBalanceList) {
+        if (!blockSet.isEmpty() && !balanceListSet.isEmpty()) {
 
-            BalanceList balanceList = initialBalanceList.isEmpty() ? null :
-                    initialBalanceList.iterator().next();
-            if (balanceList != null) {
-                BalanceListManager.registerBalanceList(balanceList);
-            }
-
-            // Save the blocks.
-            for (long height = startHeight; height <= endHeight; height++) {
-                Block block = blocksToSave.get(height);
-                if (height == startHeight && startHeight > frozenEdgeHeight + 1) {
-                    BlockManager.freezeBlock(block, block.getPreviousBlockHash(), balanceList);
-                } else {
-                    BlockManager.freezeBlock(block);
-                }
-            }
-
-            // Now that the blocks are saved, we should be able to determine the continuity state of the end block.
-            try {
-                Block endBlock = BlockManager.frozenBlockForHeight(endHeight);
-                System.out.println("end block (" + endBlock.getBlockHeight() + ") continuity state: " +
-                        endBlock.getContinuityState() + ", cycle length: " +
-                        endBlock.getCycleInformation().getCycleLength());
-            } catch (Exception reportOnly) {
-                NotificationUtil.send("unable to determine continuity state on " + Verifier.getNickname() +
-                        " at end of chain initialization: " + DebugUtil.callingMethods(8) + ", exception is " +
-                        PrintUtil.printException(reportOnly));
-            }
+            Block block = blockSet.iterator().next();
+            BalanceList balanceList = balanceListSet.iterator().next();
+            BlockManager.freezeBlock(block, block.getPreviousBlockHash(), balanceList,
+                    bootstrapResponse.getCycleVerifiers());
         }
     }
 
