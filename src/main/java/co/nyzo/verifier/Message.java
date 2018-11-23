@@ -5,6 +5,7 @@ import co.nyzo.verifier.messages.debug.*;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
+import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
@@ -12,11 +13,27 @@ import java.io.OutputStream;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class Message {
 
     private static final long maximumMessageLength = 4194304;  // 4 MB
+    private static final Set<ByteBuffer> whitelist = new HashSet<>();
+    private static final Set<MessageType> disallowedNonCycleTypes = new HashSet<>(Arrays.asList(MessageType.NewBlock9,
+            MessageType.BlockVote19, MessageType.NewVerifierVote21, MessageType.MissingBlockVoteRequest23,
+            MessageType.MissingBlockRequest25));
+
+    // We do not broadcast any messages to the full mesh from the broadcast method. We do, however, use the full mesh
+    // as a potential pool for random requests for the following types. This reduces strain on in-cycle verifiers.
+    private static final Set<MessageType> fullMeshMessageTypes = new HashSet<>(Arrays.asList(MessageType.BlockRequest11,
+            MessageType.BlockWithVotesRequest37));
+
+    static {
+        loadWhitelist();
+    }
 
     private long timestamp;  // millisecond precision -- when the message is first generated
     private MessageType type;
@@ -95,12 +112,11 @@ public class Message {
         System.out.println("broadcasting message: " + message.getType());
 
         // Send the message to all nodes in the current cycle and the top in the new-verifier queue.
-        Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
-        currentCycle.addAll(NewVerifierVoteManager.topVerifiers());
+        Set<ByteBuffer> currentAndNearCycle = BlockManager.verifiersInCurrentAndNearCycleSet();
         List<Node> mesh = NodeManager.getMesh();
         for (Node node : mesh) {
             if (node.isActive() && !ByteUtil.arraysAreEqual(node.getIdentifier(), Verifier.getIdentifier()) &&
-                    currentCycle.contains(ByteBuffer.wrap(node.getIdentifier()))) {
+                    currentAndNearCycle.contains(ByteBuffer.wrap(node.getIdentifier()))) {
                 String ipAddress = IpUtil.addressAsString(node.getIpAddress());
                 fetch(ipAddress, node.getPort(), message, null);
             }
@@ -109,17 +125,25 @@ public class Message {
 
     public static void fetchFromRandomNode(Message message, MessageCallback messageCallback) {
 
+        boolean isFullMeshMessage = fullMeshMessageTypes.contains(message.getType());
+
         Node node = null;
         List<Node> mesh = NodeManager.getMesh();
         Random random = new Random();
         while (node == null && !mesh.isEmpty()) {
             Node meshNode = mesh.remove(random.nextInt(mesh.size()));
-            if (!ByteUtil.arraysAreEqual(meshNode.getIdentifier(), Verifier.getIdentifier())) {
+            ByteBuffer nodeIdentifierBuffer = ByteBuffer.wrap(meshNode.getIdentifier());
+            if (!ByteUtil.arraysAreEqual(meshNode.getIdentifier(), Verifier.getIdentifier()) && (isFullMeshMessage ||
+                    BlockManager.verifierInCurrentCycle(nodeIdentifierBuffer) || !BlockManager.isCycleComplete())) {
                 node = meshNode;
             }
         }
 
-        if (node != null) {
+        if (node == null) {
+            System.out.println("unable to find suitable node");
+        } else {
+            System.out.println("trying to fetch " + message.getType() + " from " +
+                    NicknameManager.get(node.getIdentifier()));
             fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, messageCallback);
         }
     }
@@ -127,7 +151,13 @@ public class Message {
     public static void fetch(String hostNameOrIp, int port, Message message, MessageCallback messageCallback) {
 
         byte[] identifier = NodeManager.identifierForIpAddress(hostNameOrIp);
-        if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
+
+        // Do not send the message to this verifier, and do not send a message that will get this verifier blacklisted
+        // if it is not in the cycle.
+        if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier()) &&
+                (BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier())) ||
+                        BlockManager.inGenesisCycle() ||
+                        !disallowedNonCycleTypes.contains(message.getType()))) {
 
             new Thread(new Runnable() {
                 @Override
@@ -314,11 +344,15 @@ public class Message {
             byte[] sourceNodeIdentifier = new byte[FieldByteSize.identifier];
             buffer.get(sourceNodeIdentifier);
 
-            // For the sake of efficiency, we discard block votes from non-cycle verifiers here and do not even
-            // respond.
-            if (type != MessageType.BlockVote19 ||
-                    BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(sourceNodeIdentifier))) {
+            // If this is a non-cycle verifier sending disallowed messages, add it to the blacklist. Otherwise, build
+            // the message.
+            if (disallowedNonCycleTypes.contains(type) &&
+                    !BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(sourceNodeIdentifier)) &&
+                    !whitelist.contains(ByteBuffer.wrap(sourceIpAddress))) {
 
+                BlacklistManager.addToBlacklist(sourceIpAddress);
+
+            } else {
                 byte[] sourceNodeSignature = new byte[FieldByteSize.signature];
                 buffer.get(sourceNodeSignature);
 
@@ -389,6 +423,10 @@ public class Message {
             content = BootstrapRequest.fromByteBuffer(buffer);
         } else if (type == MessageType.BootstrapResponseV2_36) {
             content = BootstrapResponseV2.fromByteBuffer(buffer);
+        } else if (type == MessageType.BlockWithVotesRequest37) {
+            content = BlockWithVotesRequest.fromByteBuffer(buffer);
+        } else if (type == MessageType.BlockWithVotesResponse38) {
+            content = BlockWithVotesResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
@@ -403,6 +441,8 @@ public class Message {
             content = ConsensusTallyStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.NewVerifierTallyStatusResponse415) {
             content = NewVerifierTallyStatusResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.BlacklistStatusResponse417) {
+            content = BlacklistStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.ResetResponse501) {
             content = BooleanMessageResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Error65534) {
@@ -438,6 +478,32 @@ public class Message {
         buffer.get(array);
 
         return array;
+    }
+
+    private static void loadWhitelist() {
+
+        Path path = Paths.get(Verifier.dataRootDirectory.getAbsolutePath() + "/whitelist");
+        if (path.toFile().exists()) {
+            try {
+                List<String> contentsOfFile = Files.readAllLines(path);
+                for (String line : contentsOfFile) {
+                    line = line.trim();
+                    int indexOfHash = line.indexOf("#");
+                    if (indexOfHash >= 0) {
+                        line = line.substring(0, indexOfHash).trim();
+                    }
+                    byte[] address = IpUtil.addressFromString(line);
+                    if (address != null) {
+                        whitelist.add(ByteBuffer.wrap(address));
+                        System.out.println("added IP " + IpUtil.addressAsString(address) + " to whitelist");
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("issue getting whitelist: " + PrintUtil.printException(e));
+            }
+        } else {
+            System.out.println("skipping whitelist loading; file not present");
+        }
     }
 
     @Override

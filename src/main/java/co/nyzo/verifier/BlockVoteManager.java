@@ -4,7 +4,6 @@ import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MissingBlockVoteRequest;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.NotificationUtil;
-import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -12,59 +11,99 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class BlockVoteManager {
 
-    public static final long minimumVoteInterval = 2000L;
+    public static final long minimumVoteInterval = 5000L;
 
     private static final Map<Long, Map<ByteBuffer, BlockVote>> voteMap = new HashMap<>();
+    private static final Map<Long, Map<ByteBuffer, BlockVote>> flipVoteMap = new HashMap<>();
 
     private static int numberOfVotesRequested = 0;
     private static long lastVoteRequestTimestamp = 0L;
 
-    public static synchronized void registerVote(byte[] identifier, BlockVote vote) {
+    public static synchronized void registerVote(Message message) {
 
-        // Set the receipt timestamp on the incoming vote. This fights against manipulation by quick vote-flipping
-        // by verifiers.
-        vote.setReceiptTimestamp(System.currentTimeMillis());
+        BlockVote vote = (BlockVote) message.getContent();
+        if (vote != null) {
+            
+            // Set the receipt timestamp and store message information on the vote.
+            vote.setReceiptTimestamp(System.currentTimeMillis());
+            vote.setSenderIdentifier(message.getSourceNodeIdentifier());
+            vote.setMessageTimestamp(message.getTimestamp());
+            vote.setMessageSignature(message.getSourceNodeSignature());
 
-        // Register the vote. The map ensures that each identifier only gets one vote. Votes are only counted for
-        // verifiers in the current cycle, except in the Genesis cycle, where all votes are counted. We accept votes
-        // all the way to the open edge, in case we have gotten behind and need to catch up.
-        long height = vote.getHeight();
-        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-        ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
-        if (height > frozenEdgeHeight && 
-                height <= BlockManager.openEdgeHeight(true) &&
-                !ByteUtil.isAllZeros(vote.getHash()) &&
-                (BlockManager.verifierInCurrentCycle(identifierBuffer) || BlockManager.inGenesisCycle())) {
+            // Register the vote. The map ensures that each identifier only gets one vote. Votes are only counted for
+            // verifiers in the current cycle, except in the Genesis cycle, where all votes are counted. We accept votes
+            // all the way to the open edge, in case we have gotten behind and need to catch up.
+            long height = vote.getHeight();
+            long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+            ByteBuffer identifierBuffer = ByteBuffer.wrap(message.getSourceNodeIdentifier());
+            if (height > frozenEdgeHeight &&
+                    height <= BlockManager.openEdgeHeight(true) &&
+                    !ByteUtil.isAllZeros(vote.getHash()) &&
+                    (BlockManager.verifierInCurrentCycle(identifierBuffer) || BlockManager.inGenesisCycle())) {
 
-            // Get the map for the height.
-            Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
-            if (votesForHeight == null) {
-                votesForHeight = new HashMap<>();
-                voteMap.put(height, votesForHeight);
-            }
+                // Get the map for the height.
+                Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
+                if (votesForHeight == null) {
+                    votesForHeight = new HashMap<>();
+                    voteMap.put(height, votesForHeight);
+                }
 
-            // Get the existing vote for the identifier. Only override if this vote has a greater timestamp and the
-            // minimum interval has been exceeded.
-            BlockVote existingVote = votesForHeight.get(identifierBuffer);
-            if (existingVote == null || (vote.getTimestamp() > existingVote.getTimestamp() &&
-                    vote.getReceiptTimestamp() >= existingVote.getReceiptTimestamp() + minimumVoteInterval)) {
-                votesForHeight.put(identifierBuffer, vote);
+                BlockVote existingVote = votesForHeight.get(identifierBuffer);
+                if (existingVote == null) {
+
+                    // If the existing vote is null, we always accept the new vote.
+                    votesForHeight.put(identifierBuffer, vote);
+
+                } else if (!ByteUtil.arraysAreEqual(existingVote.getHash(), vote.getHash())) {
+
+                    // If the new vote is different, we require two new votes for the same hash, more than 5 seconds
+                    // apart, to flip the vote.
+
+                    // Get the flip map for the height.
+                    Map<ByteBuffer, BlockVote> flipVotesForHeight = flipVoteMap.get(height);
+                    if (flipVotesForHeight == null) {
+                        flipVotesForHeight = new HashMap<>();
+                        flipVoteMap.put(height, flipVotesForHeight);
+                    }
+
+                    BlockVote existingFlipVote = flipVotesForHeight.get(identifierBuffer);
+                    if (existingFlipVote == null ||
+                            !ByteUtil.arraysAreEqual(existingFlipVote.getHash(), vote.getHash())) {
+
+                        // If the existing flip vote is null or different than the new vote, we store the new vote in
+                        // the flip map to wait for another vote.
+                        flipVotesForHeight.put(identifierBuffer, vote);
+
+                    } else if (vote.getTimestamp() - existingFlipVote.getTimestamp() > minimumVoteInterval &&
+                            vote.getReceiptTimestamp() - existingFlipVote.getReceiptTimestamp() > minimumVoteInterval) {
+
+                        // The new vote matches the flip vote, and the minimum intervals have been met. Flip the vote
+                        // in the primary map. There is no need to clear the flip vote entry; leaving the entry there
+                        // does not affect subsequent operations.
+                        votesForHeight.put(identifierBuffer, vote);
+                    }
+                }
             }
         }
     }
 
     public static synchronized void removeOldVotes() {
 
+        // This method used to remove all votes before the frozen edge. Now, to support off-cycle verifiers, votes are
+        // retained for 40 blocks behind the frozen edge.
         Set<Long> heights = new HashSet<>(voteMap.keySet());
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         for (long height : heights) {
-            if (height <= frozenEdgeHeight) {
+            if (height <= frozenEdgeHeight - 40) {
+                try {
+                    System.out.println("$$$$$ removing vote map of size " + voteMap.get(height).size() + "");
+                } catch (Exception ignored) { }
                 voteMap.remove(height);
+                flipVoteMap.remove(height);
             }
         }
     }
 
-    // TODO: this method is for testing and will likely be removed before release
     public static synchronized String votesAtHeight(long height) {
 
         int numberOfVotes = 0;
@@ -94,6 +133,12 @@ public class BlockVoteManager {
 
         Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
         return votesForHeight == null ? null : new HashMap<>(votesForHeight);
+    }
+
+    public static int numberOfVotesAtHeight(long height) {
+
+        Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
+        return votesForHeight == null ? 0 : votesForHeight.size();
     }
 
     public static synchronized List<Long> getHeights() {
@@ -150,18 +195,6 @@ public class BlockVoteManager {
         return leadingHash;
     }
 
-    public static synchronized List<BlockVote> getLocalVotes() {
-
-        List<BlockVote> localVotes = new ArrayList<>();
-        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-        byte[] hash = getLocalVoteForHeight(frozenEdgeHeight);
-        if (hash != null) {
-            localVotes.add(new BlockVote(frozenEdgeHeight, hash, System.currentTimeMillis()));
-        }
-
-        return localVotes;
-    }
-
     public static synchronized byte[] getLocalVoteForHeight(long height) {
 
         byte[] hash = null;
@@ -183,7 +216,7 @@ public class BlockVoteManager {
     public static synchronized void requestMissingVotes() {
 
         // Only request missing votes outside the Genesis cycle, and only request if we have more than 50% of votes
-        // as a height more than one past the frozen edge. This indicates that this verifier is receiving messages
+        // at a height more than one past the frozen edge. This indicates that this verifier is receiving messages
         // from the mesh again but had an outage that caused it to miss earlier votes.
 
         // Also, to conserve local CPU and mesh bandwidth, limit vote requests to no more frequently than once every
@@ -202,10 +235,10 @@ public class BlockVoteManager {
                 }
             }
 
-            // As a fallback, also request if the last block was frozen two minutes ago or more and the last
-            // vote request was one minute ago or more.
-            shouldRequest |= currentTimestamp - Verifier.getLastBlockFrozenTimestamp() > 120000L &&
-                    currentTimestamp - lastVoteRequestTimestamp > 60000L;
+            // As a fallback, also request if the last block was frozen 30 seconds ago or more and the last
+            // vote request was 15 seconds ago or more.
+            shouldRequest |= currentTimestamp - Verifier.getLastBlockFrozenTimestamp() > 30000L &&
+                    currentTimestamp - lastVoteRequestTimestamp > 15000L;
 
             if (shouldRequest) {
                 // We will request votes from all verifiers in the current cycle, even those we already have. Some
@@ -237,7 +270,7 @@ public class BlockVoteManager {
 
                                         BlockVote vote = (BlockVote) message.getContent();
                                         if (vote != null) {
-                                            registerVote(message.getSourceNodeIdentifier(), vote);
+                                            registerVote(message);
 
                                             // Each time a good vote is received, the last-vote-request timestamp is
                                             // updated. If we take some time to request all the votes, this helps to

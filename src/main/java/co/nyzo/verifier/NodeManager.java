@@ -1,11 +1,15 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
+import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.NotificationUtil;
-import co.nyzo.verifier.util.PrintUtil;
 
+import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class NodeManager {
@@ -20,6 +24,13 @@ public class NodeManager {
     private static int missingNodeRequestWait = minimumMissingNodeRequestInterval;
 
     private static final Map<String, Long> nodeJoinRequestTimestamps = new HashMap<>();
+    private static final Map<ByteBuffer, Long> persistedQueueTimestamps = new HashMap<>();
+
+    public static final File queueTimestampsFile = new File(Verifier.dataRootDirectory, "queue_timestamps");
+
+    static {
+        loadPersistedQueueTimestamps();
+    }
 
     public static void updateNode(Message message) {
 
@@ -59,6 +70,10 @@ public class NodeManager {
             if (existingNode == null) {
                 // This is the case when no other node is at the IP. We create a new node and add it to the map.
                 Node node = new Node(identifier, ipAddress, port);
+                long persistedTimestamp = persistedQueueTimestamps.getOrDefault(ByteBuffer.wrap(identifier), 0L);
+                if (persistedTimestamp > 0L && persistedTimestamp < node.getQueueTimestamp()) {
+                    node.setQueueTimestamp(persistedTimestamp);
+                }
                 ipAddressToNodeMap.put(ipAddressBuffer, node);
                 isNewNode = true;
 
@@ -86,6 +101,18 @@ public class NodeManager {
         }
 
         return isNewNode;
+    }
+
+    public static synchronized void demoteIdentifier(byte[] identifier) {
+
+        System.out.println("demoting verifier " + NicknameManager.get(identifier));
+
+        // Reset the queue timestamp of matching nodes.
+        for (Node node : ipAddressToNodeMap.values()) {
+            if (ByteUtil.arraysAreEqual(node.getIdentifier(), identifier)) {
+                node.setQueueTimestamp(System.currentTimeMillis());
+            }
+        }
     }
 
     private static boolean verifierChangeAllowed(Node node) {
@@ -232,9 +259,6 @@ public class NodeManager {
                         if (response != null) {
 
                             NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
-                            for (BlockVote vote : response.getBlockVotes()) {
-                                BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), vote);
-                            }
 
                             if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
                                 NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
@@ -270,5 +294,46 @@ public class NodeManager {
                 }
             });
         }
+    }
+
+    public static synchronized void demoteInCycleNodes() {
+
+        for (Node node : ipAddressToNodeMap.values()) {
+
+            if (BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(node.getIdentifier()))) {
+                node.setQueueTimestamp(System.currentTimeMillis());
+            }
+        }
+    }
+
+    public static void persistQueueTimestamps() {
+
+        List<Node> mesh = getMesh();
+        byte[] array = new byte[mesh.size() * (FieldByteSize.identifier + FieldByteSize.timestamp)];
+        ByteBuffer buffer = ByteBuffer.wrap(array);
+        for (Node node : mesh) {
+            buffer.put(node.getIdentifier());
+            buffer.putLong(node.getQueueTimestamp());
+        }
+
+        Path path = Paths.get(queueTimestampsFile.getAbsolutePath());
+        FileUtil.writeFile(path, array);
+    }
+
+    private static void loadPersistedQueueTimestamps() {
+
+        // This method is called in the class's static block. We load the queue timestamps into the map, and they are
+        // used as nodes are created.
+        Path path = Paths.get(queueTimestampsFile.getAbsolutePath());
+        try {
+            byte[] array = Files.readAllBytes(path);
+            ByteBuffer buffer = ByteBuffer.wrap(array);
+            int numberOfEntries = array.length / (FieldByteSize.identifier + FieldByteSize.timestamp);
+            for (int i = 0; i < numberOfEntries; i++) {
+                byte[] identifier = Message.getByteArray(buffer, FieldByteSize.identifier);
+                long timestamp = buffer.getLong();
+                persistedQueueTimestamps.put(ByteBuffer.wrap(identifier), timestamp);
+            }
+        } catch (Exception ignored) { }
     }
 }

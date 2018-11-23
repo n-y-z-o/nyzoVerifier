@@ -119,6 +119,6 @@ public class BlockResponse implements MessageObject {
 
     @Override
     public String toString() {
-        return "[BlockResponse(blocks=" + blocks.size() + "]";
+        return "[BlockResponse(blocks=" + blocks.size() + ")]";
     }
 }

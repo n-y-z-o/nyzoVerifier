@@ -1,10 +1,10 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.FieldByteSize;
+import co.nyzo.verifier.Message;
 import co.nyzo.verifier.MessageObject;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 
 public class PingResponse implements MessageObject {
 
@@ -24,9 +24,7 @@ public class PingResponse implements MessageObject {
 
         byte[] array = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(array);
-        byte[] messageBytes = message.getBytes();
-        buffer.putShort((short) messageBytes.length);
-        buffer.put(messageBytes);
+        Message.putString(message, buffer);
 
         return array;
     }
@@ -36,11 +34,7 @@ public class PingResponse implements MessageObject {
         PingResponse result = null;
 
         try {
-            short messageByteLength = buffer.getShort();
-            byte[] messageBytes = new byte[messageByteLength];
-            buffer.get(messageBytes);
-            String message = new String(messageBytes, StandardCharsets.UTF_8);
-
+            String message = Message.getString(buffer);
             result = new PingResponse(message);
 
         } catch (Exception ignored) {

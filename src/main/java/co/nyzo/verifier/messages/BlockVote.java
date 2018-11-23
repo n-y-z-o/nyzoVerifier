@@ -9,8 +9,11 @@ public class BlockVote implements MessageObject {
 
     private long height;
     private byte[] hash;
-    private long timestamp;  // used to prevent replay attacks of old votes
+    private long timestamp;  // to prevent replay attacks of old votes (actually, unnecessary due to message timestamp)
     private long receiptTimestamp;  // local-only field used to ensure minimum spacing between votes
+    private byte[] senderIdentifier;  // sender of the message for BlockWithVotesResponse
+    private long messageTimestamp;  // timestamp of the message for BlockWithVotesResponse
+    private byte[] messageSignature;  // signature of the message for BlockWithVotesResponse
 
     public BlockVote(long height, byte[] hash, long timestamp) {
 
@@ -37,6 +40,30 @@ public class BlockVote implements MessageObject {
 
     public void setReceiptTimestamp(long receiptTimestamp) {
         this.receiptTimestamp = receiptTimestamp;
+    }
+
+    public byte[] getSenderIdentifier() {
+        return senderIdentifier;
+    }
+
+    public void setSenderIdentifier(byte[] senderIdentifier) {
+        this.senderIdentifier = senderIdentifier;
+    }
+
+    public long getMessageTimestamp() {
+        return messageTimestamp;
+    }
+
+    public void setMessageTimestamp(long messageTimestamp) {
+        this.messageTimestamp = messageTimestamp;
+    }
+
+    public byte[] getMessageSignature() {
+        return messageSignature;
+    }
+
+    public void setMessageSignature(byte[] messageSignature) {
+        this.messageSignature = messageSignature;
     }
 
     @Override

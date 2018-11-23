@@ -127,6 +127,20 @@ public class NewVerifierVoteManager {
                 }
             });
 
+            // Limit the list to three verifiers. We do not consider ties, as they are inconsequential and do not
+            // justify additional logic complexity.
+            while (topVerifiers.size() > 3) {
+                topVerifiers.remove(topVerifiers.size() - 1);
+            }
+
+            StringBuilder verifiersString = new StringBuilder();
+            String separator = "";
+            for (ByteBuffer verifier : topVerifiers) {
+                verifiersString.append(separator).append(NicknameManager.get(verifier.array()));
+                separator = ", ";
+            }
+            System.out.println("top verifiers: " + verifiersString);
+
             // If the verifiers list is empty and this is a new verifier, add it to the list now.
             if (topVerifiers.isEmpty()) {
                 ByteBuffer verifierIdentifier = ByteBuffer.wrap(Verifier.getIdentifier());

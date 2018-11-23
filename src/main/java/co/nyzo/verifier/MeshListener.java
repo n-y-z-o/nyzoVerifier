@@ -13,6 +13,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MeshListener {
 
+    private static long numberOfMessagesRejected = 0;
+    private static long numberOfMessagesAccepted = 0;
+
     public static void main(String[] args) {
         start();
     }
@@ -52,35 +55,21 @@ public class MeshListener {
                             } else {
                                 try {
                                     Socket clientSocket = serverSocket.accept();
-                                    new Thread(new Runnable() {
-                                        @Override
-                                        public void run() {
+                                    if (BlacklistManager.inBlacklist(clientSocket.getInetAddress().getAddress())) {
+                                        try {
+                                            numberOfMessagesRejected++;
+                                            clientSocket.close();
+                                        } catch (Exception ignored) { }
+                                    } else {
+                                        numberOfMessagesAccepted++;
+                                        new Thread(new Runnable() {
+                                            @Override
+                                            public void run() {
 
-                                            try {
-                                                Message message = Message.readFromStream(clientSocket.getInputStream(),
-                                                        IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() +
-                                                                ""), MessageType.IncomingRequest65533);
-
-                                                // If the verifier is paused, do not process the message.
-                                                if (message != null) {
-                                                    Message response = response(message);
-                                                    if (response != null) {
-                                                        clientSocket.getOutputStream().write(response
-                                                                .getBytesForTransmission());
-                                                    }
-                                                }
-
-                                            } catch (Exception e) {
-                                                e.printStackTrace();
+                                                readMessageAndRespond(clientSocket);
                                             }
-
-                                            try {
-                                                Thread.sleep(3L);
-                                                clientSocket.close();
-                                            } catch (Exception ignored) {
-                                            }
-                                        }
-                                    }, "MeshListener-clientSocket").start();
+                                        }, "MeshListener-clientSocket").start();
+                                    }
                                 } catch (Exception ignored) {
                                 }
                             }
@@ -98,6 +87,30 @@ public class MeshListener {
                 }
             }, "MeshListener-serverSocket").start();
         }
+    }
+
+    private static void readMessageAndRespond(Socket clientSocket) {
+
+        try {
+            Message message = Message.readFromStream(clientSocket.getInputStream(),
+                    IpUtil.addressFromString(clientSocket.getRemoteSocketAddress() + ""),
+                    MessageType.IncomingRequest65533);
+
+            if (message != null) {
+                Message response = response(message);
+                if (response != null) {
+                    clientSocket.getOutputStream().write(response.getBytesForTransmission());
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            Thread.sleep(3L);
+            clientSocket.close();
+        } catch (Exception ignored) { }
     }
 
     public static void closeSocket() {
@@ -170,7 +183,7 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.BlockVote19) {
 
-                    BlockVoteManager.registerVote(message.getSourceNodeIdentifier(), (BlockVote) message.getContent());
+                    BlockVoteManager.registerVote(message);
                     response = new Message(MessageType.BlockVoteResponse20, null);
 
                 } else if (messageType == MessageType.NewVerifierVote21) {
@@ -212,9 +225,12 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.BootstrapRequestV2_35) {
 
-                        NodeManager.updateNode(message);
+                    response = new Message(MessageType.BootstrapResponseV2_36, new BootstrapResponseV2());
 
-                        response = new Message(MessageType.BootstrapResponseV2_36, new BootstrapResponseV2());
+                } else if (messageType == MessageType.BlockWithVotesRequest37) {
+
+                    long height = ((BlockWithVotesRequest) message.getContent()).getHeight();
+                    response = new Message(MessageType.BlockWithVotesResponse38, new BlockWithVotesResponse(height));
 
                 } else if (messageType == MessageType.Ping200) {
 
@@ -249,6 +265,11 @@ public class MeshListener {
                     response = new Message(MessageType.NewVerifierTallyStatusResponse415,
                             new NewVerifierTallyStatusResponse(message));
 
+                } else if (messageType == MessageType.BlacklistStatusRequest416) {
+
+                    response = new Message(MessageType.BlacklistStatusResponse417,
+                            new BlacklistStatusResponse(message));
+
                 } else if (messageType == MessageType.ResetRequest500) {
 
                     boolean success = ByteUtil.arraysAreEqual(message.getSourceNodeIdentifier(), Block.genesisVerifier);
@@ -280,5 +301,15 @@ public class MeshListener {
         }
 
         return response;
+    }
+
+    public static long getNumberOfMessagesRejected() {
+
+        return numberOfMessagesRejected;
+    }
+
+    public static long getNumberOfMessagesAccepted() {
+
+        return numberOfMessagesAccepted;
     }
 }

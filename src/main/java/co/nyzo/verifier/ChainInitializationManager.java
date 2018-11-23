@@ -56,6 +56,8 @@ public class ChainInitializationManager {
 
         while (!UpdateUtil.shouldTerminate() && (balanceListSet.isEmpty() || blockSet.isEmpty())) {
 
+            System.out.println("trying to fetch block for height " + bootstrapResponse.getFrozenEdgeHeight());
+
             AtomicBoolean processedResponse = new AtomicBoolean(false);
 
             long height = bootstrapResponse.getFrozenEdgeHeight();
@@ -63,6 +65,8 @@ public class ChainInitializationManager {
             Message.fetchFromRandomNode(message, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
+
+                    System.out.println("received response for block fetch");
 
                     BlockResponse response = (BlockResponse) message.getContent();
                     List<Block> responseBlocks = response.getBlocks();

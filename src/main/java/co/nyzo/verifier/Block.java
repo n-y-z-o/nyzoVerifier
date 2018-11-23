@@ -571,7 +571,7 @@ public class Block implements MessageObject {
 
         // This score is always relative to a provided block height. The zero block height has a score of zero, and
         // each subsequent block affects the score as follows:
-        // - a new verifier subtracts 6 but adds 4 times the verifier's position in the new-verifier queue
+        // - a new verifier subtracts 2 but adds 4 times the verifier's position in the new-verifier queue
         // - an existing verifier adds the difference in cycle length between the previous block and this block,
         //   multiplied by 4
         // - an existing verifier that is no longer in the mesh or shares an IP with another verifier adds 5
@@ -594,7 +594,7 @@ public class Block implements MessageObject {
                         score = (Math.abs(HashUtil.longSHA256(block.getVerifierIdentifier())) % 9000) * -1L - 1000L;
 
                     } else {
-                        score -= 6L;
+                        score -= 2L;
 
                         List<ByteBuffer> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
                         ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());

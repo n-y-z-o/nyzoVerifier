@@ -22,6 +22,7 @@ public class BlockManager {
     private static long currentCycleEndHeight = -2L;
     private static List<ByteBuffer> currentCycleList = new ArrayList<>();
     private static Set<ByteBuffer> currentCycleSet = new HashSet<>();
+    private static Set<ByteBuffer> currentAndNearCycleSet = new HashSet<>();
     private static long genesisBlockStartTimestamp = -1L;
     private static boolean initialized = false;
     private static boolean cycleComplete = false;
@@ -515,19 +516,29 @@ public class BlockManager {
         return currentCycleList.size();
     }
 
-    public static synchronized List<ByteBuffer> verifiersInCurrentCycleList() {
+    public static List<ByteBuffer> verifiersInCurrentCycleList() {
 
         return new ArrayList<>(currentCycleList);
     }
 
-    public static synchronized Set<ByteBuffer> verifiersInCurrentCycleSet() {
+    public static Set<ByteBuffer> verifiersInCurrentCycleSet() {
 
         return new HashSet<>(currentCycleSet);
     }
 
-    public static synchronized boolean verifierInCurrentCycle(ByteBuffer identifier) {
+    public static Set<ByteBuffer> verifiersInCurrentAndNearCycleSet() {
+
+        return new HashSet<>(currentAndNearCycleSet);
+    }
+
+    public static boolean verifierInCurrentCycle(ByteBuffer identifier) {
 
         return currentCycleSet.contains(identifier);
+    }
+
+    public static boolean verifierInOrNearCurrentCycle(ByteBuffer identifier) {
+
+        return currentAndNearCycleSet.contains(identifier);
     }
 
     private static synchronized void updateVerifiersInCurrentCycle(Block block,
@@ -602,6 +613,10 @@ public class BlockManager {
             BlockManager.currentCycleList = currentCycleList;
             BlockManager.currentCycleSet = new HashSet<>(currentCycleList);
             BlockManager.inGenesisCycle = inGenesisCycle;
+
+            Set<ByteBuffer> currentAndNearCycleSet = new HashSet<>(currentCycleList);
+            currentAndNearCycleSet.addAll(NewVerifierVoteManager.topVerifiers());
+            BlockManager.currentAndNearCycleSet = currentAndNearCycleSet;
         }
     }
 

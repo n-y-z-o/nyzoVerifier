@@ -9,24 +9,42 @@ import java.util.Set;
 
 public class NewVerifierQueueManager {
 
+    private static int consecutiveBlocksVotingForSameVerifier = 0;
+
     private static ByteBuffer currentVote = null;
 
     public static synchronized void updateVote() {
 
         ByteBuffer vote = calculateVote();
 
-        // Only update if the new vote is not null, the current vote is either null or different than the new vote,
-        // and this verifier is in the cycle.
-        if (vote != null && !vote.equals(currentVote) &&
-                BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier()))) {
+        // Only update if the new vote is not null and the current vote is different than the new vote.
+        if (vote != null && !vote.equals(currentVote)) {
 
+            // Wrap the vote and register it locally.
             NewVerifierVote wrappedVote = new NewVerifierVote(vote.array());
-            Message message = new Message(MessageType.NewVerifierVote21, wrappedVote);
-            Message.broadcast(message);
-            NotificationUtil.send("sent vote for verifier " + NicknameManager.get(vote.array()));
             NewVerifierVoteManager.registerVote(Verifier.getIdentifier(), wrappedVote, true);
 
+            // Store the current vote and reset the counter.
             currentVote = vote;
+            consecutiveBlocksVotingForSameVerifier = 1;
+
+            // If this verifier has voting power, broadcast the vote.
+            if (Verifier.inCycle()) {
+                Message message = new Message(MessageType.NewVerifierVote21, wrappedVote);
+                Message.broadcast(message);
+            }
+
+        } else if (vote != null && vote.equals(currentVote)) {
+
+            // In this case, our vote has not changed. Increment the counter. Demote the node if it has been at the top
+            // of the list too long. The calculation typically gives the node 50 blocks to join once it has received
+            // our vote.
+            consecutiveBlocksVotingForSameVerifier++;
+            if (BlockManager.isCycleComplete() &&
+                    consecutiveBlocksVotingForSameVerifier > BlockManager.currentCycleLength() * 2 + 3 + 50) {
+                NodeManager.demoteIdentifier(vote.array());
+                NodeManager.persistQueueTimestamps();
+            }
         }
     }
 
@@ -65,5 +83,9 @@ public class NewVerifierQueueManager {
         }
 
         return result;
+    }
+
+    public static ByteBuffer getCurrentVote() {
+        return currentVote;
     }
 }

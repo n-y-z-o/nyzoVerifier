@@ -38,6 +38,10 @@ public class Verifier {
     private static final Map<ByteBuffer, Block> blocksCreated = new HashMap<>();
     private static final Map<ByteBuffer, Block> blocksTransmitted = new HashMap<>();
 
+    private static int blockWithVotesMessageSupportedCount = 0;
+    private static int blockWithVotesMessageUnsupportedCount = 0;
+    private static int blockLegacyMessageCount = 0;
+
     private static boolean paused = false;
 
     static {
@@ -242,8 +246,8 @@ public class Verifier {
                 if (consensusBootstrapResponse != null) {
 
                     long consensusFrozenEdge = consensusBootstrapResponse.getFrozenEdgeHeight();
-                    boolean fetchRequiredNotInCycle = (consensusFrozenEdge > BlockManager.getFrozenEdgeHeight() + 20 &&
-                            !BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier())));
+                    boolean fetchRequiredNotInCycle = consensusFrozenEdge > BlockManager.getFrozenEdgeHeight() + 20 &&
+                            !inCycle();
                     boolean fetchRequiredInCycle = consensusFrozenEdge > BlockManager.getFrozenEdgeHeight() +
                             BlockManager.currentCycleLength();
 
@@ -252,10 +256,13 @@ public class Verifier {
                             fetchRequiredNotInCycle + ", fetch required (in-cycle): " + fetchRequiredInCycle);
 
                     if (fetchRequiredNotInCycle || fetchRequiredInCycle || !BlockManager.isCycleComplete()) {
+                        System.out.println("fetching block based on bootstrap response");
                         ChainInitializationManager.fetchBlock(consensusBootstrapResponse);
                     }
                 }
             }
+
+            System.out.println("ready to start thread for main verifier loop");
 
             // Start the proactive side of the verifier, initiating the actions necessary to maintain the mesh and
             // build the blockchain.
@@ -387,8 +394,10 @@ public class Verifier {
                         if (!blocksTransmitted.containsKey(blockHash) &&
                                 block.getContinuityState() == Block.ContinuityState.Continuous) {
 
-                            // Only transmit a block if other verifiers would cast a vote for it in the next 10 seconds.
-                            if (block.getMinimumVoteTimestamp() <= System.currentTimeMillis() + 10000L) {
+                            // Only transmit a block if other verifiers would cast a vote for it in the next 10 seconds
+                            // and broadcasting would not get us blacklisted.
+                            if (BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier())) &&
+                                    block.getMinimumVoteTimestamp() <= System.currentTimeMillis() + 10000L) {
 
                                 numberOfBlocksTransmitted++;
                                 Message.broadcast(new Message(MessageType.NewBlock9, new NewBlockMessage(block)));
@@ -412,18 +421,50 @@ public class Verifier {
                     // Remove old votes from the block vote manager.
                     BlockVoteManager.removeOldVotes();
 
-                    // Request any votes that appear to be missing.
-                    BlockVoteManager.requestMissingVotes();
+                    // Vote requests and block requests should only happen if this verifier is in the cycle. Otherwise,
+                    // other verifiers might blacklist this verifier.
+                    if (inCycle()) {
 
-                    // Request any blocks that appear to be missing.
-                    UnfrozenBlockManager.requestMissingBlocks();
+                        // Request any votes that appear to be missing.
+                        BlockVoteManager.requestMissingVotes();
+
+                        // Request any blocks that appear to be missing.
+                        UnfrozenBlockManager.requestMissingBlocks();
+                    } else {
+
+                        // In-cycle verifiers do not allow other verifiers to request missing blocks or votes, as they
+                        // would use considerable bandwidth to service such requests. Instead, they provide frozen
+                        // blocks bundled with votes in a single message.
+
+                        // To cover the interim period when a large portion of the mesh does not support the new
+                        // block-with-votes message, this verifier will use the old block message to keep up with the
+                        // frozen edge if the new message is not allowing it to keep up. This switch will be removed
+                        // in the next version, leaving only requestBlockWithVotes() here.
+
+                        StatusResponse.setField("S/U/L", blockWithVotesMessageSupportedCount + "/" +
+                                blockWithVotesMessageUnsupportedCount + "/" + blockLegacyMessageCount);
+
+                        if (blockWithVotesMessageSupportedCount + blockLegacyMessageCount >
+                                blockWithVotesMessageUnsupportedCount) {
+                            requestBlockWithVotes();
+                        } else {
+                            blockLegacyMessageCount++;
+                            requestBlockWithoutVotes();
+                        }
+                    }
 
                     // These are operations that only have to happen when a block is frozen.
                     if (frozenEdgeHeight != BlockManager.getFrozenEdgeHeight()) {
 
+                        System.out.println("cleaning up because a block was frozen");
+
                         // Request any nodes that appear to be missing. This is called only when an edge is frozen, and
                         // the node manager maintains a counter to ensure it is only performed once per cycle.
                         NodeManager.requestMissingNodes();
+
+                        // Perform blacklist and unfrozen block maintenance.
+                        BlacklistManager.performMaintenance();
+                        UnfrozenBlockManager.performMaintenance();
 
                         // Update the new-verifier vote. This is necessary if the previous choice is now in the
                         // cycle.
@@ -436,6 +477,14 @@ public class Verifier {
                         // often.
                         if (BlockManager.getFrozenEdgeHeight() % 10 == 0) {
                             NewVerifierVoteManager.updateMeshLimit();
+                        }
+
+                        // Every 100 blocks, demote all in-cycle nodes and write the queue timestamps to disk. This
+                        // should be done infrequently, as it involves file access, and it does not need to happen
+                        // frequently to be effective.
+                        if (BlockManager.getFrozenEdgeHeight() % 100 == 0) {
+                            NodeManager.demoteInCycleNodes();
+                            NodeManager.persistQueueTimestamps();
                         }
 
                         // Store the timestamp of when the block was frozen. This is used for determining when to
@@ -606,8 +655,93 @@ public class Verifier {
         return lastBlockFrozenTimestamp;
     }
 
+    public static boolean inCycle() {
+
+        return BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(getIdentifier()));
+    }
+
     public static int getRejoinCount() {
 
         return rejoinCount;
+    }
+
+    private static void requestBlockWithVotes() {
+
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        if (BlockManager.openEdgeHeight(false) > frozenEdgeHeight + 2) {
+
+            long heightToRequest = frozenEdgeHeight + 1L;
+            System.out.println("requesting block with votes for height " + heightToRequest);
+            BlockWithVotesRequest request = new BlockWithVotesRequest(heightToRequest);
+            Message message = new Message(MessageType.BlockWithVotesRequest37, request);
+            Message.fetchFromRandomNode(message, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
+
+                    if (message != null && message.getType() == MessageType.BlockWithVotesResponse38) {
+                        blockWithVotesMessageSupportedCount++;
+                    } else {
+                        blockWithVotesMessageUnsupportedCount++;
+                    }
+
+                    BlockWithVotesResponse response = message == null ? null :
+                            (BlockWithVotesResponse) message.getContent();
+                    if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
+
+                        UnfrozenBlockManager.registerBlock(response.getBlock());
+
+                        for (BlockVote vote : response.getVotes()) {
+
+                            // Reconstruct the message in which the vote was originally sent. If the signature is valid,
+                            // register the vote.
+                            Message voteMessage = new Message(vote.getMessageTimestamp(), MessageType.BlockVote19, vote,
+                                    vote.getSenderIdentifier(), vote.getMessageSignature(),
+                                    new byte[FieldByteSize.ipAddress]);
+                            if (voteMessage.isValid()) {
+                                BlockVoteManager.registerVote(voteMessage);
+                            } else {
+                                System.out.println("vote is ***NOT VALID***");
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    private static void requestBlockWithoutVotes() {
+
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        if (BlockManager.openEdgeHeight(false) > frozenEdgeHeight + 2) {
+
+            AtomicBoolean processedResponse = new AtomicBoolean(false);
+
+            long heightToRequest = frozenEdgeHeight + 1;
+            System.out.println("requesting block from trusted source for height " + heightToRequest);
+            Message message = new Message(MessageType.BlockRequest11, new BlockRequest(heightToRequest, heightToRequest,
+                    false));
+            Message.fetchFromRandomNode(message, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
+
+                    if (message != null) {
+                        BlockResponse response = (BlockResponse) message.getContent();
+                        if (response != null && response.getBlocks().size() == 1) {
+
+                            Block block = response.getBlocks().get(0);
+                            BlockManager.freezeBlock(block);
+                        }
+                    }
+
+                    processedResponse.set(true);
+                }
+            });
+
+            while (!processedResponse.get()) {
+                try {
+                    Thread.sleep(200L);
+                } catch (Exception ignored) { }
+            }
+        }
     }
 }

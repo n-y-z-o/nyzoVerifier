@@ -24,7 +24,6 @@ public class MessageQueue {
 
     private static final List<MessageQueue> queue = new ArrayList<>();
     private static boolean shouldPrintZeroOnRemoval = false;
-    private static boolean inBadState = false;
     private static String lastMessageStatus = "";
 
     public static void blockThisThreadUntilClear() {
@@ -32,37 +31,26 @@ public class MessageQueue {
         boolean shouldPrint = true;
         int iteration = 0;
         while (queue.size() > 0) {
-            Set<MessageType> messageTypes = new HashSet<>();
-            synchronized (MessageQueue.class) {
-                for (MessageQueue item : queue) {
-                    if (item.message != null) {
-                        messageTypes.add(item.message.getType());
-                    }
-                }
-            }
             if (shouldPrint) {
                 shouldPrint = false;
                 System.out.println("waiting for message queue to clear from thread [" +
-                        Thread.currentThread().getName() + "], (" + messageTypes + "), size is " + queue.size() +
-                        ", in bad state: " + inBadState + (inBadState ? " [" + lastMessageStatus + "]" : ""));
+                        Thread.currentThread().getName() + "], size is " + queue.size());
             }
             if (iteration++ % 20 == 18) {
                 shouldPrint = true;
             }
-            if (iteration > 40) {
-                inBadState = true;
-            }
             try {
-                Thread.sleep(500L);
+                Thread.sleep(100L);
             } catch (Exception ignored) { }
         }
+
+        // Sleep an additional 50ms to give the last message time to be processed.
+        try {
+            Thread.sleep(50L);
+        } catch (Exception ignored) { }
     }
 
     public static synchronized void add(MessageCallback callback, Message message) {
-
-        if (inBadState) {
-            System.out.println("*** MessageQueue in bad state *** -- adding to queue");
-        }
 
         queue.add(new MessageQueue(callback, message));
         if (queue.size() % 100 == 0 && queue.size() > 0) {
@@ -73,11 +61,6 @@ public class MessageQueue {
     }
 
     public static synchronized MessageQueue next() {
-
-        if (inBadState) {
-            System.out.println("*** MessageQueue in bad state *** -- fetching next from queue, size of queue is " +
-                    queue.size());
-        }
 
         MessageQueue queueObject = null;
         if (queue.size() > 0) {
@@ -102,10 +85,8 @@ public class MessageQueue {
             public void run() {
                 while (!UpdateUtil.shouldTerminate()) {
 
-                    if (inBadState) {
-                        System.out.println("getting next");
-                    }
                     MessageQueue next = next();
+                    String lastMessageStatus;
                     if (next == null) {
                         lastMessageStatus = "last message was null";
                         try {
@@ -121,12 +102,9 @@ public class MessageQueue {
                                 next.callback.responseReceived(next.message);
                             }
                             lastMessageStatus += " [complete]";
-                        } catch (Exception ignored) {
-                            System.err.println("exception processing message " + next.message + " (" +
-                                    ignored.getMessage() + "): " + DebugUtil.callingMethods(8));
-                        }
+                        } catch (Exception ignored) { }
                     }
-
+                    MessageQueue.lastMessageStatus = lastMessageStatus;
                 }
             }
         }, "MessageQueue-dispatchLoop").start();

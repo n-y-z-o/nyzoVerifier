@@ -1,6 +1,5 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.messages.BlockRequest;
 import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MissingBlockRequest;
 import co.nyzo.verifier.messages.MissingBlockResponse;
@@ -122,15 +121,16 @@ public class UnfrozenBlockManager {
 
         // Only vote for the first height past the frozen edge, and only continue if we have blocks and have not voted
         // for this height in less than the minimum interval time (the additional 200ms is to account for network
-        // jitter).
+        // jitter and other minor time variations).
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         long height = frozenEdgeHeight + 1;
         Map<ByteBuffer, Block> blocksForHeight = unfrozenBlocks.get(height);
         if (blocksForHeight != null && !blocksForHeight.isEmpty() &&
                 lastBlockVoteTimestamp < System.currentTimeMillis() - BlockVoteManager.minimumVoteInterval - 200L) {
 
-            // This will be the vote that we determine based on the current state. If this is different than our
-            // current vote, we will broadcast it to the mesh.
+            // This will be the vote that we determine based on the current state. Previously, we would only broadcast
+            // changed votes to the cycle. Now, we broadcast all votes to the cycle, as the new flip-vote mechanism
+            // requires multiple broadcasts.
             byte[] newVoteHash = null;
 
             if (hashOverrides.containsKey(height)) {
@@ -143,18 +143,21 @@ public class UnfrozenBlockManager {
                 // Get the current votes for this height. If a block has greater than 50% of the vote, vote for it
                 // if its score allows voting yet. Otherwise, if the leading hash has a score that allowed voting more
                 // than 10 seconds ago, vote for it even if it does not exceed 50%. This allows us to reach consensus
-                // even if no hash exceeds 50%.
-                AtomicInteger voteCountWrapper = new AtomicInteger(0);
-                byte[] leadingHash = BlockVoteManager.leadingHashForHeight(height, voteCountWrapper);
-                Block leadingHashBlock = unfrozenBlockAtHeight(height, leadingHash);
-                if (leadingHashBlock != null) {
-                    int voteCount = voteCountWrapper.get();
-                    int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSize() :
-                            BlockManager.currentCycleLength();
-                    if ((voteCount > votingPoolSize / 2 && leadingHashBlock.getMinimumVoteTimestamp() <=
-                            System.currentTimeMillis()) ||
-                            leadingHashBlock.getMinimumVoteTimestamp() < System.currentTimeMillis() - 10000L) {
-                        newVoteBlock = leadingHashBlock;
+                // even if no hash exceeds 50%. We do not try to agree with the rest of the cycle until we receive at
+                // least 75% of the vote for the height.
+                int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSize() :
+                        BlockManager.currentCycleLength();
+                if (BlockVoteManager.numberOfVotesAtHeight(height) > votingPoolSize * 3 / 4) {
+                    AtomicInteger voteCountWrapper = new AtomicInteger(0);
+                    byte[] leadingHash = BlockVoteManager.leadingHashForHeight(height, voteCountWrapper);
+                    Block leadingHashBlock = unfrozenBlockAtHeight(height, leadingHash);
+                    if (leadingHashBlock != null) {
+                        int voteCount = voteCountWrapper.get();
+                        if ((voteCount > votingPoolSize / 2 && leadingHashBlock.getMinimumVoteTimestamp() <=
+                                System.currentTimeMillis()) ||
+                                leadingHashBlock.getMinimumVoteTimestamp() < System.currentTimeMillis() - 10000L) {
+                            newVoteBlock = leadingHashBlock;
+                        }
                     }
                 }
 
@@ -185,10 +188,8 @@ public class UnfrozenBlockManager {
                 }
             }
 
-            // If we determined a vote and it is different than the previous vote, broadcast it to the mesh.
-            if (newVoteHash != null &&
-                    !ByteUtil.arraysAreEqual(newVoteHash, BlockVoteManager.getLocalVoteForHeight(height))) {
-
+            // If we determined a vote, broadcast it to the cycle.
+            if (newVoteHash != null) {
                 castVote(height, newVoteHash);
             }
         }
@@ -199,13 +200,13 @@ public class UnfrozenBlockManager {
         System.out.println("^^^^^^^^^^^^^^^^^^^^^ casting vote for height " + height);
         lastBlockVoteTimestamp = System.currentTimeMillis();
 
-        // Register the vote locally and send it to the network.
+        // Create the vote and register it locally.
         BlockVote vote = new BlockVote(height, hash, System.currentTimeMillis());
-        BlockVoteManager.registerVote(Verifier.getIdentifier(), vote);
         Message message = new Message(MessageType.BlockVote19, vote);
+        BlockVoteManager.registerVote(message);
 
-        if (BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier())) ||
-                BlockManager.inGenesisCycle()) {
+        // Send the vote if this verifier is in the cycle or if this is the Genesis cycle.
+        if (Verifier.inCycle() || BlockManager.inGenesisCycle()) {
             Message.broadcast(message);
         }
     }
@@ -220,7 +221,8 @@ public class UnfrozenBlockManager {
         byte[] leadingHash = BlockVoteManager.leadingHashForHeight(heightToFreeze, voteCountWrapper);
         int voteCount = voteCountWrapper.get();
 
-        // If the vote count is greater than 75% of the voting pool, we may be able to freeze the block.
+        // If the vote count is greater than 75% of the voting pool, freeze the block. Previously, there was a delay
+        // and a second check here, but it will no longer have any effect due to the new flip-vote mechanism.
         int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSize() :
                 BlockManager.currentCycleLength();
         int voteCountThreshold = thresholdOverrides.containsKey(heightToFreeze) ?
@@ -228,51 +230,41 @@ public class UnfrozenBlockManager {
                 votingPoolSize * 3 / 4;
         if (voteCount > voteCountThreshold) {
 
-            // Sleep for 0.5 seconds. If the vote is still over 75% for the same block after this period,
-            // freeze the block.
-            try {
-                Thread.sleep(500L);
-            } catch (Exception ignored) { }
+            Block block = unfrozenBlockAtHeight(heightToFreeze, leadingHash);
+            if (block != null) {
+                System.out.println("freezing block " + block + " with standard mechanism");
+                BlockManager.freezeBlock(block);
+            }
+        }
+    }
 
-            AtomicInteger secondVoteCountWrapper = new AtomicInteger(0);
-            byte[] secondLeadingHash = BlockVoteManager.leadingHashForHeight(heightToFreeze, secondVoteCountWrapper);
-            int secondVoteCount = secondVoteCountWrapper.get();
+    public static void performMaintenance() {
 
-            if (secondVoteCount > voteCountThreshold && ByteUtil.arraysAreEqual(leadingHash, secondLeadingHash)) {
-                Block block = unfrozenBlockAtHeight(heightToFreeze, leadingHash);
-                if (block != null) {
-                    BlockManager.freezeBlock(block);
-                }
+        // This method is called to clean up after freezing a block.
+
+        // Reset the block vote timestamp. This allows us to vote immediately for the next block if we are catching
+        // up.
+        lastBlockVoteTimestamp = 0L;
+
+        // Remove blocks at or below the new frozen edge.
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        for (Long height : new HashSet<>(unfrozenBlocks.keySet())) {
+            if (height <= frozenEdgeHeight) {
+                unfrozenBlocks.remove(height);
             }
         }
 
-        // Clean up if we froze a block.
-        if (BlockManager.getFrozenEdgeHeight() > frozenEdgeHeight) {
-
-            // Reset the block vote timestamp. This allows us to vote immediately for the next block if we are catching
-            // up.
-            lastBlockVoteTimestamp = 0L;
-
-            // Remove blocks at or below the new frozen edge.
-            frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-            for (Long height : new HashSet<>(unfrozenBlocks.keySet())) {
-                if (height <= frozenEdgeHeight) {
-                    unfrozenBlocks.remove(height);
-                }
+        // Remove threshold overrides at or below the new frozen edge.
+        for (Long height : new HashSet<>(thresholdOverrides.keySet())) {
+            if (height <= frozenEdgeHeight) {
+                thresholdOverrides.remove(height);
             }
+        }
 
-            // Remove threshold overrides at or below the new frozen edge.
-            for (Long height : new HashSet<>(thresholdOverrides.keySet())) {
-                if (height <= frozenEdgeHeight) {
-                    thresholdOverrides.remove(height);
-                }
-            }
-
-            // Remove hash overrides at or below the new frozen edge.
-            for (Long height : new HashSet<>(hashOverrides.keySet())) {
-                if (height <= frozenEdgeHeight) {
-                    hashOverrides.remove(height);
-                }
+        // Remove hash overrides at or below the new frozen edge.
+        for (Long height : new HashSet<>(hashOverrides.keySet())) {
+            if (height <= frozenEdgeHeight) {
+                hashOverrides.remove(height);
             }
         }
     }

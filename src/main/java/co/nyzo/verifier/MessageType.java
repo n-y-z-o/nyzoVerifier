@@ -42,6 +42,8 @@ public enum MessageType {
     NewVerifierVoteOverrideResponse34(34),
     BootstrapRequestV2_35(35),
     BootstrapResponseV2_36(36),
+    BlockWithVotesRequest37(37),
+    BlockWithVotesResponse38(38),
 
     // test messages
     Ping200(200),
@@ -69,6 +71,8 @@ public enum MessageType {
     ConsensusTallyStatusResponse413(413),
     NewVerifierTallyStatusRequest414(414),
     NewVerifierTallyStatusResponse415(415),
+    BlacklistStatusRequest416(416),
+    BlacklistStatusResponse417(417),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain   TODO: key this to the local verifier before release
