@@ -54,7 +54,7 @@ If you want to give your verifier a nickname, which will be displayed in the mes
 sudo bash -c 'echo "VERIFIER_NICKNAME" > /var/lib/nyzo/production/nickname'
 ```
 
-_This next step is not necessary for most verifiers. Only do it if you have a seed from an old verifier that you want to reuse. If you skip this step, a seed will be generated for you using a cryptographically secure random-number generator the first time the verifier starts._ If you were running a verifier previously and want to reuse the private key from it, run the following command, replacing PRIVATE_KEY (but leaving the quotes) with your old key value (a 64-character hexadecimal string, with or without dashes):
+_This next step is not necessary for most verifiers. Only do it if you have a seed from an old verifier that you want to reuse. If you skip this step, a seed will be generated for you using a cryptographically secure random-number generator the first time the verifier starts._ **_The system is not designed for multiple verifiers to run with the same private key. If you do run multiple verifiers with the same private key, they will only be able to hold one space in the cycle, and your total earnings will be no more than if you were running only one verifier._** If you were running a verifier previously and want to reuse the private key from it, run the following command, replacing PRIVATE_KEY (but leaving the quotes) with your old key value (a 64-character hexadecimal string, with or without dashes):
 
 ```
 sudo bash -c 'echo "PRIVATE_KEY" > /var/lib/nyzo/production/verifier_private_seed'
