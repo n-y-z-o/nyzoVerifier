@@ -3,7 +3,6 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.messages.debug.*;
 import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
