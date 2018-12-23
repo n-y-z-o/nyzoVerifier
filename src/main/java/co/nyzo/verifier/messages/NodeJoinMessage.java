@@ -3,8 +3,6 @@ package co.nyzo.verifier.messages;
 import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 public class NodeJoinMessage implements MessageObject, PortMessage {
 
