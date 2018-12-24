@@ -60,6 +60,8 @@ public class Sentinel {
 
                 int loopCount = 0;
 
+                Verifier.loadGenesisBlock();
+
                 // Load the managed verifiers. These are the verifiers for which the sentinel will produce blocks, if
                 // necessary, and they are also used as data sources.
                 loadManagedVerifiers();
