@@ -67,6 +67,19 @@ public class Block implements MessageObject {
         }
     }
 
+    public Block(long height, byte[] previousBlockHash, long startTimestamp, List<Transaction> transactions,
+                 byte[] balanceListHash, byte[] verifierSeed) {
+
+        this.height = height;
+        this.previousBlockHash = previousBlockHash;
+        this.startTimestamp = startTimestamp;
+        this.verificationTimestamp = System.currentTimeMillis();
+        this.transactions = new ArrayList<>(transactions);
+        this.balanceListHash = balanceListHash;
+        this.verifierIdentifier = KeyUtil.identifierForSeed(verifierSeed);
+        this.verifierSignature = SignatureUtil.signBytes(getBytes(false), verifierSeed);
+    }
+
     public Block(long height, byte[] previousBlockHash, long startTimestamp, long verificationTimestamp,
                   List<Transaction> transactions, byte[] balanceListHash, byte[] verifierIdentifier,
                   byte[] verifierSignature) {
@@ -613,9 +626,14 @@ public class Block implements MessageObject {
                         score += (previousBlock.getCycleInformation().getCycleLength() -
                                 cycleInformation.getCycleLength()) * 4L;
 
-                        if (!NodeManager.isActive(verifierIdentifier)) {
-                            score += 5L;
-                        }
+                        // This penalty was previously imposed to prevent consolidation of verifiers after entering
+                        // the cycle. While protections against consolidation are necessary to promote verifier
+                        // diversity, these protections should be built around long-running metrics that actually
+                        // measure meaningful diversity and contribution to the health of the cycle, not something as
+                        // naive as this.
+                        //if (!NodeManager.isActive(verifierIdentifier)) {
+                        //    score += 5L;
+                        //}
                     }
                 }
             }
