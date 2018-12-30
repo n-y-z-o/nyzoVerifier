@@ -1,11 +1,19 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.TestnetUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
 
 public class BalanceManager {
+
+    private static final byte[] seedAccountIdentifier = ByteUtil.byteArrayFromHexString("12d454a69523f739-" +
+            "eb5eb71c7deb8701-1804df336ae0e2c1-9e0b24a636683e31", FieldByteSize.identifier);
+    private static final long initialSeedTransactionAmount = (TestnetUtil.testnet ? 500000L : 599L) *
+            Transaction.micronyzoMultiplierRatio;  // 500,000 nyzos testnet, 599 nyzos production
+    private static final long finalSeedTransactionAmount = TestnetUtil.testnet ? 1L :
+            13758709L;  // 1 micronyzo testnet, 13.758709 nyzos production
 
     public static List<Transaction> approvedTransactionsForBlock(List<Transaction> transactions, Block previousBlock) {
 
@@ -46,6 +54,9 @@ public class BalanceManager {
                 System.out.println("removed transaction because previous hash was invalid");
             }
         }
+
+        // Protect the seed-funding account from all transactions other than the transactions published on day 1.
+        protectSeedFundingAccount(dedupedTransactions, blockHeight);
 
         // Remove any transactions with invalid signatures.
         for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
@@ -146,5 +157,67 @@ public class BalanceManager {
         }
 
         return transactionsWithoutDuplicates;
+    }
+
+    private static void protectSeedFundingAccount(List<Transaction> dedupedTransactions, long blockHeight) {
+
+        // At block 1, 20% of the coins in the system were transferred to the seed-funding account. All of the seed
+        // transactions were pre-signed, and the private key for the account was never saved. However, there is no
+        // way to prove that the private key was not saved, so this logic provides assurance that the funds in that
+        // account will only be used for the published seed transactions.
+        for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+            Transaction transaction = dedupedTransactions.get(i);
+            if (ByteUtil.arraysAreEqual(transaction.getSenderIdentifier(), seedAccountIdentifier)) {
+
+                // These are the same parameters used to generate the transactions. In addition to transfers, funds
+                // could be stolen from this account with large seed transactions or many smaller seed transactions.
+                // We need to check all fields of the transaction, as they can all change the signature.
+                long transactionIndex = blockHeight - SeedTransactionManager.lowestSeedTransactionHeight;
+
+                long transactionAmount = finalSeedTransactionAmount + (initialSeedTransactionAmount -
+                        finalSeedTransactionAmount) *
+                        (SeedTransactionManager.totalSeedTransactions - transactionIndex - 1) /
+                        (SeedTransactionManager.totalSeedTransactions - 1);
+                long transactionTimestamp = BlockManager.getGenesisBlockStartTimestamp() + blockHeight *
+                        Block.blockDuration + 1000L;
+
+                boolean needToRemoveTransaction = false;
+                if (transaction.getType() != Transaction.typeSeed) {
+                    needToRemoveTransaction = true;
+                    System.out.println("removed non-seed transaction from seed-funding account");
+                }
+
+                if (transaction.getAmount() != transactionAmount) {
+                    needToRemoveTransaction = true;
+                    System.out.println("removed seed transaction with incorrect amount: " +
+                            PrintUtil.printAmount(transaction.getAmount()) + ", expected " +
+                            PrintUtil.printAmount(transactionAmount));
+                }
+
+                if (transaction.getTimestamp() != transactionTimestamp) {
+                    needToRemoveTransaction = true;
+                    System.out.println("removed seed transaction with incorrect timestamp: " +
+                            PrintUtil.printTimestamp(transaction.getTimestamp()) + ", expected " +
+                            PrintUtil.printTimestamp(transactionTimestamp));
+                }
+
+                if (transaction.getSenderData().length > 0) {
+                    needToRemoveTransaction = true;
+                    System.out.println("removed seed transaction with non-empty sender data: " +
+                            ByteUtil.arrayAsStringNoDashes(transaction.getSenderData()));
+                }
+
+                if (transaction.getPreviousHashHeight() != 0L) {
+                    needToRemoveTransaction = true;
+                    System.out.println("removed seed transaction with previous-hash height of " +
+                            transaction.getPreviousHashHeight());
+                }
+
+                // Perform the actual removal, if necessary.
+                if (needToRemoveTransaction) {
+                    dedupedTransactions.remove(i);
+                }
+            }
+        }
     }
 }
