@@ -5,7 +5,8 @@ import co.nyzo.verifier.messages.HashVoteOverrideRequest;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class HashVoteOverrideRequestScript {
 
@@ -25,12 +26,11 @@ public class HashVoteOverrideRequestScript {
         byte[] privateSeed = ByteUtil.byteArrayFromHexString(args[0], FieldByteSize.seed);
         byte[] inCycleVerifierIdentifier = KeyUtil.identifierForSeed(privateSeed);
 
-        // Get the IP address of the verifier.
-        byte[] ipAddress = ScriptUtil.ipAddressForVerifier(inCycleVerifierIdentifier);
-        if (ByteUtil.isAllZeros(ipAddress)) {
+        // Get the IP addresses of the verifier.
+        List<byte[]> ipAddresses = ScriptUtil.ipAddressesForVerifier(inCycleVerifierIdentifier);
+        if (ipAddresses.isEmpty()) {
             System.out.println("unable to find IP address of " +
                     ByteUtil.arrayAsStringWithDashes(inCycleVerifierIdentifier));
-            return;
         }
 
         // Get the height and hash from the arguments.
@@ -41,22 +41,24 @@ public class HashVoteOverrideRequestScript {
 
         byte[] hash = ByteUtil.byteArrayFromHexString(args[2], FieldByteSize.hash);
 
-        // Send the request to our verifier.
-        AtomicBoolean receivedResponse = new AtomicBoolean(false);
+        // Send the request to our verifier instances.
+        AtomicInteger numberOfResponsesNotYetReceived = new AtomicInteger(ipAddresses.size());
         HashVoteOverrideRequest request = new HashVoteOverrideRequest(height, hash);
         Message message = new Message(MessageType.HashVoteOverrideRequest29, request);
         message.sign(privateSeed);
-        Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-            @Override
-            public void responseReceived(Message message) {
+        for (byte[] ipAddress : ipAddresses) {
+            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
 
-                System.out.println("response is " + message);
-                receivedResponse.set(true);
-            }
-        });
+                    System.out.println("response is " + message);
+                    numberOfResponsesNotYetReceived.decrementAndGet();
+                }
+            });
+        }
 
-        // Wait for the response to return.
-        while (!receivedResponse.get()) {
+        // Wait for the responses to return.
+        while (numberOfResponsesNotYetReceived.get() > 0) {
             try {
                 Thread.sleep(300L);
             } catch (Exception ignored) { }

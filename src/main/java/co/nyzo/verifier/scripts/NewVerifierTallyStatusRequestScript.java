@@ -1,7 +1,6 @@
 package co.nyzo.verifier.scripts;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.messages.NewVerifierVoteOverrideRequest;
 import co.nyzo.verifier.messages.debug.NewVerifierTallyStatusResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.UpdateUtil;
@@ -9,7 +8,7 @@ import co.nyzo.verifier.util.UpdateUtil;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class NewVerifierTallyStatusRequestScript {
 
@@ -27,53 +26,54 @@ public class NewVerifierTallyStatusRequestScript {
         byte[] privateSeed = ByteUtil.byteArrayFromHexString(args[0], FieldByteSize.seed);
         byte[] inCycleVerifierIdentifier = KeyUtil.identifierForSeed(privateSeed);
 
-        // Get the IP address of the verifier.
-        byte[] ipAddress = ScriptUtil.ipAddressForVerifier(inCycleVerifierIdentifier);
-        if (ByteUtil.isAllZeros(ipAddress)) {
+        // Get the IP addresses of the verifier.
+        List<byte[]> ipAddresses = ScriptUtil.ipAddressesForVerifier(inCycleVerifierIdentifier);
+        if (ipAddresses.isEmpty()) {
             System.out.println("unable to find IP address of " +
                     ByteUtil.arrayAsStringWithDashes(inCycleVerifierIdentifier));
-            return;
         }
 
         // Send the request to our verifier.
-        AtomicBoolean receivedResponse = new AtomicBoolean(false);
+        AtomicInteger numberOfResponsesNotYetReceived = new AtomicInteger(ipAddresses.size());
         Message message = new Message(MessageType.NewVerifierTallyStatusRequest414, null);
         message.sign(privateSeed);
-        Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-            @Override
-            public void responseReceived(Message message) {
+        for (byte[] ipAddress : ipAddresses) {
+            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
 
-                if (message == null) {
-                    System.out.println("response message is null");
-                } else {
+                    if (message == null) {
+                        System.out.println("response message is null");
+                    } else {
 
-                    // Get the response object from the message.
-                    NewVerifierTallyStatusResponse response = (NewVerifierTallyStatusResponse) message.getContent();
+                        // Get the response object from the message.
+                        NewVerifierTallyStatusResponse response = (NewVerifierTallyStatusResponse) message.getContent();
 
-                    // Sort the response descending on vote count.
-                    List<String> lines = new ArrayList<>(response.getLines());
-                    lines.sort(new Comparator<String>() {
-                        @Override
-                        public int compare(String line1, String line2) {
+                        // Sort the response descending on vote count.
+                        List<String> lines = new ArrayList<>(response.getLines());
+                        lines.sort(new Comparator<String>() {
+                            @Override
+                            public int compare(String line1, String line2) {
 
-                            Integer value1 = Integer.parseInt(line1.split(":")[1].trim());
-                            Integer value2 = Integer.parseInt(line2.split(":")[1].trim());
+                                Integer value1 = Integer.parseInt(line1.split(":")[1].trim());
+                                Integer value2 = Integer.parseInt(line2.split(":")[1].trim());
 
-                            return value2.compareTo(value1);
+                                return value2.compareTo(value1);
+                            }
+                        });
+
+                        // Print the response.
+                        for (String line : lines) {
+                            System.out.println(line);
                         }
-                    });
-
-                    // Print the response.
-                    for (String line : lines) {
-                        System.out.println(line);
                     }
+                    numberOfResponsesNotYetReceived.decrementAndGet();
                 }
-                receivedResponse.set(true);
-            }
-        });
+            });
+        }
 
-        // Wait for the response to return.
-        while (!receivedResponse.get()) {
+        // Wait for the responses to return.
+        while (numberOfResponsesNotYetReceived.get() > 0) {
             try {
                 Thread.sleep(300L);
             } catch (Exception ignored) { }
