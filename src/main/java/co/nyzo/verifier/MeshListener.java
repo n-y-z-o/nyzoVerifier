@@ -178,7 +178,8 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.StatusRequest17) {
 
-                    response = new Message(MessageType.StatusResponse18, new StatusResponse());
+                    response = new Message(MessageType.StatusResponse18,
+                            new StatusResponse(message.getSourceNodeIdentifier()));
 
                 } else if (messageType == MessageType.BlockVote19) {
 

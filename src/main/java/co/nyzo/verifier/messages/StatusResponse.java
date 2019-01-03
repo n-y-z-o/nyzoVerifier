@@ -1,11 +1,11 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class StatusResponse implements MessageObject {
@@ -14,9 +14,8 @@ public class StatusResponse implements MessageObject {
     private static List<String> previousLines;
 
     private List<String> lines;
-    private static final Map<String, String> extraFields = new HashMap<>();
 
-    public StatusResponse() {
+    public StatusResponse(byte[] requesterIdentifier) {
 
         // To avoid unnecessary work, do not produce a status response more frequently than every four seconds.
         long currentTimestamp = System.currentTimeMillis();
@@ -65,25 +64,33 @@ public class StatusResponse implements MessageObject {
                     }
                 }
             }
-            lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
-            lines.add("old timestamp: " + Verifier.oldestTimestampAge());
-            lines.add("blocks: " + BlockManagerMap.mapInformation());
-            lines.add("balance lists: " + BalanceListManager.mapInformation());
 
-            Map<Long, Integer> thresholdOverrides = UnfrozenBlockManager.getThresholdOverrides();
-            for (Long height : thresholdOverrides.keySet()) {
-                lines.add("override @+" + (height - frozenEdgeHeight) + ": " + thresholdOverrides.get(height) + "%");
-            }
+            if (ByteUtil.arraysAreEqual(requesterIdentifier, Verifier.getIdentifier())) {
+                lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
+                lines.add("old timestamp: " + Verifier.oldestTimestampAge());
+                lines.add("blocks: " + BlockManagerMap.mapInformation());
+                lines.add("balance lists: " + BalanceListManager.mapInformation());
 
-            Map<Long, byte[]> hashOverrides = UnfrozenBlockManager.getHashOverrides();
-            for (Long height : hashOverrides.keySet()) {
-                lines.add("override @+" + (height - frozenEdgeHeight) + ": " +
-                        PrintUtil.superCompactPrintByteArray(hashOverrides.get(height)));
-            }
+                long memoryUsage = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+                lines.add(String.format("memory usage: %.1f MiB", memoryUsage / 1024.0 / 1024.0));
 
-            Map<String, String> extraFields = getExtraFields();
-            for (String key : extraFields.keySet()) {
-                lines.add(key + ": " + extraFields.get(key));
+                Map<Long, Integer> thresholdOverrides = UnfrozenBlockManager.getThresholdOverrides();
+                for (Long height : thresholdOverrides.keySet()) {
+                    lines.add("override @+" + (height - frozenEdgeHeight) + ": " + thresholdOverrides.get(height) + "%");
+                }
+
+                Map<Long, byte[]> hashOverrides = UnfrozenBlockManager.getHashOverrides();
+                for (Long height : hashOverrides.keySet()) {
+                    lines.add("override @+" + (height - frozenEdgeHeight) + ": " +
+                            PrintUtil.superCompactPrintByteArray(hashOverrides.get(height)));
+                }
+
+                // The notification budget is initialized to -1. A non-negative value is only set if the notification
+                // endpoint is configured, so this will not be displayed if notifications are not used.
+                long notificationBudget = NotificationUtil.getCurrentBudget();
+                if (notificationBudget >= 0) {
+                    lines.add("notif. budget: " + notificationBudget);
+                }
             }
 
             this.lines = lines;
@@ -149,28 +156,10 @@ public class StatusResponse implements MessageObject {
         return "[StatusResponse(n=" + lines.size() + ")]";
     }
 
-    private static synchronized Map<String, String> getExtraFields() {
-
-        return new HashMap<>(extraFields);
-    }
-
-    public static synchronized void setField(String key, String value) {
-
-        if (value == null) {
-            extraFields.remove(key);
-        } else {
-            extraFields.put(key, value);
-        }
-
-        if (extraFields.size() > 10) {
-            extraFields.clear();
-        }
-    }
-
     public static void print() {
 
         System.out.println("********************");
-        StatusResponse statusResponse = new StatusResponse();
+        StatusResponse statusResponse = new StatusResponse(Verifier.getIdentifier());
         for (String line : statusResponse.getLines()) {
             System.out.println(line);
         }

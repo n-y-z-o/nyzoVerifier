@@ -1,7 +1,6 @@
 package co.nyzo.verifier.util;
 
 import co.nyzo.verifier.Verifier;
-import co.nyzo.verifier.messages.StatusResponse;
 
 import javax.net.ssl.HttpsURLConnection;
 import java.io.BufferedReader;
@@ -17,14 +16,18 @@ import java.util.Set;
 
 public class NotificationUtil {
 
-
     private static long lastEarnedTimestamp = 0L;
     private static final Set<Integer> sendOnceNotifications = new HashSet<>();
 
     private static final String endpoint = loadFromFile("endpoint", "");
     private static final int maximumBudget = loadFromFile("budget", 10);
-    private static int currentBudget = maximumBudget;
+    private static int currentBudget = -1;
     private static final long earnInterval = loadFromFile("interval", 1000 * 60 * 2);
+
+    public static int getCurrentBudget() {
+
+        return currentBudget;
+    }
 
     public static void send(String message) {
 
@@ -39,12 +42,12 @@ public class NotificationUtil {
 
         } else {
 
-            // Our maximum/initial budget is 10 notifications, and we earn a new notification every 2 minutes.
+            // Our maximum/initial budget is 10 notifications, and we earn a new notification every 2 minutes. Because
+            // the last-earned timestamp starts at zero, the budget be set to maximum the first time this executes.
             long notificationsEarned = (System.currentTimeMillis() - lastEarnedTimestamp) / earnInterval;
             if (notificationsEarned > 0) {
                 currentBudget = (int) Math.min(maximumBudget, currentBudget + notificationsEarned);
                 lastEarnedTimestamp += notificationsEarned * earnInterval;
-                StatusResponse.setField("notif. budget", currentBudget + "");
             }
 
             if (currentBudget > 0) {

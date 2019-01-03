@@ -441,9 +441,6 @@ public class Verifier {
                         // frozen edge if the new message is not allowing it to keep up. This switch will be removed
                         // in the next version, leaving only requestBlockWithVotes() here.
 
-                        StatusResponse.setField("S/U/L", blockWithVotesMessageSupportedCount + "/" +
-                                blockWithVotesMessageUnsupportedCount + "/" + blockLegacyMessageCount);
-
                         if (blockWithVotesMessageSupportedCount + blockLegacyMessageCount >
                                 blockWithVotesMessageUnsupportedCount) {
                             requestBlockWithVotes();
