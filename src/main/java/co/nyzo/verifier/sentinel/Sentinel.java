@@ -61,6 +61,7 @@ public class Sentinel {
                 int loopCount = 0;
 
                 Verifier.loadGenesisBlock();
+                BlockFileConsolidator.start();
 
                 // Load the managed verifiers. These are the verifiers for which the sentinel will produce blocks, if
                 // necessary, and they are also used as data sources.
@@ -285,7 +286,7 @@ public class Sentinel {
         ManagedVerifier verifier = verifierList.get(blockUpdateIndex);
         blockUpdateIndex = (blockUpdateIndex + 1) % verifierList.size();
 
-        // Get the next block in normal mode and the
+        // Get the next block in normal mode and the next 10 blocks in fast-fetch mode.
         long startHeightToFetch = BlockManager.getFrozenEdgeHeight() + 1L;
         long endHeightToFetch = startHeightToFetch + (inFastFetchMode ? 9 : 0);
         List<Block> blockList = new ArrayList<>();
