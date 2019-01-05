@@ -4,6 +4,7 @@ import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
+import co.nyzo.verifier.MemoryMonitor;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -70,9 +71,7 @@ public class StatusResponse implements MessageObject {
                 lines.add("old timestamp: " + Verifier.oldestTimestampAge());
                 lines.add("blocks: " + BlockManagerMap.mapInformation());
                 lines.add("balance lists: " + BalanceListManager.mapInformation());
-
-                long memoryUsage = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-                lines.add(String.format("memory usage: %.1f MiB", memoryUsage / 1024.0 / 1024.0));
+                lines.add("memory (min/max/avg): " + MemoryMonitor.getMemoryStats());
 
                 Map<Long, Integer> thresholdOverrides = UnfrozenBlockManager.getThresholdOverrides();
                 for (Long height : thresholdOverrides.keySet()) {
