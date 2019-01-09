@@ -27,10 +27,6 @@ public class StatusResponse implements MessageObject {
             long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
             Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
 
-            int meshSize = NodeManager.getMeshSize();
-            int activeMeshSize = NodeManager.getActiveMeshSize();
-            int inactiveMeshSize = meshSize - activeMeshSize;
-
             List<String> lines = new ArrayList<>();
             lines.add("nickname: " + Verifier.getNickname() + (Verifier.isPaused() ? "*** PAUSED ***" : ""));
             if (TestnetUtil.testnet) {
@@ -38,7 +34,8 @@ public class StatusResponse implements MessageObject {
             }
             lines.add("version: " + Version.getVersion());
             lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
-            lines.add("mesh: " + activeMeshSize + " active, " + inactiveMeshSize + " inactive");
+            lines.add("mesh: " + NodeManager.getNumberOfActiveIdentifiers() + " total, " +
+                    NodeManager.getNumberOfActiveCycleIdentifiers() + " in cycle");
             lines.add("cycle length: " + BlockManager.currentCycleLength() +
                     (BlockManager.inGenesisCycle() ? "(G)" : ""));
             lines.add("transactions: " + TransactionPool.transactionPoolSize());
@@ -65,12 +62,14 @@ public class StatusResponse implements MessageObject {
                     }
                 }
             }
+            lines.add("requester identifier: " + PrintUtil.compactPrintByteArray(requesterIdentifier));
 
             if (ByteUtil.arraysAreEqual(requesterIdentifier, Verifier.getIdentifier())) {
                 lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
                 lines.add("old timestamp: " + Verifier.oldestTimestampAge());
                 lines.add("blocks: " + BlockManagerMap.mapInformation());
                 lines.add("balance lists: " + BalanceListManager.mapInformation());
+                lines.add("node-joins sent: " + NodeManager.getNodeJoinRequestsSent());
                 lines.add("memory (min/max/avg): " + MemoryMonitor.getMemoryStats());
 
                 Map<Long, Integer> thresholdOverrides = UnfrozenBlockManager.getThresholdOverrides();
@@ -90,6 +89,9 @@ public class StatusResponse implements MessageObject {
                 if (notificationBudget >= 0) {
                     lines.add("notif. budget: " + notificationBudget);
                 }
+
+                // This shows which in-cycle verifiers currently have no active mesh nodes.
+                lines.add("missing in-cycle verifiers: " + NodeManager.getMissingInCycleVerifiers());
             }
 
             this.lines = lines;

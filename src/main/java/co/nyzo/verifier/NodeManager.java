@@ -11,19 +11,23 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class NodeManager {
 
-    private static Set<ByteBuffer> activeVerifiers = new HashSet<>();
+    private static Set<ByteBuffer> activeIdentifiers = new HashSet<>();
+    private static Set<ByteBuffer> activeCycleIdentifiers = new HashSet<>();
+    private static String missingInCycleVerifiers = "";
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new HashMap<>();
 
     private static final int consecutiveFailuresBeforeRemoval = 6;
     private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
 
-    private static final int minimumMissingNodeRequestInterval = 30;
-    private static int missingNodeRequestWait = minimumMissingNodeRequestInterval;
+    private static final int minimumMeshRequestInterval = 30;
+    private static int meshRequestWait = minimumMeshRequestInterval;
 
-    private static final Map<String, Long> nodeJoinRequestTimestamps = new HashMap<>();
+    private static final Map<ByteBuffer, Integer> nodeJoinRequestQueue = new HashMap<>();
+    private static final AtomicInteger nodeJoinRequestsSent = new AtomicInteger(0);
     private static final Map<ByteBuffer, Long> persistedQueueTimestamps = new HashMap<>();
 
     public static final File queueTimestampsFile = new File(Verifier.dataRootDirectory, "queue_timestamps");
@@ -44,6 +48,17 @@ public class NodeManager {
             if (isNewNode) {
                 Message.fetch(IpUtil.addressAsString(message.getSourceIpAddress()), port,
                         new Message(MessageType.NodeJoin3, new NodeJoinMessage()), null);
+            }
+
+        } else if (message.getType() == MessageType.MissingBlockVoteRequest23 ||
+                message.getType() == MessageType.MissingBlockRequest25) {
+
+            // This is not a full update. Instead, to offset our marking of in-cycle nodes as inactive, we allow a
+            // missing block vote request or a missing block request to reactivate the node. These requests are
+            // typically made when a node comes back online after a temporary network issue.
+            Node node = ipAddressToNodeMap.get(ByteBuffer.wrap(message.getSourceIpAddress()));
+            if (node != null) {
+                node.setInactiveTimestamp(-1);
             }
 
         } else {
@@ -129,8 +144,20 @@ public class NodeManager {
         return ipAddressToNodeMap.size();
     }
 
-    public static int getActiveMeshSize() {
-        return activeVerifiers.size();
+    public static int getNumberOfActiveIdentifiers() {
+        return activeIdentifiers.size();
+    }
+
+    public static int getNumberOfActiveCycleIdentifiers() {
+        return activeCycleIdentifiers.size();
+    }
+
+    public static String getMissingInCycleVerifiers() {
+        return missingInCycleVerifiers;
+    }
+
+    public static int getNodeJoinRequestsSent() {
+        return nodeJoinRequestsSent.get();
     }
 
     public static boolean connectedToMesh() {
@@ -167,15 +194,13 @@ public class NodeManager {
                 count++;
             }
 
-            // Only mark a node inactive if the consecutive failure count has been exceeded and the node is not in the
-            // current cycle.
+            // Only mark a node inactive if the consecutive failure count has been exceeded.
             Node node = ipAddressToNodeMap.get(addressBuffer);
-            if (count < consecutiveFailuresBeforeRemoval || node == null ||
-                    BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(node.getIdentifier()))) {
+            if (node == null || count < consecutiveFailuresBeforeRemoval) {
                 ipAddressToFailureCountMap.put(addressBuffer, count);
             } else {
                 ipAddressToFailureCountMap.remove(addressBuffer);
-                removeNodeFromMesh(addressBuffer);
+                markNodeAsInactive(addressBuffer);
             }
         }
     }
@@ -193,10 +218,10 @@ public class NodeManager {
         }
     }
 
-    private static synchronized void removeNodeFromMesh(ByteBuffer addressBuffer) {
+    private static void markNodeAsInactive(ByteBuffer addressBuffer) {
 
         Node node = ipAddressToNodeMap.get(addressBuffer);
-        if (node != null) {
+        if (node != null && node.isActive()) {
             node.setInactiveTimestamp(System.currentTimeMillis());
         }
     }
@@ -204,18 +229,25 @@ public class NodeManager {
     public static boolean isActive(byte[] verifierIdentifier) {
 
         return ByteUtil.arraysAreEqual(verifierIdentifier, Verifier.getIdentifier()) ||
-                activeVerifiers.contains(ByteBuffer.wrap(verifierIdentifier));
+                activeIdentifiers.contains(ByteBuffer.wrap(verifierIdentifier));
     }
 
     public static synchronized void updateActiveVerifiersAndRemoveOldNodes() {
 
-        Set<ByteBuffer> activeVerifiers = new HashSet<>();
+        Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
+
+        Set<ByteBuffer> activeIdentifiers = new HashSet<>();
+        Set<ByteBuffer> activeCycleIdentifiers = new HashSet<>();
         long thresholdTimestamp = System.currentTimeMillis() - Block.blockDuration *
                 BlockManager.currentCycleLength() * 2;
         for (ByteBuffer ipAddress : new HashSet<>(ipAddressToNodeMap.keySet())) {
             Node node = ipAddressToNodeMap.get(ipAddress);
             if (node.isActive()) {
-                activeVerifiers.add(ByteBuffer.wrap(node.getIdentifier()));
+                ByteBuffer identifierBuffer = ByteBuffer.wrap(node.getIdentifier());
+                activeIdentifiers.add(identifierBuffer);
+                if (currentCycle.contains(identifierBuffer)) {
+                    activeCycleIdentifiers.add(identifierBuffer);
+                }
             } else if (node.getInactiveTimestamp() < thresholdTimestamp) {
                 ipAddressToNodeMap.remove(ipAddress);
                 NotificationUtil.send("removed node " + NicknameManager.get(node.getIdentifier()) + " from mesh on " +
@@ -223,73 +255,107 @@ public class NodeManager {
             }
         }
 
-        NodeManager.activeVerifiers = activeVerifiers;
-    }
-
-    public static void sendNodeJoinMessage(byte[] ipAddress, int port) {
-
-        // Get the timestamp of when we sent the last node-join message. We do not want to send a node-join any more
-        // frequently than every 60 seconds to any node.
-        String ipAddressString = IpUtil.addressAsString(ipAddress);
-        Long lastRequestTimestamp = nodeJoinRequestTimestamps.get(ipAddressString);
-
-        long currentTimestamp = System.currentTimeMillis();
-        if (lastRequestTimestamp == null || lastRequestTimestamp < currentTimestamp - 60000L) {
-
-            // Set the timestamp in the map. Every 100 additions, cull old timestamps.
-            nodeJoinRequestTimestamps.put(ipAddressString, currentTimestamp);
-            if (nodeJoinRequestTimestamps.size() % 100 == 0) {
-                Set<String> keys = nodeJoinRequestTimestamps.keySet();
-                for (String key : keys) {
-                    if (nodeJoinRequestTimestamps.get(key) < currentTimestamp - 60000L) {
-                        nodeJoinRequestTimestamps.remove(key);
-                    }
+        StringBuilder missingInCycleVerifiers;
+        if (activeCycleIdentifiers.size() == currentCycle.size()) {
+            missingInCycleVerifiers = new StringBuilder("*** no verifiers missing ***");
+        } else {
+            missingInCycleVerifiers = new StringBuilder();
+            String separator = "";
+            for (ByteBuffer identifier : currentCycle) {
+                if (!activeCycleIdentifiers.contains(identifier)) {
+                    missingInCycleVerifiers.append(separator).append(NicknameManager.get(identifier.array()));
+                    separator = ",";
                 }
             }
-
-            Message nodeJoinMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
-            Message.fetch(ipAddressString, port, nodeJoinMessage, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
-                    if (message != null) {
-
-                        updateNode(message);
-
-                        NodeJoinResponse response = (NodeJoinResponse) message.getContent();
-                        if (response != null) {
-
-                            NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
-
-                            if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
-                                NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
-                                        response.getNewVerifierVote(), false);
-                            }
-                        }
-                    }
-                }
-            });
         }
 
+        NodeManager.activeIdentifiers = activeIdentifiers;
+        NodeManager.activeCycleIdentifiers = activeCycleIdentifiers;
+        NodeManager.missingInCycleVerifiers = missingInCycleVerifiers.toString();
     }
 
-    public static synchronized void requestMissingNodes() {
+    public static void enqueueNodeJoinMessage(byte[] ipAddress, int port) {
 
-        // Once per cycle, but no more frequently than every 30 iterations, request the mesh from an arbitrary node and
-        // send a node-join request to every node in that node's response. This helps to ensure a tightly integrated
-        // mesh, with all nodes being aware of all other nodes.
-        if (missingNodeRequestWait-- <= 0) {
+        nodeJoinRequestQueue.put(ByteBuffer.wrap(ipAddress), port);
+    }
 
-            missingNodeRequestWait = Math.max(BlockManager.currentCycleLength(), minimumMissingNodeRequestInterval);
+    public static void sendNodeJoinRequests(int count) {
+
+        // This method is called from multiple places, and threading issues could result in an odd state for the
+        // queue. Rather than adding synchronization or logic to deal with this, the try/catch will ensure that
+        // any exceptions do not leave this method.
+        try {
+            // A positive value indicates the specified number of requests should be sent from the queue, emptying the
+            // queue if the queue size is less than or equal to the specified number. A negative number indicates that
+            // the queue should be emptied, regardless of its size.
+            if (count < 0) {
+                count = nodeJoinRequestQueue.size();
+            }
+
+            for (int i = 0; i < count && !nodeJoinRequestQueue.isEmpty(); i++) {
+
+                ByteBuffer ipAddressBuffer = nodeJoinRequestQueue.keySet().iterator().next();
+                Integer port = nodeJoinRequestQueue.remove(ipAddressBuffer);
+
+                if (port != null && port > 0) {
+                    nodeJoinRequestsSent.incrementAndGet();
+                    Message nodeJoinMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
+                    Message.fetch(IpUtil.addressAsString(ipAddressBuffer.array()), port, nodeJoinMessage,
+                            new MessageCallback() {
+                                @Override
+                                public void responseReceived(Message message) {
+                                    if (message != null) {
+
+                                        updateNode(message);
+
+                                        NodeJoinResponse response = (NodeJoinResponse) message.getContent();
+                                        if (response != null) {
+
+                                            NicknameManager.put(message.getSourceNodeIdentifier(),
+                                                    response.getNickname());
+
+                                            if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
+                                                NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
+                                                        response.getNewVerifierVote(), false);
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                }
+            }
+        } catch (Exception ignored) { }
+    }
+
+    public static synchronized void requestMesh() {
+
+        // Once per cycle, but no more frequently than every 30 iterations, and only when the queue of node-join
+        // requests is empty, request the mesh from an arbitrary node and enqueue a node-join request to every node
+        // in that node's response. This helps to ensure a tightly integrated mesh, with all nodes being aware of all
+        // other nodes. This also periodically checks to ensure that waiting nodes are still online, eventually
+        // removing them if they disappear for too long.
+        if (meshRequestWait-- <= 0 && nodeJoinRequestQueue.isEmpty()) {
+
+            meshRequestWait = Math.max(BlockManager.currentCycleLength(), minimumMeshRequestInterval);
 
             Message meshRequest = new Message(MessageType.MeshRequest15, null);
             Message.fetchFromRandomNode(meshRequest, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
 
-                    // Send node-join requests to all nodes in the response.
-                    MeshResponse response = (MeshResponse) message.getContent();
-                    for (Node node : response.getMesh()) {
-                        NodeManager.sendNodeJoinMessage(node.getIpAddress(), node.getPort());
+                    if (message == null) {
+                        // For a null response, set the mesh request wait to zero so that another attempt will be made
+                        // on the next iteration.
+                        meshRequestWait = 0;
+                    } else {
+                        // Queue node-join requests to all nodes in the response.
+                        MeshResponse response = (MeshResponse) message.getContent();
+                        for (Node node : response.getMesh()) {
+                            NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
+                        }
+
+                        System.out.println("reloaded node-join request queue, size is now " +
+                                nodeJoinRequestQueue.size());
                     }
                 }
             });

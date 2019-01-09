@@ -161,25 +161,36 @@ public class Verifier {
 
             // Send mesh requests to all trusted entry points.
             Message meshRequest = new Message(MessageType.MeshRequest15, null);
+            AtomicInteger numberOfMeshResponsesPending = new AtomicInteger(trustedEntryPoints.size());
             for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
                 Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
 
-                        // Send node-join requests to all nodes in the response.
+                        // Enqueue node-join requests for all nodes in the response.
                         MeshResponse response = (MeshResponse) message.getContent();
                         for (Node node : response.getMesh()) {
-                            NodeManager.sendNodeJoinMessage(node.getIpAddress(), node.getPort());
+                            NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
                         }
+
+                        numberOfMeshResponsesPending.decrementAndGet();
                     }
                 });
             }
 
-            // Wait two seconds for the node-join requests to reach other nodes so we start receiving blocks.
-            try {
-                Thread.sleep(2000L);
-            } catch (Exception ignored) {
+            // Wait up to two seconds for the mesh responses to return.
+            long meshResponseWaitTime = 0L;
+            for (int i = 0; i < 10 && numberOfMeshResponsesPending.get() > 0; i++) {
+                ThreadUtil.sleep(200L);
+                meshResponseWaitTime += 200L;
             }
+            System.out.println(String.format("%d mesh responses pending after %.1f wait",
+                    numberOfMeshResponsesPending.get(), meshResponseWaitTime / 1000.0));
+
+            // Instruct the node manager to send the node-join messages. The queue is based on IP address, so deduping
+            // naturally occurs and only one request is typically sent to each node at this point. The -1 value tells
+            // the node manager to empty the queue.
+            NodeManager.sendNodeJoinRequests(-1);
 
             // Only continue with the edge-initialization process if we might need to fetch a new frozen edge. If the
             // open edge is fewer than 20 blocks ahead of the local frozen edge, and we have a complete cycle in the
@@ -226,11 +237,8 @@ public class Verifier {
                     }
 
                     // Wait up to 20 seconds for requests to return.
-                    try {
-                        for (int i = 0; i < 20 && numberOfResponsesReceived.get() < trustedEntryPoints.size(); i++) {
-                            Thread.sleep(1000L);
-                        }
-                    } catch (Exception ignored) {
+                    for (int i = 0; i < 20 && numberOfResponsesReceived.get() < trustedEntryPoints.size(); i++) {
+                        ThreadUtil.sleep(1000L);
                     }
 
                     // Get the consensus response. If this can be determined, we can move to the next step.
@@ -455,9 +463,14 @@ public class Verifier {
 
                         System.out.println("cleaning up because a block was frozen");
 
-                        // Request any nodes that appear to be missing. This is called only when an edge is frozen, and
-                        // the node manager maintains a counter to ensure it is only performed once per cycle.
-                        NodeManager.requestMissingNodes();
+                        // Request the mesh. This is called only when an edge is frozen, and the node manager maintains
+                        // a counter to ensure it is only performed once per cycle.
+                        NodeManager.requestMesh();
+
+                        // Send up to 10 node-join requests. Previously, these were all sent when the mesh was
+                        // requested. Now, they are enqueued and sent a few at a time to reduce the spike in network
+                        // activity.
+                        NodeManager.sendNodeJoinRequests(10);
 
                         // Perform blacklist and unfrozen block maintenance.
                         BlacklistManager.performMaintenance();
