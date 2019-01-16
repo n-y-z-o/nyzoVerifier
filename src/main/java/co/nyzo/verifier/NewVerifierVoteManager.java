@@ -23,8 +23,6 @@ public class NewVerifierVoteManager {
     private static NewVerifierVote localVote = new NewVerifierVote(new byte[FieldByteSize.identifier]);
     private static final Map<ByteBuffer, ByteBuffer> voteMap = new HashMap<>();
 
-    private static int meshLimit = Integer.MAX_VALUE;
-
     private static byte[] override = new byte[FieldByteSize.identifier];
 
     public static void setOverride(byte[] override) {
@@ -33,22 +31,6 @@ public class NewVerifierVoteManager {
 
     public static byte[] getOverride() {
         return override;
-    }
-
-    public static void updateMeshLimit() {
-
-        try {
-            URL url = new URL("https://nyzo.co/meshLimit");
-            ReadableByteChannel channel = Channels.newChannel(url.openStream());
-            byte[] array = new byte[100];
-            ByteBuffer buffer = ByteBuffer.wrap(array);
-            while (channel.read(buffer) > 0) { }
-            channel.close();
-
-            byte[] value = Arrays.copyOf(array, buffer.position());
-            String meshLimitString = new String(value, StandardCharsets.UTF_8);
-            meshLimit = Integer.parseInt(meshLimitString);
-        } catch (Exception ignored) { }
     }
 
     public static synchronized void registerVote(byte[] votingIdentifier, NewVerifierVote vote, boolean isLocalVote) {
@@ -109,44 +91,37 @@ public class NewVerifierVoteManager {
 
     public static synchronized List<ByteBuffer> topVerifiers() {
 
-        List<ByteBuffer> topVerifiers = new ArrayList<>();
-
-        // Only build the list if we still have room under the cycle limit.
-        Set<ByteBuffer> votingVerifiers = BlockManager.verifiersInCurrentCycleSet();
-        if (votingVerifiers.size() < meshLimit) {
-
-            // Make and sort the list descending on votes.
-            Map<ByteBuffer, Integer> voteTotals = voteTotals();
-            topVerifiers.addAll(voteTotals.keySet());
-            Collections.sort(topVerifiers, new Comparator<ByteBuffer>() {
-                @Override
-                public int compare(ByteBuffer verifierVote1, ByteBuffer verifierVote2) {
-                    Integer voteCount1 = voteTotals.get(verifierVote1);
-                    Integer voteCount2 = voteTotals.get(verifierVote2);
-                    return voteCount2.compareTo(voteCount1);
-                }
-            });
-
-            // Limit the list to three verifiers. We do not consider ties, as they are inconsequential and do not
-            // justify additional logic complexity.
-            while (topVerifiers.size() > 3) {
-                topVerifiers.remove(topVerifiers.size() - 1);
+        // Make and sort the list descending on votes.
+        Map<ByteBuffer, Integer> voteTotals = voteTotals();
+        List<ByteBuffer> topVerifiers = new ArrayList<>(voteTotals.keySet());
+        Collections.sort(topVerifiers, new Comparator<ByteBuffer>() {
+            @Override
+            public int compare(ByteBuffer verifierVote1, ByteBuffer verifierVote2) {
+                Integer voteCount1 = voteTotals.get(verifierVote1);
+                Integer voteCount2 = voteTotals.get(verifierVote2);
+                return voteCount2.compareTo(voteCount1);
             }
+        });
 
-            StringBuilder verifiersString = new StringBuilder();
-            String separator = "";
-            for (ByteBuffer verifier : topVerifiers) {
-                verifiersString.append(separator).append(NicknameManager.get(verifier.array()));
-                separator = ", ";
-            }
-            System.out.println("top verifiers: " + verifiersString);
+        // Limit the list to three verifiers. We do not consider ties, as they are inconsequential and do not
+        // justify additional logic complexity.
+        while (topVerifiers.size() > 3) {
+            topVerifiers.remove(topVerifiers.size() - 1);
+        }
 
-            // If the verifiers list is empty and this is a new verifier, add it to the list now.
-            if (topVerifiers.isEmpty()) {
-                ByteBuffer verifierIdentifier = ByteBuffer.wrap(Verifier.getIdentifier());
-                if (!votingVerifiers.contains(verifierIdentifier)) {
-                    topVerifiers.add(verifierIdentifier);
-                }
+        StringBuilder verifiersString = new StringBuilder();
+        String separator = "";
+        for (ByteBuffer verifier : topVerifiers) {
+            verifiersString.append(separator).append(NicknameManager.get(verifier.array()));
+            separator = ", ";
+        }
+        System.out.println("top verifiers: " + verifiersString);
+
+        // If the verifiers list is empty and this is a new verifier, add it to the list now.
+        if (topVerifiers.isEmpty()) {
+            ByteBuffer verifierIdentifier = ByteBuffer.wrap(Verifier.getIdentifier());
+            if (!BlockManager.verifierInCurrentCycle(verifierIdentifier)) {
+                topVerifiers.add(verifierIdentifier);
             }
         }
 

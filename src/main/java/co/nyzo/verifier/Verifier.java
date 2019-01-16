@@ -125,10 +125,6 @@ public class Verifier {
                 Thread.sleep(20L);
             } catch (Exception ignored) { }
 
-            // Update the mesh limit. We need to have this before we start calculating scores for blocks.
-            System.out.println("updating mesh limit");
-            NewVerifierVoteManager.updateMeshLimit();
-
             // Ensure that the Genesis block is loaded.
             System.out.println("loading genesis block");
             loadGenesisBlock();
@@ -482,12 +478,6 @@ public class Verifier {
 
                         // Clean old transactions from the transaction pool.
                         TransactionPool.updateFrozenEdge();
-
-                        // Update the mesh limit every 10 blocks. This is something that does not need to happen
-                        // often.
-                        if (BlockManager.getFrozenEdgeHeight() % 10 == 0) {
-                            NewVerifierVoteManager.updateMeshLimit();
-                        }
 
                         // Every 100 blocks, demote all in-cycle nodes and write the queue timestamps to disk. This
                         // should be done infrequently, as it involves file access, and it does not need to happen
