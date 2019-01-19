@@ -156,22 +156,9 @@ public class Verifier {
             }
 
             // Send mesh requests to all trusted entry points.
-            Message meshRequest = new Message(MessageType.MeshRequest15, null);
             AtomicInteger numberOfMeshResponsesPending = new AtomicInteger(trustedEntryPoints.size());
             for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
-                Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, new MessageCallback() {
-                    @Override
-                    public void responseReceived(Message message) {
-
-                        // Enqueue node-join requests for all nodes in the response.
-                        MeshResponse response = (MeshResponse) message.getContent();
-                        for (Node node : response.getMesh()) {
-                            NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
-                        }
-
-                        numberOfMeshResponsesPending.decrementAndGet();
-                    }
-                });
+                fetchMesh(entryPoint, numberOfMeshResponsesPending);
             }
 
             // Wait up to two seconds for the mesh responses to return.
@@ -266,6 +253,39 @@ public class Verifier {
                 }
             }
 
+            // In order to process efficiently, we need to be well-connected to the cycle. If there are slow-downs that
+            // have prevented connection to this point, they should be addressed before entering the main verifier loop.
+            // We set 75% of the current cycle as a threshold, as it is the minimum required for automatic consensus.
+            NodeManager.sendNodeJoinRequests(-1);
+            NodeManager.updateActiveVerifiersAndRemoveOldNodes();
+            int meshRequestIndex = 0;
+            while (NodeManager.getNumberOfActiveCycleIdentifiers() < BlockManager.currentCycleLength() * 3 / 4) {
+                System.out.println(String.format("entering supplemental connection process because only %d in-cycle " +
+                        "connections have been made for a cycle size of %d (%.1f%%)",
+                        NodeManager.getNumberOfActiveCycleIdentifiers(), BlockManager.currentCycleLength(),
+                        NodeManager.getNumberOfActiveCycleIdentifiers() * 100.0 / BlockManager.currentCycleLength()));
+                System.out.println("missing in-cycle verifiers: " + NodeManager.getMissingInCycleVerifiers());
+
+                // Fetch the mesh from one trusted entry point.
+                numberOfMeshResponsesPending = new AtomicInteger(1);
+                fetchMesh(trustedEntryPoints.get(meshRequestIndex), numberOfMeshResponsesPending);
+                meshRequestIndex = (meshRequestIndex + 1) % trustedEntryPoints.size();
+
+                // Wait up to two seconds for the mesh response to return.
+                for (int i = 0; i < 10 && numberOfMeshResponsesPending.get() > 0; i++) {
+                    ThreadUtil.sleep(200L);
+                }
+
+                // Clear the node-join request queue. Then, sleep one second to allow more requests to return, and wait
+                // until the message queue has cleared. Finally, before the loop condition is checked again, update the
+                // active verifiers to reflect any that have been added since the last iteration.
+                NodeManager.sendNodeJoinRequests(-1);
+                ThreadUtil.sleep(1000L);
+                MessageQueue.blockThisThreadUntilClear();
+
+                NodeManager.updateActiveVerifiersAndRemoveOldNodes();
+            }
+
             System.out.println("ready to start thread for main verifier loop");
 
             // Start the proactive side of the verifier, initiating the actions necessary to maintain the mesh and
@@ -285,6 +305,24 @@ public class Verifier {
                 }
             }, "Verifier-mainLoop").start();
         }
+    }
+
+    private static void fetchMesh(TrustedEntryPoint entryPoint, AtomicInteger numberOfMeshResponsesPending) {
+
+        Message meshRequest = new Message(MessageType.MeshRequest15, null);
+        Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, new MessageCallback() {
+            @Override
+            public void responseReceived(Message message) {
+
+                // Enqueue node-join requests for all nodes in the response.
+                MeshResponse response = (MeshResponse) message.getContent();
+                for (Node node : response.getMesh()) {
+                    NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
+                }
+
+                numberOfMeshResponsesPending.decrementAndGet();
+            }
+        });
     }
 
     public static void loadGenesisBlock() {
