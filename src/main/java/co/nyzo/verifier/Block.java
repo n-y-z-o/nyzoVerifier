@@ -507,6 +507,12 @@ public class Block implements MessageObject {
                     identifierToItemMap.put(ByteBuffer.wrap(item.getIdentifier()), item);
                 }
 
+                // Remove any invalid transactions. The previous block is only null for the Genesis block, so this
+                // check happens for all blocks except the Genesis block.
+                if (previousBlock != null) {
+                    transactions = BalanceManager.approvedTransactionsForBlock(transactions, previousBlock);
+                }
+
                 // Add/subtract all transactions.
                 long feesThisBlock = 0L;
                 for (Transaction transaction : transactions) {

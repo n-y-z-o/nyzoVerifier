@@ -47,6 +47,14 @@ public class BalanceManager {
             }
         }
 
+        // Remove all transactions less than 1 micronyzo.
+        for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+            if (dedupedTransactions.get(i).getAmount() < 1L) {
+                dedupedTransactions.remove(i);
+                System.out.println("removed transaction at index " + i + " due to amount less than 1 micronyzo");
+            }
+        }
+
         // Check the previous-block hash here. Properly used, this provides protection against eclipse attacks.
         for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
             if (!dedupedTransactions.get(i).previousHashIsValid()) {
