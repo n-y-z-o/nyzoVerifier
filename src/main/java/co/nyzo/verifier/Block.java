@@ -507,9 +507,10 @@ public class Block implements MessageObject {
                     identifierToItemMap.put(ByteBuffer.wrap(item.getIdentifier()), item);
                 }
 
-                // Remove any invalid transactions. The previous block is only null for the Genesis block, so this
-                // check happens for all blocks except the Genesis block.
-                if (previousBlock != null) {
+                // Remove any invalid transactions. The previous block is only null for the Genesis block. This also
+                // only needs to be performed on blocks past the frozen edge, as blocks that have been frozen are no
+                // longer subject to scrutiny.
+                if (previousBlock != null && blockHeight > BlockManager.getFrozenEdgeHeight()) {
                     transactions = BalanceManager.approvedTransactionsForBlock(transactions, previousBlock);
                 }
 
