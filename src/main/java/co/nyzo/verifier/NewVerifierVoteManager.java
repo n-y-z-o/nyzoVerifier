@@ -1,13 +1,8 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NewVerifierVote;
-import co.nyzo.verifier.messages.StatusResponse;
 
-import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class NewVerifierVoteManager {
@@ -108,14 +103,6 @@ public class NewVerifierVoteManager {
         while (topVerifiers.size() > 3) {
             topVerifiers.remove(topVerifiers.size() - 1);
         }
-
-        StringBuilder verifiersString = new StringBuilder();
-        String separator = "";
-        for (ByteBuffer verifier : topVerifiers) {
-            verifiersString.append(separator).append(NicknameManager.get(verifier.array()));
-            separator = ", ";
-        }
-        System.out.println("top verifiers: " + verifiersString);
 
         // If the verifiers list is empty and this is a new verifier, add it to the list now.
         if (topVerifiers.isEmpty()) {

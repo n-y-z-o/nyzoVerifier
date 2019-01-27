@@ -452,7 +452,7 @@ public class BlockManager {
 
         // Freezing a block under the frozen edge is not allowed.
         if (block.getBlockHeight() < frozenEdgeHeight) {
-            System.err.println("Setting highest block frozen to a lesser value than is currently set.");
+            System.err.println("Attempting to set highest block frozen to a lesser value than is currently set.");
         } else {
             // Set the frozen and trailing edge heights. If the cycle information is null, set the trailing edge to
             // invalid.

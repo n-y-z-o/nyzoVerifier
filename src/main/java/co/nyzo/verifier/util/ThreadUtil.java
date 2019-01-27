@@ -5,7 +5,7 @@ public class ThreadUtil {
     public static void sleep(long milliseconds) {
 
         try {
-            Thread.sleep(milliseconds);
+            Thread.sleep(Math.max(0L, milliseconds));
         } catch (Exception ignored) { }
     }
 }
