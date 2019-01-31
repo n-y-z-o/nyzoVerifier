@@ -95,23 +95,8 @@ public class Sentinel {
                 lastBlockReceivedTimestamp.set(System.currentTimeMillis());
 
                 // Run the main loop.
-                int iteration = 0;
                 while (!UpdateUtil.shouldTerminate()) {
                     transmitBlockIfNecessary();
-                    if (iteration++ == 100) {
-                        try {
-                            long timestamp = System.currentTimeMillis() / 1000L;
-                            BufferedWriter writer = new BufferedWriter(new FileWriter("/nyzo/2019_01_27_" + timestamp +
-                                    "_verifiers.csv"));
-                            for (Node node : combinedCycle()) {
-                                writer.write(ByteUtil.arrayAsStringWithDashes(node.getIdentifier()));
-                                writer.newLine();
-                            }
-                            writer.close();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
                     ThreadUtil.sleep(1000L);
                 }
             }
