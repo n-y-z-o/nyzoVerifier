@@ -137,6 +137,26 @@ public class UnfrozenBlockManager {
 
                 // We always use an override if one is available.
                 newVoteHash = hashOverrides.get(height);
+
+            } else if (BlockManager.inGenesisCycle()) {
+
+                // In the Genesis cycle, we always vote for the lowest score available at any time.
+                Block lowestScoredBlock = null;
+                long lowestChainScore = Long.MAX_VALUE;
+                for (Block block : blocksForHeight.values()) {
+                    long blockChainScore = block.chainScore(frozenEdgeHeight);
+                    if (lowestScoredBlock == null || blockChainScore < lowestChainScore) {
+                        lowestChainScore = blockChainScore;
+                        lowestScoredBlock = block;
+                    }
+                }
+                System.out.println("(Genesis) lowest-scored block: " + lowestScoredBlock + ", score: " +
+                        lowestChainScore);
+
+                if (lowestScoredBlock != null) {
+                    newVoteHash = lowestScoredBlock.getHash();
+                }
+
             } else {
                 Block newVoteBlock = null;
 
@@ -145,8 +165,7 @@ public class UnfrozenBlockManager {
                 // than 10 seconds ago, vote for it even if it does not exceed 50%. This allows us to reach consensus
                 // even if no hash exceeds 50%. We do not try to agree with the rest of the cycle until we receive at
                 // least 75% of the vote for the height.
-                int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSize() :
-                        BlockManager.currentCycleLength();
+                int votingPoolSize = BlockManager.currentCycleLength();
                 if (BlockVoteManager.numberOfVotesAtHeight(height) > votingPoolSize * 3 / 4) {
                     AtomicInteger voteCountWrapper = new AtomicInteger(0);
                     byte[] leadingHash = BlockVoteManager.leadingHashForHeight(height, voteCountWrapper);

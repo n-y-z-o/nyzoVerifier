@@ -86,7 +86,6 @@ public class Verifier {
 
         if (privateSeed == null) {
             final Path seedFile = Paths.get(dataRootDirectory.getAbsolutePath() + "/verifier_private_seed");
-            System.out.println("seed file path is " + seedFile);
             try {
                 List<String> lines = Files.readAllLines(seedFile);
                 if (lines != null && !lines.isEmpty()) {
@@ -159,6 +158,7 @@ public class Verifier {
             AtomicInteger numberOfMeshResponsesPending = new AtomicInteger(trustedEntryPoints.size());
             for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
                 fetchMesh(entryPoint, numberOfMeshResponsesPending);
+                sendNodeJoinMessage(entryPoint);
             }
 
             // Wait up to two seconds for the mesh responses to return.
@@ -323,6 +323,35 @@ public class Verifier {
                 numberOfMeshResponsesPending.decrementAndGet();
             }
         });
+    }
+
+    private static void sendNodeJoinMessage(TrustedEntryPoint trustedEntryPoint) {
+
+        System.out.println("sending node-join messages to trusted entry point: " + trustedEntryPoint);
+
+        Message message = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
+        Message.fetch(trustedEntryPoint.getHost(), trustedEntryPoint.getPort(), message,
+                new MessageCallback() {
+                    @Override
+                    public void responseReceived(Message message) {
+                        if (message != null) {
+
+                            NodeManager.updateNode(message);
+
+                            NodeJoinResponse response = (NodeJoinResponse) message.getContent();
+                            if (response != null) {
+
+                                NicknameManager.put(message.getSourceNodeIdentifier(),
+                                        response.getNickname());
+
+                                if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
+                                    NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
+                                            response.getNewVerifierVote(), false);
+                                }
+                            }
+                        }
+                    }
+                });
     }
 
     public static void loadGenesisBlock() {

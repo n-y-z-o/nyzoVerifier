@@ -533,12 +533,12 @@ public class BlockManager {
 
     public static boolean verifierInCurrentCycle(ByteBuffer identifier) {
 
-        return currentCycleSet.contains(identifier);
+        return BlockManager.inGenesisCycle() || currentCycleSet.contains(identifier);
     }
 
     public static boolean verifierInOrNearCurrentCycle(ByteBuffer identifier) {
 
-        return currentAndNearCycleSet.contains(identifier);
+        return BlockManager.inGenesisCycle() || currentAndNearCycleSet.contains(identifier);
     }
 
     private static synchronized void updateVerifiersInCurrentCycle(Block block,

@@ -24,7 +24,7 @@ public class BlacklistManager {
 
     public static void addToBlacklist(byte[] ipAddress) {
 
-        if (BlockManager.isInitialized() && BlockManager.isCycleComplete()) {
+        if (BlockManager.isInitialized() && BlockManager.isCycleComplete() && !BlockManager.inGenesisCycle()) {
 
             ByteBuffer addressBuffer = ByteBuffer.wrap(ipAddress);
             if (!blacklistedAddresses.containsKey(addressBuffer)) {

@@ -112,11 +112,10 @@ public class Message {
         System.out.println("broadcasting message: " + message.getType());
 
         // Send the message to all nodes in the current cycle and the top in the new-verifier queue.
-        Set<ByteBuffer> currentAndNearCycle = BlockManager.verifiersInCurrentAndNearCycleSet();
         List<Node> mesh = NodeManager.getMesh();
         for (Node node : mesh) {
             if (node.isActive() && !ByteUtil.arraysAreEqual(node.getIdentifier(), Verifier.getIdentifier()) &&
-                    currentAndNearCycle.contains(ByteBuffer.wrap(node.getIdentifier()))) {
+                    BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(node.getIdentifier()))) {
                 String ipAddress = IpUtil.addressAsString(node.getIpAddress());
                 fetch(ipAddress, node.getPort(), message, null);
             }

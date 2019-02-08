@@ -272,7 +272,7 @@ public class Block implements MessageObject {
             identifiers.add(identifier);
 
             // This is the special case when we reach the Genesis block.
-            if (blockToCheck.getBlockHeight() == 0) {
+            if (blockToCheck.getBlockHeight() == 0 && primaryCycleIndex < 4) {
 
                 reachedGenesisBlock = true;
 
@@ -286,8 +286,7 @@ public class Block implements MessageObject {
                 if (primaryCycleIndex == 0) {
                     inGenesisCycle = true;
                     newVerifier = true;
-                } else if (primaryCycleIndex < 3 ||
-                        (primaryCycleIndex < 4 && cycleEndHeight != primaryCycleEndHeight)) {
+                } else if (primaryCycleIndex < 3 || cycleEndHeight != primaryCycleEndHeight) {
                     maximumCycleLength = Math.max(maximumCycleLength, orderedIdentifiers.size());
                 }
             }
