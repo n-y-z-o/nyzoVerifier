@@ -623,6 +623,9 @@ public class Block implements MessageObject {
                         } else {
                             score += indexInQueue * 4L;
                         }
+
+                        // Penalize for each balance-list spam transaction.
+                        score += block.spamTransactionCount() * 5L;
                     }
                 } else {
                     Block previousBlock = getPreviousBlock();
@@ -640,6 +643,9 @@ public class Block implements MessageObject {
                         //if (!NodeManager.isActive(verifierIdentifier)) {
                         //    score += 5L;
                         //}
+
+                        // Penalize for each balance-list spam transaction.
+                        score += block.spamTransactionCount() * 5L;
                     }
                 }
             }
@@ -659,6 +665,24 @@ public class Block implements MessageObject {
         }
 
         return score;
+    }
+
+    private int spamTransactionCount() {
+
+        // This method makes a best effort to calculate the spam transaction count. There are no reasons it should fail,
+        // but if it does for an unexpected reason, this should not cause the block score to be invalid, so a count of
+        // zero will be returned.
+        int count = 0;
+        Block previousBlock = getPreviousBlock();
+        if (previousBlock != null) {
+            BalanceList balanceList = BalanceListManager.balanceListForBlock(previousBlock, null);
+            if (balanceList != null) {
+                Map<ByteBuffer, Long> balanceMap = BalanceManager.makeBalanceMap(balanceList);
+                count = BalanceManager.numberOfTransactionsSpammingBalanceList(balanceMap, getTransactions());
+            }
+        }
+
+        return count;
     }
 
     @Override

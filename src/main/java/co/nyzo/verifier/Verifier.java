@@ -626,12 +626,23 @@ public class Verifier {
                     previousBlock);
 
             BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock, null);
-            BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
-                    approvedTransactions, Verifier.getIdentifier());
-            if (balanceList != null) {
-                long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
-                block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
-                        balanceList.getHash());
+            if (previousBalanceList != null) {
+
+                // Remove any balance-list spam transactions. To avoid rejection of incoming blocks, these
+                // transactions are not currently removed from those blocks, but they are removed from blocks
+                // produced locally.
+                Map<ByteBuffer, Long> balanceMap = BalanceManager.makeBalanceMap(previousBalanceList);
+                approvedTransactions = BalanceManager.transactionsWithoutBalanceListSpam(balanceMap,
+                        approvedTransactions);
+
+                // Make the balance list for the new block. If the balance list is good, make the block.
+                BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
+                        approvedTransactions, Verifier.getIdentifier());
+                if (balanceList != null) {
+                    long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
+                    block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
+                            balanceList.getHash());
+                }
             }
         }
 

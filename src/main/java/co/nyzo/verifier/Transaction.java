@@ -1,9 +1,12 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
 
 public class Transaction implements MessageObject {
 
@@ -320,6 +323,9 @@ public class Transaction implements MessageObject {
         // (5) the sender and receiver are different
         // (6) the block for the specified timestamp is still open for processing
 
+        // Additionally, to provide good feedback to users, we warn about transactions that appear to be spamming the
+        // balance list.
+
         boolean valid = true;
 
         try {
@@ -374,6 +380,31 @@ public class Transaction implements MessageObject {
                 long openEdgeHeight = BlockManager.openEdgeHeight(false);
                 if (blockHeight < openEdgeHeight) {
                     validationError.append("The block has already been processed. ");
+                }
+            }
+
+            if (valid) {
+                Block frozenEdge = BlockManager.frozenBlockForHeight(BlockManager.getFrozenEdgeHeight());
+                if (frozenEdge != null) {
+                    BalanceList balanceList = BalanceListManager.balanceListForBlock(frozenEdge, null);
+                    if (balanceList != null) {
+                        Map<ByteBuffer, Long> balanceMap = BalanceManager.makeBalanceMap(balanceList);
+                        if (BalanceManager.transactionSpamsBalanceList(balanceMap, this,
+                                Collections.singletonList(this))) {
+
+                            if (getAmount() < BalanceManager.minimumPreferredBalance) {
+                                validationWarning.append("This transaction appears to create a new account with a ")
+                                        .append("balance less than ")
+                                        .append(PrintUtil.printAmount(BalanceManager.minimumPreferredBalance))
+                                        .append(", so it may not be approved. ");
+                            } else {
+                                validationWarning.append("This transaction appears to leave a balance greater than ")
+                                        .append("zero but less than ")
+                                        .append(PrintUtil.printAmount(BalanceManager.minimumPreferredBalance))
+                                        .append(" in the sender account, so it may not be approved. ");
+                            }
+                        }
+                    }
                 }
             }
 

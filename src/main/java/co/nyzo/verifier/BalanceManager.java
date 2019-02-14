@@ -15,6 +15,8 @@ public class BalanceManager {
     private static final long finalSeedTransactionAmount = TestnetUtil.testnet ? 1L :
             13758709L;  // 1 micronyzo testnet, 13.758709 nyzos production
 
+    public static final long minimumPreferredBalance = 10L * Transaction.micronyzoMultiplierRatio;
+
     public static List<Transaction> approvedTransactionsForBlock(List<Transaction> transactions, Block previousBlock) {
 
         // Sort the transactions in block order, then remove all duplicates.
@@ -165,6 +167,80 @@ public class BalanceManager {
         }
 
         return transactionsWithoutDuplicates;
+    }
+
+    public static boolean transactionSpamsBalanceList(Map<ByteBuffer, Long> balanceMap, Transaction transaction,
+                                                      List<Transaction> allTransactionsInBlock) {
+
+        // To prevent issues related to an exceptionally large balance list, some limitations are needed to avoid the
+        // creation of many small accounts. There are two ways to create many accounts with little funds: directly, by
+        // transferring a small amount to a new account, and indirectly, by transferring a larger amount away from an
+        // account to create a new account, leaving very little in the source account. Both of these cases are addressed
+        // here.
+
+        // The default value is false, and the value will only be set to true if certain conditions are met. This
+        // could actually be written in a single line, but the logic is easier to read this way.
+        boolean isSpam = false;
+
+        // Only standard transactions are of concern.
+        if (transaction.getType() == Transaction.typeStandard) {
+
+            // This is the direct case. A ∩10 transaction will produce a new account of slightly less than ∩10, but this
+            // is not an issue. We are simply trying to make it difficult to spam the balance list. The exact threshold
+            // is less important than having a threshold significantly more than μ1, and a minimum transaction of ∩10
+            // for a new account is less confusing than a minimum of ∩10.025063. A transaction of only μ1 will not spam
+            // the balance list, as the full transaction amount is consumed by the transaction fee, and a new entry is
+            // not created in the balance list.
+            if (!balanceMap.keySet().contains(ByteBuffer.wrap(transaction.getReceiverIdentifier())) &&
+                    transaction.getAmount() > 1L && transaction.getAmount() < minimumPreferredBalance) {
+                isSpam = true;
+            } else {
+
+                // This is the indirect case. The existing account needs to have at least ∩10 in it or be empty after
+                // the block. All transactions must be considered, or multiple transactions could be sent from a single
+                // account to bypass the rule.
+                long senderBalance = balanceMap.getOrDefault(ByteBuffer.wrap(transaction.getSenderIdentifier()),
+                        0L);
+                long senderSum = 0L;
+                for (Transaction blockTransaction : allTransactionsInBlock) {
+                    if (ByteUtil.arraysAreEqual(transaction.getSenderIdentifier(),
+                            blockTransaction.getSenderIdentifier())) {
+                        senderSum += blockTransaction.getAmount();
+                    }
+                }
+                if (senderBalance - senderSum < minimumPreferredBalance && senderBalance - senderSum != 0) {
+                    isSpam = true;
+                }
+            }
+        }
+
+        return isSpam;
+    }
+
+    public static List<Transaction> transactionsWithoutBalanceListSpam(Map<ByteBuffer, Long> balanceMap,
+                                                                       List<Transaction> transactions) {
+
+        List<Transaction> transactionsFiltered = new ArrayList<>();
+        for (Transaction transaction : transactions) {
+            if (!transactionSpamsBalanceList(balanceMap, transaction, transactions)) {
+                transactionsFiltered.add(transaction);
+            }
+        }
+
+        return transactionsFiltered;
+    }
+
+    public static int numberOfTransactionsSpammingBalanceList(Map<ByteBuffer, Long> balanceMap,
+                                                              List<Transaction> transactions) {
+
+        int numberOfTransactions = 0;
+        for (Transaction transaction : transactions) {
+            if (transactionSpamsBalanceList(balanceMap, transaction, transactions)) {
+                numberOfTransactions++;
+            }
+        }
+
+        return numberOfTransactions;
     }
 
     private static void protectSeedFundingAccount(List<Transaction> dedupedTransactions, long blockHeight) {
