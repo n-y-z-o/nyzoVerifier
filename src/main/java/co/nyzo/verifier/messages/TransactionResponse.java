@@ -13,25 +13,35 @@ public class TransactionResponse implements MessageObject {
 
     public TransactionResponse(Transaction transaction) {
 
-        StringBuilder validationError = new StringBuilder();
-        StringBuilder validationWarning = new StringBuilder();
-        boolean transactionValid = transaction != null && transaction.performInitialValidation(validationError,
-                validationWarning);
+        StringBuilder error = new StringBuilder();
+        StringBuilder warning = new StringBuilder();
+        boolean transactionValid = transaction != null && transaction.performInitialValidation(error,
+                warning);
 
+        accepted = false;
         if (transactionValid) {
-            TransactionPool.addTransaction(transaction);
-            long height = BlockManager.heightForTimestamp(transaction.getTimestamp());
-            accepted = true;
-            message = "Your transaction from wallet " +
-                    PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + " to " +
-                    PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
-                    " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
-                    " has been accepted by the system and is scheduled for incorporation into block " + height + ".";
-        } else {
-            accepted = false;
+            boolean addedToPool = TransactionPool.addTransaction(transaction, error, warning);
+            if (addedToPool) {
+                String warningString = "";
+                if (warning.length() > 0) {
+                    warningString = " (warning=\"" + warning.toString().trim() + "\")";
+                }
+
+                long height = BlockManager.heightForTimestamp(transaction.getTimestamp());
+                accepted = true;
+                message = "Your transaction from wallet " +
+                        PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + " to " +
+                        PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
+                        " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
+                        " has been accepted by the system and is scheduled for incorporation into block " +
+                        height + "." + warningString;
+            }
+        }
+
+        if (!accepted) {
             String errorString = "";
-            if (validationError.length() > 0) {
-                errorString = " (error=\"" + validationError.toString() + "\")";
+            if (error.length() > 0) {
+                errorString = " (error=\"" + error.toString().trim() + "\")";
             }
             message = "There was a problem and your transaction was not accepted by the system" + errorString +
                     ". To protect yourself against possible coin theft, please wait to resubmit this transaction. " +

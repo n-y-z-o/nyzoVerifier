@@ -389,7 +389,7 @@ public class Verifier {
         }
     }
 
-    private static List<TrustedEntryPoint> getTrustedEntryPoints() {
+    public static List<TrustedEntryPoint> getTrustedEntryPoints() {
 
         Path path = Paths.get(dataRootDirectory.getAbsolutePath() + "/trusted_entry_points");
         List<TrustedEntryPoint> entryPoints = new ArrayList<>();

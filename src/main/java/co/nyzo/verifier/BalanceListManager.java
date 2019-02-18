@@ -5,6 +5,7 @@ import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class BalanceListManager {
@@ -16,6 +17,9 @@ public class BalanceListManager {
     private static BalanceList genesisList = null;
     private static BalanceList retentionEdgeList = null;
     private static BalanceList frozenEdgeList = null;
+
+    private static long accountSetHeight = -1L;
+    private static Set<ByteBuffer> accountsInSystem = ConcurrentHashMap.newKeySet();
 
     private static final long maximumMapSize = 6;
 
@@ -150,7 +154,29 @@ public class BalanceListManager {
 
         if (balanceList != null) {
             balanceListMap.put(ByteBuffer.wrap(balanceList.getHash()), balanceList);
+
+            // If this is a higher edge under the frozen edge than we have previously used to generate the account set,
+            // update the accounts in the system.
+            if (balanceList.getBlockHeight() > accountSetHeight && balanceList.getBlockHeight() <=
+                    BlockManager.getFrozenEdgeHeight()) {
+
+                accountSetHeight = balanceList.getBlockHeight();
+                Set<ByteBuffer> accountsInSystem = ConcurrentHashMap.newKeySet();
+                for (BalanceListItem item : balanceList.getItems()) {
+                    accountsInSystem.add(ByteBuffer.wrap(item.getIdentifier()));
+                }
+
+                BalanceListManager.accountsInSystem = accountsInSystem;
+
+                // TODO: remove this debug statement
+                System.out.println("now have " + BalanceListManager.accountsInSystem.size() + " accounts in system");
+            }
         }
+    }
+
+    public static boolean accountIsInSystem(byte[] identifier) {
+
+        return accountsInSystem.contains(ByteBuffer.wrap(identifier));
     }
 
     public static synchronized boolean cleanMap(Block retentionEdge, Block frozenEdge) {
