@@ -8,12 +8,20 @@ import co.nyzo.verifier.util.UpdateUtil;
 
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
 
 public class MeshListener {
 
-    private static long numberOfMessagesRejected = 0;
-    private static long numberOfMessagesAccepted = 0;
+    private static final AtomicLong numberOfMessagesRejected = new AtomicLong(0);
+    private static final AtomicLong numberOfMessagesAccepted = new AtomicLong(0);
+
+    private static final int maximumConcurrentConnectionsForIp = 6;
 
     public static void main(String[] args) {
         start();
@@ -34,7 +42,20 @@ public class MeshListener {
         return port;
     }
 
+    private static final BiFunction<AtomicInteger, AtomicInteger, AtomicInteger> mergeFunction =
+            new BiFunction<AtomicInteger, AtomicInteger, AtomicInteger>() {
+                @Override
+                public AtomicInteger apply(AtomicInteger atomicInteger0, AtomicInteger atomicInteger1) {
+                    int value0 = atomicInteger0 == null ? 0 : atomicInteger0.get();
+                    int value1 = atomicInteger1 == null ? 0 : atomicInteger1.get();
+                    return new AtomicInteger(value0 + value1);
+                }
+            };
+
     public static void start() {
+
+        Map<ByteBuffer, AtomicInteger> connectionsPerIp = new ConcurrentHashMap<>();
+        AtomicInteger activeReadThreads = new AtomicInteger(0);
 
         if (!alive.getAndSet(true)) {
 
@@ -54,23 +75,8 @@ public class MeshListener {
                             } else {
                                 try {
                                     Socket clientSocket = serverSocket.accept();
-                                    if (BlacklistManager.inBlacklist(clientSocket.getInetAddress().getAddress())) {
-                                        try {
-                                            numberOfMessagesRejected++;
-                                            clientSocket.close();
-                                        } catch (Exception ignored) { }
-                                    } else {
-                                        numberOfMessagesAccepted++;
-                                        new Thread(new Runnable() {
-                                            @Override
-                                            public void run() {
-
-                                                readMessageAndRespond(clientSocket);
-                                            }
-                                        }, "MeshListener-clientSocket").start();
-                                    }
-                                } catch (Exception ignored) {
-                                }
+                                    processSocket(clientSocket, activeReadThreads, connectionsPerIp);
+                                } catch (Exception ignored) { }
                             }
                         }
 
@@ -88,6 +94,56 @@ public class MeshListener {
         }
     }
 
+    private static void processSocket(Socket clientSocket, AtomicInteger activeReadThreads,
+                                      Map<ByteBuffer, AtomicInteger> connectionsPerIp) {
+
+        byte[] ipAddress = clientSocket.getInetAddress().getAddress();
+        if (BlacklistManager.inBlacklist(ipAddress)) {
+            try {
+                numberOfMessagesRejected.incrementAndGet();
+                clientSocket.close();
+            } catch (Exception ignored) { }
+        } else {
+            ByteBuffer ipBuffer = ByteBuffer.wrap(ipAddress);
+            AtomicInteger connectionsForIp = connectionsPerIp.merge(ipBuffer, new AtomicInteger(0), mergeFunction);
+
+            if (connectionsForIp.incrementAndGet() > maximumConcurrentConnectionsForIp) {
+
+                System.out.println("blacklisting IP " + IpUtil.addressAsString(ipAddress) +
+                        " due to too many concurrent connections");
+                connectionsForIp.decrementAndGet();
+                BlacklistManager.addToBlacklist(ipAddress);
+                try {
+                    clientSocket.close();
+                } catch (Exception ignored) { }
+            } else {
+
+                // Read the message and respond.
+                numberOfMessagesAccepted.incrementAndGet();
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        try {
+                            clientSocket.setSoTimeout(300);
+                            readMessageAndRespond(clientSocket);
+                        } catch (Exception ignored) { }
+
+                        if (activeReadThreads.decrementAndGet() == 0) {
+
+                            // When the number of active threads is zero, clear the map of
+                            // connections per IP to prevent accumulation of too many IP
+                            // addresses over time.
+                            connectionsPerIp.clear();
+                        }
+
+                        connectionsForIp.decrementAndGet();
+                    }
+                }, "MeshListener-clientSocket").start();
+            }
+        }
+    }
+
     private static void readMessageAndRespond(Socket clientSocket) {
 
         try {
@@ -102,9 +158,7 @@ public class MeshListener {
                 }
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception ignored) { }
 
         try {
             Thread.sleep(3L);
@@ -305,11 +359,11 @@ public class MeshListener {
 
     public static long getNumberOfMessagesRejected() {
 
-        return numberOfMessagesRejected;
+        return numberOfMessagesRejected.get();
     }
 
     public static long getNumberOfMessagesAccepted() {
 
-        return numberOfMessagesAccepted;
+        return numberOfMessagesAccepted.get();
     }
 }
