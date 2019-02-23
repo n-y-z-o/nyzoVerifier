@@ -21,7 +21,7 @@ public class MeshListener {
     private static final AtomicLong numberOfMessagesRejected = new AtomicLong(0);
     private static final AtomicLong numberOfMessagesAccepted = new AtomicLong(0);
 
-    private static final int maximumConcurrentConnectionsForIp = 6;
+    private static final int maximumConcurrentConnectionsForIp = 20;
 
     public static void main(String[] args) {
         start();
