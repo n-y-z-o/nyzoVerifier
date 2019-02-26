@@ -17,11 +17,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Message {
 
     private static final long maximumMessageLength = 4194304;  // 4 MB
-    private static final Set<ByteBuffer> whitelist = new HashSet<>();
+    private static final Set<ByteBuffer> whitelist = ConcurrentHashMap.newKeySet();
     private static final Set<MessageType> disallowedNonCycleTypes = new HashSet<>(Arrays.asList(MessageType.NewBlock9,
             MessageType.BlockVote19, MessageType.NewVerifierVote21, MessageType.MissingBlockVoteRequest23,
             MessageType.MissingBlockRequest25));
@@ -347,7 +348,7 @@ public class Message {
             // the message.
             if (disallowedNonCycleTypes.contains(type) &&
                     !BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(sourceNodeIdentifier)) &&
-                    !whitelist.contains(ByteBuffer.wrap(sourceIpAddress))) {
+                    !ipIsWhitelisted(sourceIpAddress)) {
 
                 BlacklistManager.addToBlacklist(sourceIpAddress);
 
@@ -503,6 +504,11 @@ public class Message {
         } else {
             System.out.println("skipping whitelist loading; file not present");
         }
+    }
+
+    public static boolean ipIsWhitelisted(byte[] ipAddress) {
+
+        return whitelist.contains(ByteBuffer.wrap(ipAddress));
     }
 
     @Override
