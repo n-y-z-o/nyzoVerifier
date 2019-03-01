@@ -154,15 +154,27 @@ public class BalanceManager {
         });
     }
 
-    public static List<Transaction> transactionsWithoutDuplicates(List<Transaction> sortedTransactions) {
+    public static List<Transaction> transactionsWithoutDuplicates(List<Transaction> transactions) {
+
+        // This method has been modified to eliminate any potential concern of signature malleability in Ed25519. To our
+        // understanding, signature malleability in Ed25519 could only be used to create signatures that would validate
+        // under a different public key, which would make the technique useless for duplicating a transaction.
+        // However, the extra byte-for-byte check of the transaction is computationally cheap, and it provides an extra
+        // layer of assurance that duplicate transactions will be removed.
+
+        Set<ByteBuffer> signaturesAdded = new HashSet<>();
+        Set<ByteBuffer> rawBytesAdded = new HashSet<>();
 
         List<Transaction> transactionsWithoutDuplicates = new ArrayList<>();
-        Transaction previousTransaction = null;
-        for (Transaction transaction : sortedTransactions) {
-            if (previousTransaction == null || !ByteUtil.arraysAreEqual(previousTransaction.getSignature(),
-                    transaction.getSignature())) {
+        for (Transaction transaction : transactions) {
+
+            ByteBuffer signature = ByteBuffer.wrap(transaction.getSignature());
+            ByteBuffer rawBytes = ByteBuffer.wrap(transaction.getBytes(true));
+
+            if (!signaturesAdded.contains(signature) && !rawBytesAdded.contains(rawBytes)) {
+                signaturesAdded.add(signature);
+                rawBytesAdded.add(rawBytes);
                 transactionsWithoutDuplicates.add(transaction);
-                previousTransaction = transaction;
             }
         }
 
