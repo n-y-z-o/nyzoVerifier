@@ -16,16 +16,16 @@ public class BlockFileConsolidator {
 
                 while (!UpdateUtil.shouldTerminate()) {
 
-                    try {
-                        consolidateFiles();
-                    } catch (Exception ignored) { }
-
                     // Sleep for 5 minutes (300 seconds) in 3-second intervals.
                     for (int i = 0; i < 100 && !UpdateUtil.shouldTerminate(); i++) {
                         try {
                             Thread.sleep(3000L);
                         } catch (Exception ignored) { }
                     }
+
+                    try {
+                        consolidateFiles();
+                    } catch (Exception ignored) { }
                 }
             }
         }, "BlockFileConsolidator").start();

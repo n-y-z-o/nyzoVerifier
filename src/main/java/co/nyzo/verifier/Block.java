@@ -82,13 +82,13 @@ public class Block implements MessageObject {
 
     public Block(long height, byte[] previousBlockHash, long startTimestamp, long verificationTimestamp,
                   List<Transaction> transactions, byte[] balanceListHash, byte[] verifierIdentifier,
-                  byte[] verifierSignature) {
+                  byte[] verifierSignature, boolean validateTransactions) {
 
         this.height = height;
         this.previousBlockHash = previousBlockHash;
         this.startTimestamp = startTimestamp;
         this.verificationTimestamp = verificationTimestamp;
-        this.transactions = validTransactions(transactions, startTimestamp);
+        this.transactions = validateTransactions ? validTransactions(transactions, startTimestamp) : transactions;
         this.balanceListHash = balanceListHash;
         this.verifierIdentifier = verifierIdentifier;
         this.verifierSignature = verifierSignature;
@@ -445,6 +445,11 @@ public class Block implements MessageObject {
 
     public static Block fromByteBuffer(ByteBuffer buffer) {
 
+        return fromByteBuffer(buffer, true);
+    }
+
+    public static Block fromByteBuffer(ByteBuffer buffer, boolean validateTransactions) {
+
         long blockHeight = buffer.getLong();
         byte[] previousBlockHash = new byte[FieldByteSize.hash];
         buffer.get(previousBlockHash);
@@ -464,7 +469,7 @@ public class Block implements MessageObject {
         buffer.get(verifierSignature);
 
         return new Block(blockHeight, previousBlockHash, startTimestamp, verificationTimestamp, transactions,
-                balanceListHash, verifierIdentifier, verifierSignature);
+                balanceListHash, verifierIdentifier, verifierSignature, validateTransactions);
     }
 
     public static BalanceList balanceListForNextBlock(Block previousBlock, BalanceList previousBalanceList,

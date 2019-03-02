@@ -101,7 +101,7 @@ public class BlockManager {
                 Block previousBlock = null;
                 for (int i = 0; i < numberOfBlocks && (previousBlock == null ||
                         previousBlock.getBlockHeight() < maximumHeight); i++) {
-                    Block block = Block.fromByteBuffer(buffer);
+                    Block block = Block.fromByteBuffer(buffer, false);
                     if (previousBlock == null || (previousBlock.getBlockHeight() != block.getBlockHeight() - 1)) {
                         // Read and discard the balance list.
                         BalanceList.fromByteBuffer(buffer);
@@ -354,7 +354,7 @@ public class BlockManager {
                 for (int i = 0; i < numberOfBlocks; i++) {
 
                     // Read the block.
-                    Block block = Block.fromByteBuffer(buffer);
+                    Block block = Block.fromByteBuffer(buffer, false);
 
                     // Derive the balance list, if possible. Otherwise, read it.
                     BalanceList balanceList;
@@ -398,7 +398,7 @@ public class BlockManager {
                 Block previousBlock = null;
                 BalanceList balanceList = null;
                 for (int i = 0; i < numberOfBlocks && blockBalanceList == null; i++) {
-                    Block block = Block.fromByteBuffer(buffer);
+                    Block block = Block.fromByteBuffer(buffer, false);
                     if (previousBlock == null || (previousBlock.getBlockHeight() != block.getBlockHeight() - 1)) {
                         balanceList = BalanceList.fromByteBuffer(buffer);
                     } else {
