@@ -42,19 +42,19 @@ public class MeshListener {
         return port;
     }
 
-    private static final BiFunction<AtomicInteger, AtomicInteger, AtomicInteger> mergeFunction =
-            new BiFunction<AtomicInteger, AtomicInteger, AtomicInteger>() {
+    private static final BiFunction<Integer, Integer, Integer> mergeFunction =
+            new BiFunction<Integer, Integer, Integer>() {
                 @Override
-                public AtomicInteger apply(AtomicInteger atomicInteger0, AtomicInteger atomicInteger1) {
-                    int value0 = atomicInteger0 == null ? 0 : atomicInteger0.get();
-                    int value1 = atomicInteger1 == null ? 0 : atomicInteger1.get();
-                    return new AtomicInteger(value0 + value1);
+                public Integer apply(Integer integer0, Integer integer1) {
+                    int value0 = integer0 == null ? 0 : integer0;
+                    int value1 = integer1 == null ? 0 : integer1;
+                    return value0 + value1;
                 }
             };
 
     public static void start() {
 
-        Map<ByteBuffer, AtomicInteger> connectionsPerIp = new ConcurrentHashMap<>();
+        Map<ByteBuffer, Integer> connectionsPerIp = new ConcurrentHashMap<>();
         AtomicInteger activeReadThreads = new AtomicInteger(0);
 
         if (!alive.getAndSet(true)) {
@@ -95,7 +95,7 @@ public class MeshListener {
     }
 
     private static void processSocket(Socket clientSocket, AtomicInteger activeReadThreads,
-                                      Map<ByteBuffer, AtomicInteger> connectionsPerIp) {
+                                      Map<ByteBuffer, Integer> connectionsPerIp) {
 
         byte[] ipAddress = clientSocket.getInetAddress().getAddress();
         if (BlacklistManager.inBlacklist(ipAddress)) {
@@ -105,22 +105,25 @@ public class MeshListener {
             } catch (Exception ignored) { }
         } else {
             ByteBuffer ipBuffer = ByteBuffer.wrap(ipAddress);
-            AtomicInteger connectionsForIp = connectionsPerIp.merge(ipBuffer, new AtomicInteger(0), mergeFunction);
+            int connectionsForIp = connectionsPerIp.merge(ipBuffer, 1, mergeFunction);
 
-            if (connectionsForIp.incrementAndGet() > maximumConcurrentConnectionsForIp &&
-                    !Message.ipIsWhitelisted(ipAddress)) {
+            if (connectionsForIp > maximumConcurrentConnectionsForIp && !Message.ipIsWhitelisted(ipAddress)) {
 
                 System.out.println("blacklisting IP " + IpUtil.addressAsString(ipAddress) +
                         " due to too many concurrent connections");
-                connectionsForIp.decrementAndGet();
+
+                // Decrement the counter, add the IP to the blacklist, and close the socket without responding.
+                connectionsPerIp.merge(ipBuffer, -1, mergeFunction);
                 BlacklistManager.addToBlacklist(ipAddress);
                 try {
                     clientSocket.close();
                 } catch (Exception ignored) { }
+
             } else {
 
                 // Read the message and respond.
                 numberOfMessagesAccepted.incrementAndGet();
+                activeReadThreads.incrementAndGet();
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -130,6 +133,9 @@ public class MeshListener {
                             readMessageAndRespond(clientSocket);
                         } catch (Exception ignored) { }
 
+                        // Decrement the counter for this IP.
+                        connectionsPerIp.merge(ipBuffer, -1, mergeFunction);
+
                         if (activeReadThreads.decrementAndGet() == 0) {
 
                             // When the number of active threads is zero, clear the map of
@@ -137,8 +143,6 @@ public class MeshListener {
                             // addresses over time.
                             connectionsPerIp.clear();
                         }
-
-                        connectionsForIp.decrementAndGet();
                     }
                 }, "MeshListener-clientSocket").start();
             }

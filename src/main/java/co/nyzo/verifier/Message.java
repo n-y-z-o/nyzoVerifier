@@ -465,7 +465,7 @@ public class Message {
 
     public static String getString(ByteBuffer buffer) {
 
-        int lineByteLength = buffer.getShort() & 0xff;
+        int lineByteLength = buffer.getShort() & 0xffff;
         byte[] lineBytes = new byte[lineByteLength];
         buffer.get(lineBytes);
 
