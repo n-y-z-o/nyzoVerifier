@@ -31,7 +31,7 @@ public class HashUtil {
         }
     }
 
-    private static synchronized byte[] singleSHA256(byte[] data) {
+    public static synchronized byte[] singleSHA256(byte[] data) {
 
         if (data == null) {
             data = new byte[0];
