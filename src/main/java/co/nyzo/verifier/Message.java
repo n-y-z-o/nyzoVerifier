@@ -162,29 +162,22 @@ public class Message {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    Socket socket = null;
-                    for (int i = 0; i < 3 && socket == null; i++) {
-                        socket = new Socket();
-                        try {
-                            socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
-                        } catch (Exception ignored) {
-                            socket = null;
-                        }
-
-                        if (socket == null) {
+                    Socket socket = new Socket();
+                    try {
+                        socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
+                    } catch (Exception e) {
+                        if (socket.isConnected()) {
                             try {
-                                Thread.sleep(100L + (long) (Math.random() * 100));
+                                socket.close();
                             } catch (Exception ignored) { }
                         }
+                        socket = null;
                     }
 
                     Message response = null;
                     if (socket == null) {
-
                         NodeManager.markFailedConnection(hostNameOrIp);
-
                     } else {
-
                         NodeManager.markSuccessfulConnection(hostNameOrIp);
 
                         try {

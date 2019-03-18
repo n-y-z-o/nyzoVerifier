@@ -16,8 +16,8 @@ import java.util.Random;
 
 public class SignatureUtil {
 
-    private static final Map<ByteBuffer, Signature> seedToSignatureMap = new HashMap<>();
-    private static final Map<ByteBuffer, Signature> identifierToSignatureMap = new HashMap<>();
+    private static final Map<ByteBuffer, EdDSAEngine> seedToSignatureMap = new HashMap<>();
+    private static final Map<ByteBuffer, EdDSAEngine> identifierToSignatureMap = new HashMap<>();
 
     public static final EdDSAParameterSpec spec;
 
@@ -32,7 +32,7 @@ public class SignatureUtil {
 
         try {
             ByteBuffer seedBuffer = ByteBuffer.wrap(privateSeed);
-            Signature signature = seedToSignatureMap.get(seedBuffer);
+            EdDSAEngine signature = seedToSignatureMap.get(seedBuffer);
             if (signature == null) {
                 signature = new EdDSAEngine(MessageDigest.getInstance(spec.getHashAlgorithm()));
                 PrivateKey privateKey = KeyUtil.privateKeyFromSeed(privateSeed);
@@ -41,8 +41,7 @@ public class SignatureUtil {
             }
 
             synchronized (SignatureUtil.class) {
-                signature.update(bytesToSign);
-                signatureBytes = signature.sign();
+                signatureBytes = signature.signOneShot(bytesToSign);
             }
 
         } catch (Exception reportOnly) {
@@ -59,7 +58,7 @@ public class SignatureUtil {
 
         try {
             ByteBuffer identifierBuffer = ByteBuffer.wrap(publicIdentifier);
-            Signature signature = identifierToSignatureMap.get(identifierBuffer);
+            EdDSAEngine signature = identifierToSignatureMap.get(identifierBuffer);
             if (signature == null) {
                 signature = new EdDSAEngine(MessageDigest.getInstance(spec.getHashAlgorithm()));
                 PublicKey publicKey = KeyUtil.publicKeyFromIdentifier(publicIdentifier);
@@ -74,8 +73,7 @@ public class SignatureUtil {
             }
 
             synchronized (SignatureUtil.class) {
-                signature.update(signedBytes);
-                signatureIsValid = signature.verify(signatureBytes);
+                signatureIsValid = signature.verifyOneShot(signedBytes, signatureBytes);
             }
 
         } catch (Exception ignored) {
