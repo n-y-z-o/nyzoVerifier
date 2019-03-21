@@ -16,6 +16,8 @@ public class UnfrozenBlockManager {
     private static Map<Long, Integer> thresholdOverrides = new HashMap<>();
     private static Map<Long, byte[]> hashOverrides = new HashMap<>();
 
+    private static String voteDescription = "*** not yet voted ***";
+
     private static Map<Long, Map<ByteBuffer, Block>> disconnectedBlocks = new HashMap<>();
 
     private static long lastBlockVoteTimestamp = 0L;
@@ -133,12 +135,18 @@ public class UnfrozenBlockManager {
             // requires multiple broadcasts.
             byte[] newVoteHash = null;
 
-            if (hashOverrides.containsKey(height)) {
+            String voteDescription;
+            byte[] hashOverride = hashOverrides.get(height);
+            if (hashOverride != null) {
 
                 // We always use an override if one is available.
-                newVoteHash = hashOverrides.get(height);
+                newVoteHash = hashOverride;
+
+                voteDescription = "override; ";
 
             } else if (BlockManager.inGenesisCycle()) {
+
+                voteDescription = "Genesis cycle; ";
 
                 // In the Genesis cycle, we always vote for the lowest score available at any time.
                 Block lowestScoredBlock = null;
@@ -166,7 +174,8 @@ public class UnfrozenBlockManager {
                 // even if no hash exceeds 50%. We do not try to agree with the rest of the cycle until we receive at
                 // least 75% of the vote for the height.
                 int votingPoolSize = BlockManager.currentCycleLength();
-                if (BlockVoteManager.numberOfVotesAtHeight(height) > votingPoolSize * 3 / 4) {
+                int numberOfVotesAtHeight = BlockVoteManager.numberOfVotesAtHeight(height);
+                if (numberOfVotesAtHeight > votingPoolSize * 3 / 4) {
                     AtomicInteger voteCountWrapper = new AtomicInteger(0);
                     byte[] leadingHash = BlockVoteManager.leadingHashForHeight(height, voteCountWrapper);
                     Block leadingHashBlock = unfrozenBlockAtHeight(height, leadingHash);
@@ -176,8 +185,15 @@ public class UnfrozenBlockManager {
                                 System.currentTimeMillis()) ||
                                 leadingHashBlock.getMinimumVoteTimestamp() < System.currentTimeMillis() - 10000L) {
                             newVoteBlock = leadingHashBlock;
+                            voteDescription = "leading; ";
+                        } else {
+                            voteDescription = "insufficient leading score; ";
                         }
+                    } else {
+                        voteDescription = "missing leading; ";
                     }
+                } else {
+                    voteDescription = "insufficient count=" + numberOfVotesAtHeight + "; ";
                 }
 
                 // If we did not determine a vote to agree with the rest of the mesh, then we independently choose the
@@ -199,13 +215,19 @@ public class UnfrozenBlockManager {
                             lowestScoredBlock.getMinimumVoteTimestamp() <= System.currentTimeMillis()) {
 
                         newVoteBlock = lowestScoredBlock;
+                        voteDescription += "lowest-scored; ";
                     }
                 }
 
                 if (newVoteBlock != null) {
                     newVoteHash = newVoteBlock.getHash();
+                    voteDescription += "h=" + height + "; " + PrintUtil.compactPrintByteArray(newVoteHash);
+                } else {
+                    voteDescription += "h=" + height + "; undetermined";
                 }
             }
+
+            UnfrozenBlockManager.voteDescription = voteDescription;
 
             // If we determined a vote, broadcast it to the cycle.
             if (newVoteHash != null) {
@@ -400,5 +422,10 @@ public class UnfrozenBlockManager {
     public static synchronized Map<Long, byte[]> getHashOverrides() {
 
         return new HashMap<>(hashOverrides);
+    }
+
+    public static String getVoteDescription() {
+
+        return voteDescription;
     }
 }

@@ -18,22 +18,35 @@ public class ConsensusTallyStatusResponse implements MessageObject, MultilineTex
         // This is a debug request, so it must be signed by the local verifier.
         if (ByteUtil.arraysAreEqual(request.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
 
+            // The BlockVoteManager can store votes for several heights, but the cycle only works on one height at a
+            // time, so this response only shows the height directly past the frozen edge.
             List<String> lines = new ArrayList<>();
-            List<Long> heights = BlockVoteManager.getHeights();
-            Collections.sort(heights);
-            for (Long height : heights) {
-                Map<ByteBuffer, BlockVote> votesForHeight = BlockVoteManager.votesForHeight(height);
-                if (votesForHeight != null) {
-                    for (ByteBuffer identifier : votesForHeight.keySet()) {
-                        lines.add(height + ": " + NicknameManager.get(identifier.array()) + ", " +
-                            PrintUtil.superCompactPrintByteArray(votesForHeight.get(identifier).getHash()));
-                    }
+            long height = BlockManager.getFrozenEdgeHeight() + 1L;
+
+            lines.add("votes for height: " + height);
+            Map<ByteBuffer, BlockVote> votesForHeight = BlockVoteManager.votesForHeight(height);
+            if (votesForHeight != null && !votesForHeight.isEmpty()) {
+
+                Map<ByteBuffer, Integer> hashCounts = new HashMap<>();
+                for (ByteBuffer identifier : votesForHeight.keySet()) {
+                    byte[] hash = votesForHeight.get(identifier).getHash();
+                    lines.add(NicknameManager.get(identifier.array()) + ", " + PrintUtil.compactPrintByteArray(hash));
+
+                    ByteBuffer hashBuffer = ByteBuffer.wrap(hash);
+                    hashCounts.put(hashBuffer, hashCounts.getOrDefault(hashBuffer, 0) + 1);
                 }
+
+                lines.add("");
+                for (ByteBuffer hash : hashCounts.keySet()) {
+                    lines.add(ByteUtil.arrayAsStringWithDashes(hash.array()) + ": " + hashCounts.get(hash));
+                }
+            } else {
+                lines.add("*** no votes available for height " + height + " ***");
             }
 
             this.lines = lines;
         } else {
-            this.lines = Arrays.asList("*** Unauthorized ***");
+            this.lines = Arrays.asList("*** unauthorized ***");
         }
     }
 
@@ -49,7 +62,7 @@ public class ConsensusTallyStatusResponse implements MessageObject, MultilineTex
     @Override
     public int getByteSize() {
 
-        int byteSize = 1;  // list length
+        int byteSize = 2;  // list length
         for (String line : lines) {
             byteSize += FieldByteSize.string(line);
         }
@@ -63,7 +76,7 @@ public class ConsensusTallyStatusResponse implements MessageObject, MultilineTex
         byte[] result = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(result);
 
-        buffer.put((byte) lines.size());
+        buffer.putShort((short) lines.size());
         for (String line : lines) {
             byte[] lineBytes = line.getBytes(StandardCharsets.UTF_8);
             buffer.putShort((short) lineBytes.length);
@@ -78,10 +91,10 @@ public class ConsensusTallyStatusResponse implements MessageObject, MultilineTex
         ConsensusTallyStatusResponse result = null;
 
         try {
-            int numberOfLines = buffer.get() & 0xff;
+            int numberOfLines = buffer.getShort() & 0xffff;
             List<String> lines = new ArrayList<>();
             for (int i = 0; i < numberOfLines; i++) {
-                short lineByteLength = buffer.getShort();
+                int lineByteLength = buffer.getShort() & 0xffff;
                 byte[] lineBytes = new byte[lineByteLength];
                 buffer.get(lineBytes);
                 lines.add(new String(lineBytes, StandardCharsets.UTF_8));
