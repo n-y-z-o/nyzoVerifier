@@ -436,6 +436,8 @@ public class Message {
             content = NewVerifierTallyStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.BlacklistStatusResponse417) {
             content = BlacklistStatusResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.PerformanceScoreStatusResponse419) {
+            content = PerformanceScoreStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.ResetResponse501) {
             content = BooleanMessageResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Error65534) {

@@ -73,9 +73,11 @@ public enum MessageType {
     NewVerifierTallyStatusResponse415(415),
     BlacklistStatusRequest416(416),
     BlacklistStatusResponse417(417),
+    PerformanceScoreStatusRequest418(418),
+    PerformanceScoreStatusResponse419(419),
 
     // bootstrapping messages
-    ResetRequest500(500),   // resets the blockchain   TODO: key this to the local verifier before release
+    ResetRequest500(500),   // resets the blockchain
     ResetResponse501(501),
 
     // the highest allowable message number is 65535

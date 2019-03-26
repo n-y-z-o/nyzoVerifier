@@ -329,9 +329,15 @@ public class MeshListener {
                     response = new Message(MessageType.BlacklistStatusResponse417,
                             new BlacklistStatusResponse(message));
 
+                } else if (messageType == MessageType.PerformanceScoreStatusRequest418) {
+
+                    response = new Message(MessageType.PerformanceScoreStatusResponse419,
+                            new PerformanceScoreStatusResponse(message));
+
                 } else if (messageType == MessageType.ResetRequest500) {
 
-                    boolean success = ByteUtil.arraysAreEqual(message.getSourceNodeIdentifier(), Block.genesisVerifier);
+                    boolean success = ByteUtil.arraysAreEqual(message.getSourceNodeIdentifier(),
+                            Verifier.getIdentifier());
                     String responseMessage;
                     if (success) {
                         responseMessage = "reset request accepted";
@@ -339,7 +345,7 @@ public class MeshListener {
                     } else {
                         responseMessage = "source node identifier, " +
                                 PrintUtil.compactPrintByteArray(message.getSourceNodeIdentifier()) + ", is not the " +
-                                "Genesis verifier, " + PrintUtil.compactPrintByteArray(Block.genesisVerifier);
+                                "local verifier, " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier());
                     }
 
                     response = new Message(MessageType.ResetResponse501, new BooleanMessageResponse(success,

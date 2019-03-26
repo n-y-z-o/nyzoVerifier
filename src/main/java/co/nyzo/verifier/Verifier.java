@@ -535,6 +535,12 @@ public class Verifier {
                         // activity.
                         NodeManager.sendNodeJoinRequests(10);
 
+                        // Update scores with the verifier performance manager.
+                        long scoreUpdateHeight = BlockManager.getFrozenEdgeHeight();
+                        Block scoreUpdateBlock = BlockManager.frozenBlockForHeight(scoreUpdateHeight);
+                        VerifierPerformanceManager.updateScoresForFrozenBlock(scoreUpdateBlock,
+                                BlockVoteManager.votesForHeight(scoreUpdateHeight));
+
                         // Perform blacklist and unfrozen block maintenance.
                         BlacklistManager.performMaintenance();
                         UnfrozenBlockManager.performMaintenance();
