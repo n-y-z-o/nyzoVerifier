@@ -63,16 +63,25 @@ public class UnfrozenBlockManager {
 
             // Check if the block has a valid verification timestamp. We cannot be sure of this, but we can filter out
             // some invalid blocks at this point.
-            boolean verificationTimestampIntervalValid = true;
+            boolean verificationTimestampValid = true;
             if (!alreadyContainsBlock) {
+
+                // Check that the interval is not less than the minimum.
                 Block previousBlock = block.getPreviousBlock();
                 if (previousBlock != null && previousBlock.getVerificationTimestamp() >
                         block.getVerificationTimestamp() - Block.minimumVerificationInterval) {
-                    verificationTimestampIntervalValid = false;
+                    verificationTimestampValid = false;
                 }
+
+                // Check that the verification timestamp is not unreasonably far into the future.
+                // TODO: This code will be activated in a later version. Activating it immediately could jeopardize
+                // TODO: verifiers that have updated when less than 25% of the cycle has updated.
+                //if (block.getVerificationTimestamp() > System.currentTimeMillis() + 5000L) {
+                //    verificationTimestampValid = false;
+                //}
             }
 
-            if (!alreadyContainsBlock && verificationTimestampIntervalValid) {
+            if (!alreadyContainsBlock && verificationTimestampValid) {
 
                 // At this point, it is prudent to independently calculate the balance list. We only register the block
                 // if we can calculate the balance list and if the has matches what we expect. This will ensure that no

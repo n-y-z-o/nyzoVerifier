@@ -662,6 +662,11 @@ public class Block implements MessageObject {
                 score = Long.MAX_VALUE;  // invalid
             }
 
+            // Check that the verification timestamp is not unreasonably far into the future.
+            if (block.getVerificationTimestamp() > System.currentTimeMillis() + 5000L) {
+                score = Long.MAX_VALUE;  // invalid
+            }
+
             block = previousBlock;
         }
 
