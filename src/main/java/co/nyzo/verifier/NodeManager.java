@@ -110,6 +110,7 @@ public class NodeManager {
                         verifierChangeAllowed(existingNode)) {
                     existingNode.setIdentifier(identifier);
                     existingNode.setQueueTimestamp(System.currentTimeMillis());
+                    existingNode.setIdentifierChangeTimestamp(System.currentTimeMillis());
                     isNewNode = true;
                 }
             }
@@ -132,7 +133,8 @@ public class NodeManager {
 
     private static boolean verifierChangeAllowed(Node node) {
 
-        long blocksSinceChange = (System.currentTimeMillis() - node.getQueueTimestamp()) / Block.blockDuration;
+        long blocksSinceChange = (System.currentTimeMillis() - node.getIdentifierChangeTimestamp()) /
+                Block.blockDuration;
         return blocksSinceChange > BlockManager.currentCycleLength() + 2;
     }
 

@@ -14,6 +14,7 @@ public class Node implements MessageObject {
     private long queueTimestamp;                  // this is the timestamp that determines queue placement -- it is
                                                   // when the verifier joined the mesh or when the verifier was last
                                                   // updated
+    private long identifierChangeTimestamp;       // when the identifier at this IP was last changed
     private long inactiveTimestamp;               // when the verifier was marked as inactive; -1 for active verifiers
 
     public Node(byte[] identifier, byte[] ipAddress, int port) {
@@ -22,6 +23,7 @@ public class Node implements MessageObject {
         this.ipAddress = Arrays.copyOf(ipAddress, FieldByteSize.ipAddress);
         this.port = port;
         this.queueTimestamp = System.currentTimeMillis();
+        this.identifierChangeTimestamp = System.currentTimeMillis();
         this.inactiveTimestamp = -1L;
     }
 
@@ -51,6 +53,14 @@ public class Node implements MessageObject {
 
     public void setQueueTimestamp(long queueTimestamp) {
         this.queueTimestamp = queueTimestamp;
+    }
+
+    public long getIdentifierChangeTimestamp() {
+        return identifierChangeTimestamp;
+    }
+
+    public void setIdentifierChangeTimestamp(long identifierChangeTimestamp) {
+        this.identifierChangeTimestamp = identifierChangeTimestamp;
     }
 
     public long getInactiveTimestamp() {
