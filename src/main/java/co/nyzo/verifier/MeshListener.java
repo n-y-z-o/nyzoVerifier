@@ -189,8 +189,10 @@ public class MeshListener {
         Message response = null;
         try {
             // Many actions are taken inside this block as a result of messages. Therefore, we only want to continue if
-            // the message is valid.
-            if (message != null && message.isValid()) {
+            // the message is valid. The timestamp check protects against various replay attacks.
+            if (message != null && message.isValid() &&
+                    message.getTimestamp() >= System.currentTimeMillis() - Message.replayProtectionInterval &&
+                    message.getTimestamp() <= System.currentTimeMillis() + Message.replayProtectionInterval) {
 
                 Verifier.registerMessage();
 
@@ -291,6 +293,12 @@ public class MeshListener {
                     long height = ((BlockWithVotesRequest) message.getContent()).getHeight();
                     response = new Message(MessageType.BlockWithVotesResponse38, new BlockWithVotesResponse(height));
 
+                } else if (messageType == MessageType.VerifierRemovalVote39) {
+
+                    VerifierRemovalManager.registerVote(message.getSourceNodeIdentifier(),
+                            (VerifierRemovalVote) message.getContent());
+                    response = new Message(MessageType.VerifierRemovalVoteResponse40, null);
+
                 } else if (messageType == MessageType.Ping200) {
 
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
@@ -333,6 +341,11 @@ public class MeshListener {
 
                     response = new Message(MessageType.PerformanceScoreStatusResponse419,
                             new PerformanceScoreStatusResponse(message));
+
+                } else if (messageType == MessageType.VerifierRemovalTallyStatusRequest420) {
+
+                    response = new Message(MessageType.VerifierRemovalTallyStatusResponse421,
+                            new VerifierRemovalTallyStatusResponse(message));
 
                 } else if (messageType == MessageType.ResetRequest500) {
 

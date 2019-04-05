@@ -44,6 +44,8 @@ public enum MessageType {
     BootstrapResponseV2_36(36),
     BlockWithVotesRequest37(37),
     BlockWithVotesResponse38(38),
+    VerifierRemovalVote39(39),
+    VerifierRemovalVoteResponse40(40),
 
     // test messages
     Ping200(200),
@@ -75,6 +77,8 @@ public enum MessageType {
     BlacklistStatusResponse417(417),
     PerformanceScoreStatusRequest418(418),
     PerformanceScoreStatusResponse419(419),
+    VerifierRemovalTallyStatusRequest420(420),
+    VerifierRemovalTallyStatusResponse421(421),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain

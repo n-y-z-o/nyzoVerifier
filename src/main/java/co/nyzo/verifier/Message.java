@@ -26,6 +26,7 @@ public class Message {
     private static final Set<MessageType> disallowedNonCycleTypes = new HashSet<>(Arrays.asList(MessageType.NewBlock9,
             MessageType.BlockVote19, MessageType.NewVerifierVote21, MessageType.MissingBlockVoteRequest23,
             MessageType.MissingBlockRequest25));
+    public static final long replayProtectionInterval = 5000L;
 
     // We do not broadcast any messages to the full mesh from the broadcast method. We do, however, use the full mesh
     // as a potential pool for random requests for the following types. This reduces strain on in-cycle verifiers.
@@ -199,10 +200,12 @@ public class Message {
                     }
 
                     if (messageCallback != null) {
-                        if (response == null || !response.isValid()) {
-                            MessageQueue.add(messageCallback, null);
-                        } else {
+                        if (response != null && response.isValid() &&
+                                response.getTimestamp() >= System.currentTimeMillis() - replayProtectionInterval &&
+                                response.getTimestamp() <= System.currentTimeMillis() + replayProtectionInterval) {
                             MessageQueue.add(messageCallback, response);
+                        } else {
+                            MessageQueue.add(messageCallback, null);
                         }
                     }
                 }
@@ -420,6 +423,8 @@ public class Message {
             content = BlockWithVotesRequest.fromByteBuffer(buffer);
         } else if (type == MessageType.BlockWithVotesResponse38) {
             content = BlockWithVotesResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.VerifierRemovalVote39) {
+            content = VerifierRemovalVote.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
@@ -438,6 +443,8 @@ public class Message {
             content = BlacklistStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PerformanceScoreStatusResponse419) {
             content = PerformanceScoreStatusResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.VerifierRemovalTallyStatusResponse421) {
+            content = VerifierRemovalTallyStatusResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.ResetResponse501) {
             content = BooleanMessageResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.Error65534) {

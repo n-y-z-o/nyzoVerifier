@@ -419,7 +419,7 @@ public class Verifier {
 
             MessageQueue.blockThisThreadUntilClear();
 
-            long sleepTime = 1000L;
+            long sleepTime = 300L;
             try {
                 // Only run the active verifier if connected to the mesh.
                 if (NodeManager.connectedToMesh() && !paused) {
@@ -489,8 +489,10 @@ public class Verifier {
                     // Try to freeze a block.
                     UnfrozenBlockManager.attemptToFreezeBlock();
 
-                    // Remove old votes from the block vote manager.
+                    // Remove old votes from the vote managers.
                     BlockVoteManager.removeOldVotes();
+                    NewVerifierVoteManager.removeOldVotes();
+                    VerifierRemovalManager.removeOldVotes();
 
                     // Vote requests and block requests should only happen if this verifier is in the cycle. Otherwise,
                     // other verifiers might blacklist this verifier.
@@ -535,11 +537,15 @@ public class Verifier {
                         // activity.
                         NodeManager.sendNodeJoinRequests(10);
 
-                        // Update scores with the verifier performance manager.
+                        // Update scores with the verifier performance manager and send votes.
                         long scoreUpdateHeight = BlockManager.getFrozenEdgeHeight();
                         Block scoreUpdateBlock = BlockManager.frozenBlockForHeight(scoreUpdateHeight);
                         VerifierPerformanceManager.updateScoresForFrozenBlock(scoreUpdateBlock,
                                 BlockVoteManager.votesForHeight(scoreUpdateHeight));
+                        VerifierPerformanceManager.sendVotes();
+
+                        // Update vote counts for verifier removal.
+                        VerifierRemovalManager.updateVoteCounts();
 
                         // Perform blacklist and unfrozen block maintenance.
                         BlacklistManager.performMaintenance();

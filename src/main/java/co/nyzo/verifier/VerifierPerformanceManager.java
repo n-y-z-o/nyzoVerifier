@@ -1,7 +1,10 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BlockVote;
+import co.nyzo.verifier.messages.VerifierRemovalVote;
 import co.nyzo.verifier.util.FileUtil;
+import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -16,17 +19,20 @@ import java.util.function.BiFunction;
 public class VerifierPerformanceManager {
 
     // All scores start at zero. For consistency with chain scores, a lower score is considered superior to a higher
-    // score. The 3:6 increment-to-decrement ratio means that, with 75% consensus, the cycle will see score reductions
+    // score. The 3:5 increment-to-decrement ratio means that, with 75% consensus, the cycle will see score reductions
     // on average for each block frozen.
     private static final int perBlockIncrement = 3;
-    private static final int perVoteDecrement = -6;
+    private static final int perVoteDecrement = -5;
     private static final int removalThresholdScore = 12343 * 2 * perBlockIncrement;  // two days from 0
     private static final int minimumScore = -removalThresholdScore;  // up to two additional days for good performance
 
     private static final Map<ByteBuffer, Integer> verifierScoreMap = new ConcurrentHashMap<>();
     private static AtomicInteger blocksSinceWritingFile = new AtomicInteger();
 
-    public static final File scoreFile = new File(Verifier.dataRootDirectory, "performance_scores");
+    private static final int messagesPerIteration = 10;
+    private static final Map<ByteBuffer, Long> voteMessageIpToTimestampMap = new ConcurrentHashMap<>();
+
+    public static final File scoreFile = new File(Verifier.dataRootDirectory, "performance_scores_v1");
 
     private static final BiFunction<Integer, Integer, Integer> mergeFunction =
             new BiFunction<Integer, Integer, Integer>() {
@@ -141,5 +147,84 @@ public class VerifierPerformanceManager {
         }
 
         return lines;
+    }
+
+    public static List<byte[]> getVerifiersOverThreshold() {
+
+        // Get the identifiers.
+        List<byte[]> identifiers = new ArrayList<>();
+        for (ByteBuffer identifier : verifierScoreMap.keySet()) {
+            int score = verifierScoreMap.getOrDefault(identifier, 0);
+            if (score > removalThresholdScore) {
+                identifiers.add(identifier.array());
+            }
+        }
+
+        // If the list is too large, sort it and remove the lowest scores.
+        if (identifiers.size() > VerifierRemovalVote.maximumNumberOfVotes) {
+            Collections.sort(identifiers, new Comparator<byte[]>() {
+                @Override
+                public int compare(byte[] identifier1, byte[] identifier2) {
+                    Integer score1 = verifierScoreMap.getOrDefault(ByteBuffer.wrap(identifier1), 0);
+                    Integer score2 = verifierScoreMap.getOrDefault(ByteBuffer.wrap(identifier2), 0);
+                    return score2.compareTo(score1);
+                }
+            });
+
+            while (identifiers.size() > VerifierRemovalVote.maximumNumberOfVotes) {
+                identifiers.remove(identifiers.size() - 1);
+            }
+        }
+
+        return identifiers;
+    }
+
+    public static void sendVotes() {
+
+        // Ensure a one-to-one correlation between timestamps and IP addresses. First, add zeros for all nodes not
+        // yet in the timestamp map.
+        List<Node> mesh = NodeManager.getMesh();
+        Set<ByteBuffer> cycleIpAddresses = new HashSet<>();
+        for (Node node : mesh) {
+            ByteBuffer ipAddress = ByteBuffer.wrap(node.getIpAddress());
+            if (BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(node.getIdentifier()))) {
+                cycleIpAddresses.add(ipAddress);
+                if (!voteMessageIpToTimestampMap.keySet().contains(ipAddress)) {
+                    voteMessageIpToTimestampMap.put(ipAddress, 0L);
+                }
+            }
+        }
+
+        // Next, remove all timestamp entries for IP addresses not present in the cycle.
+        for (ByteBuffer ipAddress : new HashSet<>(voteMessageIpToTimestampMap.keySet())) {
+            if (!cycleIpAddresses.contains(ipAddress)) {
+                voteMessageIpToTimestampMap.remove(ipAddress);
+            }
+        }
+
+        // Build the list of timestamps and determine the cutoff timestamp.
+        List<Long> timestampList = new ArrayList<>(voteMessageIpToTimestampMap.values());
+        Collections.sort(timestampList);
+        long cutoffTimestamp = timestampList.get(Math.min(timestampList.size() - 1, messagesPerIteration));
+        double secondsSinceCutoff = (System.currentTimeMillis() - cutoffTimestamp) / 1000.0;
+
+        // Build the vote and register it locally.
+        VerifierRemovalVote vote = new VerifierRemovalVote();
+        VerifierRemovalManager.registerVote(Verifier.getIdentifier(), vote);
+
+        // Send the messages.
+        int numberOfMessages = 0;
+        Message message = new Message(MessageType.VerifierRemovalVote39, vote);
+        for (Node node : mesh) {
+            ByteBuffer ipAddress = ByteBuffer.wrap(node.getIpAddress());
+            if (numberOfMessages < messagesPerIteration &&
+                    BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(node.getIdentifier())) &&
+                    voteMessageIpToTimestampMap.getOrDefault(ipAddress, Long.MAX_VALUE) <= cutoffTimestamp) {
+
+                voteMessageIpToTimestampMap.put(ipAddress, System.currentTimeMillis());
+                numberOfMessages++;
+                Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, null);
+            }
+        }
     }
 }

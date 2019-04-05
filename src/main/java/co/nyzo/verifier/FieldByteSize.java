@@ -27,6 +27,7 @@ public class FieldByteSize {
     public static final int stringLength = 2;
     public static final int transactionPoolLength = 4;
     public static final int unfrozenBlockPoolLength = 2;
+    public static final int unnamedByte = 1;
     public static final int unnamedDouble = 8;
     public static final int unnamedInteger = 4;
     public static final int unnamedShort = 2;

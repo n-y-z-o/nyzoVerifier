@@ -640,14 +640,12 @@ public class Block implements MessageObject {
                         score += (previousBlock.getCycleInformation().getCycleLength() -
                                 cycleInformation.getCycleLength()) * 4L;
 
-                        // This penalty was previously imposed to prevent consolidation of verifiers after entering
-                        // the cycle. While protections against consolidation are necessary to promote verifier
-                        // diversity, these protections should be built around long-running metrics that actually
-                        // measure meaningful diversity and contribution to the health of the cycle, not something as
-                        // naive as this.
-                        //if (!NodeManager.isActive(verifierIdentifier)) {
-                        //    score += 5L;
-                        //}
+                        // If a verifier needs to be removed, apply a penalty score of 5. This will put it just behind
+                        // the next verifier in the cycle.
+                        if (score == 0 &&
+                                VerifierRemovalManager.shouldPenalizeVerifier(block.getVerifierIdentifier())) {
+                            score += 5L;
+                        }
 
                         // Penalize for each balance-list spam transaction.
                         score += block.spamTransactionCount() * 5L;
