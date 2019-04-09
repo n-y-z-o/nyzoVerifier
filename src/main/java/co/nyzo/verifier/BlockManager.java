@@ -27,7 +27,9 @@ public class BlockManager {
     private static long genesisBlockStartTimestamp = -1L;
     private static boolean initialized = false;
     private static boolean cycleComplete = false;
-    private static long lastVerifierRemovalHeight = -1L;
+
+    private static final String lastVerifierRemovalHeightKey = "last_verifier_removal_height";
+    private static long lastVerifierRemovalHeight = PersistentData.getLong(lastVerifierRemovalHeightKey, -1L);
 
     static {
         initialize();
@@ -623,6 +625,7 @@ public class BlockManager {
             if (currentCycleList.size() < BlockManager.currentCycleList.size() ||
                     (currentCycleList.size() == BlockManager.currentCycleList.size() && isNewVerifier)) {
                 lastVerifierRemovalHeight = edgeHeight;
+                PersistentData.put(lastVerifierRemovalHeightKey, lastVerifierRemovalHeight);
             }
 
             BlockManager.currentCycleEndHeight = edgeHeight;

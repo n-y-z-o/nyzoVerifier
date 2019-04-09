@@ -46,6 +46,8 @@ public enum MessageType {
     BlockWithVotesResponse38(38),
     VerifierRemovalVote39(39),
     VerifierRemovalVoteResponse40(40),
+    FullMeshRequest41(41),
+    FullMeshResponse42(42),
 
     // test messages
     Ping200(200),

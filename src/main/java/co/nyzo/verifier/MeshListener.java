@@ -9,6 +9,7 @@ import co.nyzo.verifier.util.UpdateUtil;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -235,7 +236,7 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.MeshRequest15) {
 
-                    response = new Message(MessageType.MeshResponse16, new MeshResponse(NodeManager.getMesh()));
+                    response = new Message(MessageType.MeshResponse16, new MeshResponse(NodeManager.getCycle()));
 
                 } else if (messageType == MessageType.StatusRequest17) {
 
@@ -298,6 +299,10 @@ public class MeshListener {
                     VerifierRemovalManager.registerVote(message.getSourceNodeIdentifier(),
                             (VerifierRemovalVote) message.getContent());
                     response = new Message(MessageType.VerifierRemovalVoteResponse40, null);
+
+                } else if (messageType == MessageType.FullMeshRequest41) {
+
+                    response = new Message(MessageType.FullMeshResponse42, new MeshResponse(NodeManager.getMesh()));
 
                 } else if (messageType == MessageType.Ping200) {
 

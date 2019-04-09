@@ -425,6 +425,8 @@ public class Message {
             content = BlockWithVotesResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.VerifierRemovalVote39) {
             content = VerifierRemovalVote.fromByteBuffer(buffer);
+        } else if (type == MessageType.FullMeshResponse42) {
+            content = MeshResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {

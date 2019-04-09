@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class NodeManager {
@@ -18,7 +19,7 @@ public class NodeManager {
     private static Set<ByteBuffer> activeIdentifiers = new HashSet<>();
     private static Set<ByteBuffer> activeCycleIdentifiers = new HashSet<>();
     private static String missingInCycleVerifiers = "";
-    private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new HashMap<>();
+    private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new ConcurrentHashMap<>();
 
     private static final int consecutiveFailuresBeforeRemoval = 6;
     private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
@@ -138,7 +139,19 @@ public class NodeManager {
         return blocksSinceChange > BlockManager.currentCycleLength() + 2;
     }
 
-    public static synchronized List<Node> getMesh() {
+    public static List<Node> getCycle() {
+
+        List<Node> cycleNodes = new ArrayList<>();
+        for (Node node : ipAddressToNodeMap.values()) {
+            if (BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(node.getIdentifier()))) {
+                cycleNodes.add(node);
+            }
+        }
+
+        return cycleNodes;
+    }
+
+    public static List<Node> getMesh() {
         return new ArrayList<>(ipAddressToNodeMap.values());
     }
 
@@ -340,7 +353,7 @@ public class NodeManager {
 
             meshRequestWait = Math.max(BlockManager.currentCycleLength(), minimumMeshRequestInterval);
 
-            Message meshRequest = new Message(MessageType.MeshRequest15, null);
+            Message meshRequest = new Message(MessageType.FullMeshRequest41, null);
             Message.fetchFromRandomNode(meshRequest, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
@@ -350,7 +363,7 @@ public class NodeManager {
                         // on the next iteration.
                         meshRequestWait = 0;
                     } else {
-                        // Queue node-join requests to all nodes in the response.
+                        // Enqueue node-join requests to all nodes in the response.
                         MeshResponse response = (MeshResponse) message.getContent();
                         for (Node node : response.getMesh()) {
                             NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
