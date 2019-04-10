@@ -1,6 +1,6 @@
 package co.nyzo.verifier.util;
 
-class DebugUtil {
+public class DebugUtil {
 
     public static String callingMethod() {
 
