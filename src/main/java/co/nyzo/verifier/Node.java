@@ -1,6 +1,5 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.messages.TransactionPoolResponse;
 import co.nyzo.verifier.util.IpUtil;
 
 import java.nio.ByteBuffer;
@@ -9,7 +8,7 @@ import java.util.*;
 public class Node implements MessageObject {
 
     private byte[] identifier;                    // wallet public key (32 bytes)
-    private byte[] ipAddress;                     // IPv4 address, stored as bytes to keep memory predictable (4 bytes)
+    private final byte[] ipAddress;                     // IPv4 address, stored as bytes to keep memory predictable (4 bytes)
     private int port;                             // port number
     private long queueTimestamp;                  // this is the timestamp that determines queue placement -- it is
                                                   // when the verifier joined the mesh or when the verifier was last

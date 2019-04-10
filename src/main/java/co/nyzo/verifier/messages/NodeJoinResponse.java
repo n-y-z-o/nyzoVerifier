@@ -3,17 +3,14 @@ package co.nyzo.verifier.messages;
 import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
 public class NodeJoinResponse implements MessageObject, PortMessage {
 
     private static final int maximumVotes = 100;
 
-    private String nickname;
-    private int port;
-    private NewVerifierVote newVerifierVote;
+    private final String nickname;
+    private final int port;
+    private final NewVerifierVote newVerifierVote;
 
     public NodeJoinResponse() {
 
@@ -22,7 +19,7 @@ public class NodeJoinResponse implements MessageObject, PortMessage {
         this.newVerifierVote = NewVerifierVoteManager.getLocalVote();
     }
 
-    public NodeJoinResponse(String nickname, int port, NewVerifierVote newVerifierNote) {
+    private NodeJoinResponse(String nickname, int port, NewVerifierVote newVerifierNote) {
 
         this.nickname = nickname == null ? "" : nickname;
         this.port = port;
@@ -45,10 +42,8 @@ public class NodeJoinResponse implements MessageObject, PortMessage {
     @Override
     public int getByteSize() {
 
-        int size = FieldByteSize.string(nickname) + FieldByteSize.port + FieldByteSize.voteListLength +
+        return FieldByteSize.string(nickname) + FieldByteSize.port + FieldByteSize.voteListLength +
                 FieldByteSize.identifier;
-
-        return size;
     }
 
     @Override

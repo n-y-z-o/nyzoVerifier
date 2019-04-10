@@ -1,16 +1,13 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.NotificationUtil;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 public class BlockManagerMap {
 
     private static int iteration = 0;
-    private static Map<Long, Block> blockMap = new HashMap<>();
+    private static final Map<Long, Block> blockMap = new HashMap<>();
 
     public static synchronized void addBlock(Block block) {
 

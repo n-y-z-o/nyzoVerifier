@@ -5,14 +5,13 @@ import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 public class BootstrapResponseV2 implements MessageObject {
 
-    private long frozenEdgeHeight;
-    private byte[] frozenEdgeHash;
-    private List<ByteBuffer> cycleVerifiers;
+    private final long frozenEdgeHeight;
+    private final byte[] frozenEdgeHash;
+    private final List<ByteBuffer> cycleVerifiers;
 
     public BootstrapResponseV2() {
 
@@ -21,7 +20,7 @@ public class BootstrapResponseV2 implements MessageObject {
         this.cycleVerifiers = BlockManager.verifiersInCurrentCycleList();
     }
 
-    public BootstrapResponseV2(long frozenEdgeHeight, byte[] frozenEdgeHash, List<ByteBuffer> cycleVerifiers) {
+    private BootstrapResponseV2(long frozenEdgeHeight, byte[] frozenEdgeHash, List<ByteBuffer> cycleVerifiers) {
 
         this.frozenEdgeHeight = frozenEdgeHeight;
         this.frozenEdgeHash = frozenEdgeHash;
@@ -93,10 +92,10 @@ public class BootstrapResponseV2 implements MessageObject {
 
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder("[BootstrapResponseV2(frozenEdgeHeight=" +
-                frozenEdgeHeight + ",frozenEdgeHash=" + PrintUtil.superCompactPrintByteArray(frozenEdgeHash) +
-                ",cycleVerifiers=" + cycleVerifiers.size() + "]");
 
-        return result.toString();
+        String result = "[BootstrapResponseV2(frozenEdgeHeight=" +
+                frozenEdgeHeight + ",frozenEdgeHash=" + PrintUtil.superCompactPrintByteArray(frozenEdgeHash) +
+                ",cycleVerifiers=" + cycleVerifiers.size() + "]";
+        return result;
     }
 }

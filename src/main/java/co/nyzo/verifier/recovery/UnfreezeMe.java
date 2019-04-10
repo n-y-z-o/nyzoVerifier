@@ -6,11 +6,9 @@ import co.nyzo.verifier.messages.MeshResponse;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class UnfreezeMe {
+class UnfreezeMe {
 
     public static void main(String[] args) {
 
@@ -26,19 +24,15 @@ public class UnfreezeMe {
         byte[] ipAddress = new byte[FieldByteSize.ipAddress];
         Message meshRequest = new Message(MessageType.MeshRequest15, null);
         AtomicBoolean receivedResponse = new AtomicBoolean(false);
-        Message.fetch("verifier0.nyzo.co", MeshListener.standardPort, meshRequest, new MessageCallback() {
+        Message.fetch("verifier0.nyzo.co", MeshListener.standardPort, meshRequest, message -> {
 
-            @Override
-            public void responseReceived(Message message) {
-
-                MeshResponse meshResponse = (MeshResponse) message.getContent();
-                for (Node node : meshResponse.getMesh()) {
-                    if (ByteUtil.arraysAreEqual(identifier, node.getIdentifier())) {
-                        for (int i = 0; i < FieldByteSize.ipAddress; i++) {
-                            ipAddress[i] = node.getIpAddress()[i];
-                        }
-                        receivedResponse.set(true);
+            MeshResponse meshResponse = (MeshResponse) message.getContent();
+            for (Node node : meshResponse.getMesh()) {
+                if (ByteUtil.arraysAreEqual(identifier, node.getIdentifier())) {
+                    for (int i = 0; i < FieldByteSize.ipAddress; i++) {
+                        ipAddress[i] = node.getIpAddress()[i];
                     }
+                    receivedResponse.set(true);
                 }
             }
         });
@@ -60,12 +54,9 @@ public class UnfreezeMe {
         receivedResponse.set(false);
         Message message = new Message(MessageType.HashVoteOverrideRequest29, new HashVoteOverrideRequest(height, hash));
         message.sign(privateSeed);
-        Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-            @Override
-            public void responseReceived(Message message) {
-                System.out.println("response is " + message);
-                receivedResponse.set(true);
-            }
+        Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, message1 -> {
+            System.out.println("response is " + message1);
+            receivedResponse.set(true);
         });
 
         // Wait for the response to return.

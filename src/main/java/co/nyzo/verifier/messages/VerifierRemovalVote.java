@@ -25,7 +25,7 @@ public class VerifierRemovalVote implements MessageObject {
         this.identifiers = VerifierPerformanceManager.getVerifiersOverThreshold();
     }
 
-    public VerifierRemovalVote(List<byte[]> identifiers) {
+    private VerifierRemovalVote(List<byte[]> identifiers) {
 
         if (identifiers == null) {
             this.identifiers = new ArrayList<>();

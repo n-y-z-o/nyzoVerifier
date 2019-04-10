@@ -24,7 +24,7 @@ public class BlockWithVotesResponse implements MessageObject {
         }
     }
 
-    public BlockWithVotesResponse(Block block, List<BlockVote> votes) {
+    private BlockWithVotesResponse(Block block, List<BlockVote> votes) {
 
         this.block = block;
         this.votes = votes;

@@ -9,7 +9,6 @@ import net.i2p.crypto.eddsa.spec.EdDSAParameterSpec;
 
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
@@ -54,7 +53,7 @@ public class KeyUtil {
 
     private static final int OID_ED25519 = 112;
 
-    public static byte[] encodedFromSeed(byte[] seed) {
+    private static byte[] encodedFromSeed(byte[] seed) {
 
         int totlen = 16 + seed.length;
         byte[] rv = new byte[totlen];
@@ -91,7 +90,7 @@ public class KeyUtil {
         return rv;
     }
 
-    public static byte[] encodedFromAByte(byte[] aByte) {
+    private static byte[] encodedFromAByte(byte[] aByte) {
 
         int totlen = 12 + aByte.length;
         byte[] rv = new byte[totlen];

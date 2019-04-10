@@ -1,7 +1,6 @@
 package co.nyzo.verifier.messages.debug;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MultilineTextResponse;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -11,7 +10,7 @@ import java.util.*;
 
 public class UnfrozenBlockPoolStatusResponse implements MessageObject, MultilineTextResponse {
 
-    private List<String> lines;
+    private final List<String> lines;
 
     public UnfrozenBlockPoolStatusResponse(Message request) {
 
@@ -27,16 +26,13 @@ public class UnfrozenBlockPoolStatusResponse implements MessageObject, Multiline
             }
 
             // Sort the blocks.
-            Collections.sort(blocks, new Comparator<Block>() {
-                @Override
-                public int compare(Block block1, Block block2) {
-                    if (block1.getBlockHeight() == block2.getBlockHeight()) {
-                        Long chainScore1 = chainScoreMap.get(block1);
-                        Long chainScore2 = chainScoreMap.get(block2);
-                        return chainScore1.compareTo(chainScore2);
-                    } else {
-                        return ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight());
-                    }
+            blocks.sort((block1, block2) -> {
+                if (block1.getBlockHeight() == block2.getBlockHeight()) {
+                    Long chainScore1 = chainScoreMap.get(block1);
+                    Long chainScore2 = chainScoreMap.get(block2);
+                    return chainScore1.compareTo(chainScore2);
+                } else {
+                    return ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight());
                 }
             });
 
@@ -61,7 +57,7 @@ public class UnfrozenBlockPoolStatusResponse implements MessageObject, Multiline
         }
     }
 
-    public UnfrozenBlockPoolStatusResponse(List<String> lines) {
+    private UnfrozenBlockPoolStatusResponse(List<String> lines) {
 
         this.lines = lines;
     }
@@ -122,8 +118,7 @@ public class UnfrozenBlockPoolStatusResponse implements MessageObject, Multiline
 
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder("[UnfrozenBlockPoolStatusResponse(lines=" + lines.size() + ")]");
 
-        return result.toString();
+        return "[UnfrozenBlockPoolStatusResponse(lines=" + lines.size() + ")]";
     }
 }

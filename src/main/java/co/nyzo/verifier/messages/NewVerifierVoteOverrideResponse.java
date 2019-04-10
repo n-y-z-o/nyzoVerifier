@@ -1,14 +1,13 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 
 public class NewVerifierVoteOverrideResponse implements MessageObject {
 
-    private boolean accepted;
-    private String message;
+    private final boolean accepted;
+    private final String message;
 
     public NewVerifierVoteOverrideResponse(Message request) {
 

@@ -7,7 +7,7 @@ import java.util.Arrays;
 
 public class NewVerifierVoteOverrideRequest implements MessageObject {
 
-    private byte[] identifier;
+    private final byte[] identifier;
 
     public NewVerifierVoteOverrideRequest(byte[] identifier) {
 

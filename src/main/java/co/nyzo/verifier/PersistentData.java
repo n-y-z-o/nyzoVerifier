@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class PersistentData {
+class PersistentData {
 
     private static final Map<String, String> dataMap = new ConcurrentHashMap<>();
     private static final File file = new File(Verifier.dataRootDirectory, "persistent_data");

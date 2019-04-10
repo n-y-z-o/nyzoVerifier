@@ -1,7 +1,6 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.VerifierRemovalVote;
-import co.nyzo.verifier.util.IpUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;

@@ -1,9 +1,7 @@
 package co.nyzo.verifier.messages.debug;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MultilineTextResponse;
-import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -11,7 +9,7 @@ import java.util.*;
 
 public class NewVerifierTallyStatusResponse implements MessageObject, MultilineTextResponse {
 
-    private List<String> lines;
+    private final List<String> lines;
 
     public NewVerifierTallyStatusResponse(Message request) {
 
@@ -27,11 +25,11 @@ public class NewVerifierTallyStatusResponse implements MessageObject, MultilineT
 
             this.lines = lines;
         } else {
-            this.lines = Arrays.asList("*** Unauthorized ***");
+            this.lines = Collections.singletonList("*** Unauthorized ***");
         }
     }
 
-    public NewVerifierTallyStatusResponse(List<String> lines) {
+    private NewVerifierTallyStatusResponse(List<String> lines) {
 
         this.lines = lines;
     }

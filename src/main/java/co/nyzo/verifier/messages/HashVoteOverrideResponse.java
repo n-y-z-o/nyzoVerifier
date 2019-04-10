@@ -6,8 +6,8 @@ import java.nio.ByteBuffer;
 
 public class HashVoteOverrideResponse implements MessageObject {
 
-    private boolean accepted;
-    private String message;
+    private final boolean accepted;
+    private final String message;
 
     public HashVoteOverrideResponse(Message request) {
 

@@ -7,11 +7,11 @@ import co.nyzo.verifier.util.PrintUtil;
 
 public class ManagedVerifier {
 
-    private String host;
-    private int port;
-    private byte[] seed;
-    private byte[] identifier;
-    private boolean sentinelTransactionEnabled;
+    private final String host;
+    private final int port;
+    private final byte[] seed;
+    private final byte[] identifier;
+    private final boolean sentinelTransactionEnabled;
 
     private ManagedVerifier(String host, int port, byte[] seed, boolean sentinelTransactionEnabled) {
 

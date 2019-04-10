@@ -2,15 +2,14 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.FileUtil;
-import co.nyzo.verifier.util.PrintUtil;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class TestnetGenesisBlockCreator {
+class TestnetGenesisBlockCreator {
 
-    public static final byte[] nullBlockHash = HashUtil.doubleSHA256(new byte[0]);
+    private static final byte[] nullBlockHash = HashUtil.doubleSHA256(new byte[0]);
 
     private static final byte[] verifierSeed = ByteUtil.byteArrayFromHexString("0101010101010101-0101010101010101-" +
             "0101010101010101-0101010101010101", FieldByteSize.seed);

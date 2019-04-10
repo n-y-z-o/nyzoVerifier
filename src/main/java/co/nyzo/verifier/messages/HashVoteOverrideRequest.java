@@ -7,8 +7,8 @@ import java.nio.ByteBuffer;
 
 public class HashVoteOverrideRequest implements MessageObject {
 
-    private long height;
-    private byte[] hash;
+    private final long height;
+    private final byte[] hash;
 
     public HashVoteOverrideRequest(long height, byte[] hash) {
 

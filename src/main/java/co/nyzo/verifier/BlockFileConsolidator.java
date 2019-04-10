@@ -10,23 +10,20 @@ public class BlockFileConsolidator {
 
     public static void start() {
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        new Thread(() -> {
 
-                while (!UpdateUtil.shouldTerminate()) {
+            while (!UpdateUtil.shouldTerminate()) {
 
-                    // Sleep for 5 minutes (300 seconds) in 3-second intervals.
-                    for (int i = 0; i < 100 && !UpdateUtil.shouldTerminate(); i++) {
-                        try {
-                            Thread.sleep(3000L);
-                        } catch (Exception ignored) { }
-                    }
-
+                // Sleep for 5 minutes (300 seconds) in 3-second intervals.
+                for (int i = 0; i < 100 && !UpdateUtil.shouldTerminate(); i++) {
                     try {
-                        consolidateFiles();
+                        Thread.sleep(3000L);
                     } catch (Exception ignored) { }
                 }
+
+                try {
+                    consolidateFiles();
+                } catch (Exception ignored) { }
             }
         }, "BlockFileConsolidator").start();
     }
@@ -46,11 +43,7 @@ public class BlockFileConsolidator {
                 if (blockHeight > 0) {
                     long fileIndex = blockHeight / BlockManager.blocksPerFile;
                     if (fileIndex < currentFileIndex) {
-                        List<File> filesForIndex = fileMap.get(fileIndex);
-                        if (filesForIndex == null) {
-                            filesForIndex = new ArrayList<>();
-                            fileMap.put(fileIndex, filesForIndex);
-                        }
+                        List<File> filesForIndex = fileMap.computeIfAbsent(fileIndex, k -> new ArrayList<>());
                         filesForIndex.add(file);
                     }
                 }
@@ -77,12 +70,7 @@ public class BlockFileConsolidator {
         }
 
         // Sort the blocks on block height ascending.
-        Collections.sort(blocks, new Comparator<Block>() {
-            @Override
-            public int compare(Block block1, Block block2) {
-                return ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight());
-            }
-        });
+        blocks.sort((block1, block2) -> ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight()));
 
         // Dedupe blocks.
         for (int i = blocks.size() - 1; i > 0; i--) {

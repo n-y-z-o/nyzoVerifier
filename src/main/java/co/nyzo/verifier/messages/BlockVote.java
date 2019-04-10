@@ -7,9 +7,9 @@ import java.nio.ByteBuffer;
 
 public class BlockVote implements MessageObject {
 
-    private long height;
-    private byte[] hash;
-    private long timestamp;  // to prevent replay attacks of old votes (actually, unnecessary due to message timestamp)
+    private final long height;
+    private final byte[] hash;
+    private final long timestamp;  // to prevent replay attacks of old votes (actually, unnecessary due to message timestamp)
     private long receiptTimestamp;  // local-only field used to ensure minimum spacing between votes
     private byte[] senderIdentifier;  // sender of the message for BlockWithVotesResponse
     private long messageTimestamp;  // timestamp of the message for BlockWithVotesResponse

@@ -10,10 +10,10 @@ import java.util.List;
 
 public class BalanceList implements MessageObject {
 
-    private long blockHeight;
-    private byte rolloverFees;
-    private List<byte[]> previousVerifiers;
-    private List<BalanceListItem> items;
+    private final long blockHeight;
+    private final byte rolloverFees;
+    private final List<byte[]> previousVerifiers;
+    private final List<BalanceListItem> items;
 
     public BalanceList(long blockHeight, byte rolloverFees, List<byte[]> previousVerifiers,
                        List<BalanceListItem> items) {
@@ -28,24 +28,21 @@ public class BalanceList implements MessageObject {
 
         // Sort first to make removal of duplicates easier.
         List<BalanceListItem> sorted = new ArrayList<>(balanceItems);
-        Collections.sort(sorted, new Comparator<BalanceListItem>() {
-            @Override
-            public int compare(BalanceListItem pair1, BalanceListItem pair2) {
-                int result = 0;
-                byte[] identifier1 = pair1.getIdentifier();
-                byte[] identifier2 = pair2.getIdentifier();
-                for (int i = 0; i < FieldByteSize.identifier && result == 0; i++) {
-                    int byte1 = identifier1[i] & 0xff;
-                    int byte2 = identifier2[i] & 0xff;
-                    if (byte1 < byte2) {
-                        result = -1;
-                    } else if (byte2 < byte1) {
-                        result = 1;
-                    }
+        sorted.sort((pair1, pair2) -> {
+            int result = 0;
+            byte[] identifier1 = pair1.getIdentifier();
+            byte[] identifier2 = pair2.getIdentifier();
+            for (int i = 0; i < FieldByteSize.identifier && result == 0; i++) {
+                int byte1 = identifier1[i] & 0xff;
+                int byte2 = identifier2[i] & 0xff;
+                if (byte1 < byte2) {
+                    result = -1;
+                } else if (byte2 < byte1) {
+                    result = 1;
                 }
-
-                return result;
             }
+
+            return result;
         });
 
         // Remove any entries with balances of zero or less. This is actually a protection against overdrafts, because

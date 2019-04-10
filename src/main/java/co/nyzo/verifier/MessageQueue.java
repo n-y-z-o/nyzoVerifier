@@ -60,7 +60,7 @@ public class MessageQueue {
         }
     }
 
-    public static synchronized MessageQueue next() {
+    private static synchronized MessageQueue next() {
 
         MessageQueue queueObject = null;
         if (queue.size() > 0) {
@@ -80,32 +80,29 @@ public class MessageQueue {
 
         System.out.println("starting message queue");
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (!UpdateUtil.shouldTerminate()) {
+        new Thread(() -> {
+            while (!UpdateUtil.shouldTerminate()) {
 
-                    MessageQueue next = next();
-                    String lastMessageStatus;
-                    if (next == null) {
-                        lastMessageStatus = "last message was null";
-                        try {
-                            Thread.sleep(100L);
-                        } catch (Exception ignored) { }
-                    } else {
+                MessageQueue next = next();
+                String lastMessageStatus;
+                if (next == null) {
+                    lastMessageStatus = "last message was null";
+                    try {
+                        Thread.sleep(100L);
+                    } catch (Exception ignored) { }
+                } else {
 
-                        lastMessageStatus = "last message was " + next.message;
-                        try {
-                            lastMessageStatus += " invoking responseReceived";
-                            if (next.callback != null) {
-                                lastMessageStatus += " [not null]";
-                                next.callback.responseReceived(next.message);
-                            }
-                            lastMessageStatus += " [complete]";
-                        } catch (Exception ignored) { }
-                    }
-                    MessageQueue.lastMessageStatus = lastMessageStatus;
+                    lastMessageStatus = "last message was " + next.message;
+                    try {
+                        lastMessageStatus += " invoking responseReceived";
+                        if (next.callback != null) {
+                            lastMessageStatus += " [not null]";
+                            next.callback.responseReceived(next.message);
+                        }
+                        lastMessageStatus += " [complete]";
+                    } catch (Exception ignored) { }
                 }
+                MessageQueue.lastMessageStatus = lastMessageStatus;
             }
         }, "MessageQueue-dispatchLoop").start();
     }

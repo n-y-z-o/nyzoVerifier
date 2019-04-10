@@ -6,8 +6,8 @@ import java.nio.ByteBuffer;
 
 public class ConsensusThresholdOverrideResponse implements MessageObject {
 
-    private boolean accepted;
-    private String message;
+    private final boolean accepted;
+    private final String message;
 
     public ConsensusThresholdOverrideResponse(Message request) {
 

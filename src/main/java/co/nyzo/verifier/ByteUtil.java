@@ -49,7 +49,7 @@ public class ByteUtil {
         return arrayAsStringNoDashes(array, 0, array.length);
     }
 
-    public static String arrayAsStringNoDashes(byte[] array, int offset, int length) {
+    private static String arrayAsStringNoDashes(byte[] array, int offset, int length) {
 
         StringBuilder result = new StringBuilder();
         try {

@@ -23,7 +23,7 @@ public class Transaction implements MessageObject {
     // market cap is $100 million. If we have a coin value of $100,000, then the transaction increment is $0.10,
     // and the market cap is $10 trillion.
 
-    public static final long nyzosInSystem = 100000000L;
+    private static final long nyzosInSystem = 100000000L;
     public static final long micronyzoMultiplierRatio = 1000000L;
     public static final long micronyzosInSystem = nyzosInSystem * micronyzoMultiplierRatio;
 
@@ -77,7 +77,7 @@ public class Transaction implements MessageObject {
         return previousHashHeight;
     }
 
-    public byte[] getPreviousBlockHash() {
+    private byte[] getPreviousBlockHash() {
         if (previousBlockHash == null) {
             assignPreviousBlockHash();
         }
@@ -114,9 +114,9 @@ public class Transaction implements MessageObject {
         return transaction;
     }
 
-    public static Transaction seedTransaction(long timestamp, long amount, byte[] receiverIdentifier,
-                                              long previousHashHeight, byte[] previousBlockHash,
-                                              byte[] senderIdentifier, byte[] senderData, byte[] signature) {
+    private static Transaction seedTransaction(long timestamp, long amount, byte[] receiverIdentifier,
+                                               long previousHashHeight, byte[] previousBlockHash,
+                                               byte[] senderIdentifier, byte[] senderData, byte[] signature) {
 
         Transaction transaction = new Transaction();
         transaction.type = typeSeed;
@@ -150,9 +150,9 @@ public class Transaction implements MessageObject {
         return transaction;
     }
 
-    public static Transaction standardTransaction(long timestamp, long amount, byte[] receiverIdentifier,
-                                                  long previousHashHeight, byte[] previousBlockHash,
-                                                  byte[] senderIdentifier, byte[] senderData, byte[] signature) {
+    private static Transaction standardTransaction(long timestamp, long amount, byte[] receiverIdentifier,
+                                                   long previousHashHeight, byte[] previousBlockHash,
+                                                   byte[] senderIdentifier, byte[] senderData, byte[] signature) {
 
         Transaction transaction = new Transaction();
         transaction.type = typeStandard;
@@ -196,7 +196,7 @@ public class Transaction implements MessageObject {
         return getByteSize(false);
     }
 
-    public int getByteSize(boolean forSigning) {
+    private int getByteSize(boolean forSigning) {
 
         int size = FieldByteSize.transactionType +    // type
                 FieldByteSize.timestamp +             // timestamp

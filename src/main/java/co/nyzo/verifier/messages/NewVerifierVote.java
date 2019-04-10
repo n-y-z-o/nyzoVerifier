@@ -1,8 +1,6 @@
 package co.nyzo.verifier.messages;
 
-import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.FieldByteSize;
-import co.nyzo.verifier.HashUtil;
 import co.nyzo.verifier.MessageObject;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -11,7 +9,7 @@ import java.util.Arrays;
 
 public class NewVerifierVote implements MessageObject {
 
-    private byte[] identifier;
+    private final byte[] identifier;
 
     public NewVerifierVote(byte[] identifier) {
 

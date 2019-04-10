@@ -85,8 +85,7 @@ public class UnfrozenBlockPoolPurgeResponse implements MessageObject {
 
         boolean valid = true;
         if (!ByteUtil.arraysAreEqual(purgeRequest.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
-            error.append("The identifier, " +
-                    ByteUtil.arrayAsStringWithDashes(purgeRequest.getSourceNodeIdentifier()) + ", is incorrect. ");
+            error.append("The identifier, ").append(ByteUtil.arrayAsStringWithDashes(purgeRequest.getSourceNodeIdentifier())).append(", is incorrect. ");
             valid = false;
         }
 

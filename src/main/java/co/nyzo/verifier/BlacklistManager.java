@@ -96,17 +96,14 @@ public class BlacklistManager {
 
         BufferedReader outputReader = new BufferedReader(new InputStreamReader(inputStream));
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    String line;
-                    while ((line = outputReader.readLine()) != null) {
-                        outputStream.println(line);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+        new Thread(() -> {
+            try {
+                String line;
+                while ((line = outputReader.readLine()) != null) {
+                    outputStream.println(line);
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }).start();
     }

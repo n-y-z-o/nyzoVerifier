@@ -8,7 +8,7 @@ import co.nyzo.verifier.util.UpdateUtil;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class HashVoteOverrideRequestScript {
+class HashVoteOverrideRequestScript {
 
     public static void main(String[] args) {
 
@@ -47,13 +47,10 @@ public class HashVoteOverrideRequestScript {
         Message message = new Message(MessageType.HashVoteOverrideRequest29, request);
         message.sign(privateSeed);
         for (byte[] ipAddress : ipAddresses) {
-            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, message1 -> {
 
-                    System.out.println("response is " + message);
-                    numberOfResponsesNotYetReceived.decrementAndGet();
-                }
+                System.out.println("response is " + message1);
+                numberOfResponsesNotYetReceived.decrementAndGet();
             });
         }
 

@@ -16,20 +16,17 @@ public class MemoryMonitor {
 
     private static void start() {
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        new Thread(() -> {
 
-                while (!UpdateUtil.shouldTerminate()) {
+            while (!UpdateUtil.shouldTerminate()) {
 
-                    long memory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-                    sumMemory += memory;
-                    minimumMemory = Math.min(minimumMemory, memory);
-                    maximumMemory = Math.max(maximumMemory, memory);
-                    iterations++;
+                long memory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+                sumMemory += memory;
+                minimumMemory = Math.min(minimumMemory, memory);
+                maximumMemory = Math.max(maximumMemory, memory);
+                iterations++;
 
-                    ThreadUtil.sleep(3000L);
-                }
+                ThreadUtil.sleep(3000L);
             }
         }).start();
     }

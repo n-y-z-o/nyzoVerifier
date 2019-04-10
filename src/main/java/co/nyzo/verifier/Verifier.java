@@ -24,7 +24,6 @@ public class Verifier {
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
     private static String nickname = null;
-    private static int rejoinCount = 0;
 
     private static int numberOfBlocksCreated = 0;
     private static int numberOfBlocksTransmitted = 0;
@@ -57,14 +56,12 @@ public class Verifier {
 
             try {
                 List<String> arguments = new ArrayList<>();
-                for (int i = 1; i < args.length; i++) {
-                    arguments.add(args[i]);
-                }
+                arguments.addAll(Arrays.asList(args).subList(1, args.length));
 
                 System.out.println("executing class " + args[0]);
                 Class<?> classToRun = Class.forName(args[0]);
                 Method mainMethod = classToRun.getDeclaredMethod("main", String[].class);
-                mainMethod.invoke(classToRun, new Object[]{arguments.toArray(new String[arguments.size()])});
+                mainMethod.invoke(classToRun, new Object[]{arguments.toArray(new String[0])});
                 System.out.println("fin.");
             } catch (Exception e) {
 
@@ -88,7 +85,7 @@ public class Verifier {
             final Path seedFile = Paths.get(dataRootDirectory.getAbsolutePath() + "/verifier_private_seed");
             try {
                 List<String> lines = Files.readAllLines(seedFile);
-                if (lines != null && !lines.isEmpty()) {
+                if (!lines.isEmpty()) {
                     String line = lines.get(0);
                     if (line.length() > 64) {
                         privateSeed = ByteUtil.byteArrayFromHexString(lines.get(0), 32);
@@ -99,7 +96,7 @@ public class Verifier {
             if (privateSeed == null || ByteUtil.isAllZeros(privateSeed) || privateSeed.length != 32) {
                 privateSeed = KeyUtil.generateSeed();
                 try {
-                    FileUtil.writeFile(seedFile, Arrays.asList(ByteUtil.arrayAsStringWithDashes(privateSeed)));
+                    FileUtil.writeFile(seedFile, Collections.singletonList(ByteUtil.arrayAsStringWithDashes(privateSeed)));
                 } catch (Exception e) {
                     e.printStackTrace();
                     privateSeed = null;
@@ -108,7 +105,7 @@ public class Verifier {
         }
     }
 
-    public static void start() {
+    private static void start() {
 
         if (!alive.getAndSet(true)) {
 
@@ -206,15 +203,12 @@ public class Verifier {
 
                         System.out.println("sending Bootstrap request to " + entryPoint);
                         Message.fetch(entryPoint.getHost(), entryPoint.getPort(), bootstrapRequest,
-                                new MessageCallback() {
-                                    @Override
-                                    public void responseReceived(Message message) {
-                                        if (message == null) {
-                                            System.out.println("Bootstrap response is null");
-                                        } else {
-                                            numberOfResponsesReceived.incrementAndGet();
-                                            ChainInitializationManager.processBootstrapResponseMessage(message);
-                                        }
+                                message -> {
+                                    if (message == null) {
+                                        System.out.println("Bootstrap response is null");
+                                    } else {
+                                        numberOfResponsesReceived.incrementAndGet();
+                                        ChainInitializationManager.processBootstrapResponseMessage(message);
                                     }
                                 });
                     }
@@ -290,19 +284,16 @@ public class Verifier {
 
             // Start the proactive side of the verifier, initiating the actions necessary to maintain the mesh and
             // build the blockchain.
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        NotificationUtil.send("started main verifier loop on " + getNickname());
-                        StatusResponse.print();
-                        verifierMain();
-                    } catch (Exception reportOnly) {
-                        NotificationUtil.send("exited verifierMain() on " + getNickname() + " due to exception: " +
-                                reportOnly.getMessage());
-                    }
-                    alive.set(false);
+            new Thread(() -> {
+                try {
+                    NotificationUtil.send("started main verifier loop on " + getNickname());
+                    StatusResponse.print();
+                    verifierMain();
+                } catch (Exception reportOnly) {
+                    NotificationUtil.send("exited verifierMain() on " + getNickname() + " due to exception: " +
+                            reportOnly.getMessage());
                 }
+                alive.set(false);
             }, "Verifier-mainLoop").start();
         }
     }
@@ -310,18 +301,15 @@ public class Verifier {
     private static void fetchMesh(TrustedEntryPoint entryPoint, AtomicInteger numberOfMeshResponsesPending) {
 
         Message meshRequest = new Message(MessageType.MeshRequest15, null);
-        Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, new MessageCallback() {
-            @Override
-            public void responseReceived(Message message) {
+        Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, message -> {
 
-                // Enqueue node-join requests for all nodes in the response.
-                MeshResponse response = (MeshResponse) message.getContent();
-                for (Node node : response.getMesh()) {
-                    NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
-                }
-
-                numberOfMeshResponsesPending.decrementAndGet();
+            // Enqueue node-join requests for all nodes in the response.
+            MeshResponse response = (MeshResponse) message.getContent();
+            for (Node node : response.getMesh()) {
+                NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
             }
+
+            numberOfMeshResponsesPending.decrementAndGet();
         });
     }
 
@@ -331,23 +319,20 @@ public class Verifier {
 
         Message message = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
         Message.fetch(trustedEntryPoint.getHost(), trustedEntryPoint.getPort(), message,
-                new MessageCallback() {
-                    @Override
-                    public void responseReceived(Message message) {
-                        if (message != null) {
+                message1 -> {
+                    if (message1 != null) {
 
-                            NodeManager.updateNode(message);
+                        NodeManager.updateNode(message1);
 
-                            NodeJoinResponse response = (NodeJoinResponse) message.getContent();
-                            if (response != null) {
+                        NodeJoinResponse response = (NodeJoinResponse) message1.getContent();
+                        if (response != null) {
 
-                                NicknameManager.put(message.getSourceNodeIdentifier(),
-                                        response.getNickname());
+                            NicknameManager.put(message1.getSourceNodeIdentifier(),
+                                    response.getNickname());
 
-                                if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
-                                    NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
-                                            response.getNewVerifierVote(), false);
-                                }
+                            if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
+                                NewVerifierVoteManager.registerVote(message1.getSourceNodeIdentifier(),
+                                        response.getNewVerifierVote(), false);
                             }
                         }
                     }
@@ -752,6 +737,7 @@ public class Verifier {
 
     public static int getRejoinCount() {
 
+        int rejoinCount = 0;
         return rejoinCount;
     }
 
@@ -764,34 +750,31 @@ public class Verifier {
             System.out.println("requesting block with votes for height " + heightToRequest);
             BlockWithVotesRequest request = new BlockWithVotesRequest(heightToRequest);
             Message message = new Message(MessageType.BlockWithVotesRequest37, request);
-            Message.fetchFromRandomNode(message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetchFromRandomNode(message, message1 -> {
 
-                    if (message != null && message.getType() == MessageType.BlockWithVotesResponse38) {
-                        blockWithVotesMessageSupportedCount++;
-                    } else {
-                        blockWithVotesMessageUnsupportedCount++;
-                    }
+                if (message1 != null && message1.getType() == MessageType.BlockWithVotesResponse38) {
+                    blockWithVotesMessageSupportedCount++;
+                } else {
+                    blockWithVotesMessageUnsupportedCount++;
+                }
 
-                    BlockWithVotesResponse response = message == null ? null :
-                            (BlockWithVotesResponse) message.getContent();
-                    if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
+                BlockWithVotesResponse response = message1 == null ? null :
+                        (BlockWithVotesResponse) message1.getContent();
+                if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
 
-                        UnfrozenBlockManager.registerBlock(response.getBlock());
+                    UnfrozenBlockManager.registerBlock(response.getBlock());
 
-                        for (BlockVote vote : response.getVotes()) {
+                    for (BlockVote vote : response.getVotes()) {
 
-                            // Reconstruct the message in which the vote was originally sent. If the signature is valid,
-                            // register the vote.
-                            Message voteMessage = new Message(vote.getMessageTimestamp(), MessageType.BlockVote19, vote,
-                                    vote.getSenderIdentifier(), vote.getMessageSignature(),
-                                    new byte[FieldByteSize.ipAddress]);
-                            if (voteMessage.isValid()) {
-                                BlockVoteManager.registerVote(voteMessage);
-                            } else {
-                                System.out.println("vote is ***NOT VALID***");
-                            }
+                        // Reconstruct the message in which the vote was originally sent. If the signature is valid,
+                        // register the vote.
+                        Message voteMessage = new Message(vote.getMessageTimestamp(), MessageType.BlockVote19, vote,
+                                vote.getSenderIdentifier(), vote.getMessageSignature(),
+                                new byte[FieldByteSize.ipAddress]);
+                        if (voteMessage.isValid()) {
+                            BlockVoteManager.registerVote(voteMessage);
+                        } else {
+                            System.out.println("vote is ***NOT VALID***");
                         }
                     }
                 }
@@ -810,21 +793,18 @@ public class Verifier {
             System.out.println("requesting block from trusted source for height " + heightToRequest);
             Message message = new Message(MessageType.BlockRequest11, new BlockRequest(heightToRequest, heightToRequest,
                     false));
-            Message.fetchFromRandomNode(message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetchFromRandomNode(message, message1 -> {
 
-                    if (message != null) {
-                        BlockResponse response = (BlockResponse) message.getContent();
-                        if (response != null && response.getBlocks().size() == 1) {
+                if (message1 != null) {
+                    BlockResponse response = (BlockResponse) message1.getContent();
+                    if (response != null && response.getBlocks().size() == 1) {
 
-                            Block block = response.getBlocks().get(0);
-                            BlockManager.freezeBlock(block);
-                        }
+                        Block block = response.getBlocks().get(0);
+                        BlockManager.freezeBlock(block);
                     }
-
-                    processedResponse.set(true);
                 }
+
+                processedResponse.set(true);
             });
 
             while (!processedResponse.get()) {

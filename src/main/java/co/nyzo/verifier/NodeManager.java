@@ -31,7 +31,7 @@ public class NodeManager {
     private static final AtomicInteger nodeJoinRequestsSent = new AtomicInteger(0);
     private static final Map<ByteBuffer, Long> persistedQueueTimestamps = new HashMap<>();
 
-    public static final File queueTimestampsFile = new File(Verifier.dataRootDirectory, "queue_timestamps");
+    private static final File queueTimestampsFile = new File(Verifier.dataRootDirectory, "queue_timestamps");
 
     static {
         loadPersistedQueueTimestamps();
@@ -316,23 +316,20 @@ public class NodeManager {
                     nodeJoinRequestsSent.incrementAndGet();
                     Message nodeJoinMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
                     Message.fetch(IpUtil.addressAsString(ipAddressBuffer.array()), port, nodeJoinMessage,
-                            new MessageCallback() {
-                                @Override
-                                public void responseReceived(Message message) {
-                                    if (message != null) {
+                            message -> {
+                                if (message != null) {
 
-                                        updateNode(message);
+                                    updateNode(message);
 
-                                        NodeJoinResponse response = (NodeJoinResponse) message.getContent();
-                                        if (response != null) {
+                                    NodeJoinResponse response = (NodeJoinResponse) message.getContent();
+                                    if (response != null) {
 
-                                            NicknameManager.put(message.getSourceNodeIdentifier(),
-                                                    response.getNickname());
+                                        NicknameManager.put(message.getSourceNodeIdentifier(),
+                                                response.getNickname());
 
-                                            if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
-                                                NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
-                                                        response.getNewVerifierVote(), false);
-                                            }
+                                        if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
+                                            NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
+                                                    response.getNewVerifierVote(), false);
                                         }
                                     }
                                 }
@@ -354,24 +351,21 @@ public class NodeManager {
             meshRequestWait = Math.max(BlockManager.currentCycleLength(), minimumMeshRequestInterval);
 
             Message meshRequest = new Message(MessageType.FullMeshRequest41, null);
-            Message.fetchFromRandomNode(meshRequest, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetchFromRandomNode(meshRequest, message -> {
 
-                    if (message == null) {
-                        // For a null response, set the mesh request wait to zero so that another attempt will be made
-                        // on the next iteration.
-                        meshRequestWait = 0;
-                    } else {
-                        // Enqueue node-join requests to all nodes in the response.
-                        MeshResponse response = (MeshResponse) message.getContent();
-                        for (Node node : response.getMesh()) {
-                            NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
-                        }
-
-                        System.out.println("reloaded node-join request queue, size is now " +
-                                nodeJoinRequestQueue.size());
+                if (message == null) {
+                    // For a null response, set the mesh request wait to zero so that another attempt will be made
+                    // on the next iteration.
+                    meshRequestWait = 0;
+                } else {
+                    // Enqueue node-join requests to all nodes in the response.
+                    MeshResponse response = (MeshResponse) message.getContent();
+                    for (Node node : response.getMesh()) {
+                        NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
                     }
+
+                    System.out.println("reloaded node-join request queue, size is now " +
+                            nodeJoinRequestQueue.size());
                 }
             });
         }

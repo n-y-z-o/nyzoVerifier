@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class HistoricalBlockManagerMap {
+class HistoricalBlockManagerMap {
 
     // This is a simple class that provides older blocks in the blockchain. We want to provide a service to clients
     // who are interested in older blocks than the BlockManagerMap provides, but we do not want to overload the

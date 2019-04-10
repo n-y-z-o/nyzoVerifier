@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class Sentinel {
+class Sentinel {
 
     private static final File managedVerifiersFile = new File(Verifier.dataRootDirectory, "managed_verifiers");
 
@@ -34,13 +34,13 @@ public class Sentinel {
     private static final long blockCreationDelay = 20000L;
     private static final long blockTransmissionDelay = 10000L;
 
-    private static Map<ByteBuffer, AtomicInteger> consecutiveSuccessfulBlockFetches = new ConcurrentHashMap<>();
-    private static Map<ByteBuffer, Boolean> inFastFetchMode = new ConcurrentHashMap<>();
+    private static final Map<ByteBuffer, AtomicInteger> consecutiveSuccessfulBlockFetches = new ConcurrentHashMap<>();
+    private static final Map<ByteBuffer, Boolean> inFastFetchMode = new ConcurrentHashMap<>();
 
     private static int numberOfBlocksReceived = 0;
     private static int numberOfBlocksFrozen = 0;
 
-    private static AtomicLong lastBlockReceivedTimestamp = new AtomicLong(0L);
+    private static final AtomicLong lastBlockReceivedTimestamp = new AtomicLong(0L);
 
     private static final Map<ByteBuffer, ManagedVerifier> verifiers = new ConcurrentHashMap<>();
 
@@ -88,64 +88,58 @@ public class Sentinel {
         // Start the thread for transmitting blocks. While a separate thread is needed for fetching data from each
         // managed verifier, only one thread is required for transmitting blocks, as only a single block at each height
         // will protect all verifiers, regardless of how many are down at that time.
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // Set the last-block received timestamp so we do not immediately transmit a block.
-                lastBlockReceivedTimestamp.set(System.currentTimeMillis());
+        new Thread(() -> {
+            // Set the last-block received timestamp so we do not immediately transmit a block.
+            lastBlockReceivedTimestamp.set(System.currentTimeMillis());
 
-                // Run the main loop.
-                while (!UpdateUtil.shouldTerminate()) {
-                    transmitBlockIfNecessary();
-                    ThreadUtil.sleep(1000L);
-                }
+            // Run the main loop.
+            while (!UpdateUtil.shouldTerminate()) {
+                transmitBlockIfNecessary();
+                ThreadUtil.sleep(1000L);
             }
         }).start();
     }
 
     private static void startThreadForVerifier(ManagedVerifier verifier, int querySlot) {
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        new Thread(() -> {
 
-                ByteBuffer identifier = ByteBuffer.wrap(verifier.getIdentifier());
-                long lastBlockRequestedTimestamp = 0L;
-                long lastMeshUpdateTimestamp = 0L;
-                while (!UpdateUtil.shouldTerminate()) {
+            ByteBuffer identifier = ByteBuffer.wrap(verifier.getIdentifier());
+            long lastBlockRequestedTimestamp = 0L;
+            long lastMeshUpdateTimestamp = 0L;
+            while (!UpdateUtil.shouldTerminate()) {
 
-                    long loopStartTimestamp = System.currentTimeMillis();
+                long loopStartTimestamp = System.currentTimeMillis();
 
-                    // This is an important step, though one that should be used with care in a situation with many
-                    // threads sending messages simultaneously. As all the individual verifier loops are invoking this
-                    // method, none will monopolize the queue.
-                    MessageQueue.blockThisThreadUntilClear();
+                // This is an important step, though one that should be used with care in a situation with many
+                // threads sending messages simultaneously. As all the individual verifier loops are invoking this
+                // method, none will monopolize the queue.
+                MessageQueue.blockThisThreadUntilClear();
 
-                    // Update the mesh. We need to know who the in-cycle nodes are in order to send out a block if one
-                    // needs to be created.
-                    if (lastMeshUpdateTimestamp < System.currentTimeMillis() - meshUpdateInterval) {
-                        lastMeshUpdateTimestamp = System.currentTimeMillis();
-                        updateMesh(verifier);
-                    }
+                // Update the mesh. We need to know who the in-cycle nodes are in order to send out a block if one
+                // needs to be created.
+                if (lastMeshUpdateTimestamp < System.currentTimeMillis() - meshUpdateInterval) {
+                    lastMeshUpdateTimestamp = System.currentTimeMillis();
+                    updateMesh(verifier);
+                }
 
-                    // Update the blocks. Both the fast-fetch setting and the interval are applied on a per-verifier
-                    // basis. If we are certain that we are close to the actual frozen edge of the blockchain, we query
-                    // only in our assigned slot to improve efficiency. Otherwise, all threads operate in parallel.
-                    long blockUpdateInterval = inFastFetchMode.get(identifier) ? blockUpdateIntervalFast :
-                            blockUpdateIntervalStandard;
-                    int currentSlot = (int) ((System.currentTimeMillis() / blockUpdateInterval) % verifiers.size());
-                    if (lastBlockRequestedTimestamp < System.currentTimeMillis() - blockUpdateInterval &&
-                            (currentSlot == querySlot ||
-                                    frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 20000L)) {
-                        lastBlockRequestedTimestamp = System.currentTimeMillis();
-                        updateBlocks(verifier);
-                    }
+                // Update the blocks. Both the fast-fetch setting and the interval are applied on a per-verifier
+                // basis. If we are certain that we are close to the actual frozen edge of the blockchain, we query
+                // only in our assigned slot to improve efficiency. Otherwise, all threads operate in parallel.
+                long blockUpdateInterval = inFastFetchMode.get(identifier) ? blockUpdateIntervalFast :
+                        blockUpdateIntervalStandard;
+                int currentSlot = (int) ((System.currentTimeMillis() / blockUpdateInterval) % verifiers.size());
+                if (lastBlockRequestedTimestamp < System.currentTimeMillis() - blockUpdateInterval &&
+                        (currentSlot == querySlot ||
+                                frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 20000L)) {
+                    lastBlockRequestedTimestamp = System.currentTimeMillis();
+                    updateBlocks(verifier);
+                }
 
-                    // Ensure a minimum interval between iterations. This includes processing time, so the actual sleep
-                    // time may be zero.
-                    while (System.currentTimeMillis() < loopStartTimestamp + minimumLoopInterval) {
-                        ThreadUtil.sleep(300L);
-                    }
+                // Ensure a minimum interval between iterations. This includes processing time, so the actual sleep
+                // time may be zero.
+                while (System.currentTimeMillis() < loopStartTimestamp + minimumLoopInterval) {
+                    ThreadUtil.sleep(300L);
                 }
             }
         }).start();
@@ -195,16 +189,13 @@ public class Sentinel {
 
                 Message bootstrapRequest = new Message(MessageType.BootstrapRequestV2_35,
                         new BootstrapRequest(MeshListener.getPort()));
-                Message.fetch(verifier.getHost(), verifier.getPort(), bootstrapRequest, new MessageCallback() {
-                    @Override
-                    public void responseReceived(Message message) {
+                Message.fetch(verifier.getHost(), verifier.getPort(), bootstrapRequest, message -> {
 
-                        System.out.println("response from " + verifier.getHost() + " is " + message);
-                        if (message != null && (message.getContent() instanceof BootstrapResponseV2)) {
-                            bootstrapResponses.add((BootstrapResponseV2) message.getContent());
-                        }
-                        numberOfResponsesPending.decrementAndGet();
+                    System.out.println("response from " + verifier.getHost() + " is " + message);
+                    if (message != null && (message.getContent() instanceof BootstrapResponseV2)) {
+                        bootstrapResponses.add((BootstrapResponseV2) message.getContent());
                     }
+                    numberOfResponsesPending.decrementAndGet();
                 });
             }
 
@@ -255,25 +246,22 @@ public class Sentinel {
             AtomicInteger numberOfResponsesPending = new AtomicInteger(verifiers.size());
             for (ManagedVerifier verifier : verifiers.values()) {
 
-                Message.fetch(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
-                    @Override
-                    public void responseReceived(Message message) {
+                Message.fetch(verifier.getHost(), verifier.getPort(), message, message1 -> {
 
-                        if (message != null) {
-                            try {
-                                BlockResponse blockResponse = (BlockResponse) message.getContent();
-                                Block block = blockResponse.getBlocks().get(0);
-                                BalanceList balanceList = blockResponse.getInitialBalanceList();
-                                if (block.getBlockHeight() == cutoffHeight &&
-                                        balanceList.getBlockHeight() == cutoffHeight) {
-                                    blocks.add(block);
-                                    balanceLists.add(balanceList);
-                                }
-                            } catch (Exception ignored) { }
-                        }
-
-                        numberOfResponsesPending.decrementAndGet();
+                    if (message1 != null) {
+                        try {
+                            BlockResponse blockResponse = (BlockResponse) message1.getContent();
+                            Block block = blockResponse.getBlocks().get(0);
+                            BalanceList balanceList = blockResponse.getInitialBalanceList();
+                            if (block.getBlockHeight() == cutoffHeight &&
+                                    balanceList.getBlockHeight() == cutoffHeight) {
+                                blocks.add(block);
+                                balanceLists.add(balanceList);
+                            }
+                        } catch (Exception ignored) { }
                     }
+
+                    numberOfResponsesPending.decrementAndGet();
                 });
             }
 
@@ -315,20 +303,17 @@ public class Sentinel {
 
         // Get the mesh.
         Message message = new Message(MessageType.MeshRequest15, null);
-        Message.fetch(verifier.getHost(), 9444, message, new MessageCallback() {
-            @Override
-            public void responseReceived(Message message) {
+        Message.fetch(verifier.getHost(), 9444, message, message1 -> {
 
-                try {
-                    if (message != null) {
-                        MeshResponse response = (MeshResponse) message.getContent();
-                        if (!response.getMesh().isEmpty()) {
-                            verifierIdentifierToMeshMap.put(ByteBuffer.wrap(message.getSourceNodeIdentifier()),
-                                    response.getMesh());
-                        }
+            try {
+                if (message1 != null) {
+                    MeshResponse response = (MeshResponse) message1.getContent();
+                    if (!response.getMesh().isEmpty()) {
+                        verifierIdentifierToMeshMap.put(ByteBuffer.wrap(message1.getSourceNodeIdentifier()),
+                                response.getMesh());
                     }
-                } catch (Exception ignored) { }
-            }
+                }
+            } catch (Exception ignored) { }
         });
     }
 
@@ -344,23 +329,20 @@ public class Sentinel {
                 false));
 
         AtomicBoolean processedResponse = new AtomicBoolean(false);
-        Message.fetch(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
-            @Override
-            public void responseReceived(Message message) {
+        Message.fetch(verifier.getHost(), verifier.getPort(), message, message1 -> {
 
-                if (message != null) {
-                    try {
-                        BlockResponse blockResponse = (BlockResponse) message.getContent();
-                        List<Block> blocks = blockResponse.getBlocks();
-                        if (blocks.size() > 0 && blocks.get(0).getBlockHeight() == startHeightToFetch &&
-                        blocks.get(blocks.size() - 1).getBlockHeight() == endHeightToFetch) {
-                            blockList.addAll(blocks);
-                        }
-                    } catch (Exception ignored) { }
-                }
-
-                processedResponse.set(true);
+            if (message1 != null) {
+                try {
+                    BlockResponse blockResponse = (BlockResponse) message1.getContent();
+                    List<Block> blocks = blockResponse.getBlocks();
+                    if (blocks.size() > 0 && blocks.get(0).getBlockHeight() == startHeightToFetch &&
+                    blocks.get(blocks.size() - 1).getBlockHeight() == endHeightToFetch) {
+                        blockList.addAll(blocks);
+                    }
+                } catch (Exception ignored) { }
             }
+
+            processedResponse.set(true);
         });
 
         while (!processedResponse.get()) {

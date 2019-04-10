@@ -5,7 +5,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 
-public class NetworkUtil {
+class NetworkUtil {
 
     public static String stringForUrl(String urlString, int timeoutMilliseconds) {
 

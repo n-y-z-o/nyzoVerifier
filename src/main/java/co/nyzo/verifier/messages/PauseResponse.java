@@ -7,9 +7,9 @@ import java.nio.ByteBuffer;
 
 public class PauseResponse implements MessageObject {
 
-    private boolean paused;
+    private final boolean paused;
 
-    public PauseResponse(boolean paused) {
+    private PauseResponse(boolean paused) {
         this.paused = paused;
     }
 

@@ -9,7 +9,7 @@ import java.util.*;
 
 public class VerifierRemovalTallyStatusResponse implements MessageObject, MultilineTextResponse {
 
-    private List<String> lines;
+    private final List<String> lines;
 
     public VerifierRemovalTallyStatusResponse(Message request) {
 
@@ -29,7 +29,7 @@ public class VerifierRemovalTallyStatusResponse implements MessageObject, Multil
         }
     }
 
-    public VerifierRemovalTallyStatusResponse(List<String> lines) {
+    private VerifierRemovalTallyStatusResponse(List<String> lines) {
 
         this.lines = lines;
     }

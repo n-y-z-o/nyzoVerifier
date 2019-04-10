@@ -1,10 +1,5 @@
 package co.nyzo.verifier.util;
 
-import java.net.InetAddress;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Random;
-
 public class IpUtil {
 
     public static byte[] addressFromString(String addressString) {

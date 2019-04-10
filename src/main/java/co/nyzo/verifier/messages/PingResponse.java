@@ -8,7 +8,7 @@ import java.nio.ByteBuffer;
 
 public class PingResponse implements MessageObject {
 
-    private String message;
+    private final String message;
 
     public PingResponse(String message) {
         this.message = message;

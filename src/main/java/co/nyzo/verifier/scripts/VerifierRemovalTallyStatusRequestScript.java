@@ -2,7 +2,7 @@ package co.nyzo.verifier.scripts;
 
 import co.nyzo.verifier.*;
 
-public class VerifierRemovalTallyStatusRequestScript {
+class VerifierRemovalTallyStatusRequestScript {
 
     public static void main(String[] args) {
 

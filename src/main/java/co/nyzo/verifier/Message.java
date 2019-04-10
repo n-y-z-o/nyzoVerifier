@@ -5,7 +5,6 @@ import co.nyzo.verifier.messages.debug.*;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
-import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
@@ -160,53 +159,50 @@ public class Message {
                         BlockManager.inGenesisCycle() ||
                         !disallowedNonCycleTypes.contains(message.getType()))) {
 
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    Socket socket = new Socket();
-                    try {
-                        socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
-                    } catch (Exception e) {
-                        if (socket.isConnected()) {
-                            try {
-                                socket.close();
-                            } catch (Exception ignored) { }
-                        }
-                        socket = null;
-                    }
-
-                    Message response = null;
-                    if (socket == null) {
-                        NodeManager.markFailedConnection(hostNameOrIp);
-                    } else {
-                        NodeManager.markSuccessfulConnection(hostNameOrIp);
-
-                        try {
-                            OutputStream outputStream = socket.getOutputStream();
-                            outputStream.write(message.getBytesForTransmission());
-
-                            response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress(),
-                                    message.getType());
-                        } catch (Exception reportOnly) {
-                            System.err.println("Exception sending message " + message.getType() + " to " +
-                                    hostNameOrIp + ":" + port + ": " + PrintUtil.printException(reportOnly));
-                        }
-
+            new Thread(() -> {
+                Socket socket = new Socket();
+                try {
+                    socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
+                } catch (Exception e) {
+                    if (socket.isConnected()) {
                         try {
                             socket.close();
-                        } catch (Exception ignored) {
-                            System.out.println("unable to close socket to " + hostNameOrIp + ":" + port);
-                        }
+                        } catch (Exception ignored) { }
+                    }
+                    socket = null;
+                }
+
+                Message response = null;
+                if (socket == null) {
+                    NodeManager.markFailedConnection(hostNameOrIp);
+                } else {
+                    NodeManager.markSuccessfulConnection(hostNameOrIp);
+
+                    try {
+                        OutputStream outputStream = socket.getOutputStream();
+                        outputStream.write(message.getBytesForTransmission());
+
+                        response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress(),
+                                message.getType());
+                    } catch (Exception reportOnly) {
+                        System.err.println("Exception sending message " + message.getType() + " to " +
+                                hostNameOrIp + ":" + port + ": " + PrintUtil.printException(reportOnly));
                     }
 
-                    if (messageCallback != null) {
-                        if (response != null && response.isValid() &&
-                                response.getTimestamp() >= System.currentTimeMillis() - replayProtectionInterval &&
-                                response.getTimestamp() <= System.currentTimeMillis() + replayProtectionInterval) {
-                            MessageQueue.add(messageCallback, response);
-                        } else {
-                            MessageQueue.add(messageCallback, null);
-                        }
+                    try {
+                        socket.close();
+                    } catch (Exception ignored) {
+                        System.out.println("unable to close socket to " + hostNameOrIp + ":" + port);
+                    }
+                }
+
+                if (messageCallback != null) {
+                    if (response != null && response.isValid() &&
+                            response.getTimestamp() >= System.currentTimeMillis() - replayProtectionInterval &&
+                            response.getTimestamp() <= System.currentTimeMillis() + replayProtectionInterval) {
+                        MessageQueue.add(messageCallback, response);
+                    } else {
+                        MessageQueue.add(messageCallback, null);
                     }
                 }
             }, "Message-fetch-" + message).start();
@@ -270,7 +266,7 @@ public class Message {
         return result;
     }
 
-    public byte[] getBytesForSigning() {
+    private byte[] getBytesForSigning() {
 
         // Determine the size (timestamp, type, source-node identifier, content if present).
         int sizeBytes = FieldByteSize.timestamp + FieldByteSize.messageType + FieldByteSize.identifier;
@@ -321,7 +317,7 @@ public class Message {
         return result;
     }
 
-    public static Message fromBytes(byte[] bytes, byte[] sourceIpAddress) {
+    private static Message fromBytes(byte[] bytes, byte[] sourceIpAddress) {
 
         Message message = null;
         int typeValue = 0;
@@ -344,7 +340,7 @@ public class Message {
             // the message.
             if (disallowedNonCycleTypes.contains(type) &&
                     !BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(sourceNodeIdentifier)) &&
-                    !ipIsWhitelisted(sourceIpAddress)) {
+                    ipIsWhitelisted(sourceIpAddress)) {
 
                 BlacklistManager.addToBlacklist(sourceIpAddress);
 
@@ -512,7 +508,7 @@ public class Message {
 
     public static boolean ipIsWhitelisted(byte[] ipAddress) {
 
-        return whitelist.contains(ByteBuffer.wrap(ipAddress));
+        return !whitelist.contains(ByteBuffer.wrap(ipAddress));
     }
 
     @Override

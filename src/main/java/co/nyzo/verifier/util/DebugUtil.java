@@ -1,10 +1,6 @@
 package co.nyzo.verifier.util;
 
-import co.nyzo.verifier.Verifier;
-
-import java.io.File;
-
-public class DebugUtil {
+class DebugUtil {
 
     public static String callingMethod() {
 
@@ -35,7 +31,7 @@ public class DebugUtil {
 
     public static String callingMethods(int length) {
 
-        StringBuilder result = new StringBuilder("");
+        StringBuilder result = new StringBuilder();
 
         Throwable throwable = new Throwable();
         StackTraceElement[] stackTrace = throwable.getStackTrace();

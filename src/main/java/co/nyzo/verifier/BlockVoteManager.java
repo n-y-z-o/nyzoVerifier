@@ -42,11 +42,7 @@ public class BlockVoteManager {
                     (BlockManager.verifierInCurrentCycle(identifierBuffer) || BlockManager.inGenesisCycle())) {
 
                 // Get the map for the height.
-                Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
-                if (votesForHeight == null) {
-                    votesForHeight = new HashMap<>();
-                    voteMap.put(height, votesForHeight);
-                }
+                Map<ByteBuffer, BlockVote> votesForHeight = voteMap.computeIfAbsent(height, k -> new HashMap<>());
 
                 BlockVote existingVote = votesForHeight.get(identifierBuffer);
                 if (existingVote == null) {
@@ -60,11 +56,7 @@ public class BlockVoteManager {
                     // apart, to flip the vote.
 
                     // Get the flip map for the height.
-                    Map<ByteBuffer, BlockVote> flipVotesForHeight = flipVoteMap.get(height);
-                    if (flipVotesForHeight == null) {
-                        flipVotesForHeight = new HashMap<>();
-                        flipVoteMap.put(height, flipVotesForHeight);
-                    }
+                    Map<ByteBuffer, BlockVote> flipVotesForHeight = flipVoteMap.computeIfAbsent(height, k -> new HashMap<>());
 
                     BlockVote existingFlipVote = flipVotesForHeight.get(identifierBuffer);
                     if (existingFlipVote == null ||
@@ -174,12 +166,7 @@ public class BlockVoteManager {
             // Build the vote map.
             for (ByteBuffer identifier : votesForHeight.keySet()) {
                 ByteBuffer hash = ByteBuffer.wrap(votesForHeight.get(identifier).getHash());
-                Integer votesForHash = votesPerHash.get(hash);
-                if (votesForHash == null) {
-                    votesPerHash.put(hash, 1);
-                } else {
-                    votesPerHash.put(hash, votesForHash + 1);
-                }
+                votesPerHash.merge(hash, 1, (a, b) -> a + b);
             }
 
             // Get the hash with the most votes.
@@ -264,20 +251,17 @@ public class BlockVoteManager {
                         numberOfVotesRequested++;
 
                         Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message,
-                                new MessageCallback() {
-                                    @Override
-                                    public void responseReceived(Message message) {
+                                message1 -> {
 
-                                        BlockVote vote = (BlockVote) message.getContent();
-                                        if (vote != null) {
-                                            registerVote(message);
+                                    BlockVote vote = (BlockVote) message1.getContent();
+                                    if (vote != null) {
+                                        registerVote(message1);
 
-                                            // Each time a good vote is received, the last-vote-request timestamp is
-                                            // updated. If we take some time to request all the votes, this helps to
-                                            // avoid starting a new round of requests soon after, or even before, this
-                                            // round of requests completes.
-                                            lastVoteRequestTimestamp = System.currentTimeMillis();
-                                        }
+                                        // Each time a good vote is received, the last-vote-request timestamp is
+                                        // updated. If we take some time to request all the votes, this helps to
+                                        // avoid starting a new round of requests soon after, or even before, this
+                                        // round of requests completes.
+                                        lastVoteRequestTimestamp = System.currentTimeMillis();
                                     }
                                 });
                     }

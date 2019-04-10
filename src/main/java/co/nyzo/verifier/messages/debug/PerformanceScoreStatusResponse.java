@@ -7,11 +7,12 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class PerformanceScoreStatusResponse implements MessageObject, MultilineTextResponse {
 
-    private List<String> lines;
+    private final List<String> lines;
 
     public PerformanceScoreStatusResponse(Message request) {
 
@@ -20,11 +21,11 @@ public class PerformanceScoreStatusResponse implements MessageObject, MultilineT
 
             this.lines = VerifierPerformanceManager.printScores();
         } else {
-            this.lines = Arrays.asList("*** Unauthorized ***");
+            this.lines = Collections.singletonList("*** Unauthorized ***");
         }
     }
 
-    public PerformanceScoreStatusResponse(List<String> lines) {
+    private PerformanceScoreStatusResponse(List<String> lines) {
 
         this.lines = lines;
     }

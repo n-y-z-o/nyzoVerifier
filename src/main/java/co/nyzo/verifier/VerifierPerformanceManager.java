@@ -4,7 +4,6 @@ import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.VerifierRemovalVote;
 import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.PrintUtil;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -27,21 +26,18 @@ public class VerifierPerformanceManager {
     private static final int minimumScore = -removalThresholdScore;  // up to two additional days for good performance
 
     private static final Map<ByteBuffer, Integer> verifierScoreMap = new ConcurrentHashMap<>();
-    private static AtomicInteger blocksSinceWritingFile = new AtomicInteger();
+    private static final AtomicInteger blocksSinceWritingFile = new AtomicInteger();
 
     private static final int messagesPerIteration = 10;
     private static final Map<ByteBuffer, Long> voteMessageIpToTimestampMap = new ConcurrentHashMap<>();
 
-    public static final File scoreFile = new File(Verifier.dataRootDirectory, "performance_scores_v1");
+    private static final File scoreFile = new File(Verifier.dataRootDirectory, "performance_scores_v1");
 
     private static final BiFunction<Integer, Integer, Integer> mergeFunction =
-            new BiFunction<Integer, Integer, Integer>() {
-                @Override
-                public Integer apply(Integer integer0, Integer integer1) {
-                    int value0 = integer0 == null ? 0 : integer0;
-                    int value1 = integer1 == null ? 0 : integer1;
-                    return Math.max(minimumScore, value0 + value1);
-                }
+            (integer0, integer1) -> {
+                int value0 = integer0 == null ? 0 : integer0;
+                int value1 = integer1 == null ? 0 : integer1;
+                return Math.max(minimumScore, value0 + value1);
             };
 
     static {
@@ -130,13 +126,10 @@ public class VerifierPerformanceManager {
         // high (bad) to low (good) so that the verifiers that are most in danger of penalties are at the top of the
         // list.
         List<ByteBuffer> identifiers = new ArrayList<>(verifierScoreMap.keySet());
-        Collections.sort(identifiers, new Comparator<ByteBuffer>() {
-            @Override
-            public int compare(ByteBuffer identifier1, ByteBuffer identifier2) {
-                Integer score1 = verifierScoreMap.getOrDefault(identifier1, 0);
-                Integer score2 = verifierScoreMap.getOrDefault(identifier2, 0);
-                return score2.compareTo(score1);
-            }
+        identifiers.sort((identifier1, identifier2) -> {
+            Integer score1 = verifierScoreMap.getOrDefault(identifier1, 0);
+            Integer score2 = verifierScoreMap.getOrDefault(identifier2, 0);
+            return score2.compareTo(score1);
         });
 
         List<String> lines = new ArrayList<>();
@@ -162,13 +155,10 @@ public class VerifierPerformanceManager {
 
         // If the list is too large, sort it and remove the lowest scores.
         if (identifiers.size() > VerifierRemovalVote.maximumNumberOfVotes) {
-            Collections.sort(identifiers, new Comparator<byte[]>() {
-                @Override
-                public int compare(byte[] identifier1, byte[] identifier2) {
-                    Integer score1 = verifierScoreMap.getOrDefault(ByteBuffer.wrap(identifier1), 0);
-                    Integer score2 = verifierScoreMap.getOrDefault(ByteBuffer.wrap(identifier2), 0);
-                    return score2.compareTo(score1);
-                }
+            identifiers.sort((identifier1, identifier2) -> {
+                Integer score1 = verifierScoreMap.getOrDefault(ByteBuffer.wrap(identifier1), 0);
+                Integer score2 = verifierScoreMap.getOrDefault(ByteBuffer.wrap(identifier2), 0);
+                return score2.compareTo(score1);
             });
 
             while (identifiers.size() > VerifierRemovalVote.maximumNumberOfVotes) {

@@ -7,9 +7,9 @@ public class BalanceListItem {
 
     private static final short blocksBetweenFee = 500;
 
-    private byte[] identifier;
-    private long balance;
-    private short blocksUntilFee;
+    private final byte[] identifier;
+    private final long balance;
+    private final short blocksUntilFee;
 
     public BalanceListItem(byte[] identifier, long balance) {
         this.identifier = identifier;

@@ -7,8 +7,8 @@ import java.nio.charset.StandardCharsets;
 
 public class BooleanMessageResponse implements MessageObject {
 
-    private boolean success;
-    private String message;
+    private final boolean success;
+    private final String message;
 
     public BooleanMessageResponse(boolean success, String message) {
 

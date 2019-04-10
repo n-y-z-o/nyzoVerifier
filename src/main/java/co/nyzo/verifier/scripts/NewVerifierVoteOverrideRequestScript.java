@@ -8,7 +8,7 @@ import co.nyzo.verifier.util.UpdateUtil;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class NewVerifierVoteOverrideRequestScript {
+class NewVerifierVoteOverrideRequestScript {
 
     // This class and the message it uses are a shortcut for overriding the automatic age-based selection of new
     // verifiers for the mesh. If this functionality did not exist, it would still be trivial for owners of in-cycle
@@ -45,12 +45,9 @@ public class NewVerifierVoteOverrideRequestScript {
         Message message = new Message(MessageType.NewVerifierVoteOverrideRequest33, request);
         message.sign(privateSeed);
         for (byte[] ipAddress : ipAddresses) {
-            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
-                    System.out.println("response is " + message);
-                    numberOfResponsesNotYetReceived.decrementAndGet();
-                }
+            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, message1 -> {
+                System.out.println("response is " + message1);
+                numberOfResponsesNotYetReceived.decrementAndGet();
             });
         }
 

@@ -22,15 +22,15 @@ public class SeedTransactionManager {
 
     public static final File rootDirectory = new File(Verifier.dataRootDirectory, "seed_transactions");
 
-    public static final long blocksPerFile = 10000L;
+    private static final long blocksPerFile = 10000L;
     private static long lastBlockRequested = 0L;
 
-    public static final long transactionsPerYear = (60L * 60L * 24L * 365L * 1000L + Block.blockDuration - 1) /
+    private static final long transactionsPerYear = (60L * 60L * 24L * 365L * 1000L + Block.blockDuration - 1) /
             Block.blockDuration;  // round up
     public static final long totalSeedTransactions = TestnetUtil.testnet ? 40000 :
             transactionsPerYear * 6L;  // 40k testnet, six years production
     public static final long lowestSeedTransactionHeight = 2;  // start at block 2
-    public static final long highestSeedTransactionHeight = lowestSeedTransactionHeight + totalSeedTransactions - 1;
+    private static final long highestSeedTransactionHeight = lowestSeedTransactionHeight + totalSeedTransactions - 1;
 
     private static final Map<Long, Transaction> transactionMap = new HashMap<>();
 
@@ -44,70 +44,67 @@ public class SeedTransactionManager {
 
         if (!alive.getAndSet(true)) {
 
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
+            new Thread(() -> {
 
-                    try {
-                        Thread.sleep(100L);
-                    } catch (Exception e) {
-                    }
-
-                    while (!UpdateUtil.shouldTerminate() && lastBlockRequested < highestSeedTransactionHeight) {
-
-                        long currentFileIndex = lastBlockRequested / blocksPerFile;
-
-                        // Check if we have transactions for the next 20 blocks (100 seconds). If we do, we can skip
-                        // the rest of the process for this iteration.
-                        boolean haveBlocks = true;
-                        for (int i = 0; i < 20 && haveBlocks; i++) {
-                            long height = lastBlockRequested + i + 1;
-                            if (height >= lowestSeedTransactionHeight && height <= highestSeedTransactionHeight &&
-                                    transactionMap.get(height) == null) {
-                                haveBlocks = false;
-                            }
-                        }
-
-                        if (!haveBlocks) {
-
-                            // Ensure that we have both the current file and the next file and load them into memory.
-                            for (long fileIndex = currentFileIndex; fileIndex < currentFileIndex + 2; fileIndex++) {
-                                File file = fileForIndex(fileIndex);
-                                if (!file.exists()) {
-                                    fetchFile(file);
-                                }
-                                loadFile(file);
-                            }
-
-                            // If the previous file exists, delete it.
-                            File previousFile = fileForIndex(currentFileIndex - 1);
-                            if (previousFile.exists()) {
-                                previousFile.delete();
-                            }
-
-                            // Remove any items from the map below the last-requested height.
-                            Set<Long> keys = new HashSet<>(transactionMap.keySet());
-                            for (Long key : keys) {
-                                if (key < lastBlockRequested) {
-                                    transactionMap.remove(key);
-                                }
-                            }
-                        }
-
-                        // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
-                        for (int i = 0; i < 15; i++) {
-                            if (!UpdateUtil.shouldTerminate()) {
-                                try {
-                                    Thread.sleep(2000L);
-                                } catch (Exception ignored) {
-                                }
-                            }
-                        }
-                    }
-
-                    System.out.println("exiting SeedTransactionManager thread");
-                    alive.set(false);
+                try {
+                    Thread.sleep(100L);
+                } catch (Exception e) {
                 }
+
+                while (!UpdateUtil.shouldTerminate() && lastBlockRequested < highestSeedTransactionHeight) {
+
+                    long currentFileIndex = lastBlockRequested / blocksPerFile;
+
+                    // Check if we have transactions for the next 20 blocks (100 seconds). If we do, we can skip
+                    // the rest of the process for this iteration.
+                    boolean haveBlocks = true;
+                    for (int i = 0; i < 20 && haveBlocks; i++) {
+                        long height = lastBlockRequested + i + 1;
+                        if (height >= lowestSeedTransactionHeight && height <= highestSeedTransactionHeight &&
+                                transactionMap.get(height) == null) {
+                            haveBlocks = false;
+                        }
+                    }
+
+                    if (!haveBlocks) {
+
+                        // Ensure that we have both the current file and the next file and load them into memory.
+                        for (long fileIndex = currentFileIndex; fileIndex < currentFileIndex + 2; fileIndex++) {
+                            File file = fileForIndex(fileIndex);
+                            if (!file.exists()) {
+                                fetchFile(file);
+                            }
+                            loadFile(file);
+                        }
+
+                        // If the previous file exists, delete it.
+                        File previousFile = fileForIndex(currentFileIndex - 1);
+                        if (previousFile.exists()) {
+                            previousFile.delete();
+                        }
+
+                        // Remove any items from the map below the last-requested height.
+                        Set<Long> keys = new HashSet<>(transactionMap.keySet());
+                        for (Long key : keys) {
+                            if (key < lastBlockRequested) {
+                                transactionMap.remove(key);
+                            }
+                        }
+                    }
+
+                    // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
+                    for (int i = 0; i < 15; i++) {
+                        if (!UpdateUtil.shouldTerminate()) {
+                            try {
+                                Thread.sleep(2000L);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+                }
+
+                System.out.println("exiting SeedTransactionManager thread");
+                alive.set(false);
             }, "SeedTransactionManager").start();
         }
     }
@@ -123,7 +120,7 @@ public class SeedTransactionManager {
         return "https://s3-us-west-2.amazonaws.com/" + bucket + "/" + filename;
     }
 
-    public static void fetchFile(File file) {
+    private static void fetchFile(File file) {
 
         try {
 

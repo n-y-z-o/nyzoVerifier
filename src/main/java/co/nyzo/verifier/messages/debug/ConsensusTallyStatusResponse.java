@@ -11,7 +11,7 @@ import java.util.*;
 
 public class ConsensusTallyStatusResponse implements MessageObject, MultilineTextResponse {
 
-    private List<String> lines;
+    private final List<String> lines;
 
     public ConsensusTallyStatusResponse(Message request) {
 
@@ -46,11 +46,11 @@ public class ConsensusTallyStatusResponse implements MessageObject, MultilineTex
 
             this.lines = lines;
         } else {
-            this.lines = Arrays.asList("*** unauthorized ***");
+            this.lines = Collections.singletonList("*** unauthorized ***");
         }
     }
 
-    public ConsensusTallyStatusResponse(List<String> lines) {
+    private ConsensusTallyStatusResponse(List<String> lines) {
 
         this.lines = lines;
     }
@@ -111,8 +111,7 @@ public class ConsensusTallyStatusResponse implements MessageObject, MultilineTex
 
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder("[ConsensusTallyStatusResponse(lines=" + lines.size() + ")]");
 
-        return result.toString();
+        return "[ConsensusTallyStatusResponse(lines=" + lines.size() + ")]";
     }
 }

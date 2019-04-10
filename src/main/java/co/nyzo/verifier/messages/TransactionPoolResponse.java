@@ -10,7 +10,7 @@ import java.util.List;
 
 public class TransactionPoolResponse implements MessageObject {
 
-    private List<Transaction> transactions;
+    private final List<Transaction> transactions;
 
     public TransactionPoolResponse(List<Transaction> transactions) {
         this.transactions = transactions;
@@ -70,7 +70,7 @@ public class TransactionPoolResponse implements MessageObject {
         StringBuilder result = new StringBuilder("[TransactionPoolResponse(" + transactions.size() + "): {");
         String separator = "";
         for (int i = 0; i < transactions.size() && i < 5; i++) {
-            result.append(separator + transactions.get(i).toString());
+            result.append(separator).append(transactions.get(i).toString());
             separator = ",";
         }
         if (transactions.size() > 5) {

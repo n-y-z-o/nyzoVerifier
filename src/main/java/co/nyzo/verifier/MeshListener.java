@@ -9,7 +9,6 @@ import co.nyzo.verifier.util.UpdateUtil;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -44,13 +43,10 @@ public class MeshListener {
     }
 
     private static final BiFunction<Integer, Integer, Integer> mergeFunction =
-            new BiFunction<Integer, Integer, Integer>() {
-                @Override
-                public Integer apply(Integer integer0, Integer integer1) {
-                    int value0 = integer0 == null ? 0 : integer0;
-                    int value1 = integer1 == null ? 0 : integer1;
-                    return value0 + value1;
-                }
+            (integer0, integer1) -> {
+                int value0 = integer0 == null ? 0 : integer0;
+                int value1 = integer1 == null ? 0 : integer1;
+                return value0 + value1;
             };
 
     public static void start() {
@@ -60,37 +56,34 @@ public class MeshListener {
 
         if (!alive.getAndSet(true)) {
 
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        serverSocket = new ServerSocket(standardPort);
-                        port = serverSocket.getLocalPort();
+            new Thread(() -> {
+                try {
+                    serverSocket = new ServerSocket(standardPort);
+                    port = serverSocket.getLocalPort();
 
-                        while (!UpdateUtil.shouldTerminate()) {
+                    while (!UpdateUtil.shouldTerminate()) {
 
-                            if (Verifier.isPaused()) {
-                                try {
-                                    Thread.sleep(1000L);
-                                } catch (Exception ignored) { }
-                            } else {
-                                try {
-                                    Socket clientSocket = serverSocket.accept();
-                                    processSocket(clientSocket, activeReadThreads, connectionsPerIp);
-                                } catch (Exception ignored) { }
-                            }
+                        if (Verifier.isPaused()) {
+                            try {
+                                Thread.sleep(1000L);
+                            } catch (Exception ignored) { }
+                        } else {
+                            try {
+                                Socket clientSocket = serverSocket.accept();
+                                processSocket(clientSocket, activeReadThreads, connectionsPerIp);
+                            } catch (Exception ignored) { }
                         }
-
-                        closeSocket();
-
-                    } catch (Exception e) {
-
-                        System.err.println("Exception trying to open mesh listener. Exiting.");
-                        UpdateUtil.terminate();
                     }
 
-                    alive.set(false);
+                    closeSocket();
+
+                } catch (Exception e) {
+
+                    System.err.println("Exception trying to open mesh listener. Exiting.");
+                    UpdateUtil.terminate();
                 }
+
+                alive.set(false);
             }, "MeshListener-serverSocket").start();
         }
     }
@@ -108,7 +101,7 @@ public class MeshListener {
             ByteBuffer ipBuffer = ByteBuffer.wrap(ipAddress);
             int connectionsForIp = connectionsPerIp.merge(ipBuffer, 1, mergeFunction);
 
-            if (connectionsForIp > maximumConcurrentConnectionsForIp && !Message.ipIsWhitelisted(ipAddress)) {
+            if (connectionsForIp > maximumConcurrentConnectionsForIp && Message.ipIsWhitelisted(ipAddress)) {
 
                 System.out.println("blacklisting IP " + IpUtil.addressAsString(ipAddress) +
                         " due to too many concurrent connections");
@@ -125,25 +118,22 @@ public class MeshListener {
                 // Read the message and respond.
                 numberOfMessagesAccepted.incrementAndGet();
                 activeReadThreads.incrementAndGet();
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
+                new Thread(() -> {
 
-                        try {
-                            clientSocket.setSoTimeout(300);
-                            readMessageAndRespond(clientSocket);
-                        } catch (Exception ignored) { }
+                    try {
+                        clientSocket.setSoTimeout(300);
+                        readMessageAndRespond(clientSocket);
+                    } catch (Exception ignored) { }
 
-                        // Decrement the counter for this IP.
-                        connectionsPerIp.merge(ipBuffer, -1, mergeFunction);
+                    // Decrement the counter for this IP.
+                    connectionsPerIp.merge(ipBuffer, -1, mergeFunction);
 
-                        if (activeReadThreads.decrementAndGet() == 0) {
+                    if (activeReadThreads.decrementAndGet() == 0) {
 
-                            // When the number of active threads is zero, clear the map of
-                            // connections per IP to prevent accumulation of too many IP
-                            // addresses over time.
-                            connectionsPerIp.clear();
-                        }
+                        // When the number of active threads is zero, clear the map of
+                        // connections per IP to prevent accumulation of too many IP
+                        // addresses over time.
+                        connectionsPerIp.clear();
                     }
                 }, "MeshListener-clientSocket").start();
             }
@@ -183,7 +173,7 @@ public class MeshListener {
         }
     }
 
-    public static Message response(Message message) {
+    private static Message response(Message message) {
 
         // This is the single point of dispatch for responding to all received messages.
 

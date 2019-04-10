@@ -79,13 +79,10 @@ public class NewVerifierVoteManager {
         // Make and sort the list descending on votes.
         Map<ByteBuffer, Integer> voteTotals = voteTotals();
         List<ByteBuffer> topVerifiers = new ArrayList<>(voteTotals.keySet());
-        Collections.sort(topVerifiers, new Comparator<ByteBuffer>() {
-            @Override
-            public int compare(ByteBuffer verifierVote1, ByteBuffer verifierVote2) {
-                Integer voteCount1 = voteTotals.get(verifierVote1);
-                Integer voteCount2 = voteTotals.get(verifierVote2);
-                return voteCount2.compareTo(voteCount1);
-            }
+        topVerifiers.sort((verifierVote1, verifierVote2) -> {
+            Integer voteCount1 = voteTotals.get(verifierVote1);
+            Integer voteCount2 = voteTotals.get(verifierVote2);
+            return voteCount2.compareTo(voteCount1);
         });
 
         // Limit the list to three verifiers. We do not consider ties, as they are inconsequential and do not

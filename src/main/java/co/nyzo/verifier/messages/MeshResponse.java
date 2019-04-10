@@ -13,7 +13,7 @@ public class MeshResponse implements MessageObject {
 
     private static final int maximumNumberOfNodes = 10000;
 
-    private List<Node> mesh;
+    private final List<Node> mesh;
 
     public MeshResponse(List<Node> mesh) {
 

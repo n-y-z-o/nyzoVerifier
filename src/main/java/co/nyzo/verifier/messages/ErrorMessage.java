@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 
 public class ErrorMessage implements MessageObject {
 
-    private String message;
+    private final String message;
 
     public ErrorMessage(String message) {
         this.message = message == null ? "* no message provided *" : message;

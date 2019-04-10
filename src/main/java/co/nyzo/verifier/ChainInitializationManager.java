@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class ChainInitializationManager {
+class ChainInitializationManager {
 
     // This is a map from the identifier to the bootstrap response.
     private static final Map<ByteBuffer, BootstrapResponseV2> bootstrapResponses = new HashMap<>();
@@ -62,30 +62,27 @@ public class ChainInitializationManager {
 
             long height = bootstrapResponse.getFrozenEdgeHeight();
             Message message = new Message(MessageType.BlockRequest11, new BlockRequest(height, height, true));
-            Message.fetchFromRandomNode(message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetchFromRandomNode(message, message1 -> {
 
-                    System.out.println("received response for block fetch");
+                System.out.println("received response for block fetch");
 
-                    BlockResponse response = (BlockResponse) message.getContent();
-                    List<Block> responseBlocks = response.getBlocks();
+                BlockResponse response = (BlockResponse) message1.getContent();
+                List<Block> responseBlocks = response.getBlocks();
 
-                    if (!responseBlocks.isEmpty() && response.getInitialBalanceList() != null) {
+                if (!responseBlocks.isEmpty() && response.getInitialBalanceList() != null) {
 
-                        // If the hashes of the block and balance list are correct, they can be saved.
-                        Block responseBlock = responseBlocks.get(0);
-                        if (ByteUtil.arraysAreEqual(responseBlock.getHash(), bootstrapResponse.getFrozenEdgeHash()) &&
-                                ByteUtil.arraysAreEqual(response.getInitialBalanceList().getHash(),
-                                        responseBlock.getBalanceListHash())) {
+                    // If the hashes of the block and balance list are correct, they can be saved.
+                    Block responseBlock = responseBlocks.get(0);
+                    if (ByteUtil.arraysAreEqual(responseBlock.getHash(), bootstrapResponse.getFrozenEdgeHash()) &&
+                            ByteUtil.arraysAreEqual(response.getInitialBalanceList().getHash(),
+                                    responseBlock.getBalanceListHash())) {
 
-                            blockSet.add(responseBlock);
-                            balanceListSet.add(response.getInitialBalanceList());
-                        }
+                        blockSet.add(responseBlock);
+                        balanceListSet.add(response.getInitialBalanceList());
                     }
-
-                    processedResponse.set(true);
                 }
+
+                processedResponse.set(true);
             });
 
             // Sleep up to five seconds to allow the request to return.

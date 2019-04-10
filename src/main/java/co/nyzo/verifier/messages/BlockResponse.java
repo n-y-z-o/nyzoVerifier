@@ -8,8 +8,8 @@ import java.util.List;
 
 public class BlockResponse implements MessageObject {
 
-    private BalanceList initialBalanceList;
-    private List<Block> blocks;
+    private final BalanceList initialBalanceList;
+    private final List<Block> blocks;
 
     public BlockResponse(long startBlockHeight, long endBlockHeight, boolean includeInitialBalanceList) {
 
@@ -45,7 +45,7 @@ public class BlockResponse implements MessageObject {
         this.blocks = blocks;
     }
 
-    public BlockResponse(BalanceList initialBalanceList, List<Block> blocks) {
+    private BlockResponse(BalanceList initialBalanceList, List<Block> blocks) {
 
         this.initialBalanceList = initialBalanceList;
         this.blocks = blocks;

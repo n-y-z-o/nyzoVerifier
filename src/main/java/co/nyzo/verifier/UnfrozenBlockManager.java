@@ -12,13 +12,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class UnfrozenBlockManager {
 
-    private static Map<Long, Map<ByteBuffer, Block>> unfrozenBlocks = new HashMap<>();
-    private static Map<Long, Integer> thresholdOverrides = new HashMap<>();
-    private static Map<Long, byte[]> hashOverrides = new HashMap<>();
+    private static final Map<Long, Map<ByteBuffer, Block>> unfrozenBlocks = new HashMap<>();
+    private static final Map<Long, Integer> thresholdOverrides = new HashMap<>();
+    private static final Map<Long, byte[]> hashOverrides = new HashMap<>();
 
     private static String voteDescription = "*** not yet voted ***";
 
-    private static Map<Long, Map<ByteBuffer, Block>> disconnectedBlocks = new HashMap<>();
+    private static final Map<Long, Map<ByteBuffer, Block>> disconnectedBlocks = new HashMap<>();
 
     private static long lastBlockVoteTimestamp = 0L;
 
@@ -41,7 +41,7 @@ public class UnfrozenBlockManager {
         }
     }
 
-    public static synchronized boolean registerBlock(Block block) {
+    public static synchronized void registerBlock(Block block) {
 
         boolean registeredBlock = false;
 
@@ -52,11 +52,7 @@ public class UnfrozenBlockManager {
                 block.getBlockHeight() <= BlockManager.openEdgeHeight(true)) {
 
             // Get the map of blocks at this height.
-            Map<ByteBuffer, Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
-            if (blocksAtHeight == null) {
-                blocksAtHeight = new HashMap<>();
-                unfrozenBlocks.put(block.getBlockHeight(), blocksAtHeight);
-            }
+            Map<ByteBuffer, Block> blocksAtHeight = unfrozenBlocks.computeIfAbsent(block.getBlockHeight(), k -> new HashMap<>());
 
             // Check if the block is a simple duplicate (same hash).
             boolean alreadyContainsBlock = blocksAtHeight.containsKey(ByteBuffer.wrap(block.getHash()));
@@ -114,18 +110,13 @@ public class UnfrozenBlockManager {
                     // This is a special case when we have fallen behind the frozen edge. We may get a block for which
                     // the balance list is currently null, but it might not be null later. So, we should save it for now
                     // to avoid having to request it later.
-                    Map<ByteBuffer, Block> disconnectedBlocksForHeight = disconnectedBlocks.get(block.getBlockHeight());
-                    if (disconnectedBlocksForHeight == null) {
-                        disconnectedBlocksForHeight = new HashMap<>();
-                        disconnectedBlocks.put(block.getBlockHeight(), disconnectedBlocksForHeight);
-                    }
+                    Map<ByteBuffer, Block> disconnectedBlocksForHeight = disconnectedBlocks.computeIfAbsent(block.getBlockHeight(), k -> new HashMap<>());
 
                     disconnectedBlocksForHeight.put(ByteBuffer.wrap(block.getHash()), block);
                 }
             }
         }
 
-        return registeredBlock;
     }
 
     public static synchronized void updateVote() {
@@ -319,22 +310,19 @@ public class UnfrozenBlockManager {
         }
     }
 
-    public static void fetchMissingBlock(long height, byte[] hash) {
+    private static void fetchMissingBlock(long height, byte[] hash) {
 
         NotificationUtil.send("fetching block " + height + " (" + PrintUtil.compactPrintByteArray(hash) +
                 ") from mesh on " + Verifier.getNickname());
         Message blockRequest = new Message(MessageType.MissingBlockRequest25,
                 new MissingBlockRequest(height, hash));
-        Message.fetchFromRandomNode(blockRequest, new MessageCallback() {
-            @Override
-            public void responseReceived(Message message) {
+        Message.fetchFromRandomNode(blockRequest, message -> {
 
-                MissingBlockResponse response = (MissingBlockResponse) message.getContent();
-                Block responseBlock = response.getBlock();
-                if (responseBlock != null && ByteUtil.arraysAreEqual(responseBlock.getHash(), hash)) {
-                    System.out.println("got block for height " + responseBlock.getBlockHeight());
-                    registerBlock(responseBlock);
-                }
+            MissingBlockResponse response = (MissingBlockResponse) message.getContent();
+            Block responseBlock = response.getBlock();
+            if (responseBlock != null && ByteUtil.arraysAreEqual(responseBlock.getHash(), hash)) {
+                System.out.println("got block for height " + responseBlock.getBlockHeight());
+                registerBlock(responseBlock);
             }
         });
     }

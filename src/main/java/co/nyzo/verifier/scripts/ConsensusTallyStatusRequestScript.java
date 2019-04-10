@@ -2,7 +2,7 @@ package co.nyzo.verifier.scripts;
 
 import co.nyzo.verifier.*;
 
-public class ConsensusTallyStatusRequestScript {
+class ConsensusTallyStatusRequestScript {
 
     public static void main(String[] args) {
 

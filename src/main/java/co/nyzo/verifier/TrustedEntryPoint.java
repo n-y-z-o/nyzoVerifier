@@ -1,11 +1,9 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.PrintUtil;
-
 public class TrustedEntryPoint {
 
-    private String host;
-    private int port;
+    private final String host;
+    private final int port;
 
     private TrustedEntryPoint(String host, int port) {
 

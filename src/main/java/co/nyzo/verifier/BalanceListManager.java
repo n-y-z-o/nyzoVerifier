@@ -6,7 +6,6 @@ import co.nyzo.verifier.util.PrintUtil;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class BalanceListManager {
 
@@ -64,7 +63,7 @@ public class BalanceListManager {
 
                     // Step back to previous blocks until we are able to find a balance list that we have.
                     Block startBlock = block;
-                    List<Block> blocks = new ArrayList<>(Arrays.asList(startBlock));
+                    List<Block> blocks = new ArrayList<>(Collections.singletonList(startBlock));
                     BalanceList startBalanceList = null;
                     while (startBlock != null && startBalanceList == null) {
                         startBlock = startBlock.getPreviousBlock();

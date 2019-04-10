@@ -2,20 +2,18 @@ package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.MessageObject;
-import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 
 public class PauseRequest implements MessageObject {
 
-    private boolean paused;
+    private final boolean paused;
 
-    public PauseRequest(boolean paused) {
+    private PauseRequest(boolean paused) {
         this.paused = paused;
     }
 
-    public boolean isPaused() {
+    private boolean isPaused() {
         return paused;
     }
 

@@ -21,7 +21,7 @@ public class MissingBlockResponse implements MessageObject {
         }
     }
 
-    public MissingBlockResponse(Block block) {
+    private MissingBlockResponse(Block block) {
 
         this.block = block;
     }

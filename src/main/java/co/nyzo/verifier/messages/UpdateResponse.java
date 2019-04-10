@@ -87,8 +87,7 @@ public class UpdateResponse implements MessageObject {
 
         boolean valid = true;
         if (!ByteUtil.arraysAreEqual(updateRequest.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
-            error.append("The identifier, " +
-                    ByteUtil.arrayAsStringWithDashes(updateRequest.getSourceNodeIdentifier()) + ", is incorrect. ");
+            error.append("The identifier, ").append(ByteUtil.arrayAsStringWithDashes(updateRequest.getSourceNodeIdentifier())).append(", is incorrect. ");
             valid = false;
         }
 
@@ -106,27 +105,24 @@ public class UpdateResponse implements MessageObject {
 
     private static void update() {
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // Flag that the system should terminate and close the MeshListener socket.
-                UpdateUtil.terminate();
-                MeshListener.closeSocket();
+        new Thread(() -> {
+            // Flag that the system should terminate and close the MeshListener socket.
+            UpdateUtil.terminate();
+            MeshListener.closeSocket();
 
-                // Wait for the verifier and mesh listener to terminate.
-                while (Verifier.isAlive() || MeshListener.isAlive()) {
-                    try {
-                        Thread.sleep(300L);
-                        System.out.println("waiting for termination: v=" + (Verifier.isAlive() ? "alive" :
-                                "terminated") + ", m=" + (MeshListener.isAlive() ? "alive" : "terminated"));
-                    } catch (Exception ignored) { }
-                }
-
-                // Pull the latest code and compile.
-                runProcess(new ProcessBuilder("git", "reset", "--hard", "HEAD"));
-                runProcess(new ProcessBuilder("git", "pull", "origin", "master"));
-                runProcess(new ProcessBuilder("./gradlew", "build"));
+            // Wait for the verifier and mesh listener to terminate.
+            while (Verifier.isAlive() || MeshListener.isAlive()) {
+                try {
+                    Thread.sleep(300L);
+                    System.out.println("waiting for termination: v=" + (Verifier.isAlive() ? "alive" :
+                            "terminated") + ", m=" + (MeshListener.isAlive() ? "alive" : "terminated"));
+                } catch (Exception ignored) { }
             }
+
+            // Pull the latest code and compile.
+            runProcess(new ProcessBuilder("git", "reset", "--hard", "HEAD"));
+            runProcess(new ProcessBuilder("git", "pull", "origin", "master"));
+            runProcess(new ProcessBuilder("./gradlew", "build"));
         }).start();
     }
 
@@ -156,17 +152,14 @@ public class UpdateResponse implements MessageObject {
 
         BufferedReader outputReader = new BufferedReader(new InputStreamReader(inputStream));
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    String line;
-                    while ((line = outputReader.readLine()) != null) {
-                        outputStream.println(line);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+        new Thread(() -> {
+            try {
+                String line;
+                while ((line = outputReader.readLine()) != null) {
+                    outputStream.println(line);
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }).start();
     }

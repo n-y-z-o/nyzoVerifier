@@ -5,14 +5,11 @@ import co.nyzo.verifier.messages.MultilineTextResponse;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class BlacklistStatusResponse implements MessageObject, MultilineTextResponse {
 
-    private List<String> lines;
+    private final List<String> lines;
 
     public BlacklistStatusResponse(Message request) {
 
@@ -26,11 +23,11 @@ public class BlacklistStatusResponse implements MessageObject, MultilineTextResp
 
             this.lines = lines;
         } else {
-            this.lines = Arrays.asList("*** Unauthorized ***");
+            this.lines = Collections.singletonList("*** Unauthorized ***");
         }
     }
 
-    public BlacklistStatusResponse(List<String> lines) {
+    private BlacklistStatusResponse(List<String> lines) {
 
         this.lines = lines;
     }

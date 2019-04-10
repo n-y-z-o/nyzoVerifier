@@ -6,8 +6,8 @@ import java.nio.ByteBuffer;
 
 public class NodeJoinMessage implements MessageObject, PortMessage {
 
-    private int port;
-    private String nickname;
+    private final int port;
+    private final String nickname;
 
     public NodeJoinMessage() {
 
@@ -15,7 +15,7 @@ public class NodeJoinMessage implements MessageObject, PortMessage {
         this.nickname = Verifier.getNickname();
     }
 
-    public NodeJoinMessage(int port, String nickname) {
+    private NodeJoinMessage(int port, String nickname) {
 
         this.port = port;
         this.nickname = nickname;

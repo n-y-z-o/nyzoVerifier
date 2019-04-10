@@ -122,39 +122,36 @@ public class BalanceManager {
         return balanceMap;
     }
 
-    public static void sortTransactions(List<Transaction> transactions) {
+    private static void sortTransactions(List<Transaction> transactions) {
 
         // First, sort transactions according to the acceptable ordering for blocks.
-        Collections.sort(transactions, new Comparator<Transaction>() {
-            @Override
-            public int compare(Transaction transaction1, Transaction transaction2) {
-                long timestamp1 = transaction1.getTimestamp();
-                long timestamp2 = transaction2.getTimestamp();
-                int result = 0;
-                if (timestamp1 < timestamp2) {
-                    result = -1;
-                } else if (timestamp2 < timestamp1) {
-                    result = 1;
-                } else {
-                    byte[] signature1 = transaction1.getSignature();
-                    byte[] signature2 = transaction2.getSignature();
-                    for (int i = 0; i < FieldByteSize.signature && result == 0; i++) {
-                        int byte1 = signature1[i] & 0xff;
-                        int byte2 = signature2[i] & 0xff;
-                        if (byte1 < byte2) {
-                            result = -1;
-                        } else if (byte2 < byte1) {
-                            result = 1;
-                        }
+        transactions.sort((transaction1, transaction2) -> {
+            long timestamp1 = transaction1.getTimestamp();
+            long timestamp2 = transaction2.getTimestamp();
+            int result = 0;
+            if (timestamp1 < timestamp2) {
+                result = -1;
+            } else if (timestamp2 < timestamp1) {
+                result = 1;
+            } else {
+                byte[] signature1 = transaction1.getSignature();
+                byte[] signature2 = transaction2.getSignature();
+                for (int i = 0; i < FieldByteSize.signature && result == 0; i++) {
+                    int byte1 = signature1[i] & 0xff;
+                    int byte2 = signature2[i] & 0xff;
+                    if (byte1 < byte2) {
+                        result = -1;
+                    } else if (byte2 < byte1) {
+                        result = 1;
                     }
                 }
-
-                return result;
             }
+
+            return result;
         });
     }
 
-    public static List<Transaction> transactionsWithoutDuplicates(List<Transaction> transactions) {
+    private static List<Transaction> transactionsWithoutDuplicates(List<Transaction> transactions) {
 
         // This method has been modified to eliminate any potential concern of signature malleability in Ed25519. To our
         // understanding, signature malleability in Ed25519 could only be used to create signatures that would validate

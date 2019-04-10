@@ -1,7 +1,5 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.PrintUtil;
-
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,11 +42,7 @@ public class TransactionPool {
             if (BalanceListManager.accountIsInSystem(transaction.getSenderIdentifier())) {
 
                 // Get the map of transactions for the height. Make the map, if necessary.
-                Map<ByteBuffer, Transaction> transactionsForHeight = transactions.get(transactionBlockHeight);
-                if (transactionsForHeight == null) {
-                    transactionsForHeight = new HashMap<>();
-                    transactions.put(transactionBlockHeight, transactionsForHeight);
-                }
+                Map<ByteBuffer, Transaction> transactionsForHeight = transactions.computeIfAbsent(transactionBlockHeight, k -> new HashMap<>());
 
                 // If this is a new transaction and the sender has not exceeded their limit, add this transaction.
                 ByteBuffer senderIdentifier = ByteBuffer.wrap(transaction.getSenderIdentifier());

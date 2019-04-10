@@ -15,7 +15,7 @@ public class MeshStatusResponse implements MessageObject, MultilineTextResponse 
 
     private static final int maximumNumberOfLines = 2000;
 
-    private List<String> lines;
+    private final List<String> lines;
 
     public MeshStatusResponse(Message request) {
 
@@ -23,13 +23,10 @@ public class MeshStatusResponse implements MessageObject, MultilineTextResponse 
         if (ByteUtil.arraysAreEqual(request.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
 
             List<Node> nodes = NodeManager.getMesh();
-            Collections.sort(nodes, new Comparator<Node>() {
-                @Override
-                public int compare(Node node1, Node node2) {
-                    Long queueTimestamp1 = node1.getQueueTimestamp();
-                    Long queueTimestamp2 = node2.getQueueTimestamp();
-                    return queueTimestamp1.compareTo(queueTimestamp2);
-                }
+            nodes.sort((node1, node2) -> {
+                Long queueTimestamp1 = node1.getQueueTimestamp();
+                Long queueTimestamp2 = node2.getQueueTimestamp();
+                return queueTimestamp1.compareTo(queueTimestamp2);
             });
 
             // TODO: timestamp in-cycle verifiers with current timestamp to prevent promotion to top of queue when
@@ -59,7 +56,7 @@ public class MeshStatusResponse implements MessageObject, MultilineTextResponse 
         }
     }
 
-    public MeshStatusResponse(List<String> lines) {
+    private MeshStatusResponse(List<String> lines) {
 
         this.lines = lines;
     }
@@ -123,8 +120,7 @@ public class MeshStatusResponse implements MessageObject, MultilineTextResponse 
 
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder("[MeshStatusResponse(lines=" + lines.size() + ")]");
 
-        return result.toString();
+        return "[MeshStatusResponse(lines=" + lines.size() + ")]";
     }
 }

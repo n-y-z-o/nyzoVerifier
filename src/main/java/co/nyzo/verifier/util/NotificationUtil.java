@@ -8,6 +8,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashSet;
@@ -19,7 +20,7 @@ public class NotificationUtil {
     private static long lastEarnedTimestamp = 0L;
     private static final Set<Integer> sendOnceNotifications = new HashSet<>();
 
-    private static final String endpoint = loadFromFile("endpoint", "");
+    private static final String endpoint = loadFromFile("endpoint");
     private static final int maximumBudget = loadFromFile("budget", 10);
     private static int currentBudget = -1;
     private static final long earnInterval = loadFromFile("interval", 1000 * 60 * 2);
@@ -81,10 +82,10 @@ public class NotificationUtil {
                     int responseCode = connection.getResponseCode();
                     if (responseCode == HttpURLConnection.HTTP_OK) {
                         BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(),
-                                "UTF-8"));
+                                StandardCharsets.UTF_8));
                         String line;
                         while ((line = reader.readLine()) != null) {
-                            result.append(line + "\n");
+                            result.append(line).append("\n");
                         }
                         reader.close();
 
@@ -108,7 +109,7 @@ public class NotificationUtil {
         }
     }
 
-    private static String loadFromFile(String name, String defaultValue) {
+    private static String loadFromFile(String name) {
 
         String value = null;
         try {
@@ -128,7 +129,7 @@ public class NotificationUtil {
 
         int value = defaultValue;
         try {
-            value = Integer.parseInt(loadFromFile(name, defaultValue + ""));
+            value = Integer.parseInt(loadFromFile(name));
         } catch (Exception ignored) { }
 
         return value;

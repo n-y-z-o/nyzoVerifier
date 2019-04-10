@@ -7,8 +7,8 @@ import java.nio.ByteBuffer;
 
 public class MissingBlockRequest implements MessageObject {
 
-    private long height;
-    private byte[] hash;
+    private final long height;
+    private final byte[] hash;
 
     public MissingBlockRequest(long height, byte[] hash) {
 

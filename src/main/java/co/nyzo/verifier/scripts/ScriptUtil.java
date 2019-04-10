@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class ScriptUtil {
+class ScriptUtil {
 
     public static List<byte[]> ipAddressesForVerifier(byte[] identifier) {  
         
@@ -21,21 +21,17 @@ public class ScriptUtil {
         List<byte[]> ipAddresses = new ArrayList<>();  
         Message meshRequest = new Message(MessageType.MeshRequest15, null);  
         AtomicBoolean receivedResponse = new AtomicBoolean(false);  
-        Message.fetch("verifier0.nyzo.co", MeshListener.standardPort, meshRequest, new MessageCallback() {  
-            
-            @Override  
-            public void responseReceived(Message message) {  
-                
-                MeshResponse meshResponse = (MeshResponse) message.getContent();  
-                for (Node node : meshResponse.getMesh()) {  
-                    if (ByteUtil.arraysAreEqual(identifier, node.getIdentifier())) {  
-                        ipAddresses.add(node.getIpAddress());  
-                    }  
-                    
-                    receivedResponse.set(true);  
-                }  
-            }  
-        });  
+        Message.fetch("verifier0.nyzo.co", MeshListener.standardPort, meshRequest, message -> {
+
+            MeshResponse meshResponse = (MeshResponse) message.getContent();
+            for (Node node : meshResponse.getMesh()) {
+                if (ByteUtil.arraysAreEqual(identifier, node.getIdentifier())) {
+                    ipAddresses.add(node.getIpAddress());
+                }
+
+                receivedResponse.set(true);
+            }
+        });
         
         // Wait for the response to return.  
         while (!receivedResponse.get()) {  
@@ -86,25 +82,22 @@ public class ScriptUtil {
             message.sign(privateSeed);
         }
         for (byte[] ipAddress : ipAddresses) {
-            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, message1 -> {
 
-                    System.out.println("response message: " + message);
-                    if (message != null) {
-                        if (message.getContent() instanceof MultilineTextResponse) {
-                            MultilineTextResponse response = (MultilineTextResponse) message.getContent();
-                            System.out.println("response number of lines: " + response.getLines().size());
-                            for (String line : response.getLines()) {
-                                System.out.println(line);
-                            }
-                        } else {
-                            System.out.println("content is incorrect type: " + message.getContent());
+                System.out.println("response message: " + message1);
+                if (message1 != null) {
+                    if (message1.getContent() instanceof MultilineTextResponse) {
+                        MultilineTextResponse response = (MultilineTextResponse) message1.getContent();
+                        System.out.println("response number of lines: " + response.getLines().size());
+                        for (String line : response.getLines()) {
+                            System.out.println(line);
                         }
+                    } else {
+                        System.out.println("content is incorrect type: " + message1.getContent());
                     }
-
-                    numberOfResponsesNotYetReceived.decrementAndGet();
                 }
+
+                numberOfResponsesNotYetReceived.decrementAndGet();
             });
         }
 

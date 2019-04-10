@@ -3,7 +3,6 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.util.*;
 
 import java.io.File;
-import java.io.FileFilter;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -128,7 +127,7 @@ public class BlockManager {
         return blocks;
     }
 
-    public static boolean writeBlocksToFile(List<Block> blocks, List<BalanceList> balanceLists, File file) {
+    public static void writeBlocksToFile(List<Block> blocks, List<BalanceList> balanceLists, File file) {
 
         Map<Long, BalanceList> balanceListMap = new HashMap<>();
         for (BalanceList balanceList : balanceLists) {
@@ -138,12 +137,7 @@ public class BlockManager {
         boolean successful = true;
 
         // Sort the blocks on block height ascending.
-        Collections.sort(blocks, new Comparator<Block>() {
-            @Override
-            public int compare(Block block1, Block block2) {
-                return ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight());
-            }
-        });
+        blocks.sort((block1, block2) -> ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight()));
 
         int byteSize = 2;  // number of blocks is stored as a short
         for (int i = 0; i < blocks.size(); i++) {
@@ -193,7 +187,6 @@ public class BlockManager {
             NotificationUtil.send("unable to write block file " + file.getName() + " on " + Verifier.getNickname());
         }
 
-        return successful;
     }
 
     public static void freezeBlock(Block block) {
@@ -215,7 +208,7 @@ public class BlockManager {
                 setFrozenEdge(block, cycleVerifiers);
                 BalanceListManager.registerBalanceList(balanceList);
 
-                writeBlocksToFile(Arrays.asList(block), Arrays.asList(balanceList),
+                writeBlocksToFile(Collections.singletonList(block), Collections.singletonList(balanceList),
                         individualFileForBlockHeight(block.getBlockHeight()));
 
                 if (block.getBlockHeight() == 0L) {
@@ -437,14 +430,9 @@ public class BlockManager {
         long height = -1L;
 
         try {
-            List<File> files = Arrays.asList(individualBlockDirectory.listFiles());
+            List<File> files = Arrays.asList(Objects.requireNonNull(individualBlockDirectory.listFiles()));
 
-            Collections.sort(files, new Comparator<File>() {
-                @Override
-                public int compare(File file1, File file2) {
-                    return file2.getName().compareTo(file1.getName());
-                }
-            });
+            files.sort((file1, file2) -> file2.getName().compareTo(file1.getName()));
 
             for (int i = 0; i < files.size() && height < 0; i++) {
                 try {
@@ -457,7 +445,7 @@ public class BlockManager {
         return height;
     }
 
-    public static synchronized void setFrozenEdge(Block block, List<ByteBuffer> cycleVerifiers) {
+    private static synchronized void setFrozenEdge(Block block, List<ByteBuffer> cycleVerifiers) {
 
         // Freezing a block under the frozen edge is not allowed.
         if (block.getBlockHeight() < frozenEdgeHeight) {
@@ -592,8 +580,8 @@ public class BlockManager {
 
                 // Remove the up to the current verifier, if present.
                 int indexOfVerifierInPreviousCycle = alternateCycleList.indexOf(edgeIdentifierBuffer);
-                for (int i = 0; i <= indexOfVerifierInPreviousCycle; i++) {
-                    alternateCycleList.remove(0);
+                if (indexOfVerifierInPreviousCycle >= 0) {
+                    alternateCycleList.subList(0, indexOfVerifierInPreviousCycle + 1).clear();
                 }
 
                 // Add the current verifier.

@@ -1,7 +1,6 @@
 package co.nyzo.verifier.util;
 
 import co.nyzo.verifier.ByteUtil;
-import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.KeyUtil;
 import net.i2p.crypto.eddsa.EdDSAEngine;
 import net.i2p.crypto.eddsa.EdDSASecurityProvider;
@@ -12,14 +11,13 @@ import java.nio.ByteBuffer;
 import java.security.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 public class SignatureUtil {
 
     private static final Map<ByteBuffer, EdDSAEngine> seedToSignatureMap = new HashMap<>();
     private static final Map<ByteBuffer, EdDSAEngine> identifierToSignatureMap = new HashMap<>();
 
-    public static final EdDSAParameterSpec spec;
+    private static final EdDSAParameterSpec spec;
 
     static {
         Security.addProvider(new EdDSASecurityProvider());

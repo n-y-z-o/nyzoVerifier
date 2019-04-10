@@ -7,9 +7,9 @@ import java.nio.ByteBuffer;
 
 public class BlockRequest implements MessageObject {
 
-    private long startHeight;
-    private long endHeight;
-    private boolean includeBalanceList;
+    private final long startHeight;
+    private final long endHeight;
+    private final boolean includeBalanceList;
 
     public BlockRequest(long startHeight, long endHeight, boolean includeBalanceList) {
 

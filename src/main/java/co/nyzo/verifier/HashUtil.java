@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
 
-public class HashUtil {
+class HashUtil {
 
     public static void main(String[] args) {
 
@@ -22,7 +22,7 @@ public class HashUtil {
                 "5df6e0e2761359d30a8275058e299fcc0381534545f55cf43e41983f5d4c9456)");
     }
 
-    private static MessageDigest messageDigest;
+    private static final MessageDigest messageDigest;
     static {
         try {
             messageDigest = MessageDigest.getInstance("SHA-256");
@@ -67,7 +67,7 @@ public class HashUtil {
         return longSHA256(array);
     }
 
-    public static byte[] bLongSHA256(byte[] data) {
+    private static byte[] bLongSHA256(byte[] data) {
 
         byte[] sha256 = singleSHA256(data);
         return Arrays.copyOf(sha256, 8);

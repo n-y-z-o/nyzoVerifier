@@ -6,10 +6,10 @@ import java.nio.ByteBuffer;
 
 public class ConsensusThresholdOverrideRequest implements MessageObject {
 
-    private long height;
-    private int thresholdPercent;
+    private final long height;
+    private final int thresholdPercent;
 
-    public ConsensusThresholdOverrideRequest(long height, int thresholdPercent) {
+    private ConsensusThresholdOverrideRequest(long height, int thresholdPercent) {
 
         this.height = height;
         this.thresholdPercent = thresholdPercent;

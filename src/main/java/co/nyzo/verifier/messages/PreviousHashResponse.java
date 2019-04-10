@@ -7,8 +7,8 @@ import java.nio.ByteBuffer;
 
 public class PreviousHashResponse implements MessageObject {
 
-    private long height;
-    private byte[] hash;
+    private final long height;
+    private final byte[] hash;
 
     public PreviousHashResponse() {
 
@@ -22,7 +22,7 @@ public class PreviousHashResponse implements MessageObject {
         }
     }
 
-    public PreviousHashResponse(long height, byte[] hash) {
+    private PreviousHashResponse(long height, byte[] hash) {
         this.height = height;
         this.hash = hash;
     }

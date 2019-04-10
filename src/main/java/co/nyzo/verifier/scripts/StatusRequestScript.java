@@ -6,11 +6,10 @@ import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class StatusRequestScript {
+class StatusRequestScript {
 
     public static void main(String[] args) {
 
@@ -61,25 +60,22 @@ public class StatusRequestScript {
             message.sign(privateSeed);
         }
         for (byte[] ipAddress : ipAddresses) {
-            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, message1 -> {
 
-                    if (message == null) {
-                        System.out.println("response message is null");
-                    } else {
+                if (message1 == null) {
+                    System.out.println("response message is null");
+                } else {
 
-                        // Get the response object from the message.
-                        StatusResponse response = (StatusResponse) message.getContent();
+                    // Get the response object from the message.
+                    StatusResponse response = (StatusResponse) message1.getContent();
 
-                        // Print the response.
-                        for (String line : response.getLines()) {
-                            System.out.println(line);
-                        }
+                    // Print the response.
+                    for (String line : response.getLines()) {
+                        System.out.println(line);
                     }
-
-                    numberOfResponsesNotYetReceived.decrementAndGet();
                 }
+
+                numberOfResponsesNotYetReceived.decrementAndGet();
             });
         }
 

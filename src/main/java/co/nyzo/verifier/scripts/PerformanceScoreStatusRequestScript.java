@@ -2,7 +2,7 @@ package co.nyzo.verifier.scripts;
 
 import co.nyzo.verifier.MessageType;
 
-public class PerformanceScoreStatusRequestScript {
+class PerformanceScoreStatusRequestScript {
 
     public static void main(String[] args) {
 

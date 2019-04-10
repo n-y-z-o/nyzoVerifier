@@ -4,11 +4,10 @@ import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.MessageObject;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 
 public class TimestampResponse implements MessageObject {
 
-    private long timestamp;
+    private final long timestamp;
 
     public TimestampResponse() {
         this.timestamp = System.currentTimeMillis();

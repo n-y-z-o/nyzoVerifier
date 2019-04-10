@@ -4,14 +4,13 @@ import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
-import co.nyzo.verifier.MemoryMonitor;
 
 import java.nio.ByteBuffer;
 import java.util.*;
 
 public class StatusResponse implements MessageObject {
 
-    private List<String> lines;
+    private final List<String> lines;
 
     public StatusResponse(byte[] requesterIdentifier) {
 

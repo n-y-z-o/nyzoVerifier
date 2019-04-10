@@ -31,16 +31,16 @@ public class Block implements MessageObject {
     public static final long blockDuration = 7000L;
     public static final long minimumVerificationInterval = 1500L;
 
-    private long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,
+    private final long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,
                                                    // which has a height of 0
-    private byte[] previousBlockHash;              // 32 bytes (this is the double-SHA-256 of the previous block
+    private final byte[] previousBlockHash;              // 32 bytes (this is the double-SHA-256 of the previous block
                                                    // signature)
-    private long startTimestamp;                   // 8 bytes; 64-bit Unix timestamp of the start of the block, in
+    private final long startTimestamp;                   // 8 bytes; 64-bit Unix timestamp of the start of the block, in
                                                    // milliseconds
     private long verificationTimestamp;            // 8 bytes; 64-bit Unix timestamp of when the verifier creates the
                                                    // block, in milliseconds
-    private List<Transaction> transactions;        // 4 bytes for number + variable
-    private byte[] balanceListHash;                // 32 bytes (this is the double-SHA-256 of the account balance list)
+    private final List<Transaction> transactions;        // 4 bytes for number + variable
+    private final byte[] balanceListHash;                // 32 bytes (this is the double-SHA-256 of the account balance list)
     private byte[] verifierIdentifier;             // 32 bytes
     private byte[] verifierSignature;              // 64 bytes
 
@@ -80,7 +80,7 @@ public class Block implements MessageObject {
         this.verifierSignature = SignatureUtil.signBytes(getBytes(false), verifierSeed);
     }
 
-    public Block(long height, byte[] previousBlockHash, long startTimestamp, long verificationTimestamp,
+    private Block(long height, byte[] previousBlockHash, long startTimestamp, long verificationTimestamp,
                   List<Transaction> transactions, byte[] balanceListHash, byte[] verifierIdentifier,
                   byte[] verifierSignature, boolean validateTransactions) {
 
@@ -192,7 +192,7 @@ public class Block implements MessageObject {
         return getByteSize(true);
     }
 
-    public int getByteSize(boolean includeSignature) {
+    private int getByteSize(boolean includeSignature) {
 
         int size = FieldByteSize.blockHeight +           // height
                 FieldByteSize.hash +                     // previous-block hash

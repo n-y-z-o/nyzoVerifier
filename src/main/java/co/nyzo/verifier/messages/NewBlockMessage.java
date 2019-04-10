@@ -6,8 +6,8 @@ import java.nio.ByteBuffer;
 
 public class NewBlockMessage implements MessageObject, PortMessage {
 
-    private Block block;
-    private int port;
+    private final Block block;
+    private final int port;
 
     public NewBlockMessage(Block block) {
 
@@ -15,7 +15,7 @@ public class NewBlockMessage implements MessageObject, PortMessage {
         this.port = MeshListener.getPort();
     }
 
-    public NewBlockMessage(Block block, int port) {
+    private NewBlockMessage(Block block, int port) {
 
         this.block = block;
         this.port = port;

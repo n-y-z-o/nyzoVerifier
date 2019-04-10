@@ -2,11 +2,11 @@ package co.nyzo.verifier;
 
 public class CycleInformation {
 
-    private long blockHeight;
-    private int maximumCycleLength;
-    private int[] cycleLengths;
-    private boolean newVerifier;
-    private boolean inGenesisCycle;
+    private final long blockHeight;
+    private final int maximumCycleLength;
+    private final int[] cycleLengths;
+    private final boolean newVerifier;
+    private final boolean inGenesisCycle;
 
     public CycleInformation(long blockHeight, int maximumCycleLength, int[] cycleLengths, boolean newVerifier,
                             boolean inGenesisCycle) {

@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 
 public class MissingBlockVoteRequest implements MessageObject {
 
-    private long height;
+    private final long height;
 
     public MissingBlockVoteRequest(long height) {
 
