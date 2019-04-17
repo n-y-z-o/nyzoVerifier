@@ -26,7 +26,7 @@ public class UnfreezeMe {
         byte[] ipAddress = new byte[FieldByteSize.ipAddress];
         Message meshRequest = new Message(MessageType.MeshRequest15, null);
         AtomicBoolean receivedResponse = new AtomicBoolean(false);
-        Message.fetch("verifier0.nyzo.co", MeshListener.standardPort, meshRequest, new MessageCallback() {
+        Message.fetchTcp("verifier0.nyzo.co", MeshListener.standardPortTcp, meshRequest, new MessageCallback() {
 
             @Override
             public void responseReceived(Message message) {
@@ -60,13 +60,14 @@ public class UnfreezeMe {
         receivedResponse.set(false);
         Message message = new Message(MessageType.HashVoteOverrideRequest29, new HashVoteOverrideRequest(height, hash));
         message.sign(privateSeed);
-        Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-            @Override
-            public void responseReceived(Message message) {
-                System.out.println("response is " + message);
-                receivedResponse.set(true);
-            }
-        });
+        Message.fetchTcp(IpUtil.addressAsString(ipAddress), MeshListener.standardPortTcp, message,
+                new MessageCallback() {
+                    @Override
+                    public void responseReceived(Message message) {
+                        System.out.println("response is " + message);
+                        receivedResponse.set(true);
+                    }
+                });
 
         // Wait for the response to return.
         while (!receivedResponse.get()) {

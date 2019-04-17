@@ -47,14 +47,15 @@ public class HashVoteOverrideRequestScript {
         Message message = new Message(MessageType.HashVoteOverrideRequest29, request);
         message.sign(privateSeed);
         for (byte[] ipAddress : ipAddresses) {
-            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetchTcp(IpUtil.addressAsString(ipAddress), MeshListener.standardPortTcp, message,
+                    new MessageCallback() {
+                        @Override
+                        public void responseReceived(Message message) {
 
-                    System.out.println("response is " + message);
-                    numberOfResponsesNotYetReceived.decrementAndGet();
-                }
-            });
+                            System.out.println("response is " + message);
+                            numberOfResponsesNotYetReceived.decrementAndGet();
+                        }
+                    });
         }
 
         // Wait for the responses to return.

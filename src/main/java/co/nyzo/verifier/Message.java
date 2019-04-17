@@ -28,6 +28,13 @@ public class Message {
             MessageType.MissingBlockRequest25));
     public static final long replayProtectionInterval = 5000L;
 
+    private static DatagramSocket datagramSocket;
+    static {
+        try {
+            datagramSocket = new DatagramSocket();
+        } catch (Exception ignored) { }
+    }
+
     // We do not broadcast any messages to the full mesh from the broadcast method. We do, however, use the full mesh
     // as a potential pool for random requests for the following types. This reduces strain on in-cycle verifiers.
     private static final Set<MessageType> fullMeshMessageTypes = new HashSet<>(Arrays.asList(MessageType.BlockRequest11,
@@ -118,8 +125,7 @@ public class Message {
         for (Node node : mesh) {
             if (node.isActive() && !ByteUtil.arraysAreEqual(node.getIdentifier(), Verifier.getIdentifier()) &&
                     BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(node.getIdentifier()))) {
-                String ipAddress = IpUtil.addressAsString(node.getIpAddress());
-                fetch(ipAddress, node.getPort(), message, null);
+                fetch(node, message, null);
             }
         }
     }
@@ -145,11 +151,20 @@ public class Message {
         } else {
             System.out.println("trying to fetch " + message.getType() + " from " +
                     NicknameManager.get(node.getIdentifier()));
-            fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, messageCallback);
+            fetch(node, message, messageCallback);
         }
     }
 
-    public static void fetch(String hostNameOrIp, int port, Message message, MessageCallback messageCallback) {
+    public static void fetch(Node node, Message message, MessageCallback messageCallback) {
+
+        if (message.getType() == MessageType.BlockVote19 && node.getPortUdp() > 0) {
+            sendUdp(node.getIpAddress(), node.getPortUdp(), message);
+        } else {
+            fetchTcp(IpUtil.addressAsString(node.getIpAddress()), node.getPortTcp(), message, messageCallback);
+        }
+    }
+
+    public static void fetchTcp(String hostNameOrIp, int port, Message message, MessageCallback messageCallback) {
 
         byte[] identifier = NodeManager.identifierForIpAddress(hostNameOrIp);
 
@@ -213,16 +228,34 @@ public class Message {
         }
     }
 
+    public static void sendUdp(byte[] ipAddress, int port, Message message) {
+
+        byte[] identifier = NodeManager.identifierForIpAddress(ipAddress);
+
+        // Do not send the message to this verifier, and do not send a message that will get this verifier blacklisted
+        // if it is not in the cycle.
+        if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier()) &&
+                (BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier())) ||
+                        BlockManager.inGenesisCycle() ||
+                        !disallowedNonCycleTypes.contains(message.getType()))) {
+
+            try {
+                byte[] messageBytes = message.getBytesForTransmission();
+                InetAddress address = Inet4Address.getByAddress(ipAddress);
+                DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, address, port);
+                datagramSocket.send(packet);
+            } catch (Exception ignored) { }
+        }
+    }
+
     public static Message readFromStream(InputStream inputStream, byte[] sourceIpAddress, MessageType sourceType) {
 
         byte[] response = getResponse(inputStream);
         Message message;
         if (response.length == 0) {
-            System.out.println("empty response from " + IpUtil.addressAsString(sourceIpAddress) + " for message of " +
-                    "type " + sourceType);
             message = null;
         } else {
-            message = fromBytes(response, sourceIpAddress);
+            message = fromBytes(response, sourceIpAddress, false);
         }
 
         return message;
@@ -321,7 +354,7 @@ public class Message {
         return result;
     }
 
-    public static Message fromBytes(byte[] bytes, byte[] sourceIpAddress) {
+    public static Message fromBytes(byte[] bytes, byte[] sourceIpAddress, boolean discardMessageLength) {
 
         Message message = null;
         int typeValue = 0;
@@ -329,7 +362,9 @@ public class Message {
         try {
             ByteBuffer buffer = ByteBuffer.wrap(bytes);
 
-            // The size is discarded before this method, so it is not read here.
+            if (discardMessageLength) {
+                buffer.getInt();
+            }
 
             long timestamp = buffer.getLong();
             typeValue = buffer.getShort() & 0xffff;
@@ -427,6 +462,10 @@ public class Message {
             content = VerifierRemovalVote.fromByteBuffer(buffer);
         } else if (type == MessageType.FullMeshResponse42) {
             content = MeshResponse.fromByteBuffer(buffer);
+        } else if (type == MessageType.NodeJoinV2_43) {
+            content = NodeJoinMessageV2.fromByteBuffer(buffer);
+        } else if (type == MessageType.NodeJoinResponseV2_44) {
+            content = NodeJoinResponseV2.fromByteBuffer(buffer);
         } else if (type == MessageType.PingResponse201) {
             content = PingResponse.fromByteBuffer(buffer);
         } else if (type == MessageType.UpdateResponse301) {
@@ -467,9 +506,32 @@ public class Message {
         }
     }
 
+    public static void putString(String value, ByteBuffer buffer, int maximumStringByteLength) {
+
+        if (value == null) {
+            buffer.putShort((short) 0);
+        } else {
+            byte[] lineBytes = value.getBytes(StandardCharsets.UTF_8);
+            if (lineBytes.length > maximumStringByteLength) {
+                lineBytes = Arrays.copyOf(lineBytes, maximumStringByteLength);
+            }
+            buffer.putShort((short) lineBytes.length);
+            buffer.put(lineBytes);
+        }
+    }
+
     public static String getString(ByteBuffer buffer) {
 
         int lineByteLength = buffer.getShort() & 0xffff;
+        byte[] lineBytes = new byte[lineByteLength];
+        buffer.get(lineBytes);
+
+        return new String(lineBytes, StandardCharsets.UTF_8);
+    }
+
+    public static String getString(ByteBuffer buffer, int maximumStringByteLength) {
+
+        int lineByteLength = Math.min(buffer.getShort() & 0xffff, maximumStringByteLength);
         byte[] lineBytes = new byte[lineByteLength];
         buffer.get(lineBytes);
 

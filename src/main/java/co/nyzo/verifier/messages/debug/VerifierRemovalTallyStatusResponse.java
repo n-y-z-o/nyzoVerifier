@@ -23,6 +23,16 @@ public class VerifierRemovalTallyStatusResponse implements MessageObject, Multil
                         NicknameManager.get(identifier.array()) + "): " + voteTotals.get(identifier));
             }
 
+            // Sort descending on vote totals.
+            Collections.sort(lines, new Comparator<String>() {
+                @Override
+                public int compare(String string1, String string2) {
+                    Integer value1 = Integer.parseInt(string1.split(":")[1].trim());
+                    Integer value2 = Integer.parseInt(string2.split(":")[1].trim());
+                    return value2.compareTo(value1);
+                }
+            });
+
             this.lines = lines;
         } else {
             this.lines = Collections.singletonList("*** unauthorized ***");

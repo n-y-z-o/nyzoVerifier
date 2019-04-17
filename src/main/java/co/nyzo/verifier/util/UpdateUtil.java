@@ -36,7 +36,7 @@ public class UpdateUtil {
             public void run() {
                 // Flag that the system should terminate and close the MeshListener socket.
                 terminate();
-                MeshListener.closeSocket();
+                MeshListener.closeSockets();
 
                 // Wait for the verifier, the mesh listener, and the seed transaction generator to terminate.
                 while (Verifier.isAlive() || MeshListener.isAlive() || SeedTransactionManager.isAlive()) {

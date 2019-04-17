@@ -48,6 +48,8 @@ public enum MessageType {
     VerifierRemovalVoteResponse40(40),
     FullMeshRequest41(41),
     FullMeshResponse42(42),
+    NodeJoinV2_43(43),
+    NodeJoinResponseV2_44(44),
 
     // test messages
     Ping200(200),

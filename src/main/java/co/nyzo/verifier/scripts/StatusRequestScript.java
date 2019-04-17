@@ -61,25 +61,26 @@ public class StatusRequestScript {
             message.sign(privateSeed);
         }
         for (byte[] ipAddress : ipAddresses) {
-            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetchTcp(IpUtil.addressAsString(ipAddress), MeshListener.standardPortTcp, message,
+                    new MessageCallback() {
+                        @Override
+                        public void responseReceived(Message message) {
 
-                    if (message == null) {
-                        System.out.println("response message is null");
-                    } else {
+                            if (message == null) {
+                                System.out.println("response message is null");
+                            } else {
 
-                        // Get the response object from the message.
-                        StatusResponse response = (StatusResponse) message.getContent();
+                                // Get the response object from the message.
+                                StatusResponse response = (StatusResponse) message.getContent();
 
-                        // Print the response.
-                        for (String line : response.getLines()) {
-                            System.out.println(line);
+                                // Print the response.
+                                for (String line : response.getLines()) {
+                                    System.out.println(line);
+                                }
+                            }
+
+                            numberOfResponsesNotYetReceived.decrementAndGet();
                         }
-                    }
-
-                    numberOfResponsesNotYetReceived.decrementAndGet();
-                }
             });
         }
 

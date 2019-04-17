@@ -263,23 +263,22 @@ public class BlockVoteManager {
 
                         numberOfVotesRequested++;
 
-                        Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message,
-                                new MessageCallback() {
-                                    @Override
-                                    public void responseReceived(Message message) {
+                        Message.fetch(node, message, new MessageCallback() {
+                            @Override
+                            public void responseReceived(Message message) {
 
-                                        BlockVote vote = (BlockVote) message.getContent();
-                                        if (vote != null) {
-                                            registerVote(message);
+                                BlockVote vote = (BlockVote) message.getContent();
+                                if (vote != null) {
+                                    registerVote(message);
 
-                                            // Each time a good vote is received, the last-vote-request timestamp is
-                                            // updated. If we take some time to request all the votes, this helps to
-                                            // avoid starting a new round of requests soon after, or even before, this
-                                            // round of requests completes.
-                                            lastVoteRequestTimestamp = System.currentTimeMillis();
-                                        }
-                                    }
-                                });
+                                    // Each time a good vote is received, the last-vote-request timestamp is
+                                    // updated. If we take some time to request all the votes, this helps to
+                                    // avoid starting a new round of requests soon after, or even before, this
+                                    // round of requests completes.
+                                    lastVoteRequestTimestamp = System.currentTimeMillis();
+                                }
+                            }
+                        });
                     }
                 }
             }

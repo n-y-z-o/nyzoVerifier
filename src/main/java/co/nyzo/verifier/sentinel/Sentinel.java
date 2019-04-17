@@ -193,9 +193,8 @@ public class Sentinel {
             AtomicInteger numberOfResponsesPending = new AtomicInteger(verifiers.size());
             for (ManagedVerifier verifier : verifiers.values()) {
 
-                Message bootstrapRequest = new Message(MessageType.BootstrapRequestV2_35,
-                        new BootstrapRequest(MeshListener.getPort()));
-                Message.fetch(verifier.getHost(), verifier.getPort(), bootstrapRequest, new MessageCallback() {
+                Message bootstrapRequest = new Message(MessageType.BootstrapRequestV2_35, new BootstrapRequest());
+                Message.fetchTcp(verifier.getHost(), verifier.getPort(), bootstrapRequest, new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
 
@@ -255,7 +254,7 @@ public class Sentinel {
             AtomicInteger numberOfResponsesPending = new AtomicInteger(verifiers.size());
             for (ManagedVerifier verifier : verifiers.values()) {
 
-                Message.fetch(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
+                Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
 
@@ -315,7 +314,7 @@ public class Sentinel {
 
         // Get the mesh.
         Message message = new Message(MessageType.MeshRequest15, null);
-        Message.fetch(verifier.getHost(), 9444, message, new MessageCallback() {
+        Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
             @Override
             public void responseReceived(Message message) {
 
@@ -344,7 +343,7 @@ public class Sentinel {
                 false));
 
         AtomicBoolean processedResponse = new AtomicBoolean(false);
-        Message.fetch(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
+        Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
             @Override
             public void responseReceived(Message message) {
 
@@ -464,8 +463,7 @@ public class Sentinel {
                         message.sign(verifier.getSeed());
 
                         for (Node node : combinedCycle()) {
-                            Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message,
-                                    null);
+                            Message.fetch(node, message, null);
                         }
                         blockTransmittedForManagedVerifier = true;
                         System.out.println("sent block for " +

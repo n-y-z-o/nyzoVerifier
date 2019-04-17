@@ -42,13 +42,31 @@ public class NodeManager {
         // In previous versions, more types of requests were registered to increase mesh density. However, to make the
         // system more flexible, we have changed this to only update a node when explicitly requested to do so through
         // a node join.
-        if (message.getType() == MessageType.NodeJoin3 || message.getType() == MessageType.NodeJoinResponse4) {
+        if (message.getType() == MessageType.NodeJoin3 || message.getType() == MessageType.NodeJoinResponse4 ||
+                message.getType() == MessageType.NodeJoinV2_43 ||
+                message.getType() == MessageType.NodeJoinResponseV2_44) {
 
-            int port = ((PortMessage) message.getContent()).getPort();
-            boolean isNewNode = updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(), port);
+            int portTcp;
+            int portUdp;
+            if (message.getType() == MessageType.NodeJoin3 || message.getType() == MessageType.NodeJoinResponse4) {
+                portTcp = ((PortMessage) message.getContent()).getPort();
+                portUdp = -1;
+            } else {  // NodeJoinV2_43 || NodeJoinResponseV2_44
+                portTcp = ((PortMessageV2) message.getContent()).getPortTcp();
+                portUdp = ((PortMessageV2) message.getContent()).getPortUdp();
+            }
+
+            boolean isNewNode = updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(), portTcp,
+                    portUdp);
             if (isNewNode) {
-                Message.fetch(IpUtil.addressAsString(message.getSourceIpAddress()), port,
-                        new Message(MessageType.NodeJoin3, new NodeJoinMessage()), null);
+                // Send the same kind of node-join message that this node just sent.
+                if (message.getType() == MessageType.NodeJoin3) {
+                    Message.fetchTcp(IpUtil.addressAsString(message.getSourceIpAddress()), portTcp,
+                            new Message(MessageType.NodeJoin3, new NodeJoinMessage()), null);
+                } else {
+                    Message.fetchTcp(IpUtil.addressAsString(message.getSourceIpAddress()), portTcp,
+                            new Message(MessageType.NodeJoinV2_43, new NodeJoinMessageV2()), null);
+                }
             }
 
         } else if (message.getType() == MessageType.MissingBlockVoteRequest23 ||
@@ -70,10 +88,10 @@ public class NodeManager {
 
     public static void addTemporaryLocalVerifierEntry() {
 
-        updateNode(Verifier.getIdentifier(), new byte[4], 0);
+        updateNode(Verifier.getIdentifier(), new byte[4], 0, 0);
     }
 
-    private static synchronized boolean updateNode(byte[] identifier, byte[] ipAddress, int port) {
+    private static synchronized boolean updateNode(byte[] identifier, byte[] ipAddress, int portTcp, int portUdp) {
 
         boolean isNewNode = false;
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
@@ -85,7 +103,7 @@ public class NodeManager {
 
             if (existingNode == null) {
                 // This is the case when no other node is at the IP. We create a new node and add it to the map.
-                Node node = new Node(identifier, ipAddress, port);
+                Node node = new Node(identifier, ipAddress, portTcp, portUdp);
                 long persistedTimestamp = persistedQueueTimestamps.getOrDefault(ByteBuffer.wrap(identifier), 0L);
                 if (persistedTimestamp > 0L && persistedTimestamp < node.getQueueTimestamp()) {
                     node.setQueueTimestamp(persistedTimestamp);
@@ -100,11 +118,14 @@ public class NodeManager {
                 }
 
             } else {
-                // This is the case when there is already a node at the IP. We always update the port and mark the node
+                // This is the case when there is already a node at the IP. We always update the ports and mark the node
                 // as active. Then, if the verifier has changed and a verifier change is allowed, we update the
                 // verifier.
 
-                existingNode.setPort(port);
+                existingNode.setPortTcp(portTcp);
+                if (portUdp > 0) {
+                    existingNode.setPortUdp(portUdp);
+                }
                 existingNode.setInactiveTimestamp(-1L);
 
                 if (!ByteUtil.arraysAreEqual(existingNode.getIdentifier(), identifier) &&
@@ -182,10 +203,9 @@ public class NodeManager {
         return ipAddressToNodeMap.size() > 1;
     }
 
-    public static byte[] identifierForIpAddress(String addressString) {
+    public static byte[] identifierForIpAddress(byte[] address) {
 
         byte[] identifier = null;
-        byte[] address = IpUtil.addressFromString(addressString);
         if (address != null) {
             ByteBuffer addressBuffer = ByteBuffer.wrap(address);
             Node node = ipAddressToNodeMap.get(addressBuffer);
@@ -195,6 +215,11 @@ public class NodeManager {
         }
 
         return identifier;
+    }
+
+    public static byte[] identifierForIpAddress(String addressString) {
+
+        return identifierForIpAddress(IpUtil.addressFromString(addressString));
     }
 
     public static void markFailedConnection(String addressString) {
@@ -314,26 +339,41 @@ public class NodeManager {
 
                 if (port != null && port > 0) {
                     nodeJoinRequestsSent.incrementAndGet();
-                    Message nodeJoinMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
-                    Message.fetch(IpUtil.addressAsString(ipAddressBuffer.array()), port, nodeJoinMessage,
+
+                    // This is the V2 node-join message. This will be activated in a later version.
+                    /*
+                    Message nodeJoinMessage = new Message(MessageType.NodeJoinV2_43, new NodeJoinMessageV2());
+                    Message.fetchTcp(IpUtil.addressAsString(ipAddressBuffer.array()), port, nodeJoinMessage,
                             new MessageCallback() {
                                 @Override
                                 public void responseReceived(Message message) {
-                                    if (message != null) {
+
+                                    if (message != null && message.getContent() instanceof NodeJoinResponseV2) {
+
+                                        System.out.println("UDP: got V2 node-join response from " +
+                                                IpUtil.addressAsString(ipAddressBuffer.array()));
+
+                                        updateNode(message);
+
+                                        NodeJoinResponseV2 response = (NodeJoinResponseV2) message.getContent();
+                                        NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
+                                    }
+                                }
+                            });*/
+
+                    // This is the legacy message. This will be removed in a later version.
+                    Message legacyMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
+                    Message.fetchTcp(IpUtil.addressAsString(ipAddressBuffer.array()), port, legacyMessage,
+                            new MessageCallback() {
+                                @Override
+                                public void responseReceived(Message message) {
+
+                                    if (message != null && message.getContent() instanceof NodeJoinResponse) {
 
                                         updateNode(message);
 
                                         NodeJoinResponse response = (NodeJoinResponse) message.getContent();
-                                        if (response != null) {
-
-                                            NicknameManager.put(message.getSourceNodeIdentifier(),
-                                                    response.getNickname());
-
-                                            if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
-                                                NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
-                                                        response.getNewVerifierVote(), false);
-                                            }
-                                        }
+                                        NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
                                     }
                                 }
                             });
@@ -366,7 +406,7 @@ public class NodeManager {
                         // Enqueue node-join requests to all nodes in the response.
                         MeshResponse response = (MeshResponse) message.getContent();
                         for (Node node : response.getMesh()) {
-                            NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
+                            NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPortTcp());
                         }
 
                         System.out.println("reloaded node-join request queue, size is now " +

@@ -17,11 +17,11 @@ public class ScriptUtil {
 
     public static List<byte[]> ipAddressesForVerifier(byte[] identifier) {  
         
-        // Ask Nyzo verifier 0 for the mesh. Get the IP addresses of the verifier.  
+        // Ask Nyzo verifier 0 for the mesh. Get the IP addresses of the verifier.
         List<byte[]> ipAddresses = new ArrayList<>();  
         Message meshRequest = new Message(MessageType.MeshRequest15, null);  
         AtomicBoolean receivedResponse = new AtomicBoolean(false);  
-        Message.fetch("verifier0.nyzo.co", MeshListener.standardPort, meshRequest, new MessageCallback() {  
+        Message.fetchTcp("verifier0.nyzo.co", MeshListener.standardPortTcp, meshRequest, new MessageCallback() {
             
             @Override  
             public void responseReceived(Message message) {  
@@ -86,25 +86,26 @@ public class ScriptUtil {
             message.sign(privateSeed);
         }
         for (byte[] ipAddress : ipAddresses) {
-            Message.fetch(IpUtil.addressAsString(ipAddress), MeshListener.standardPort, message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+            Message.fetchTcp(IpUtil.addressAsString(ipAddress), MeshListener.standardPortTcp, message,
+                    new MessageCallback() {
+                        @Override
+                        public void responseReceived(Message message) {
 
-                    System.out.println("response message: " + message);
-                    if (message != null) {
-                        if (message.getContent() instanceof MultilineTextResponse) {
-                            MultilineTextResponse response = (MultilineTextResponse) message.getContent();
-                            System.out.println("response number of lines: " + response.getLines().size());
-                            for (String line : response.getLines()) {
-                                System.out.println(line);
+                            System.out.println("response message: " + message);
+                            if (message != null) {
+                                if (message.getContent() instanceof MultilineTextResponse) {
+                                    MultilineTextResponse response = (MultilineTextResponse) message.getContent();
+                                    System.out.println("response number of lines: " + response.getLines().size());
+                                    for (String line : response.getLines()) {
+                                        System.out.println(line);
+                                    }
+                                } else {
+                                    System.out.println("content is incorrect type: " + message.getContent());
+                                }
                             }
-                        } else {
-                            System.out.println("content is incorrect type: " + message.getContent());
-                        }
-                    }
 
-                    numberOfResponsesNotYetReceived.decrementAndGet();
-                }
+                            numberOfResponsesNotYetReceived.decrementAndGet();
+                        }
             });
         }
 

@@ -200,12 +200,11 @@ public class Verifier {
                     AtomicInteger numberOfResponsesReceived = new AtomicInteger(0);
 
                     // Send bootstrap requests to all trusted entry points.
-                    Message bootstrapRequest = new Message(MessageType.BootstrapRequestV2_35,
-                            new BootstrapRequest(MeshListener.getPort()));
+                    Message bootstrapRequest = new Message(MessageType.BootstrapRequestV2_35, new BootstrapRequest());
                     for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
 
                         System.out.println("sending Bootstrap request to " + entryPoint);
-                        Message.fetch(entryPoint.getHost(), entryPoint.getPort(), bootstrapRequest,
+                        Message.fetchTcp(entryPoint.getHost(), entryPoint.getPort(), bootstrapRequest,
                                 new MessageCallback() {
                                     @Override
                                     public void responseReceived(Message message) {
@@ -310,14 +309,14 @@ public class Verifier {
     private static void fetchMesh(TrustedEntryPoint entryPoint, AtomicInteger numberOfMeshResponsesPending) {
 
         Message meshRequest = new Message(MessageType.MeshRequest15, null);
-        Message.fetch(entryPoint.getHost(), entryPoint.getPort(), meshRequest, new MessageCallback() {
+        Message.fetchTcp(entryPoint.getHost(), entryPoint.getPort(), meshRequest, new MessageCallback() {
             @Override
             public void responseReceived(Message message) {
 
                 // Enqueue node-join requests for all nodes in the response.
                 MeshResponse response = (MeshResponse) message.getContent();
                 for (Node node : response.getMesh()) {
-                    NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPort());
+                    NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPortTcp());
                 }
 
                 numberOfMeshResponsesPending.decrementAndGet();
@@ -330,7 +329,7 @@ public class Verifier {
         System.out.println("sending node-join messages to trusted entry point: " + trustedEntryPoint);
 
         Message message = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
-        Message.fetch(trustedEntryPoint.getHost(), trustedEntryPoint.getPort(), message,
+        Message.fetchTcp(trustedEntryPoint.getHost(), trustedEntryPoint.getPort(), message,
                 new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {

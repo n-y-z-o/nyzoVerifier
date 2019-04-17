@@ -6,6 +6,8 @@ import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -24,23 +26,38 @@ public class MeshListener {
 
     private static final int maximumConcurrentConnectionsForIp = 20;
 
+    private static final AtomicBoolean aliveTcp = new AtomicBoolean(false);
+    private static final AtomicBoolean aliveUdp = new AtomicBoolean(false);
+
+    // The only message sent via UDP right now is BlockVote19.
+    private static final int udpBufferSize = FieldByteSize.messageLength + FieldByteSize.timestamp +  // message fields
+            FieldByteSize.messageType + FieldByteSize.identifier + FieldByteSize.signature +  // message fields
+            FieldByteSize.blockHeight + FieldByteSize.hash + FieldByteSize.timestamp;  // block vote fields
+
+    private static final byte[] packetBuffer = new byte[udpBufferSize];
+
     public static void main(String[] args) {
         start();
     }
 
-    private static final AtomicBoolean alive = new AtomicBoolean(false);
-
     public static boolean isAlive() {
-        return alive.get();
+        return aliveTcp.get() || aliveUdp.get();
     }
 
-    public static final int standardPort = 9444;
+    public static final int standardPortTcp = 9444;
+    public static final int standardPortUdp = 9446;
 
-    private static ServerSocket serverSocket = null;
-    private static int port;
+    private static ServerSocket serverSocketTcp = null;
+    private static DatagramSocket datagramSocketUdp = null;
+    private static int portTcp;
+    private static int portUdp;
 
-    public static int getPort() {
-        return port;
+    public static int getPortTcp() {
+        return portTcp;
+    }
+
+    public static int getPortUdp() {
+        return portUdp;
     }
 
     private static final BiFunction<Integer, Integer, Integer> mergeFunction =
@@ -55,44 +72,95 @@ public class MeshListener {
 
     public static void start() {
 
+        if (!aliveTcp.getAndSet(true)) {
+            startSocketThreadTcp();
+        }
+
+        if (!aliveUdp.getAndSet(true)) {
+            startSocketThreadUdp();
+        }
+    }
+
+    public static void startSocketThreadTcp() {
+
         Map<ByteBuffer, Integer> connectionsPerIp = new ConcurrentHashMap<>();
         AtomicInteger activeReadThreads = new AtomicInteger(0);
 
-        if (!alive.getAndSet(true)) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    serverSocketTcp = new ServerSocket(standardPortTcp);
+                    portTcp = serverSocketTcp.getLocalPort();
 
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        serverSocket = new ServerSocket(standardPort);
-                        port = serverSocket.getLocalPort();
+                    while (!UpdateUtil.shouldTerminate()) {
 
-                        while (!UpdateUtil.shouldTerminate()) {
-
-                            if (Verifier.isPaused()) {
-                                try {
-                                    Thread.sleep(1000L);
-                                } catch (Exception ignored) { }
-                            } else {
-                                try {
-                                    Socket clientSocket = serverSocket.accept();
-                                    processSocket(clientSocket, activeReadThreads, connectionsPerIp);
-                                } catch (Exception ignored) { }
-                            }
+                        if (Verifier.isPaused()) {
+                            try {
+                                Thread.sleep(1000L);
+                            } catch (Exception ignored) { }
+                        } else {
+                            try {
+                                Socket clientSocket = serverSocketTcp.accept();
+                                processSocket(clientSocket, activeReadThreads, connectionsPerIp);
+                            } catch (Exception ignored) { }
                         }
-
-                        closeSocket();
-
-                    } catch (Exception e) {
-
-                        System.err.println("Exception trying to open mesh listener. Exiting.");
-                        UpdateUtil.terminate();
                     }
 
-                    alive.set(false);
+                    closeSockets();
+
+                } catch (Exception e) {
+
+                    System.err.println("Exception trying to open mesh listener. Exiting.");
+                    UpdateUtil.terminate();
                 }
-            }, "MeshListener-serverSocket").start();
-        }
+
+                aliveTcp.set(false);
+            }
+        }, "MeshListener-serverSocketTcp").start();
+    }
+
+    private static void startSocketThreadUdp() {
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    datagramSocketUdp = new DatagramSocket(standardPortUdp);
+                    portUdp = datagramSocketUdp.getLocalPort();
+
+                    while (!UpdateUtil.shouldTerminate()) {
+
+                        if (Verifier.isPaused()) {
+                            try {
+                                Thread.sleep(1000L);
+                            } catch (Exception ignored) { }
+                        } else {
+                            try {
+                                DatagramPacket datagramPacket = new DatagramPacket(packetBuffer, udpBufferSize);
+                                datagramSocketUdp.receive(datagramPacket);
+                                if (BlacklistManager.inBlacklist(datagramPacket.getAddress().getAddress())) {
+                                    try {
+                                        numberOfMessagesRejected.incrementAndGet();
+                                    } catch (Exception ignored) { }
+                                } else {
+                                    numberOfMessagesAccepted.incrementAndGet();
+                                    readMessage(datagramPacket);
+                                }
+
+                            } catch (Exception ignored) { }
+                        }
+                    }
+
+                } catch (Exception e) {
+
+                    System.err.println("Exception trying to open UDP socket. Exiting.");
+                    UpdateUtil.terminate();
+                }
+
+                aliveUdp.set(false);
+            }
+        }, "MeshListener-datagramSocketUdp").start();
     }
 
     private static void processSocket(Socket clientSocket, AtomicInteger activeReadThreads,
@@ -145,7 +213,7 @@ public class MeshListener {
                             connectionsPerIp.clear();
                         }
                     }
-                }, "MeshListener-clientSocket").start();
+                }, "MeshListener-clientSocketTcp").start();
             }
         }
     }
@@ -172,14 +240,33 @@ public class MeshListener {
         } catch (Exception ignored) { }
     }
 
-    public static void closeSocket() {
+    private static void readMessage(DatagramPacket packet) {
 
-        if (serverSocket != null) {
+        try {
+
+            Message message = Message.fromBytes(packet.getData(), packet.getAddress().getAddress(), true);
+            if (message != null) {
+
+                // For UDP, we do not send the response.
+                Message response = response(message);
+            }
+
+        } catch (Exception ignored) { }
+    }
+
+    public static void closeSockets() {
+
+        if (serverSocketTcp != null) {
             try {
-                serverSocket.close();
+                serverSocketTcp.close();
             } catch (Exception ignored) {
             }
-            serverSocket = null;
+            serverSocketTcp = null;
+        }
+
+        if (datagramSocketUdp != null) {
+            datagramSocketUdp.close();
+            datagramSocketUdp = null;
         }
     }
 
@@ -303,6 +390,15 @@ public class MeshListener {
                 } else if (messageType == MessageType.FullMeshRequest41) {
 
                     response = new Message(MessageType.FullMeshResponse42, new MeshResponse(NodeManager.getMesh()));
+
+                } else if (messageType == MessageType.NodeJoinV2_43) {
+
+                    NodeManager.updateNode(message);
+
+                    NodeJoinMessageV2 nodeJoinMessage = (NodeJoinMessageV2) message.getContent();
+                    NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
+
+                    response = new Message(MessageType.NodeJoinResponseV2_44, new NodeJoinResponseV2());
 
                 } else if (messageType == MessageType.Ping200) {
 

@@ -3,9 +3,6 @@ package co.nyzo.verifier.messages;
 import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
 public class NodeJoinResponse implements MessageObject, PortMessage {
 
@@ -18,7 +15,7 @@ public class NodeJoinResponse implements MessageObject, PortMessage {
     public NodeJoinResponse() {
 
         this.nickname = Verifier.getNickname();
-        this.port = MeshListener.getPort();
+        this.port = MeshListener.getPortTcp();
         this.newVerifierVote = NewVerifierVoteManager.getLocalVote();
     }
 
@@ -89,9 +86,7 @@ public class NodeJoinResponse implements MessageObject, PortMessage {
             NewVerifierVote newVerifierVote = new NewVerifierVote(newVerifierVoteIdentifier);
 
             result = new NodeJoinResponse(nickname, port, newVerifierVote);
-        } catch (Exception ignored) {
-            ignored.printStackTrace();
-        }
+        } catch (Exception ignored) { }
 
         return result;
     }

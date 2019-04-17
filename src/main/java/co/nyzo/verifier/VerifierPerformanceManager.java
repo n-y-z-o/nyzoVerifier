@@ -32,7 +32,7 @@ public class VerifierPerformanceManager {
     private static final int messagesPerIteration = 10;
     private static final Map<ByteBuffer, Long> voteMessageIpToTimestampMap = new ConcurrentHashMap<>();
 
-    public static final File scoreFile = new File(Verifier.dataRootDirectory, "performance_scores_v1");
+    public static final File scoreFile = new File(Verifier.dataRootDirectory, "performance_scores_v2");
 
     private static final BiFunction<Integer, Integer, Integer> mergeFunction =
             new BiFunction<Integer, Integer, Integer>() {
@@ -223,7 +223,7 @@ public class VerifierPerformanceManager {
 
                 voteMessageIpToTimestampMap.put(ipAddress, System.currentTimeMillis());
                 numberOfMessages++;
-                Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, null);
+                Message.fetch(node, message, null);
             }
         }
     }

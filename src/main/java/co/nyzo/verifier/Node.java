@@ -1,6 +1,5 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.messages.TransactionPoolResponse;
 import co.nyzo.verifier.util.IpUtil;
 
 import java.nio.ByteBuffer;
@@ -10,18 +9,20 @@ public class Node implements MessageObject {
 
     private byte[] identifier;                    // wallet public key (32 bytes)
     private byte[] ipAddress;                     // IPv4 address, stored as bytes to keep memory predictable (4 bytes)
-    private int port;                             // port number
+    private int portTcp;                          // TCP port number
+    private int portUdp;                          // UDP port number, if available
     private long queueTimestamp;                  // this is the timestamp that determines queue placement -- it is
                                                   // when the verifier joined the mesh or when the verifier was last
                                                   // updated
     private long identifierChangeTimestamp;       // when the identifier at this IP was last changed
     private long inactiveTimestamp;               // when the verifier was marked as inactive; -1 for active verifiers
 
-    public Node(byte[] identifier, byte[] ipAddress, int port) {
+    public Node(byte[] identifier, byte[] ipAddress, int portTcp, int portUdp) {
 
         this.identifier = Arrays.copyOf(identifier, FieldByteSize.identifier);
         this.ipAddress = Arrays.copyOf(ipAddress, FieldByteSize.ipAddress);
-        this.port = port;
+        this.portTcp = portTcp;
+        this.portUdp = portUdp;
         this.queueTimestamp = System.currentTimeMillis();
         this.identifierChangeTimestamp = System.currentTimeMillis();
         this.inactiveTimestamp = -1L;
@@ -39,12 +40,20 @@ public class Node implements MessageObject {
         return ipAddress;
     }
 
-    public int getPort() {
-        return port;
+    public int getPortTcp() {
+        return portTcp;
     }
 
-    public void setPort(int port) {
-        this.port = port;
+    public void setPortTcp(int portTcp) {
+        this.portTcp = portTcp;
+    }
+
+    public int getPortUdp() {
+        return portUdp;
+    }
+
+    public void setPortUdp(int portUdp) {
+        this.portUdp = portUdp;
     }
 
     public long getQueueTimestamp() {
@@ -93,7 +102,7 @@ public class Node implements MessageObject {
         ByteBuffer buffer = ByteBuffer.wrap(result);
         buffer.put(identifier);
         buffer.put(ipAddress);
-        buffer.putInt(port);
+        buffer.putInt(portTcp);
         buffer.putLong(queueTimestamp);
 
         return result;
@@ -105,10 +114,10 @@ public class Node implements MessageObject {
         buffer.get(identifier);
         byte[] ipAddress = new byte[FieldByteSize.ipAddress];
         buffer.get(ipAddress);
-        int port = buffer.getInt();
+        int portTcp = buffer.getInt();
         long queueTimestamp = buffer.getLong();
 
-        Node node = new Node(identifier, ipAddress, port);
+        Node node = new Node(identifier, ipAddress, portTcp, -1);
         node.setQueueTimestamp(queueTimestamp);
 
         return node;
@@ -116,6 +125,6 @@ public class Node implements MessageObject {
 
     @Override
     public String toString() {
-        return "[Node: " + IpUtil.addressAsString(getIpAddress()) + ":" + port + "]";
+        return "[Node: " + IpUtil.addressAsString(getIpAddress()) + ":TCP=" + portTcp + ",UDP=" + portUdp + "]";
     }
 }

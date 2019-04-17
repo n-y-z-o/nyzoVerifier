@@ -11,7 +11,7 @@ import java.util.Map;
 public class BlacklistManager {
 
     private static final long blacklistDuration = 1000L * 60L * 10L;  // ten minutes
-    private static final boolean useIpTables = true;
+    private static final boolean useIpTables = false;
 
     private static final Map<ByteBuffer, Long> blacklistedAddresses = new HashMap<>();
 
@@ -19,7 +19,7 @@ public class BlacklistManager {
         // Always try to flush firewall rules. This is necessary whether the firewall is being used this run or not,
         // because it might have been used the previous run.
         // `sudo iptables -nvL` to check
-        runProcess("sudo", "iptables", "-F");
+        //runProcess("sudo", "iptables", "-F");
     }
 
     public static void addToBlacklist(byte[] ipAddress) {
@@ -70,10 +70,10 @@ public class BlacklistManager {
 
     private static void setIpTableEntry(String addDrop, byte[] ipAddress) {
 
-        if (useIpTables) {
-            runProcess("sudo", "iptables", addDrop, "INPUT", "-s", IpUtil.addressAsString(ipAddress), "-p", "tcp",
-                    "--destination-port", MeshListener.getPort() + "", "-j", "DROP");
-        }
+        //if (useIpTables) {
+            //runProcess("sudo", "iptables", addDrop, "INPUT", "-s", IpUtil.addressAsString(ipAddress), "-p", "tcp",
+            //        "--destination-port", MeshListener.getPort() + "", "-j", "DROP");
+        //}
     }
 
     private static void runProcess(String... args) {

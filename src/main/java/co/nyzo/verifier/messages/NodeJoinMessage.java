@@ -11,7 +11,7 @@ public class NodeJoinMessage implements MessageObject, PortMessage {
 
     public NodeJoinMessage() {
 
-        this.port = MeshListener.getPort();
+        this.port = MeshListener.getPortTcp();
         this.nickname = Verifier.getNickname();
     }
 

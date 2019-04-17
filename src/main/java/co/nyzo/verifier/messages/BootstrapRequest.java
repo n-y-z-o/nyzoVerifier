@@ -5,12 +5,15 @@ import co.nyzo.verifier.MessageObject;
 
 import java.nio.ByteBuffer;
 
-public class BootstrapRequest implements MessageObject, PortMessage {
+public class BootstrapRequest implements MessageObject {
 
     private int port;
 
-    public BootstrapRequest(int port) {
+    public BootstrapRequest() {
+        this.port = -1;
+    }
 
+    private BootstrapRequest(int port) {
         this.port = port;
     }
 
@@ -38,12 +41,11 @@ public class BootstrapRequest implements MessageObject, PortMessage {
         BootstrapRequest result = null;
 
         try {
+            // The port is no longer used. It is stored to ensure signature integrity.
             int port = buffer.getInt();
 
             result = new BootstrapRequest(port);
-        } catch (Exception ignored) {
-            ignored.printStackTrace();
-        }
+        } catch (Exception ignored) { }
 
         return result;
     }

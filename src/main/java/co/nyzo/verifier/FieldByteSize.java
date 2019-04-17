@@ -36,4 +36,9 @@ public class FieldByteSize {
     public static int string(String value) {
         return stringLength + (value == null ? 0 : value.getBytes(StandardCharsets.UTF_8).length);
     }
+
+    public static int string(String value, int maximumStringByteLength) {
+        return stringLength + (value == null ? 0 : Math.min(value.getBytes(StandardCharsets.UTF_8).length,
+                maximumStringByteLength));
+    }
 }

@@ -50,7 +50,7 @@ public class NewVerifierQueueManager {
                     for (Node node : mesh) {
                         if (ByteUtil.arraysAreEqual(node.getIdentifier(), newVote) ||
                                 ByteUtil.arraysAreEqual(node.getIdentifier(), previousVote)) {
-                            Message.fetch(IpUtil.addressAsString(node.getIpAddress()), node.getPort(), message, null);
+                            Message.fetch(node, message, null);
                         }
                     }
                 }
