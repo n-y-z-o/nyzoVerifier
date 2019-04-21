@@ -4,6 +4,7 @@ import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.messages.debug.*;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.ThreadUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.net.DatagramPacket;
@@ -11,7 +12,6 @@ import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,7 +34,17 @@ public class MeshListener {
             FieldByteSize.messageType + FieldByteSize.identifier + FieldByteSize.signature +  // message fields
             FieldByteSize.blockHeight + FieldByteSize.hash + FieldByteSize.timestamp;  // block vote fields
 
-    private static final byte[] packetBuffer = new byte[udpBufferSize];
+    private static final int numberOfDatagramPackets = 50000;
+    private static int datagramPacketWriteIndex = 0;
+    private static int datagramPacketReadIndex = 0;
+
+    private static final DatagramPacket[] datagramPackets = new DatagramPacket[numberOfDatagramPackets];
+    static {
+        for (int i = 0; i < numberOfDatagramPackets; i++) {
+            byte[] packetBuffer = new byte[udpBufferSize];
+            datagramPackets[i] = new DatagramPacket(packetBuffer, udpBufferSize);
+        }
+    }
 
     public static void main(String[] args) {
         start();
@@ -94,17 +104,10 @@ public class MeshListener {
                     portTcp = serverSocketTcp.getLocalPort();
 
                     while (!UpdateUtil.shouldTerminate()) {
-
-                        if (Verifier.isPaused()) {
-                            try {
-                                Thread.sleep(1000L);
-                            } catch (Exception ignored) { }
-                        } else {
-                            try {
-                                Socket clientSocket = serverSocketTcp.accept();
-                                processSocket(clientSocket, activeReadThreads, connectionsPerIp);
-                            } catch (Exception ignored) { }
-                        }
+                        try {
+                            Socket clientSocket = serverSocketTcp.accept();
+                            processSocket(clientSocket, activeReadThreads, connectionsPerIp);
+                        } catch (Exception ignored) { }
                     }
 
                     closeSockets();
@@ -130,26 +133,20 @@ public class MeshListener {
                     portUdp = datagramSocketUdp.getLocalPort();
 
                     while (!UpdateUtil.shouldTerminate()) {
+                        try {
+                            // Get the packet.
+                            DatagramPacket packet = datagramPackets[datagramPacketWriteIndex];
+                            datagramSocketUdp.receive(packet);
 
-                        if (Verifier.isPaused()) {
-                            try {
-                                Thread.sleep(1000L);
-                            } catch (Exception ignored) { }
-                        } else {
-                            try {
-                                DatagramPacket datagramPacket = new DatagramPacket(packetBuffer, udpBufferSize);
-                                datagramSocketUdp.receive(datagramPacket);
-                                if (BlacklistManager.inBlacklist(datagramPacket.getAddress().getAddress())) {
-                                    try {
-                                        numberOfMessagesRejected.incrementAndGet();
-                                    } catch (Exception ignored) { }
-                                } else {
-                                    numberOfMessagesAccepted.incrementAndGet();
-                                    readMessage(datagramPacket);
-                                }
-
-                            } catch (Exception ignored) { }
-                        }
+                            // If the buffer is full, do not advance the index. Advancing past the read index would
+                            // cause the entire buffer to be skipped by the read thread.
+                            int newWriteIndex = (datagramPacketWriteIndex + 1) % numberOfDatagramPackets;
+                            if (newWriteIndex == datagramPacketReadIndex) {
+                                StatusResponse.incrementUdpDiscardCount();
+                            } else {
+                                datagramPacketWriteIndex = newWriteIndex;
+                            }
+                        } catch (Exception ignored) { }
                     }
 
                 } catch (Exception e) {
@@ -161,6 +158,35 @@ public class MeshListener {
                 aliveUdp.set(false);
             }
         }, "MeshListener-datagramSocketUdp").start();
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (!UpdateUtil.shouldTerminate()) {
+                    if (datagramPacketReadIndex == datagramPacketWriteIndex) {
+                        ThreadUtil.sleep(30L);
+                    } else {
+                        // Get the packet from the queue.
+                        DatagramPacket packet = datagramPackets[datagramPacketReadIndex];
+
+                        // Do some simple checks to avoid reading the message if it will not be used.
+                        ByteBuffer sourceIpAddress =  ByteBuffer.wrap(packet.getAddress().getAddress());
+                        if (BlacklistManager.inBlacklist(sourceIpAddress) ||
+                                !NodeManager.ipAddressInCycle(sourceIpAddress)) {
+                                numberOfMessagesRejected.incrementAndGet();
+                                StatusResponse.incrementUdpRejectionCount();
+                        } else {
+                            try {
+                                numberOfMessagesAccepted.incrementAndGet();
+                                readMessage(packet);
+                            } catch (Exception ignored) { }
+                        }
+
+                        datagramPacketReadIndex = (datagramPacketReadIndex + 1) % numberOfDatagramPackets;
+                    }
+                }
+            }
+        }, "MeshListener-udpProcessingQueue").start();
     }
 
     private static void processSocket(Socket clientSocket, AtomicInteger activeReadThreads,
@@ -246,6 +272,10 @@ public class MeshListener {
 
             Message message = Message.fromBytes(packet.getData(), packet.getAddress().getAddress(), true);
             if (message != null) {
+
+                if (message.getType() == MessageType.BlockVote19) {
+                    StatusResponse.incrementUdpBlockVoteCount();
+                }
 
                 // For UDP, we do not send the response.
                 Message response = response(message);
@@ -402,6 +432,7 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.Ping200) {
 
+                    StatusResponse.incrementPingCount();
                     response = new Message(MessageType.PingResponse201, new PingResponse("hello, " +
                             IpUtil.addressAsString(message.getSourceIpAddress()) + "! v=" + Version.getVersion()));
 

@@ -5,6 +5,7 @@ import co.nyzo.verifier.messages.VerifierRemovalVote;
 import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.ThreadUtil;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -19,10 +20,10 @@ import java.util.function.BiFunction;
 public class VerifierPerformanceManager {
 
     // All scores start at zero. For consistency with chain scores, a lower score is considered superior to a higher
-    // score. The 3:5 increment-to-decrement ratio means that, with 75% consensus, the cycle will see score reductions
-    // on average for each block frozen.
-    private static final int perBlockIncrement = 3;
-    private static final int perVoteDecrement = -5;
+    // score. With the delayed scoring method, the 75% threshold no longer applies, so the 6:7 increment-to-decrement
+    // ratio will still see a reduction in scores for healthy verifiers.
+    private static final int perBlockIncrement = 6;
+    private static final int perVoteDecrement = -7;
     private static final int removalThresholdScore = 12343 * 2 * perBlockIncrement;  // two days from 0
     private static final int minimumScore = -removalThresholdScore;  // up to two additional days for good performance
 
@@ -32,7 +33,7 @@ public class VerifierPerformanceManager {
     private static final int messagesPerIteration = 10;
     private static final Map<ByteBuffer, Long> voteMessageIpToTimestampMap = new ConcurrentHashMap<>();
 
-    public static final File scoreFile = new File(Verifier.dataRootDirectory, "performance_scores_v2");
+    public static final File scoreFile = new File(Verifier.dataRootDirectory, "performance_scores_v3");
 
     private static final BiFunction<Integer, Integer, Integer> mergeFunction =
             new BiFunction<Integer, Integer, Integer>() {

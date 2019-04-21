@@ -354,7 +354,7 @@ public class Message {
         return result;
     }
 
-    public static Message fromBytes(byte[] bytes, byte[] sourceIpAddress, boolean discardMessageLength) {
+    public static Message fromBytes(byte[] bytes, byte[] sourceIpAddress, boolean isUdp) {
 
         Message message = null;
         int typeValue = 0;
@@ -362,7 +362,8 @@ public class Message {
         try {
             ByteBuffer buffer = ByteBuffer.wrap(bytes);
 
-            if (discardMessageLength) {
+            // For UDP packets, the length is still in the buffer.
+            if (isUdp) {
                 buffer.getInt();
             }
 
@@ -381,7 +382,11 @@ public class Message {
                     !BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(sourceNodeIdentifier)) &&
                     !ipIsWhitelisted(sourceIpAddress)) {
 
-                BlacklistManager.addToBlacklist(sourceIpAddress);
+                // Only add the IP to the blacklist if this is a TCP message. IP addresses can be spoofed for UDP
+                // messages.
+                if (!isUdp) {
+                    BlacklistManager.addToBlacklist(sourceIpAddress);
+                }
 
             } else {
                 byte[] sourceNodeSignature = new byte[FieldByteSize.signature];

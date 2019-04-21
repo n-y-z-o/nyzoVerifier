@@ -8,8 +8,14 @@ import co.nyzo.verifier.MemoryMonitor;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class StatusResponse implements MessageObject {
+
+    private static AtomicInteger pingCount = new AtomicInteger(0);
+    private static AtomicInteger udpRejectionCount = new AtomicInteger(0);
+    private static AtomicInteger udpDiscardCount = new AtomicInteger(0);
+    private static AtomicInteger udpBlockVoteCount = new AtomicInteger(0);
 
     private List<String> lines;
 
@@ -19,7 +25,7 @@ public class StatusResponse implements MessageObject {
         Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
 
         List<String> lines = new ArrayList<>();
-        lines.add("nickname: " + Verifier.getNickname() + (Verifier.isPaused() ? "*** PAUSED ***" : ""));
+        lines.add("nickname: " + Verifier.getNickname());
         if (TestnetUtil.testnet) {
             lines.add("*** IN TESTNET MODE ***");
         }
@@ -32,7 +38,8 @@ public class StatusResponse implements MessageObject {
         lines.add("retention edge: " + BlockManager.getRetentionEdgeHeight());
         lines.add("trailing edge: " + BlockManager.getTrailingEdgeHeight());
         lines.add("frozen edge: " + frozenEdgeHeight + " (" + (frozenEdge == null ? "null" :
-                NicknameManager.get(frozenEdge.getVerifierIdentifier())) + ")");
+                NicknameManager.get(frozenEdge.getVerifierIdentifier()) + "/" +
+                PrintUtil.superCompactPrintByteArray(frozenEdge.getHash())) + ")");
         lines.add("open edge: " + BlockManager.openEdgeHeight(false));
         lines.add("blocks transmitted/created: " + Verifier.getBlockCreationInformation());
         lines.add("votes requested: " + BlockVoteManager.getNumberOfVotesRequested());
@@ -81,6 +88,12 @@ public class StatusResponse implements MessageObject {
             if (notificationBudget >= 0) {
                 lines.add("notif. budget: " + notificationBudget);
             }
+
+            // These are for testing and tracking UDP.
+            lines.add("ping count: " + pingCount.get());
+            lines.add("UDP rejection count: " + udpRejectionCount.get());
+            lines.add("UDP discard count: " + udpDiscardCount.get());
+            lines.add("UDP block vote count: " + udpBlockVoteCount.get());
 
             // This shows which in-cycle verifiers currently have no active mesh nodes.
             lines.add("missing in-cycle verifiers: " + NodeManager.getMissingInCycleVerifiers());
@@ -154,5 +167,37 @@ public class StatusResponse implements MessageObject {
             System.out.println(line);
         }
         System.out.println("********************");
+    }
+
+    public static void incrementPingCount() {
+        pingCount.incrementAndGet();
+    }
+
+    public static int getPingCount() {
+        return pingCount.get();
+    }
+
+    public static void incrementUdpRejectionCount() {
+        udpRejectionCount.incrementAndGet();
+    }
+
+    public static int getUdpRejectionCount() {
+        return udpRejectionCount.get();
+    }
+
+    public static void incrementUdpDiscardCount() {
+        udpDiscardCount.incrementAndGet();
+    }
+
+    public static int getUdpDiscardCount() {
+        return udpDiscardCount.get();
+    }
+
+    public static void incrementUdpBlockVoteCount() {
+        udpBlockVoteCount.incrementAndGet();
+    }
+
+    public static int getUdpBlockVoteCount() {
+        return udpBlockVoteCount.get();
     }
 }

@@ -42,8 +42,6 @@ public class Verifier {
     private static int blockWithVotesMessageUnsupportedCount = 0;
     private static int blockLegacyMessageCount = 0;
 
-    private static boolean paused = false;
-
     static {
         // This ensures the seed is always available, even if this class is used from a test script.
         loadPrivateSeed();
@@ -421,7 +419,7 @@ public class Verifier {
             long sleepTime = 300L;
             try {
                 // Only run the active verifier if connected to the mesh.
-                if (NodeManager.connectedToMesh() && !paused) {
+                if (NodeManager.connectedToMesh()) {
 
                     // Perform setup tasks for the NodeManager.
                     NodeManager.updateActiveVerifiersAndRemoveOldNodes();
@@ -523,9 +521,20 @@ public class Verifier {
                     }
 
                     // These are operations that only have to happen when a block is frozen.
-                    if (frozenEdgeHeight != BlockManager.getFrozenEdgeHeight()) {
+                    long newFrozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+                    if (frozenEdgeHeight != newFrozenEdgeHeight) {
 
-                        System.out.println("cleaning up because a block was frozen");
+                        System.out.println("cleaning up because block " + newFrozenEdgeHeight + " was frozen");
+
+                        // If this verifier has not yet cast a vote for the height that was just frozen, cast it now
+                        // to show that this verifier is actively participating in the mesh and to fortify the
+                        // block-with-votes responses.
+                        Block newFrozenEdge = BlockManager.frozenBlockForHeight(newFrozenEdgeHeight);
+                        if (newFrozenEdge != null &&
+                                BlockVoteManager.getLocalVoteForHeight(newFrozenEdgeHeight) == null) {
+                            System.out.println("casting late vote for height " + newFrozenEdgeHeight);
+                            UnfrozenBlockManager.castVote(newFrozenEdge.getBlockHeight(), newFrozenEdge.getHash());
+                        }
 
                         // Request the mesh. This is called only when an edge is frozen, and the node manager maintains
                         // a counter to ensure it is only performed once per cycle.
@@ -537,7 +546,7 @@ public class Verifier {
                         NodeManager.sendNodeJoinRequests(10);
 
                         // Update scores with the verifier performance manager and send votes.
-                        long scoreUpdateHeight = BlockManager.getFrozenEdgeHeight();
+                        long scoreUpdateHeight = newFrozenEdgeHeight - 1;
                         Block scoreUpdateBlock = BlockManager.frozenBlockForHeight(scoreUpdateHeight);
                         VerifierPerformanceManager.updateScoresForFrozenBlock(scoreUpdateBlock,
                                 BlockVoteManager.votesForHeight(scoreUpdateHeight));
@@ -729,14 +738,6 @@ public class Verifier {
     public static String getBlockCreationInformation() {
 
         return numberOfBlocksTransmitted + "/" + numberOfBlocksCreated;
-    }
-
-    public static boolean isPaused() {
-        return paused;
-    }
-
-    public static void setPaused(boolean paused) {
-        Verifier.paused = paused;
     }
 
     public static long getLastBlockFrozenTimestamp() {

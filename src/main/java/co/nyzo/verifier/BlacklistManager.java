@@ -35,10 +35,13 @@ public class BlacklistManager {
         }
     }
 
-    public static boolean inBlacklist(byte[] ipAddress) {
-
-        long timestamp = blacklistedAddresses.getOrDefault(ByteBuffer.wrap(ipAddress), 0L);
+    public static boolean inBlacklist(ByteBuffer ipAddress) {
+        long timestamp = blacklistedAddresses.getOrDefault(ipAddress, 0L);
         return System.currentTimeMillis() < timestamp + blacklistDuration;
+    }
+
+    public static boolean inBlacklist(byte[] ipAddress) {
+        return inBlacklist(ByteBuffer.wrap(ipAddress));
     }
 
     public static int getBlacklistSize() {

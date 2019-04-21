@@ -18,6 +18,7 @@ public class NodeManager {
 
     private static Set<ByteBuffer> activeIdentifiers = new HashSet<>();
     private static Set<ByteBuffer> activeCycleIdentifiers = new HashSet<>();
+    private static Set<ByteBuffer> activeCycleIpAddresses = ConcurrentHashMap.newKeySet();
     private static String missingInCycleVerifiers = "";
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new ConcurrentHashMap<>();
 
@@ -192,6 +193,10 @@ public class NodeManager {
         return missingInCycleVerifiers;
     }
 
+    public static boolean ipAddressInCycle(ByteBuffer ipAddress) {
+        return activeCycleIpAddresses.isEmpty() || activeCycleIpAddresses.contains(ipAddress);
+    }
+
     public static int getNodeJoinRequestsSent() {
         return nodeJoinRequestsSent.get();
     }
@@ -278,6 +283,7 @@ public class NodeManager {
 
         Set<ByteBuffer> activeIdentifiers = new HashSet<>();
         Set<ByteBuffer> activeCycleIdentifiers = new HashSet<>();
+        Set<ByteBuffer> activeCycleIpAddresses = ConcurrentHashMap.newKeySet();
         long thresholdTimestamp = System.currentTimeMillis() - Block.blockDuration *
                 BlockManager.currentCycleLength() * 2;
         for (ByteBuffer ipAddress : new HashSet<>(ipAddressToNodeMap.keySet())) {
@@ -287,6 +293,7 @@ public class NodeManager {
                 activeIdentifiers.add(identifierBuffer);
                 if (currentCycle.contains(identifierBuffer)) {
                     activeCycleIdentifiers.add(identifierBuffer);
+                    activeCycleIpAddresses.add(ByteBuffer.wrap(node.getIpAddress()));
                 }
             } else if (node.getInactiveTimestamp() < thresholdTimestamp) {
                 ipAddressToNodeMap.remove(ipAddress);
@@ -311,6 +318,7 @@ public class NodeManager {
 
         NodeManager.activeIdentifiers = activeIdentifiers;
         NodeManager.activeCycleIdentifiers = activeCycleIdentifiers;
+        NodeManager.activeCycleIpAddresses = activeCycleIpAddresses;
         NodeManager.missingInCycleVerifiers = missingInCycleVerifiers.toString();
     }
 
@@ -340,8 +348,7 @@ public class NodeManager {
                 if (port != null && port > 0) {
                     nodeJoinRequestsSent.incrementAndGet();
 
-                    // This is the V2 node-join message. This will be activated in a later version.
-                    /*
+                    // This is the V2 node-join message.
                     Message nodeJoinMessage = new Message(MessageType.NodeJoinV2_43, new NodeJoinMessageV2());
                     Message.fetchTcp(IpUtil.addressAsString(ipAddressBuffer.array()), port, nodeJoinMessage,
                             new MessageCallback() {
@@ -359,7 +366,7 @@ public class NodeManager {
                                         NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
                                     }
                                 }
-                            });*/
+                            });
 
                     // This is the legacy message. This will be removed in a later version.
                     Message legacyMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());

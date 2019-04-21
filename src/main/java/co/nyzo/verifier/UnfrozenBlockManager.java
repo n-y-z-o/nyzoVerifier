@@ -245,7 +245,7 @@ public class UnfrozenBlockManager {
         }
     }
 
-    private static synchronized void castVote(long height, byte[] hash) {
+    public static synchronized void castVote(long height, byte[] hash) {
 
         System.out.println("^^^^^^^^^^^^^^^^^^^^^ casting vote for height " + height);
         lastBlockVoteTimestamp = System.currentTimeMillis();

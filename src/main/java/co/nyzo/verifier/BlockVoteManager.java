@@ -36,7 +36,7 @@ public class BlockVoteManager {
             long height = vote.getHeight();
             long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
             ByteBuffer identifierBuffer = ByteBuffer.wrap(message.getSourceNodeIdentifier());
-            if (height > frozenEdgeHeight &&
+            if (height >= frozenEdgeHeight &&
                     height <= BlockManager.openEdgeHeight(true) &&
                     !ByteUtil.isAllZeros(vote.getHash()) &&
                     (BlockManager.verifierInCurrentCycle(identifierBuffer) || BlockManager.inGenesisCycle())) {
