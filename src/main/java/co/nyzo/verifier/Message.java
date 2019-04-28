@@ -26,6 +26,8 @@ public class Message {
     private static final Set<MessageType> disallowedNonCycleTypes = new HashSet<>(Arrays.asList(MessageType.NewBlock9,
             MessageType.BlockVote19, MessageType.NewVerifierVote21, MessageType.MissingBlockVoteRequest23,
             MessageType.MissingBlockRequest25));
+    private static final Set<MessageType> udpTypes = new HashSet<>(Arrays.asList(MessageType.BlockVote19,
+            MessageType.NewVerifierVote21));
     public static final long replayProtectionInterval = 5000L;
 
     private static DatagramSocket datagramSocket;
@@ -76,11 +78,6 @@ public class Message {
         // Verify the source signature.
         this.valid = SignatureUtil.signatureIsValid(sourceNodeSignature, getBytesForSigning(),
                 sourceNodeIdentifier);
-        if (!this.valid) {
-            System.out.println("message from " + PrintUtil.compactPrintByteArray(sourceNodeIdentifier) + " of type " +
-                    this.type + " is not valid, content is " + content);
-            System.out.println("signature is " + ByteUtil.arrayAsStringWithDashes(sourceNodeSignature));
-        }
     }
 
     public long getTimestamp() {
@@ -157,7 +154,7 @@ public class Message {
 
     public static void fetch(Node node, Message message, MessageCallback messageCallback) {
 
-        if (message.getType() == MessageType.BlockVote19 && node.getPortUdp() > 0) {
+        if (udpTypes.contains(message.getType()) && node.getPortUdp() > 0) {
             sendUdp(node.getIpAddress(), node.getPortUdp(), message);
         } else {
             fetchTcp(IpUtil.addressAsString(node.getIpAddress()), node.getPortTcp(), message, messageCallback);

@@ -16,26 +16,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class NodeManager {
 
-    private static Set<ByteBuffer> activeIdentifiers = new HashSet<>();
-    private static Set<ByteBuffer> activeCycleIdentifiers = new HashSet<>();
+    private static Set<ByteBuffer> activeIdentifiers = ConcurrentHashMap.newKeySet();
+    private static Set<ByteBuffer> activeCycleIdentifiers = ConcurrentHashMap.newKeySet();
     private static Set<ByteBuffer> activeCycleIpAddresses = ConcurrentHashMap.newKeySet();
     private static String missingInCycleVerifiers = "";
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new ConcurrentHashMap<>();
 
     private static final int consecutiveFailuresBeforeRemoval = 6;
-    private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new HashMap<>();
+    private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new ConcurrentHashMap<>();
 
     private static final int minimumMeshRequestInterval = 30;
     private static int meshRequestWait = minimumMeshRequestInterval;
+    private static int meshRequestSuccessCount = 0;
 
-    private static final Map<ByteBuffer, Integer> nodeJoinRequestQueue = new HashMap<>();
+    private static final Map<ByteBuffer, Integer> nodeJoinRequestQueue = new ConcurrentHashMap<>();
     private static final AtomicInteger nodeJoinRequestsSent = new AtomicInteger(0);
-    private static final Map<ByteBuffer, Long> persistedQueueTimestamps = new HashMap<>();
 
-    public static final File queueTimestampsFile = new File(Verifier.dataRootDirectory, "queue_timestamps");
+    private static final String haveNodeHistoryKey = "have_node_history";
+    private static boolean haveNodeHistory = PersistentData.getBoolean(haveNodeHistoryKey, false);
+    public static final File nodeFile = new File(Verifier.dataRootDirectory, "nodes");
 
     static {
-        loadPersistedQueueTimestamps();
+        loadPersistedNodes();
     }
 
     public static void updateNode(Message message) {
@@ -105,10 +107,14 @@ public class NodeManager {
             if (existingNode == null) {
                 // This is the case when no other node is at the IP. We create a new node and add it to the map.
                 Node node = new Node(identifier, ipAddress, portTcp, portUdp);
-                long persistedTimestamp = persistedQueueTimestamps.getOrDefault(ByteBuffer.wrap(identifier), 0L);
-                if (persistedTimestamp > 0L && persistedTimestamp < node.getQueueTimestamp()) {
-                    node.setQueueTimestamp(persistedTimestamp);
+
+                // If we do not yet have sufficient node history, set the timestamp of this node so that it is
+                // immediately eligible for the lottery.
+                if (!haveNodeHistory) {
+                    node.setQueueTimestamp(System.currentTimeMillis() - NewVerifierQueueManager.lotteryWaitTime);
                 }
+
+                // Store the node in the map and indicate that this is a new node.
                 ipAddressToNodeMap.put(ipAddressBuffer, node);
                 isNewNode = true;
 
@@ -281,8 +287,8 @@ public class NodeManager {
 
         Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
 
-        Set<ByteBuffer> activeIdentifiers = new HashSet<>();
-        Set<ByteBuffer> activeCycleIdentifiers = new HashSet<>();
+        Set<ByteBuffer> activeIdentifiers = ConcurrentHashMap.newKeySet();
+        Set<ByteBuffer> activeCycleIdentifiers = ConcurrentHashMap.newKeySet();
         Set<ByteBuffer> activeCycleIpAddresses = ConcurrentHashMap.newKeySet();
         long thresholdTimestamp = System.currentTimeMillis() - Block.blockDuration *
                 BlockManager.currentCycleLength() * 2;
@@ -357,9 +363,6 @@ public class NodeManager {
 
                                     if (message != null && message.getContent() instanceof NodeJoinResponseV2) {
 
-                                        System.out.println("UDP: got V2 node-join response from " +
-                                                IpUtil.addressAsString(ipAddressBuffer.array()));
-
                                         updateNode(message);
 
                                         NodeJoinResponseV2 response = (NodeJoinResponseV2) message.getContent();
@@ -413,11 +416,18 @@ public class NodeManager {
                         // Enqueue node-join requests to all nodes in the response.
                         MeshResponse response = (MeshResponse) message.getContent();
                         for (Node node : response.getMesh()) {
-                            NodeManager.enqueueNodeJoinMessage(node.getIpAddress(), node.getPortTcp());
+                            enqueueNodeJoinMessage(node.getIpAddress(), node.getPortTcp());
                         }
 
                         System.out.println("reloaded node-join request queue, size is now " +
                                 nodeJoinRequestQueue.size());
+
+                        // Increment the meshRequestSuccessCount value and set the haveNodeHistory flag if we have
+                        // enough queries and the flag is not yet set.
+                        if (meshRequestSuccessCount++ > 2 && !haveNodeHistory) {
+                            haveNodeHistory = true;
+                            PersistentData.put(haveNodeHistoryKey, haveNodeHistory);
+                        }
                     }
                 }
             });
@@ -434,34 +444,53 @@ public class NodeManager {
         }
     }
 
-    public static void persistQueueTimestamps() {
+    public static void persistNodes() {
 
-        List<Node> mesh = getMesh();
-        byte[] array = new byte[mesh.size() * (FieldByteSize.identifier + FieldByteSize.timestamp)];
-        ByteBuffer buffer = ByteBuffer.wrap(array);
-        for (Node node : mesh) {
-            buffer.put(node.getIdentifier());
-            buffer.putLong(node.getQueueTimestamp());
+        // Build the lines for the file.
+        List<String> lines = new ArrayList<>();
+        for (Node node : getMesh()) {
+            lines.add(ByteUtil.arrayAsStringWithDashes(node.getIdentifier()) + ":" +
+                    IpUtil.addressAsString(node.getIpAddress()) + ":" +
+                    node.getPortTcp() + ":" +
+                    node.getPortUdp() + ":" +
+                    node.getQueueTimestamp() + ":" +
+                    node.getIdentifierChangeTimestamp() + ":" +
+                    node.getInactiveTimestamp());
         }
 
-        Path path = Paths.get(queueTimestampsFile.getAbsolutePath());
-        FileUtil.writeFile(path, array);
+        // Write the file.
+        Path path = Paths.get(nodeFile.getAbsolutePath());
+        FileUtil.writeFile(path, lines);
     }
 
-    private static void loadPersistedQueueTimestamps() {
+    private static void loadPersistedNodes() {
 
-        // This method is called in the class's static block. We load the queue timestamps into the map, and they are
-        // used as nodes are created.
-        Path path = Paths.get(queueTimestampsFile.getAbsolutePath());
+        // This method is called in the class's static block. We load the persisted nodes into the mesh map.
+        Path path = Paths.get(nodeFile.getAbsolutePath());
         try {
-            byte[] array = Files.readAllBytes(path);
-            ByteBuffer buffer = ByteBuffer.wrap(array);
-            int numberOfEntries = array.length / (FieldByteSize.identifier + FieldByteSize.timestamp);
-            for (int i = 0; i < numberOfEntries; i++) {
-                byte[] identifier = Message.getByteArray(buffer, FieldByteSize.identifier);
-                long timestamp = buffer.getLong();
-                persistedQueueTimestamps.put(ByteBuffer.wrap(identifier), timestamp);
+            List<String> lines = Files.readAllLines(path);
+            for (String line : lines) {
+                try {
+                    String[] split = line.split(":");
+                    byte[] identifier = ByteUtil.byteArrayFromHexString(split[0], FieldByteSize.identifier);
+                    byte[] ipAddress = IpUtil.addressFromString(split[1]);
+                    int portTcp = Integer.parseInt(split[2]);
+                    int portUdp = Integer.parseInt(split[3]);
+                    long queueTimestamp = Long.parseLong(split[4]);
+                    long identifierChangeTimestamp = Long.parseLong(split[5]);
+                    long inactiveTimestamp = Long.parseLong(split[6]);
+
+                    Node node = new Node(identifier, ipAddress, portTcp, portUdp);
+                    node.setQueueTimestamp(queueTimestamp);
+                    node.setIdentifierChangeTimestamp(identifierChangeTimestamp);
+                    node.setInactiveTimestamp(inactiveTimestamp);
+
+                    ipAddressToNodeMap.put(ByteBuffer.wrap(ipAddress), node);
+
+                } catch (Exception ignored) { }
             }
         } catch (Exception ignored) { }
+
+        System.out.println("NodeManager initialization: loaded " + ipAddressToNodeMap.size() + " nodes into map");
     }
 }

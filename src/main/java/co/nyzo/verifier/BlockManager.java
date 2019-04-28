@@ -17,6 +17,7 @@ public class BlockManager {
     public static final File individualBlockDirectory = new File(blockRootDirectory, "individual");
     private static long trailingEdgeHeight = -1L;
     private static long frozenEdgeHeight = -1L;
+    private static Block frozenEdge = null;
     public static final long blocksPerFile = 1000L;
     private static final long filesPerDirectory = 1000L;
     private static boolean inGenesisCycle = false;
@@ -49,6 +50,11 @@ public class BlockManager {
     public static long getFrozenEdgeHeight() {
 
         return frozenEdgeHeight;
+    }
+
+    public static Block getFrozenEdge() {
+
+        return frozenEdge;
     }
 
     public static long getTrailingEdgeHeight() {
@@ -465,6 +471,7 @@ public class BlockManager {
         } else {
             // Set the frozen and trailing edge heights. If the cycle information is null, set the trailing edge to
             // invalid.
+            frozenEdge = block;
             frozenEdgeHeight = block.getBlockHeight();
             boolean isNewVerifier = false;
             if (block.getCycleInformation() == null) {

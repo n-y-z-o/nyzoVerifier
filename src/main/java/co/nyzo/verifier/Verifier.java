@@ -571,7 +571,7 @@ public class Verifier {
                         // frequently to be effective.
                         if (BlockManager.getFrozenEdgeHeight() % 100 == 0) {
                             NodeManager.demoteInCycleNodes();
-                            NodeManager.persistQueueTimestamps();
+                            NodeManager.persistNodes();
                         }
 
                         // Store the timestamp of when the block was frozen. This is used for determining when to

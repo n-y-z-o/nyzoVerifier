@@ -69,6 +69,21 @@ public class PersistentData {
         return dataMap.getOrDefault(key.toLowerCase(), "");
     }
 
+    public static boolean getBoolean(String key, boolean defaultValue) {
+
+        boolean result = defaultValue;
+        try {
+            String preference = dataMap.get(key.toLowerCase());
+            if (preference != null && preference.equals("1")) {
+                result = true;
+            } else if (preference != null && preference.equals("0")) {
+                result = false;
+            }
+        } catch (Exception ignored) { }
+
+        return result;
+    }
+
     public static int getInt(String key, int defaultValue) {
 
         int result = defaultValue;
@@ -95,9 +110,28 @@ public class PersistentData {
         return result;
     }
 
+    public static byte[] getByteArray(String key, int length, byte[] defaultValue) {
+
+        byte[] result = defaultValue;
+        try {
+            String preference = dataMap.get(key.toLowerCase());
+            if (preference != null && preference.length() >= length * 2) {
+                result = ByteUtil.byteArrayFromHexString(preference, length);
+            }
+        } catch (Exception ignored) { }
+
+        return result;
+    }
+
     public static void put(String key, String value) {
 
         dataMap.put(key, value);
+        writeFile();
+    }
+
+    public static void put(String key, boolean value) {
+
+        dataMap.put(key, value ? "1" : "0");
         writeFile();
     }
 
@@ -110,6 +144,12 @@ public class PersistentData {
     public static void put(String key, long value) {
 
         dataMap.put(key, value + "");
+        writeFile();
+    }
+
+    public static void put(String key, byte[] value) {
+
+        dataMap.put(key, ByteUtil.arrayAsStringWithDashes(value));
         writeFile();
     }
 }
