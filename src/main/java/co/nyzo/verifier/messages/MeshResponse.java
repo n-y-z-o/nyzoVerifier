@@ -7,6 +7,7 @@ import co.nyzo.verifier.Node;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class MeshResponse implements MessageObject {
@@ -16,6 +17,11 @@ public class MeshResponse implements MessageObject {
     private List<Node> mesh;
 
     public MeshResponse(List<Node> mesh) {
+
+        // If the list is too big, shuffle the list to ensure that different nodes are removed each time.
+        if (mesh.size() > maximumNumberOfNodes) {
+            Collections.shuffle(mesh);
+        }
 
         // If the list is too big, remove out-of-cycle nodes first.
         for (int i = mesh.size() - 1; i >= 0 && mesh.size() > maximumNumberOfNodes; i--) {

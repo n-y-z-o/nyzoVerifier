@@ -419,6 +419,12 @@ public class NodeManager {
                             enqueueNodeJoinMessage(node.getIpAddress(), node.getPortTcp());
                         }
 
+                        // Also enqueue node-join requests to all nodes in the current map. This ensures that dead
+                        // nodes are eventually removed.
+                        for (Node node : getMesh()) {
+                            enqueueNodeJoinMessage(node.getIpAddress(), node.getPortTcp());
+                        }
+
                         System.out.println("reloaded node-join request queue, size is now " +
                                 nodeJoinRequestQueue.size());
 
