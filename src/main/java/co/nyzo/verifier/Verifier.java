@@ -38,10 +38,6 @@ public class Verifier {
     private static final Map<ByteBuffer, Block> blocksCreated = new HashMap<>();
     private static final Map<ByteBuffer, Block> blocksTransmitted = new HashMap<>();
 
-    private static int blockWithVotesMessageSupportedCount = 0;
-    private static int blockWithVotesMessageUnsupportedCount = 0;
-    private static int blockLegacyMessageCount = 0;
-
     static {
         // This ensures the seed is always available, even if this class is used from a test script.
         loadPrivateSeed();
@@ -505,19 +501,7 @@ public class Verifier {
                         // In-cycle verifiers do not allow other verifiers to request missing blocks or votes, as they
                         // would use considerable bandwidth to service such requests. Instead, they provide frozen
                         // blocks bundled with votes in a single message.
-
-                        // To cover the interim period when a large portion of the mesh does not support the new
-                        // block-with-votes message, this verifier will use the old block message to keep up with the
-                        // frozen edge if the new message is not allowing it to keep up. This switch will be removed
-                        // in the next version, leaving only requestBlockWithVotes() here.
-
-                        if (blockWithVotesMessageSupportedCount + blockLegacyMessageCount >
-                                blockWithVotesMessageUnsupportedCount) {
-                            requestBlockWithVotes();
-                        } else {
-                            blockLegacyMessageCount++;
-                            requestBlockWithoutVotes();
-                        }
+                        requestBlockWithVotes();
                     }
 
                     // These are operations that only have to happen when a block is frozen.
@@ -768,12 +752,6 @@ public class Verifier {
                 @Override
                 public void responseReceived(Message message) {
 
-                    if (message != null && message.getType() == MessageType.BlockWithVotesResponse38) {
-                        blockWithVotesMessageSupportedCount++;
-                    } else {
-                        blockWithVotesMessageUnsupportedCount++;
-                    }
-
                     BlockWithVotesResponse response = message == null ? null :
                             (BlockWithVotesResponse) message.getContent();
                     if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
@@ -799,39 +777,4 @@ public class Verifier {
         }
     }
 
-    private static void requestBlockWithoutVotes() {
-
-        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-        if (BlockManager.openEdgeHeight(false) > frozenEdgeHeight + 2) {
-
-            AtomicBoolean processedResponse = new AtomicBoolean(false);
-
-            long heightToRequest = frozenEdgeHeight + 1;
-            System.out.println("requesting block from trusted source for height " + heightToRequest);
-            Message message = new Message(MessageType.BlockRequest11, new BlockRequest(heightToRequest, heightToRequest,
-                    false));
-            Message.fetchFromRandomNode(message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
-
-                    if (message != null) {
-                        BlockResponse response = (BlockResponse) message.getContent();
-                        if (response != null && response.getBlocks().size() == 1) {
-
-                            Block block = response.getBlocks().get(0);
-                            BlockManager.freezeBlock(block);
-                        }
-                    }
-
-                    processedResponse.set(true);
-                }
-            });
-
-            while (!processedResponse.get()) {
-                try {
-                    Thread.sleep(200L);
-                } catch (Exception ignored) { }
-            }
-        }
-    }
 }

@@ -5,7 +5,6 @@ import co.nyzo.verifier.messages.debug.*;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
-import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;

@@ -15,7 +15,6 @@ public class StatusResponse implements MessageObject {
     private static AtomicInteger pingCount = new AtomicInteger(0);
     private static AtomicInteger udpRejectionCount = new AtomicInteger(0);
     private static AtomicInteger udpDiscardCount = new AtomicInteger(0);
-    private static AtomicInteger udpBlockVoteCount = new AtomicInteger(0);
 
     private List<String> lines;
 
@@ -93,7 +92,6 @@ public class StatusResponse implements MessageObject {
             lines.add("ping count: " + pingCount.get());
             lines.add("UDP rejection count: " + udpRejectionCount.get());
             lines.add("UDP discard count: " + udpDiscardCount.get());
-            lines.add("UDP block vote count: " + udpBlockVoteCount.get());
 
             // This shows which in-cycle verifiers currently have no active mesh nodes.
             lines.add("missing in-cycle verifiers: " + NodeManager.getMissingInCycleVerifiers());
@@ -191,13 +189,5 @@ public class StatusResponse implements MessageObject {
 
     public static int getUdpDiscardCount() {
         return udpDiscardCount.get();
-    }
-
-    public static void incrementUdpBlockVoteCount() {
-        udpBlockVoteCount.incrementAndGet();
-    }
-
-    public static int getUdpBlockVoteCount() {
-        return udpBlockVoteCount.get();
     }
 }

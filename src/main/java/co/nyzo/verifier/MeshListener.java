@@ -12,7 +12,10 @@ import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,10 +32,17 @@ public class MeshListener {
     private static final AtomicBoolean aliveTcp = new AtomicBoolean(false);
     private static final AtomicBoolean aliveUdp = new AtomicBoolean(false);
 
-    // The only message sent via UDP right now is BlockVote19.
+    // The only messages sent via UDP right now are BlockVote19 and NewVerifierVote21. BlockVote19 is the larger of
+    // these.
     private static final int udpBufferSize = FieldByteSize.messageLength + FieldByteSize.timestamp +  // message fields
             FieldByteSize.messageType + FieldByteSize.identifier + FieldByteSize.signature +  // message fields
             FieldByteSize.blockHeight + FieldByteSize.hash + FieldByteSize.timestamp;  // block vote fields
+
+    // To promote forward compatibility with messages we might want to add, the verifier will accept all readable
+    // messages except those explicitly disallowed. The response types should not be processed for incoming messages,
+    // but adding them to this set adds another level of protection.
+    private static final Set<MessageType> disallowedUdpTypes = new HashSet<>(Arrays.asList(MessageType.NodeJoin3,
+            MessageType.NodeJoinResponse4, MessageType.NodeJoinV2_43, MessageType.NodeJoinResponseV2_44));
 
     private static final int numberOfDatagramPackets = 50000;
     private static int datagramPacketWriteIndex = 0;
@@ -270,15 +280,13 @@ public class MeshListener {
 
         try {
 
-            Message message = Message.fromBytes(packet.getData(), packet.getAddress().getAddress(), true);
-            if (message != null) {
-
-                if (message.getType() == MessageType.BlockVote19) {
-                    StatusResponse.incrementUdpBlockVoteCount();
-                }
+            // Do not use the IP address from the packet. This can be spoofed for UDP. Using an empty address is a
+            // broad protection against a number of attacks that might arise from spoofing addresses.
+            Message message = Message.fromBytes(packet.getData(), new byte[FieldByteSize.ipAddress], true);
+            if (message != null && !disallowedUdpTypes.contains(message.getType())) {
 
                 // For UDP, we do not send the response.
-                Message response = response(message);
+                response(message);
             }
 
         } catch (Exception ignored) { }
