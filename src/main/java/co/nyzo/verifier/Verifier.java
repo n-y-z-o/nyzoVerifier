@@ -739,7 +739,7 @@ public class Verifier {
         return rejoinCount;
     }
 
-    private static void requestBlockWithVotes() {
+    public static void requestBlockWithVotes() {
 
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         if (BlockManager.openEdgeHeight(false) > frozenEdgeHeight + 2) {

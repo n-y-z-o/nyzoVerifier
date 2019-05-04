@@ -51,9 +51,9 @@ public class VerifierPerformanceManager {
 
     public static void updateScoresForFrozenBlock(Block block, Map<ByteBuffer, BlockVote> votes) {
 
-        // Only proceed if the block is not null. It is rare or maybe impossible for the block to be null, but it is
-        // still a reasonable precaution in an environment such as this.
-        if (block != null) {
+        // Only proceed if the block is not null and the vote map is not null. It is rare or maybe impossible for the
+        // block to be null, but it is still a reasonable precaution in an environment such as this.
+        if (block != null && votes != null) {
 
             // Add for each in-cycle verifier. Each time a block is frozen, a verifier's score increases, but it then
             // decreases for each vote received.

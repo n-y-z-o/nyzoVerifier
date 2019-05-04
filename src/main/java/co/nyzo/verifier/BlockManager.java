@@ -25,6 +25,7 @@ public class BlockManager {
     private static List<ByteBuffer> currentCycleList = new ArrayList<>();
     private static Set<ByteBuffer> currentCycleSet = ConcurrentHashMap.newKeySet();
     private static Set<ByteBuffer> currentAndNearCycleSet = ConcurrentHashMap.newKeySet();
+    private static Set<Node> currentAndNearCycleNodes = ConcurrentHashMap.newKeySet();
     private static long genesisBlockStartTimestamp = -1L;
     private static boolean initialized = false;
     private static boolean cycleComplete = false;
@@ -536,17 +537,17 @@ public class BlockManager {
 
     public static List<ByteBuffer> verifiersInCurrentCycleList() {
 
-        return new ArrayList<>(currentCycleList);
+        return currentCycleList;
     }
 
     public static Set<ByteBuffer> verifiersInCurrentCycleSet() {
 
-        return new HashSet<>(currentCycleSet);
+        return currentCycleSet;
     }
 
-    public static Set<ByteBuffer> verifiersInCurrentAndNearCycleSet() {
+    public static Set<Node> getCurrentAndNearCycleNodes() {
 
-        return new HashSet<>(currentAndNearCycleSet);
+        return currentAndNearCycleNodes;
     }
 
     public static boolean verifierInCurrentCycle(ByteBuffer identifier) {
@@ -635,14 +636,30 @@ public class BlockManager {
                 PersistentData.put(lastVerifierRemovalHeightKey, lastVerifierRemovalHeight);
             }
 
+            // Store the edge height, cycle list, and indication of Genesis cycle.
             BlockManager.currentCycleEndHeight = edgeHeight;
             BlockManager.currentCycleList = currentCycleList;
-            BlockManager.currentCycleSet = new HashSet<>(currentCycleList);
             BlockManager.inGenesisCycle = inGenesisCycle;
 
-            Set<ByteBuffer> currentAndNearCycleSet = new HashSet<>(currentCycleList);
+            // Build the cycle set.
+            Set<ByteBuffer> currentCycleSet = ConcurrentHashMap.newKeySet();
+            currentCycleSet.addAll(currentCycleList);
+            BlockManager.currentCycleSet = currentCycleSet;
+
+            // Build the cycle-and-near set.
+            Set<ByteBuffer> currentAndNearCycleSet = ConcurrentHashMap.newKeySet();
+            currentAndNearCycleSet.addAll(currentCycleList);
             currentAndNearCycleSet.addAll(NewVerifierVoteManager.topVerifiers());
             BlockManager.currentAndNearCycleSet = currentAndNearCycleSet;
+
+            // Build the cycle-and-near node set.
+            Set<Node> currentAndNearCycleNodes = ConcurrentHashMap.newKeySet();
+            for (Node node : NodeManager.getMesh()) {
+                if (currentAndNearCycleSet.contains(ByteBuffer.wrap(node.getIdentifier()))) {
+                    currentAndNearCycleNodes.add(node);
+                }
+            }
+            BlockManager.currentAndNearCycleNodes = currentAndNearCycleNodes;
         }
     }
 

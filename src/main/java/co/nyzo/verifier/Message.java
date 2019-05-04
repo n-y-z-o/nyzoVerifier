@@ -114,13 +114,11 @@ public class Message {
 
     public static void broadcast(Message message) {
 
-        System.out.println("broadcasting message: " + message.getType());
-
         // Send the message to all nodes in the current cycle and the top in the new-verifier queue.
-        List<Node> mesh = NodeManager.getMesh();
-        for (Node node : mesh) {
-            if (node.isActive() && !ByteUtil.arraysAreEqual(node.getIdentifier(), Verifier.getIdentifier()) &&
-                    BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(node.getIdentifier()))) {
+        Set<Node> nodes = BlockManager.getCurrentAndNearCycleNodes();
+        System.out.println("broadcasting message: " + message.getType() + " to " + nodes.size());
+        for (Node node : nodes) {
+            if (node.isActive() && !ByteUtil.arraysAreEqual(node.getIdentifier(), Verifier.getIdentifier())) {
                 fetch(node, message, null);
             }
         }
@@ -143,7 +141,7 @@ public class Message {
         }
 
         if (node == null) {
-            System.out.println("unable to find suitable node");
+            System.out.println("unable to find suitable node for random fetch");
         } else {
             System.out.println("trying to fetch " + message.getType() + " from " +
                     NicknameManager.get(node.getIdentifier()));
