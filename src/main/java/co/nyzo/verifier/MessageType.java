@@ -28,8 +28,8 @@ public enum MessageType {
     BlockVoteResponse20(20),
     NewVerifierVote21(21),
     NewVerifierVoteResponse22(22),
-    MissingBlockVoteRequest23(23),
-    MissingBlockVoteResponse24(24),
+    MissingBlockVoteRequest23(23),   // no longer used as of v515; will be eliminated in a future version
+    MissingBlockVoteResponse24(24),  // no longer used as of v515; will be eliminated in a future version
     MissingBlockRequest25(25),
     MissingBlockResponse26(26),
     TimestampRequest27(27),

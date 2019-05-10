@@ -212,9 +212,9 @@ public class Verifier {
                                 });
                     }
 
-                    // Wait up to 20 seconds for requests to return.
+                    // Wait up to 5 seconds for requests to return.
                     for (int i = 0; i < 20 && numberOfResponsesReceived.get() < trustedEntryPoints.size(); i++) {
-                        ThreadUtil.sleep(1000L);
+                        ThreadUtil.sleep(250L);
                     }
 
                     // Get the consensus response. If this can be determined, we can move to the next step.
@@ -479,8 +479,11 @@ public class Verifier {
                     // Attempt to register any blocks that were previously disconnected.
                     UnfrozenBlockManager.attemptToRegisterDisconnectedBlocks();
 
-                    // Try to freeze a block.
-                    UnfrozenBlockManager.attemptToFreezeBlock();
+                    // Try to freeze blocks.
+                    boolean frozeBlock = UnfrozenBlockManager.attemptToFreezeBlock();
+                    if (!frozeBlock) {
+                        UnfrozenBlockManager.attemptToFreezeChain();
+                    }
 
                     // Remove old votes from the vote managers.
                     BlockVoteManager.removeOldVotes();
@@ -491,8 +494,8 @@ public class Verifier {
                     // other verifiers might blacklist this verifier.
                     if (inCycle()) {
 
-                        // Request any votes that appear to be missing.
-                        BlockVoteManager.requestMissingVotes();
+                        // Request any frozen blocks that appear to be missing.
+                        BlockVoteManager.requestMissingFrozenBlocks();
 
                         // Request any blocks that appear to be missing.
                         UnfrozenBlockManager.requestMissingBlocks();
@@ -739,7 +742,7 @@ public class Verifier {
         return rejoinCount;
     }
 
-    public static void requestBlockWithVotes() {
+    private static void requestBlockWithVotes() {
 
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         if (BlockManager.openEdgeHeight(false) > frozenEdgeHeight + 2) {
@@ -767,8 +770,6 @@ public class Verifier {
                                     new byte[FieldByteSize.ipAddress]);
                             if (voteMessage.isValid()) {
                                 BlockVoteManager.registerVote(voteMessage);
-                            } else {
-                                System.out.println("vote is ***NOT VALID***");
                             }
                         }
                     }

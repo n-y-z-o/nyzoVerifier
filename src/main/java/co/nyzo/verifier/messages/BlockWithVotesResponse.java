@@ -14,13 +14,10 @@ public class BlockWithVotesResponse implements MessageObject {
 
     public BlockWithVotesResponse(long height) {
 
-        Block block = BlockManager.frozenBlockForHeight(height);
-        if (block != null) {
-            Map<ByteBuffer, BlockVote> votes = BlockVoteManager.votesForHeight(height);
-            if (votes != null) {
-                this.block = block;
-                this.votes = new ArrayList<>(votes.values());
-            }
+        this.block = BlockManager.frozenBlockForHeight(height);
+        Map<ByteBuffer, BlockVote> votes = BlockVoteManager.votesForHeight(height);
+        if (votes != null) {
+            this.votes = new ArrayList<>(votes.values());
         }
     }
 
@@ -112,9 +109,7 @@ public class BlockWithVotesResponse implements MessageObject {
             }
 
             result = new BlockWithVotesResponse(block, votes);
-        } catch (Exception ignored) {
-            ignored.printStackTrace();
-        }
+        } catch (Exception ignored) { }
 
         return result;
     }

@@ -1,20 +1,23 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.BlockRequest;
+import co.nyzo.verifier.messages.BlockResponse;
 import co.nyzo.verifier.messages.BlockVote;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class BlockVoteManager {
 
     public static final long minimumVoteInterval = 5000L;
 
-    private static final Map<Long, Map<ByteBuffer, BlockVote>> voteMap = new HashMap<>();
-    private static final Map<Long, Map<ByteBuffer, BlockVote>> flipVoteMap = new HashMap<>();
+    private static final Map<Long, Map<ByteBuffer, BlockVote>> voteMap = new ConcurrentHashMap<>();
+    private static final Map<Long, Map<ByteBuffer, BlockVote>> flipVoteMap = new ConcurrentHashMap<>();
 
-    private static int numberOfVotesRequested = 0;
-    private static long lastVoteRequestTimestamp = 0L;
+    private static long frozenBlockRequestHeight = -1L;
+    private static long lastFrozenBlockRequestTimestamp = 0L;
 
     public static synchronized void registerVote(Message message) {
 
@@ -126,7 +129,7 @@ public class BlockVoteManager {
         return numberOfVotes + "(" + maximumVotes + ")";
     }
 
-    public static synchronized Map<ByteBuffer, BlockVote> votesForHeight(long height) {
+    public static Map<ByteBuffer, BlockVote> votesForHeight(long height) {
 
         Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
         return votesForHeight == null ? null : new HashMap<>(votesForHeight);
@@ -205,45 +208,63 @@ public class BlockVoteManager {
         return hash;
     }
 
-    public static int getNumberOfVotesRequested() {
+    public static synchronized void requestMissingFrozenBlocks() {
 
-        return numberOfVotesRequested;
-    }
+        // Only request missing frozen blocks outside the Genesis cycle, and only request if we have more than 50% of
+        // votes at a height more than one past the frozen edge. This indicates that this verifier is receiving
+        // messages from the mesh again but had an outage that caused it to miss earlier votes.
 
-    public static synchronized void requestMissingVotes() {
-
-        // Only request missing votes outside the Genesis cycle, and only request if we have more than 50% of votes
-        // at a height more than one past the frozen edge. This indicates that this verifier is receiving messages
-        // from the mesh again but had an outage that caused it to miss earlier votes.
-
-        // Also, to conserve local CPU and mesh bandwidth, limit vote requests to no more frequently than once every
-        // second.
+        // Also, to conserve local CPU and mesh bandwidth, limit requests to no more frequently than once every second.
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         long currentTimestamp = System.currentTimeMillis();
-        if (!BlockManager.inGenesisCycle() && currentTimestamp - lastVoteRequestTimestamp > 1000L) {
+        if (!BlockManager.inGenesisCycle() && currentTimestamp - lastFrozenBlockRequestTimestamp > 1000L) {
 
-            // Look through all heights in the vote map. If the vote is greater than 50% and the height is greater than
-            // one more than the frozen edge, a vote request should be performed.
-            boolean shouldRequest = false;
+            // Look through all heights in the vote map to find the maximum height with more than 50% of the vote
+            // percentage of the current cycle.
+            long maximumHeightExceedingThreshold = -1L;
             for (Long height : voteMap.keySet()) {
-                if (!shouldRequest && height > frozenEdgeHeight + 1 &&  // check of !shouldRequest for performance only
+                if (height > maximumHeightExceedingThreshold &&
                         voteMap.get(height).size() > BlockManager.currentCycleLength() / 2) {
-                    shouldRequest = true;
+                    maximumHeightExceedingThreshold = height;
                 }
             }
 
-            // As a fallback, also request if the last block was frozen 30 seconds ago or more and the last
-            // vote request was 15 seconds ago or more.
-            shouldRequest |= currentTimestamp - Verifier.getLastBlockFrozenTimestamp() > 30000L &&
-                    currentTimestamp - lastVoteRequestTimestamp > 15000L;
+            // The maximum height to request is one less than the maximum height exceeding the threshold.
+            long maximumHeightToRequest = maximumHeightExceedingThreshold - 1L;
 
-            if (shouldRequest) {
+            if (maximumHeightToRequest > frozenEdgeHeight) {
 
-                // Set the last-vote-request timestamp to ensure a minimum gap between requests.
-                lastVoteRequestTimestamp = System.currentTimeMillis();
+                // Set the last-request timestamp to ensure a minimum gap between requests.
+                lastFrozenBlockRequestTimestamp = System.currentTimeMillis();
 
-                // Request the votes.
-                Verifier.requestBlockWithVotes();
+                // Request the blocks for up to 10 heights. The frozenBlockRequestHeight field is used to cycle through
+                // all heights that need to be requested over multiple iterations if the range is more than 10.
+                long minimumHeightToRequest = frozenEdgeHeight + 1L;
+                if (maximumHeightToRequest - minimumHeightToRequest > 9L) {
+                    if (frozenBlockRequestHeight >= minimumHeightToRequest &&
+                            frozenBlockRequestHeight <= maximumHeightToRequest) {
+                        minimumHeightToRequest = Math.min(frozenBlockRequestHeight, maximumHeightToRequest - 9L);
+                    }
+                    maximumHeightToRequest = minimumHeightToRequest + 9L;
+                    frozenBlockRequestHeight = maximumHeightToRequest + 1L;
+                }
+
+                // Send the request for all heights from the minimum to maximum.
+                for (long height = minimumHeightToRequest; height <= maximumHeightToRequest; height++) {
+                    Message message = new Message(MessageType.BlockRequest11, new BlockRequest(height, height, false));
+                    Message.fetchFromRandomNode(message, new MessageCallback() {
+                        @Override
+                        public void responseReceived(Message message) {
+
+                            if (message != null && message.getContent() instanceof BlockResponse) {
+                                BlockResponse response = (BlockResponse) message.getContent();
+                                for (Block block : response.getBlocks()) {
+                                    UnfrozenBlockManager.registerBlock(block);
+                                }
+                            }
+                        }
+                    });
+                }
             }
         }
     }

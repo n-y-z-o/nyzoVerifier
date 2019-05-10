@@ -260,7 +260,7 @@ public class UnfrozenBlockManager {
         }
     }
 
-    public static void attemptToFreezeBlock() {
+    public static boolean attemptToFreezeBlock() {
 
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         long heightToFreeze = frozenEdgeHeight + 1;
@@ -277,14 +277,101 @@ public class UnfrozenBlockManager {
         int voteCountThreshold = thresholdOverrides.containsKey(heightToFreeze) ?
                 votingPoolSize * thresholdOverrides.get(heightToFreeze) / 100 :
                 votingPoolSize * 3 / 4;
+        boolean frozeBlock = false;
         if (voteCount > voteCountThreshold) {
 
             Block block = unfrozenBlockAtHeight(heightToFreeze, leadingHash);
             if (block != null) {
                 System.out.println("freezing block " + block + " with standard mechanism");
                 BlockManager.freezeBlock(block);
+                frozeBlock = true;
             }
         }
+
+        return frozeBlock;
+    }
+
+    public static void attemptToFreezeChain() {
+
+        // The logic to freeze a section of the chain is different. This only happens in a situation where this
+        // verifier has had problems tracking the chain and is trying to catch up. Only the 75% threshold is used, and
+        // it must be surpassed for two consecutive blocks. If it is surpassed for two consecutive blocks, and if all
+        // of the blocks from the second passing block all the way back to the frozen edge are available, then the
+        // entire chain to the first of the two consecutive blocks is frozen.
+
+        // This method freezes the shortest length of chain that it can freeze. As this is a recovery method, the idea
+        // is to make some progress while taking as little risk as possible.
+
+        // To avoid unnecessary work, only attempt this process if we have votes for at least five different heights.
+        List<Long> voteHeights = BlockVoteManager.getHeights();
+
+        int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSize() :
+                BlockManager.currentCycleLength();
+        int voteCountThreshold = votingPoolSize * 3 / 4;
+
+        long firstPassingHeight = -1L;
+        byte[] firstPassingHash = null;
+        boolean foundSecondPassingHeight = false;
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        for (int i = 0; i < voteHeights.size() && !foundSecondPassingHeight; i++) {
+
+            long height = voteHeights.get(i);
+            if (height > frozenEdgeHeight + 1) {
+                AtomicInteger voteCount = new AtomicInteger(0);
+                byte[] leadingHash = BlockVoteManager.leadingHashForHeight(height, voteCount);
+                if (voteCount.get() > voteCountThreshold) {
+
+                    // If this is the second consecutive block that qualifies for a vote, check the previous-block
+                    // hash to ensure that the second block is a successor of the first.
+                    if (height == firstPassingHeight + 1) {
+                        Block blockAtSecondHeight = unverifiedBlockAtHeight(height, leadingHash);
+                        if (blockAtSecondHeight != null &&
+                                ByteUtil.arraysAreEqual(blockAtSecondHeight.getPreviousBlockHash(),
+                                        firstPassingHash)) {
+                            foundSecondPassingHeight = true;
+                        }
+                    }
+
+                    // If a second passing height was not established, the vote count still qualifies this height
+                    // as a first passing height.
+                    if (!foundSecondPassingHeight) {
+                        firstPassingHeight = height;
+                        firstPassingHash = leadingHash;
+                    }
+                }
+            }
+        }
+
+        // If a second passing height was found, try to freeze the entire section of chain to the first passing
+        // height.
+        if (foundSecondPassingHeight) {
+
+            List<Block> blocks = new ArrayList<>();
+            boolean allBlocksAvailable = true;
+            byte[] hash = firstPassingHash;
+            for (long height = firstPassingHeight; height > frozenEdgeHeight && allBlocksAvailable; height--) {
+
+                // Try to get the block for this height.
+                Block block = unverifiedBlockAtHeight(height, hash);
+
+                // If the block is not available, this section of chain cannot be frozen. If it is available, add
+                // it to the beginning of the list and continue stepping toward the frozen edge.
+                if (block == null) {
+                    allBlocksAvailable = false;
+                } else {
+                    blocks.add(0, block);
+                    hash = block.getPreviousBlockHash();
+                }
+            }
+
+            if (allBlocksAvailable) {
+                for (Block block : blocks) {
+                    System.out.println("freezing chain block " + block);
+                    BlockManager.freezeBlock(block);
+                }
+            }
+        }
+
     }
 
     public static void performMaintenance() {
@@ -372,9 +459,30 @@ public class UnfrozenBlockManager {
 
     public static Block unfrozenBlockAtHeight(long height, byte[] hash) {
 
+        return blockAtHeight(height, hash, unfrozenBlocks);
+    }
+
+    private static Block unverifiedBlockAtHeight(long height, byte[] hash) {
+
+        // If the unfrozen block is not available, look to the disconnected block map. These blocks, importantly, have
+        // not passed the same level of local vetting at the unfrozen blocks, as we have not yet been able to
+        // independently calculate their balance lists. Care must be exercised to only use this method in situations
+        // where this verifier has fallen behind the cycle and the cycle has already reached consensus on the block
+        // in question.
+
+        Block block = blockAtHeight(height, hash, unfrozenBlocks);
+        if (block == null) {
+            block = blockAtHeight(height, hash, disconnectedBlocks);
+        }
+
+        return block;
+    }
+
+    private static Block blockAtHeight(long height, byte[] hash, Map<Long, Map<ByteBuffer, Block>> blockMap) {
+
         Block block = null;
         if (hash != null) {
-            Map<ByteBuffer, Block> blocksAtHeight = unfrozenBlocks.get(height);
+            Map<ByteBuffer, Block> blocksAtHeight = blockMap.get(height);
             if (blocksAtHeight != null) {
                 block = blocksAtHeight.get(ByteBuffer.wrap(hash));
             }
@@ -394,7 +502,7 @@ public class UnfrozenBlockManager {
         for (long height : BlockVoteManager.getHeights()) {
             if (height == frozenEdgeHeight + 1) {
                 for (ByteBuffer hash : BlockVoteManager.getHashesForHeight(height)) {
-                    Block block = UnfrozenBlockManager.unfrozenBlockAtHeight(height, hash.array());
+                    Block block = unfrozenBlockAtHeight(height, hash.array());
                     if (block == null) {
                         fetchMissingBlock(height, hash.array());
                     }

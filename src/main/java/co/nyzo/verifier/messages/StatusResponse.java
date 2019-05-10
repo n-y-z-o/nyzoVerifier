@@ -41,7 +41,6 @@ public class StatusResponse implements MessageObject {
                 PrintUtil.superCompactPrintByteArray(frozenEdge.getHash())) + ")");
         lines.add("open edge: " + BlockManager.openEdgeHeight(false));
         lines.add("blocks transmitted/created: " + Verifier.getBlockCreationInformation());
-        lines.add("votes requested: " + BlockVoteManager.getNumberOfVotesRequested());
         lines.add("block vote: " + UnfrozenBlockManager.getVoteDescription());
         lines.add("last removal height: " + BlockManager.getLastVerifierRemovalHeight());
         List<Long> unfrozenBlockHeights = new ArrayList<>(UnfrozenBlockManager.unfrozenBlockHeights());
