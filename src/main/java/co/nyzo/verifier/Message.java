@@ -399,99 +399,101 @@ public class Message {
 
     private static MessageObject processContent(MessageType type, ByteBuffer buffer) {
 
-        MessageObject content = null;
-        // Messages 1 and 2 are no longer used.
-        if (type == MessageType.NodeJoin3) {
-            content = NodeJoinMessage.fromByteBuffer(buffer);
-        } else if (type == MessageType.NodeJoinResponse4) {
-            content = NodeJoinResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.Transaction5) {
-            content = Transaction.fromByteBuffer(buffer);
-        } else if (type == MessageType.TransactionResponse6) {
-            content = TransactionResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.PreviousHashResponse8) {
-            content = PreviousHashResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.NewBlock9) {
-            content = NewBlockMessage.fromByteBuffer(buffer);
-        } else if (type == MessageType.BlockRequest11) {
-            content = BlockRequest.fromByteBuffer(buffer);
-        }  else if (type == MessageType.BlockResponse12) {
-            content = BlockResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.TransactionPoolResponse14) {
-            content = TransactionPoolResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.MeshResponse16) {
-            content = MeshResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.StatusResponse18) {
-            content = StatusResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.BlockVote19) {
-            content = BlockVote.fromByteBuffer(buffer);
-        } else if (type == MessageType.NewVerifierVote21) {
-            content = NewVerifierVote.fromByteBuffer(buffer);
-        } else if (type == MessageType.MissingBlockVoteRequest23) {
-            content = MissingBlockVoteRequest.fromByteBuffer(buffer);
-        } else if (type == MessageType.MissingBlockVoteResponse24) {
-            content = BlockVote.fromByteBuffer(buffer);
-        } else if (type == MessageType.MissingBlockRequest25) {
-            content = MissingBlockRequest.fromByteBuffer(buffer);
-        } else if (type == MessageType.MissingBlockResponse26) {
-            content = MissingBlockResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.TimestampResponse28) {
-            content = TimestampResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.HashVoteOverrideRequest29) {
-            content = HashVoteOverrideRequest.fromByteBuffer(buffer);
-        } else if (type == MessageType.HashVoteOverrideResponse30) {
-            content = HashVoteOverrideResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.ConsensusThresholdOverrideRequest31) {
-            content = ConsensusThresholdOverrideRequest.fromByteBuffer(buffer);
-        } else if (type == MessageType.ConsensusThresholdOverrideResponse32) {
-            content = ConsensusThresholdOverrideResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.NewVerifierVoteOverrideRequest33) {
-            content = NewVerifierVoteOverrideRequest.fromByteBuffer(buffer);
-        } else if (type == MessageType.NewVerifierVoteOverrideResponse34) {
-            content = NewVerifierVoteOverrideResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.BootstrapRequestV2_35) {
-            content = BootstrapRequest.fromByteBuffer(buffer);
-        } else if (type == MessageType.BootstrapResponseV2_36) {
-            content = BootstrapResponseV2.fromByteBuffer(buffer);
-        } else if (type == MessageType.BlockWithVotesRequest37) {
-            content = BlockWithVotesRequest.fromByteBuffer(buffer);
-        } else if (type == MessageType.BlockWithVotesResponse38) {
-            content = BlockWithVotesResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.VerifierRemovalVote39) {
-            content = VerifierRemovalVote.fromByteBuffer(buffer);
-        } else if (type == MessageType.FullMeshResponse42) {
-            content = MeshResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.NodeJoinV2_43) {
-            content = NodeJoinMessageV2.fromByteBuffer(buffer);
-        } else if (type == MessageType.NodeJoinResponseV2_44) {
-            content = NodeJoinResponseV2.fromByteBuffer(buffer);
-        } else if (type == MessageType.PingResponse201) {
-            content = PingResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.UpdateResponse301) {
-            content = UpdateResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.UnfrozenBlockPoolPurgeResponse405) {
-            content = UnfrozenBlockPoolPurgeResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.UnfrozenBlockPoolStatusResponse407) {
-            content = UnfrozenBlockPoolStatusResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.MeshStatusResponse409) {
-            content = MeshStatusResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.ConsensusTallyStatusResponse413) {
-            content = ConsensusTallyStatusResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.NewVerifierTallyStatusResponse415) {
-            content = NewVerifierTallyStatusResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.BlacklistStatusResponse417) {
-            content = BlacklistStatusResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.PerformanceScoreStatusResponse419) {
-            content = PerformanceScoreStatusResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.VerifierRemovalTallyStatusResponse421) {
-            content = VerifierRemovalTallyStatusResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.ResetResponse501) {
-            content = BooleanMessageResponse.fromByteBuffer(buffer);
-        } else if (type == MessageType.Error65534) {
-            content = ErrorMessage.fromByteBuffer(buffer);
+        switch (type) {
+            // Messages 1 and 2 are no longer used.
+            case NodeJoin3:
+                return NodeJoinMessage.fromByteBuffer(buffer);
+            case NodeJoinResponse4:
+                return NodeJoinResponse.fromByteBuffer(buffer);
+            case Transaction5:
+                return Transaction.fromByteBuffer(buffer);
+            case TransactionResponse6:
+                return TransactionResponse.fromByteBuffer(buffer);
+            case PreviousHashResponse8:
+                return PreviousHashResponse.fromByteBuffer(buffer);
+            case NewBlock9:
+                return NewBlockMessage.fromByteBuffer(buffer);
+            case BlockRequest11:
+                return BlockRequest.fromByteBuffer(buffer);
+            case BlockResponse12:
+                return BlockResponse.fromByteBuffer(buffer);
+            case TransactionPoolResponse14:
+                return TransactionPoolResponse.fromByteBuffer(buffer);
+            case MeshResponse16:
+                return MeshResponse.fromByteBuffer(buffer);
+            case StatusResponse18:
+                return StatusResponse.fromByteBuffer(buffer);
+            case BlockVote19:
+                return BlockVote.fromByteBuffer(buffer);
+            case NewVerifierVote21:
+                return NewVerifierVote.fromByteBuffer(buffer);
+            case MissingBlockVoteRequest23:
+                return MissingBlockVoteRequest.fromByteBuffer(buffer);
+            case MissingBlockVoteResponse24:
+                return BlockVote.fromByteBuffer(buffer);
+            case MissingBlockRequest25:
+                return MissingBlockRequest.fromByteBuffer(buffer);
+            case MissingBlockResponse26:
+                return MissingBlockResponse.fromByteBuffer(buffer);
+            case TimestampResponse28:
+                return TimestampResponse.fromByteBuffer(buffer);
+            case HashVoteOverrideRequest29:
+                return HashVoteOverrideRequest.fromByteBuffer(buffer);
+            case HashVoteOverrideResponse30:
+                return HashVoteOverrideResponse.fromByteBuffer(buffer);
+            case ConsensusThresholdOverrideRequest31:
+                return ConsensusThresholdOverrideRequest.fromByteBuffer(buffer);
+            case ConsensusThresholdOverrideResponse32:
+                return ConsensusThresholdOverrideResponse.fromByteBuffer(buffer);
+            case NewVerifierVoteOverrideRequest33:
+                return NewVerifierVoteOverrideRequest.fromByteBuffer(buffer);
+            case NewVerifierVoteOverrideResponse34:
+                return NewVerifierVoteOverrideResponse.fromByteBuffer(buffer);
+            case BootstrapRequestV2_35:
+                return BootstrapRequest.fromByteBuffer(buffer);
+            case BootstrapResponseV2_36:
+                return BootstrapResponseV2.fromByteBuffer(buffer);
+            case BlockWithVotesRequest37:
+                return BlockWithVotesRequest.fromByteBuffer(buffer);
+            case BlockWithVotesResponse38:
+                return BlockWithVotesResponse.fromByteBuffer(buffer);
+            case VerifierRemovalVote39:
+                return VerifierRemovalVote.fromByteBuffer(buffer);
+            case FullMeshResponse42:
+                return MeshResponse.fromByteBuffer(buffer);
+            case NodeJoinV2_43:
+                return NodeJoinMessageV2.fromByteBuffer(buffer);
+            case NodeJoinResponseV2_44:
+                return NodeJoinResponseV2.fromByteBuffer(buffer);
+            case FrozenEdgeBalanceListResponse_46:
+                return BalanceListResponse.fromByteBuffer(buffer);
+            case PingResponse201:
+                return PingResponse.fromByteBuffer(buffer);
+            case UpdateResponse301:
+                return UpdateResponse.fromByteBuffer(buffer);
+            case UnfrozenBlockPoolPurgeResponse405:
+                return UnfrozenBlockPoolPurgeResponse.fromByteBuffer(buffer);
+            case UnfrozenBlockPoolStatusResponse407:
+                return UnfrozenBlockPoolStatusResponse.fromByteBuffer(buffer);
+            case MeshStatusResponse409:
+                return MeshStatusResponse.fromByteBuffer(buffer);
+            case ConsensusTallyStatusResponse413:
+                return ConsensusTallyStatusResponse.fromByteBuffer(buffer);
+            case NewVerifierTallyStatusResponse415:
+                return NewVerifierTallyStatusResponse.fromByteBuffer(buffer);
+            case BlacklistStatusResponse417:
+                return BlacklistStatusResponse.fromByteBuffer(buffer);
+            case PerformanceScoreStatusResponse419:
+                return PerformanceScoreStatusResponse.fromByteBuffer(buffer);
+            case VerifierRemovalTallyStatusResponse421:
+                return VerifierRemovalTallyStatusResponse.fromByteBuffer(buffer);
+            case ResetResponse501:
+                return BooleanMessageResponse.fromByteBuffer(buffer);
+            case Error65534:
+                return ErrorMessage.fromByteBuffer(buffer);
+            default:
+                return null;
         }
-
-        return content;
     }
 
     public static void putString(String value, ByteBuffer buffer) {

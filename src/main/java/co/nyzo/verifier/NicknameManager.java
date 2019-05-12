@@ -38,9 +38,14 @@ public class NicknameManager {
 
     public static String get(byte[] identifier) {
 
-        String nickname = nicknameMap.get(ByteBuffer.wrap(identifier));
-        if (nickname == null || nickname.isEmpty()) {
-            nickname = PrintUtil.compactPrintByteArray(identifier);
+        String nickname;
+        if (identifier == null) {
+            nickname = "(null)";
+        } else {
+            nickname = nicknameMap.get(ByteBuffer.wrap(identifier));
+            if (nickname == null || nickname.isEmpty()) {
+                nickname = PrintUtil.compactPrintByteArray(identifier);
+            }
         }
 
         return nickname;

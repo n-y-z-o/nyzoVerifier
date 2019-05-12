@@ -352,7 +352,7 @@ public class MeshListener {
 
                     BlockRequest request = (BlockRequest) message.getContent();
                     response = new Message(MessageType.BlockResponse12, new BlockResponse(request.getStartHeight(),
-                            request.getEndHeight(), request.includeBalanceList()));
+                            request.getEndHeight(), request.includeBalanceList(), message.getSourceIpAddress()));
 
                 } else if (messageType == MessageType.TransactionPoolRequest13) {
 
@@ -437,6 +437,11 @@ public class MeshListener {
                     NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
 
                     response = new Message(MessageType.NodeJoinResponseV2_44, new NodeJoinResponseV2());
+
+                } else if (messageType == MessageType.FrozenEdgeBalanceListRequest_45) {
+
+                    response = new Message(MessageType.FrozenEdgeBalanceListResponse_46,
+                            new BalanceListResponse(message.getSourceIpAddress()));
 
                 } else if (messageType == MessageType.Ping200) {
 

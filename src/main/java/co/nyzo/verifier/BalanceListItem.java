@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PrintUtil;
+
 public class BalanceListItem {
 
     public static final byte[] transferIdentifier = ByteUtil.byteArrayFromHexString("0000000000000000-" +
@@ -49,5 +51,11 @@ public class BalanceListItem {
     public BalanceListItem decrementBlocksUntilFee() {
 
         return new BalanceListItem(identifier, balance, (short) Math.max(0, blocksUntilFee - 1));
+    }
+
+    @Override
+    public String toString() {
+        return "[BalanceListItem(id=" + PrintUtil.compactPrintByteArray(identifier) + ",balance=" +
+                PrintUtil.printAmount(balance) + ",blocksUntilFee=" + blocksUntilFee + ")]";
     }
 }

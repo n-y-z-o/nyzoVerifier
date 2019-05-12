@@ -13,7 +13,6 @@ public class BalanceListManager {
     private static long totalQueries = 0;
     private static long totalWork = 0;
 
-    // TODO: remove these; they are for debugging only
     private static BalanceList genesisList = null;
     private static BalanceList retentionEdgeList = null;
     private static BalanceList frozenEdgeList = null;
@@ -168,7 +167,20 @@ public class BalanceListManager {
 
                 BalanceListManager.accountsInSystem = accountsInSystem;
             }
+
+            // If the frozen-edge list is null, or if this is closer to the frozen edge than the current frozen-edge
+            // list, store this as the frozen-edge list.
+            if (frozenEdgeList == null || (balanceList.getBlockHeight() <= BlockManager.getFrozenEdgeHeight() &&
+                    balanceList.getBlockHeight() > frozenEdgeList.getBlockHeight())) {
+
+                frozenEdgeList = balanceList;
+            }
         }
+    }
+
+    public static BalanceList getFrozenEdgeList() {
+
+        return frozenEdgeList;
     }
 
     public static boolean accountIsInSystem(byte[] identifier) {

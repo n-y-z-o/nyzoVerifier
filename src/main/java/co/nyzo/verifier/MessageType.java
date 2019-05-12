@@ -50,6 +50,8 @@ public enum MessageType {
     FullMeshResponse42(42),
     NodeJoinV2_43(43),
     NodeJoinResponseV2_44(44),
+    FrozenEdgeBalanceListRequest_45(45),
+    FrozenEdgeBalanceListResponse_46(46),
 
     // test messages
     Ping200(200),
