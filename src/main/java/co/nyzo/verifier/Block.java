@@ -458,7 +458,7 @@ public class Block implements MessageObject {
         int numberOfTransactions = buffer.getInt();
         List<Transaction> transactions = new ArrayList<>();
         for (int i = 0; i < numberOfTransactions; i++) {
-            transactions.add(Transaction.fromByteBuffer(buffer));
+            transactions.add(Transaction.fromByteBuffer(buffer, blockHeight, previousBlockHash));
         }
 
         byte[] balanceListHash = new byte[FieldByteSize.hash];

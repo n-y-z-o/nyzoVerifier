@@ -269,6 +269,11 @@ public class Transaction implements MessageObject {
 
     public static Transaction fromByteBuffer(ByteBuffer buffer) {
 
+        return fromByteBuffer(buffer, 0, new byte[FieldByteSize.hash]);
+    }
+
+    public static Transaction fromByteBuffer(ByteBuffer buffer, long transactionHeight, byte[] previousHashInChain) {
+
         // These are the fields contained in all transactions.
         byte type = buffer.get();
         long timestamp = buffer.getLong();
@@ -282,7 +287,8 @@ public class Transaction implements MessageObject {
             transaction = coinGenerationTransaction(timestamp, amount, recipientIdentifier);
         } else if (type == typeSeed || type == typeStandard) {
             long previousHashHeight = buffer.getLong();
-            Block previousHashBlock = BlockManager.frozenBlockForHeight(previousHashHeight);
+            Block previousHashBlock = previousHashBlockForHeight(previousHashHeight, transactionHeight,
+                    previousHashInChain);
             byte[] previousBlockHash = previousHashBlock == null ? new byte[FieldByteSize.hash] :
                     previousHashBlock.getHash();
             byte[] senderIdentifier = new byte[FieldByteSize.identifier];
@@ -306,6 +312,28 @@ public class Transaction implements MessageObject {
         }
 
         return transaction;
+    }
+
+    private static Block previousHashBlockForHeight(long hashHeight, long transactionHeight,
+                                                    byte[] previousHashInChain) {
+
+        // First, try to get a frozen block. If one is not available, and the height referenced is past the frozen edge,
+        // try to get a block on the branch leading to this transaction.
+        Block block = BlockManager.frozenBlockForHeight(hashHeight);
+        if (block == null && hashHeight > BlockManager.getFrozenEdgeHeight()) {
+            Block previousBlock = UnfrozenBlockManager.unverifiedBlockAtHeight(transactionHeight - 1,
+                    previousHashInChain);
+            while (previousBlock != null && previousBlock.getBlockHeight() > hashHeight) {
+                previousBlock = UnfrozenBlockManager.unverifiedBlockAtHeight(previousBlock.getBlockHeight() - 1,
+                        previousBlock.getPreviousBlockHash());
+            }
+
+            if (previousBlock != null && previousBlock.getBlockHeight() == hashHeight) {
+                block = previousBlock;
+            }
+        }
+
+        return block;
     }
 
     public boolean performInitialValidation(StringBuilder validationError, StringBuilder validationWarning) {

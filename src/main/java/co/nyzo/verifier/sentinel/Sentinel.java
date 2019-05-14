@@ -7,10 +7,7 @@ import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.ThreadUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -352,7 +349,7 @@ public class Sentinel {
                         BlockResponse blockResponse = (BlockResponse) message.getContent();
                         List<Block> blocks = blockResponse.getBlocks();
                         if (blocks.size() > 0 && blocks.get(0).getBlockHeight() == startHeightToFetch &&
-                        blocks.get(blocks.size() - 1).getBlockHeight() == endHeightToFetch) {
+                                blocks.get(blocks.size() - 1).getBlockHeight() == endHeightToFetch) {
                             blockList.addAll(blocks);
                         }
                     } catch (Exception ignored) { }
@@ -372,6 +369,10 @@ public class Sentinel {
                 freezeBlock(block);
             }
             lastBlockReceivedTimestamp.set(System.currentTimeMillis());
+
+            // Perform maintenance on the unfrozen block manager. Blocks are automatically registered with the manager
+            // in block requests, so they must be periodically removed to prevent problems.
+            UnfrozenBlockManager.performMaintenance();
 
             // Four consecutive successes activate fast-fetch mode unless we are very close to the open edge. The
             // interval between fetches is less than the block duration, so multiple consecutive successful fetches

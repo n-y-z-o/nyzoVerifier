@@ -141,15 +141,15 @@ public class BlockResponse implements MessageObject {
             }
 
             List<Block> blocks = new ArrayList<>();
-            int numberOfBlocks = buffer.getShort() & 0xffff;
+            int numberOfBlocks = Math.min(buffer.getShort() & 0xffff, 10);
             for (int i = 0; i < numberOfBlocks; i++) {
-                blocks.add(Block.fromByteBuffer(buffer));
+                Block block = Block.fromByteBuffer(buffer);
+                blocks.add(block);
+                UnfrozenBlockManager.registerBlock(block);
             }
 
             result = new BlockResponse(initialBalanceList, blocks);
-        } catch (Exception ignored) {
-            ignored.printStackTrace();
-        }
+        } catch (Exception ignored) { }
 
         return result;
     }

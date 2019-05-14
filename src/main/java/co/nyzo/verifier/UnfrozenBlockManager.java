@@ -33,13 +33,6 @@ public class UnfrozenBlockManager {
                 registerBlock(block);
             }
         }
-
-        // Remove lower heights that may have been skipped.
-        for (long height : new HashSet<>(disconnectedBlocks.keySet())) {
-            if (height <= frozenEdgeHeight) {
-                disconnectedBlocks.remove(height);
-            }
-        }
     }
 
     public static boolean registerBlock(Block block) {
@@ -390,6 +383,13 @@ public class UnfrozenBlockManager {
             }
         }
 
+        // Remove disconnected blocks at or below the new frozen edge.
+        for (long height : new HashSet<>(disconnectedBlocks.keySet())) {
+            if (height <= frozenEdgeHeight) {
+                disconnectedBlocks.remove(height);
+            }
+        }
+
         // Remove threshold overrides at or below the new frozen edge.
         for (Long height : new HashSet<>(thresholdOverrides.keySet())) {
             if (height <= frozenEdgeHeight) {
@@ -462,7 +462,7 @@ public class UnfrozenBlockManager {
         return blockAtHeight(height, hash, unfrozenBlocks);
     }
 
-    private static Block unverifiedBlockAtHeight(long height, byte[] hash) {
+    public static Block unverifiedBlockAtHeight(long height, byte[] hash) {
 
         // If the unfrozen block is not available, look to the disconnected block map. These blocks, importantly, have
         // not passed the same level of local vetting at the unfrozen blocks, as we have not yet been able to

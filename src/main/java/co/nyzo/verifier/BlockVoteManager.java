@@ -249,22 +249,10 @@ public class BlockVoteManager {
                     frozenBlockRequestHeight = maximumHeightToRequest + 1L;
                 }
 
-                // Send the request for all heights from the minimum to maximum.
-                for (long height = minimumHeightToRequest; height <= maximumHeightToRequest; height++) {
-                    Message message = new Message(MessageType.BlockRequest11, new BlockRequest(height, height, false));
-                    Message.fetchFromRandomNode(message, new MessageCallback() {
-                        @Override
-                        public void responseReceived(Message message) {
-
-                            if (message != null && message.getContent() instanceof BlockResponse) {
-                                BlockResponse response = (BlockResponse) message.getContent();
-                                for (Block block : response.getBlocks()) {
-                                    UnfrozenBlockManager.registerBlock(block);
-                                }
-                            }
-                        }
-                    });
-                }
+                // Send the request.
+                Message message = new Message(MessageType.BlockRequest11, new BlockRequest(minimumHeightToRequest,
+                        maximumHeightToRequest, false));
+                Message.fetchFromRandomNode(message, null);
             }
         }
     }
