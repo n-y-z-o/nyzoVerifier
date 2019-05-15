@@ -82,6 +82,10 @@ public class Sentinel {
             startThreadForVerifier(verifier, querySlot++);
         }
 
+        // Start a single thread as a fallback for fetching blocks from the full mesh if all managed verifiers become
+        // unresponsive.
+        startFullMeshThread();
+
         // Start the thread for transmitting blocks. While a separate thread is needed for fetching data from each
         // managed verifier, only one thread is required for transmitting blocks, as only a single block at each height
         // will protect all verifiers, regardless of how many are down at that time.
@@ -146,6 +150,114 @@ public class Sentinel {
                 }
             }
         }).start();
+    }
+
+    private static void startFullMeshThread() {
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                long lastBlockRequestedTimestamp = 0L;
+                while (!UpdateUtil.shouldTerminate()) {
+
+                    long loopStartTimestamp = System.currentTimeMillis();
+
+                    try {
+                        // This is an important step, though one that should be used with care in a situation with many
+                        // threads sending messages simultaneously. All the verifier loops are also invoking this
+                        // method, so none of the threads will monopolize the message queue.
+                        MessageQueue.blockThisThreadUntilClear();
+
+                        // Update the blocks. This method is only used as a second-level fallback when full-parallel
+                        // querying of managed verifiers is not providing blocks.
+                        if (lastBlockRequestedTimestamp < System.currentTimeMillis() - blockUpdateIntervalStandard &&
+                                (frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 35000L)) {
+                            lastBlockRequestedTimestamp = System.currentTimeMillis();
+
+                            requestBlockWithVotes();
+                        }
+                    } catch (Exception e) {
+                        System.out.println("exception in full-mesh thread main loop: " + PrintUtil.printException(e));
+                    }
+
+                    // Ensure a minimum interval between iterations. This includes processing time, so the actual sleep
+                    // time may be zero.
+                    while (System.currentTimeMillis() < loopStartTimestamp + minimumLoopInterval) {
+                        ThreadUtil.sleep(300L);
+                    }
+                }
+            }
+        }).start();
+    }
+
+    private static void requestBlockWithVotes() {
+
+        // This method is a simplification of the verifier process. The block-with-votes bundle is fetched, and the
+        // block is immediately frozen if the data is sufficient.
+
+        long heightToRequest = frozenEdge.getBlockHeight() + 1L;
+        System.out.println("requesting block with votes for height " + heightToRequest);
+        BlockWithVotesRequest request = new BlockWithVotesRequest(heightToRequest);
+        Message message = new Message(MessageType.BlockWithVotesRequest37, request);
+        Node node = randomNode();
+        if (node != null) {
+            Message.fetch(node, message, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
+
+                    BlockWithVotesResponse response = message == null ? null :
+                            (BlockWithVotesResponse) message.getContent();
+                    System.out.println("block-with-votes response is " + response);
+                    if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
+
+                        int voteThreshold = BlockManager.currentCycleLength() * 3 / 4;
+                        int voteCount = 0;
+                        byte[] blockHash = response.getBlock().getHash();
+
+                        // Count the votes for the block.
+                        for (BlockVote vote : response.getVotes()) {
+                            if (ByteUtil.arraysAreEqual(blockHash, vote.getHash())) {
+                                // Reconstruct the message in which the vote was originally sent. If the signature is
+                                // valid and the verifier is in the cycle, count the vote.
+                                Message voteMessage = new Message(vote.getMessageTimestamp(), MessageType.BlockVote19,
+                                        vote, vote.getSenderIdentifier(), vote.getMessageSignature(),
+                                        new byte[FieldByteSize.ipAddress]);
+                                ByteBuffer senderIdentifier = ByteBuffer.wrap(vote.getSenderIdentifier());
+                                if (voteMessage.isValid() && BlockManager.verifierInCurrentCycle(senderIdentifier)) {
+                                    voteCount++;
+                                }
+                            }
+                        }
+
+                        // If the vote count exceeds the threshold, freeze the block.
+                        System.out.println("block with votes: count=" + voteCount + ", threshold=" + voteThreshold);
+                        if (voteCount > voteThreshold) {
+                            freezeBlock(response.getBlock());
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    private static Node randomNode() {
+
+        Node node = null;
+
+        // This is a nice balance of reasonable randomness and reasonable performance.
+        List<ByteBuffer> verifierIdentifiers = new ArrayList<>(verifierIdentifierToMeshMap.keySet());
+        Collections.shuffle(verifierIdentifiers);
+        Random random = new Random();
+        while (node == null && !verifierIdentifiers.isEmpty()) {
+            ByteBuffer verifierIdentifier = verifierIdentifiers.remove(0);
+            List<Node> nodes = new ArrayList<>(verifierIdentifierToMeshMap.get(verifierIdentifier));
+            if (!nodes.isEmpty()) {
+                node = nodes.get(random.nextInt(nodes.size()));
+            }
+        }
+
+        return node;
     }
 
     private static void loadManagedVerifiers() {
@@ -436,8 +548,9 @@ public class Sentinel {
 
                 Block lowestScoredBlock = null;
                 for (Block block : blocksCreatedForManagedVerifiers) {
-                    if (lowestScoredBlock == null || block.chainScore(frozenEdgeHeight) <
-                            lowestScoredBlock.chainScore(frozenEdgeHeight)) {
+                    if (BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(block.getVerifierIdentifier())) &&
+                            (lowestScoredBlock == null || block.chainScore(frozenEdgeHeight) <
+                            lowestScoredBlock.chainScore(frozenEdgeHeight))) {
                         lowestScoredBlock = block;
                     }
                 }
