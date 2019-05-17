@@ -43,6 +43,7 @@ public class StatusResponse implements MessageObject {
         lines.add("blocks transmitted/created: " + Verifier.getBlockCreationInformation());
         lines.add("block vote: " + UnfrozenBlockManager.getVoteDescription());
         lines.add("last removal height: " + BlockManager.getLastVerifierRemovalHeight());
+        lines.add("receiving UDP: " + (MeshListener.isReceivingUdp() ? "yes" : "no"));
         List<Long> unfrozenBlockHeights = new ArrayList<>(UnfrozenBlockManager.unfrozenBlockHeights());
         Collections.sort(unfrozenBlockHeights);
         for (int i = 0; i < 7 && i < unfrozenBlockHeights.size(); i++) {

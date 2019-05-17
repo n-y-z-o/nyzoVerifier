@@ -47,6 +47,7 @@ public class MeshListener {
     private static final int numberOfDatagramPackets = 50000;
     private static int datagramPacketWriteIndex = 0;
     private static int datagramPacketReadIndex = 0;
+    private static boolean receivingUdp = false;
 
     private static final DatagramPacket[] datagramPackets = new DatagramPacket[numberOfDatagramPackets];
     static {
@@ -147,6 +148,9 @@ public class MeshListener {
                             // Get the packet.
                             DatagramPacket packet = datagramPackets[datagramPacketWriteIndex];
                             datagramSocketUdp.receive(packet);
+
+                            // Mark that we are receiving UDP messages.
+                            receivingUdp = true;
 
                             // If the buffer is full, do not advance the index. Advancing past the read index would
                             // cause the entire buffer to be skipped by the read thread.
@@ -436,6 +440,11 @@ public class MeshListener {
                     NodeJoinMessageV2 nodeJoinMessage = (NodeJoinMessageV2) message.getContent();
                     NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
 
+                    // Send a UDP ping to help the node ensure that it is receiving UDP messages
+                    // properly.
+                    Message.sendUdp(message.getSourceIpAddress(), nodeJoinMessage.getPortUdp(),
+                            new Message(MessageType.Ping200, null));
+
                     response = new Message(MessageType.NodeJoinResponseV2_44, new NodeJoinResponseV2());
 
                 } else if (messageType == MessageType.FrozenEdgeBalanceListRequest_45) {
@@ -534,5 +543,10 @@ public class MeshListener {
     public static long getNumberOfMessagesAccepted() {
 
         return numberOfMessagesAccepted.get();
+    }
+
+    public static boolean isReceivingUdp() {
+
+        return receivingUdp;
     }
 }
