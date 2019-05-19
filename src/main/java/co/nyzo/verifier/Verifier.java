@@ -31,6 +31,9 @@ public class Verifier {
 
     private static long lastBlockFrozenTimestamp = 0;
 
+    private static final long blockWithVotesRequestInterval = 2000L;  // 2 seconds
+    private static long lastBlockWithVotesRequestTimestamp = 0L;
+
     private static int recentMessageTimestampsIndex = 0;
     private static final long[] recentMessageTimestamps = new long[10];
 
@@ -745,10 +748,15 @@ public class Verifier {
     private static void requestBlockWithVotes() {
 
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-        if (BlockManager.openEdgeHeight(false) > frozenEdgeHeight + 2) {
+        if (BlockManager.openEdgeHeight(false) > frozenEdgeHeight + 2 &&
+                System.currentTimeMillis() > lastBlockWithVotesRequestTimestamp + blockWithVotesRequestInterval) {
+
+            long interval = System.currentTimeMillis() - lastBlockWithVotesRequestTimestamp;
+            lastBlockWithVotesRequestTimestamp = System.currentTimeMillis();
 
             long heightToRequest = frozenEdgeHeight + 1L;
-            System.out.println("requesting block with votes for height " + heightToRequest);
+            System.out.println("requesting block with votes for height " + heightToRequest + ", interval=" +
+                    interval);
             BlockWithVotesRequest request = new BlockWithVotesRequest(heightToRequest);
             Message message = new Message(MessageType.BlockWithVotesRequest37, request);
             Message.fetchFromRandomNode(message, new MessageCallback() {

@@ -370,23 +370,6 @@ public class NodeManager {
                                     }
                                 }
                             });
-
-                    // This is the legacy message. This will be removed in a later version.
-                    Message legacyMessage = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
-                    Message.fetchTcp(IpUtil.addressAsString(ipAddressBuffer.array()), port, legacyMessage,
-                            new MessageCallback() {
-                                @Override
-                                public void responseReceived(Message message) {
-
-                                    if (message != null && message.getContent() instanceof NodeJoinResponse) {
-
-                                        updateNode(message);
-
-                                        NodeJoinResponse response = (NodeJoinResponse) message.getContent();
-                                        NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
-                                    }
-                                }
-                            });
                 }
             }
         } catch (Exception ignored) { }
@@ -403,7 +386,12 @@ public class NodeManager {
 
             meshRequestWait = Math.max(BlockManager.currentCycleLength(), minimumMeshRequestInterval);
 
-            Message meshRequest = new Message(MessageType.FullMeshRequest41, null);
+            // To promote connectedness when this verifier has recently restarted, query only the cycle for the first
+            // two iterations of this process.
+            MessageType requestType = meshRequestSuccessCount < 2 ? MessageType.MeshRequest15 :
+                    MessageType.FullMeshRequest41;
+
+            Message meshRequest = new Message(requestType, null);
             Message.fetchFromRandomNode(meshRequest, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
@@ -420,17 +408,19 @@ public class NodeManager {
                         }
 
                         // Also enqueue node-join requests to all nodes in the current map. This ensures that dead
-                        // nodes are eventually removed.
-                        for (Node node : getMesh()) {
+                        // nodes are eventually removed. For the first two, only add in-cycle nodes to promote in-cycle
+                        // connectedness.
+                        List<Node> existingNodes = meshRequestSuccessCount < 2 ? getCycle() : getMesh();
+                        for (Node node : existingNodes) {
                             enqueueNodeJoinMessage(node.getIpAddress(), node.getPortTcp());
                         }
 
-                        System.out.println("reloaded node-join request queue, size is now " +
-                                nodeJoinRequestQueue.size());
+                        System.out.println("reloaded node-join request queue with request type " + requestType +
+                                ", size is now " + nodeJoinRequestQueue.size());
 
                         // Increment the meshRequestSuccessCount value and set the haveNodeHistory flag if we have
                         // enough queries and the flag is not yet set.
-                        if (meshRequestSuccessCount++ > 2 && !haveNodeHistory) {
+                        if (meshRequestSuccessCount++ > 4 && !haveNodeHistory) {
                             haveNodeHistory = true;
                             PersistentData.put(haveNodeHistoryKey, haveNodeHistory);
                         }

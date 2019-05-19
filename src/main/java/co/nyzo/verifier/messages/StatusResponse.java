@@ -92,6 +92,7 @@ public class StatusResponse implements MessageObject {
             lines.add("ping count: " + pingCount.get());
             lines.add("UDP rejection count: " + udpRejectionCount.get());
             lines.add("UDP discard count: " + udpDiscardCount.get());
+            lines.add("block vote count (TCP/UDP): " + MeshListener.getBlockVoteTcpUdpString());
 
             // This shows which in-cycle verifiers currently have no active mesh nodes.
             lines.add("missing in-cycle verifiers: " + NodeManager.getMissingInCycleVerifiers());

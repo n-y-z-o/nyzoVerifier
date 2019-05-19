@@ -48,6 +48,8 @@ public class MeshListener {
     private static int datagramPacketWriteIndex = 0;
     private static int datagramPacketReadIndex = 0;
     private static boolean receivingUdp = false;
+    private static int blockVoteTcpCount = 0;
+    private static int blockVoteUdpCount = 0;
 
     private static final DatagramPacket[] datagramPackets = new DatagramPacket[numberOfDatagramPackets];
     static {
@@ -266,6 +268,13 @@ public class MeshListener {
                     MessageType.IncomingRequest65533);
 
             if (message != null) {
+
+                // To aid in debugging receipt of UDP block votes, the verifier produces counts of both TCP and UDP
+                // block votes. This is a temporary feature; it will be removed in a future version.
+                if (message.getType() == MessageType.BlockVote19) {
+                    blockVoteTcpCount++;
+                }
+
                 Message response = response(message);
                 if (response != null) {
                     clientSocket.getOutputStream().write(response.getBytesForTransmission());
@@ -288,6 +297,12 @@ public class MeshListener {
             // broad protection against a number of attacks that might arise from spoofing addresses.
             Message message = Message.fromBytes(packet.getData(), new byte[FieldByteSize.ipAddress], true);
             if (message != null && !disallowedUdpTypes.contains(message.getType())) {
+
+                // To aid in debugging receipt of UDP block votes, the verifier produces counts of both TCP and UDP
+                // block votes. This is a temporary feature; it will be removed in a future version.
+                if (message.getType() == MessageType.BlockVote19) {
+                    blockVoteUdpCount++;
+                }
 
                 // For UDP, we do not send the response.
                 response(message);
@@ -548,5 +563,10 @@ public class MeshListener {
     public static boolean isReceivingUdp() {
 
         return receivingUdp;
+    }
+
+    public static String getBlockVoteTcpUdpString() {
+
+        return blockVoteTcpCount + "/" + blockVoteUdpCount;
     }
 }
