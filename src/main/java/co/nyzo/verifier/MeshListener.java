@@ -2,15 +2,9 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.messages.debug.*;
-import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.ThreadUtil;
-import co.nyzo.verifier.util.UpdateUtil;
+import co.nyzo.verifier.util.*;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -50,6 +44,8 @@ public class MeshListener {
     private static boolean receivingUdp = false;
     private static int blockVoteTcpCount = 0;
     private static int blockVoteUdpCount = 0;
+
+    private static final String udpIpAddressKey = "udp_ip_address";
 
     private static final DatagramPacket[] datagramPackets = new DatagramPacket[numberOfDatagramPackets];
     static {
@@ -142,7 +138,15 @@ public class MeshListener {
             @Override
             public void run() {
                 try {
-                    datagramSocketUdp = new DatagramSocket(standardPortUdp);
+                    byte[] udpIpAddress = IpUtil.addressFromString(PreferencesUtil.get(udpIpAddressKey));
+                    if (ByteUtil.isAllZeros(udpIpAddress)) {
+                        System.out.println("opening wildcard UDP listener");
+                        datagramSocketUdp = new DatagramSocket(standardPortUdp);
+                    } else {
+                        System.out.println("opening UDP listener for address " + IpUtil.addressAsString(udpIpAddress));
+                        datagramSocketUdp = new DatagramSocket(standardPortUdp,
+                                Inet4Address.getByAddress(udpIpAddress));
+                    }
                     portUdp = datagramSocketUdp.getLocalPort();
 
                     while (!UpdateUtil.shouldTerminate()) {
