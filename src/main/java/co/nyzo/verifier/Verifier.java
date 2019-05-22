@@ -24,7 +24,6 @@ public class Verifier {
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
     private static String nickname = null;
-    private static int rejoinCount = 0;
 
     private static int numberOfBlocksCreated = 0;
     private static int numberOfBlocksTransmitted = 0;
@@ -40,6 +39,8 @@ public class Verifier {
     private static final Map<ByteBuffer, Block> blocksExtended = new HashMap<>();
     private static final Map<ByteBuffer, Block> blocksCreated = new HashMap<>();
     private static final Map<ByteBuffer, Block> blocksTransmitted = new HashMap<>();
+
+    private static long initializationTime = 0L;
 
     static {
         // This ensures the seed is always available, even if this class is used from a test script.
@@ -107,6 +108,7 @@ public class Verifier {
 
     public static void start() {
 
+        long startTimestamp = System.currentTimeMillis();
         if (!alive.getAndSet(true)) {
 
             // Load the private seed. This seed is used to sign all messages, so this is done first.
@@ -282,7 +284,9 @@ public class Verifier {
                 NodeManager.updateActiveVerifiersAndRemoveOldNodes();
             }
 
-            System.out.println("ready to start thread for main verifier loop");
+            initializationTime = System.currentTimeMillis() - startTimestamp;
+            System.out.println("ready to start thread for main verifier loop, initialization time=" +
+                    initializationTime);
 
             // Start the proactive side of the verifier, initiating the actions necessary to maintain the mesh and
             // build the blockchain.
@@ -379,7 +383,7 @@ public class Verifier {
                 } catch (Exception ignored) {
                 }
             } else {
-                BalanceList balanceList = BalanceListManager.balanceListForBlock(genesisBlock, null);
+                BalanceList balanceList = BalanceListManager.balanceListForBlock(genesisBlock);
                 BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash(), balanceList, null);
             }
         }
@@ -635,7 +639,7 @@ public class Verifier {
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
                     previousBlock);
 
-            BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock, null);
+            BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock);
             if (previousBalanceList != null) {
 
                 // Remove any balance-list spam transactions. To avoid rejection of incoming blocks, these
@@ -738,11 +742,6 @@ public class Verifier {
     public static boolean inCycle() {
 
         return BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(getIdentifier()));
-    }
-
-    public static int getRejoinCount() {
-
-        return rejoinCount;
     }
 
     private static void requestBlockWithVotes() {

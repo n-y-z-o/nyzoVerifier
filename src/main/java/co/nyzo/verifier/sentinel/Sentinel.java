@@ -643,7 +643,7 @@ public class Sentinel {
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
                     previousBlock);
 
-            BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock, null);
+            BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock);
             BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
                     approvedTransactions, verifier.getIdentifier());
             if (balanceList != null) {

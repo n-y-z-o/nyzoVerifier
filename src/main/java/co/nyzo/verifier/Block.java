@@ -683,7 +683,7 @@ public class Block implements MessageObject {
         int count = 0;
         Block previousBlock = getPreviousBlock();
         if (previousBlock != null) {
-            BalanceList balanceList = BalanceListManager.balanceListForBlock(previousBlock, null);
+            BalanceList balanceList = BalanceListManager.balanceListForBlock(previousBlock);
             if (balanceList != null) {
                 Map<ByteBuffer, Long> balanceMap = BalanceManager.makeBalanceMap(balanceList);
                 count = BalanceManager.numberOfTransactionsSpammingBalanceList(balanceMap, getTransactions());

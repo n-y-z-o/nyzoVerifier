@@ -79,7 +79,7 @@ public class UnfrozenBlockManager {
                 // if we can calculate the balance list and if the hash matches what we expect. This will ensure that no
                 // blocks with invalid transactions are registered (they will be removed in the balance-list
                 // calculation, and the hash will not match).
-                BalanceList balanceList = BalanceListManager.balanceListForBlock(block, new StringBuilder());
+                BalanceList balanceList = BalanceListManager.balanceListForBlock(block);
                 if (balanceList != null && ByteUtil.arraysAreEqual(balanceList.getHash(), block.getBalanceListHash())) {
 
                     blocksAtHeight.put(ByteBuffer.wrap(block.getHash()), block);

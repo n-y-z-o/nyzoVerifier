@@ -207,7 +207,7 @@ public class BlockManager {
 
         Block previousBlock = frozenBlockForHeight(block.getBlockHeight() - 1);
         if (previousBlock != null) {
-            BalanceList balanceList = BalanceListManager.balanceListForBlock(block, null);
+            BalanceList balanceList = BalanceListManager.balanceListForBlock(block);
             freezeBlock(block, previousBlock.getHash(), balanceList, null);
         }
     }
@@ -220,7 +220,9 @@ public class BlockManager {
 
             try {
                 setFrozenEdge(block, cycleVerifiers);
+
                 BalanceListManager.registerBalanceList(balanceList);
+                BalanceListManager.updateFrozenEdge();
 
                 writeBlocksToFile(Arrays.asList(block), Arrays.asList(balanceList),
                         individualFileForBlockHeight(block.getBlockHeight()));
@@ -317,16 +319,10 @@ public class BlockManager {
                     }
                 }
 
-                // Load the balance lists of the trailing and frozen edges into the balance list manager. This gives us the
-                // balance lists necessary to immediately serve bootstrap response requests.
-                BalanceList trailingEdgeBalanceList = null;
-                for (long height = getTrailingEdgeHeight(); height < getFrozenEdgeHeight() &&
-                        trailingEdgeBalanceList == null; height++) {
-                    trailingEdgeBalanceList = loadBalanceListFromFileForHeight(height);
-                }
+                // Load the balance lists of the frozen edge into the balance list manager.
                 BalanceList frozenEdgeBalanceList = loadBalanceListFromFileForHeight(getFrozenEdgeHeight());
-                BalanceListManager.registerBalanceList(trailingEdgeBalanceList);
                 BalanceListManager.registerBalanceList(frozenEdgeBalanceList);
+                BalanceListManager.updateFrozenEdge();
 
                 initialized = true;
 

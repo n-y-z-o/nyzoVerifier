@@ -412,25 +412,22 @@ public class Transaction implements MessageObject {
 
             // Produce a warning for transactions that appear to be balance-list spam.
             if (valid) {
-                Block frozenEdge = BlockManager.frozenBlockForHeight(BlockManager.getFrozenEdgeHeight());
-                if (frozenEdge != null) {
-                    BalanceList balanceList = BalanceListManager.balanceListForBlock(frozenEdge, null);
-                    if (balanceList != null) {
-                        Map<ByteBuffer, Long> balanceMap = BalanceManager.makeBalanceMap(balanceList);
-                        if (BalanceManager.transactionSpamsBalanceList(balanceMap, this,
-                                Collections.singletonList(this))) {
+                BalanceList balanceList = BalanceListManager.getFrozenEdgeList();
+                if (balanceList != null) {
+                    Map<ByteBuffer, Long> balanceMap = BalanceManager.makeBalanceMap(balanceList);
+                    if (BalanceManager.transactionSpamsBalanceList(balanceMap, this,
+                            Collections.singletonList(this))) {
 
-                            if (getAmount() < BalanceManager.minimumPreferredBalance) {
-                                validationWarning.append("This transaction appears to create a new account with a ")
-                                        .append("balance less than ")
-                                        .append(PrintUtil.printAmount(BalanceManager.minimumPreferredBalance))
-                                        .append(", so it may not be approved. ");
-                            } else {
-                                validationWarning.append("This transaction appears to leave a balance greater than ")
-                                        .append("zero but less than ")
-                                        .append(PrintUtil.printAmount(BalanceManager.minimumPreferredBalance))
-                                        .append(" in the sender account, so it may not be approved. ");
-                            }
+                        if (getAmount() < BalanceManager.minimumPreferredBalance) {
+                            validationWarning.append("This transaction appears to create a new account with a ")
+                                    .append("balance less than ")
+                                    .append(PrintUtil.printAmount(BalanceManager.minimumPreferredBalance))
+                                    .append(", so it may not be approved. ");
+                        } else {
+                            validationWarning.append("This transaction appears to leave a balance greater than ")
+                                    .append("zero but less than ")
+                                    .append(PrintUtil.printAmount(BalanceManager.minimumPreferredBalance))
+                                    .append(" in the sender account, so it may not be approved. ");
                         }
                     }
                 }

@@ -66,7 +66,6 @@ public class StatusResponse implements MessageObject {
             lines.add("new timestamp: " + Verifier.newestTimestampAge(2));
             lines.add("old timestamp: " + Verifier.oldestTimestampAge());
             lines.add("blocks: " + BlockManagerMap.mapInformation());
-            lines.add("balance lists: " + BalanceListManager.mapInformation());
             lines.add("node-joins sent: " + NodeManager.getNodeJoinRequestsSent());
             lines.add("memory (min/max/avg): " + MemoryMonitor.getMemoryStats());
 
