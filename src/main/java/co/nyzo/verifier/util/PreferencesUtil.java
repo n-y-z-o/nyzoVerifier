@@ -50,6 +50,21 @@ public class PreferencesUtil {
         return preferences.getOrDefault(key.toLowerCase(), "");
     }
 
+    public static boolean getBoolean(String key, boolean defaultValue) {
+
+        boolean result = defaultValue;
+        try {
+            String preference = preferences.get(key.toLowerCase());
+            if (preference != null && preference.equals("1")) {
+                result = true;
+            } else if (preference != null && preference.equals("0")) {
+                result = false;
+            }
+        } catch (Exception ignored) { }
+
+        return result;
+    }
+
     public static int getInt(String key, int defaultValue) {
 
         int result = defaultValue;

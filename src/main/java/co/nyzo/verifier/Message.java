@@ -1,8 +1,13 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.client.Client;
+import co.nyzo.verifier.client.ClientDataManager;
+import co.nyzo.verifier.client.ClientNodeManager;
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.messages.debug.*;
+import co.nyzo.verifier.sentinel.Sentinel;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
@@ -126,7 +131,32 @@ public class Message {
 
     public static void fetchFromRandomNode(Message message, MessageCallback messageCallback) {
 
-        boolean isFullMeshMessage = fullMeshMessageTypes.contains(message.getType());
+        Node node;
+        switch (RunMode.getRunMode()) {
+            case Client:
+                node = ClientNodeManager.randomNode();
+                break;
+            case Sentinel:
+                node = Sentinel.randomNode();
+                break;
+            case Verifier:
+            default:
+                node = randomNode(message.getType());
+                break;
+        }
+
+        if (node == null) {
+            System.out.println("unable to find suitable node for random fetch");
+        } else {
+            LogUtil.println("trying to fetch " + message.getType() + " from " +
+                    NicknameManager.get(node.getIdentifier()));
+            fetch(node, message, messageCallback);
+        }
+    }
+
+    private static Node randomNode(MessageType messageType) {
+
+        boolean isFullMeshMessage = fullMeshMessageTypes.contains(messageType);
 
         Node node = null;
         List<Node> mesh = NodeManager.getMesh();
@@ -140,13 +170,7 @@ public class Message {
             }
         }
 
-        if (node == null) {
-            System.out.println("unable to find suitable node for random fetch");
-        } else {
-            System.out.println("trying to fetch " + message.getType() + " from " +
-                    NicknameManager.get(node.getIdentifier()));
-            fetch(node, message, messageCallback);
-        }
+        return node;
     }
 
     public static void fetch(Node node, Message message, MessageCallback messageCallback) {

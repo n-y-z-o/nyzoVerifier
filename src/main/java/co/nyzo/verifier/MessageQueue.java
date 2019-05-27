@@ -1,12 +1,10 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.DebugUtil;
+import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class MessageQueue {
 
@@ -78,7 +76,7 @@ public class MessageQueue {
 
     private static synchronized void start() {
 
-        System.out.println("starting message queue");
+        LogUtil.println("starting message queue");
 
         new Thread(new Runnable() {
             @Override

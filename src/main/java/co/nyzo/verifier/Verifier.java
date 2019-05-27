@@ -70,6 +70,7 @@ public class Verifier {
             }
 
         } else {
+            RunMode.setRunMode(RunMode.Verifier);
             start();
         }
     }
@@ -174,82 +175,7 @@ public class Verifier {
             // the node manager to empty the queue.
             NodeManager.sendNodeJoinRequests(-1);
 
-            // Only continue with the edge-initialization process if we might need to fetch a new frozen edge. If the
-            // open edge is fewer than 20 blocks ahead of the local frozen edge, and we have a complete cycle in the
-            // block manager, we can treat the restart as a temporary outage and use standard recovery mechanisms.
-            long openEdgeHeight = BlockManager.openEdgeHeight(false);
-            if (BlockManager.isCycleComplete() && openEdgeHeight < BlockManager.getFrozenEdgeHeight() + 20) {
-                System.out.println("skipping frozen-edge consensus process due to short downtime and complete cycle");
-            } else {
-
-                System.out.println("entering frozen-edge consensus process because open edge, " + openEdgeHeight +
-                        ", is " + (openEdgeHeight - BlockManager.getFrozenEdgeHeight()) + " past frozen edge, " +
-                        BlockManager.getFrozenEdgeHeight() + " and cycleComplete=" + BlockManager.isCycleComplete());
-
-                // Attempt to jump into the blockchain. This should succeed on the first attempt, but it may take
-                // longer if we are starting a new mesh.
-                BootstrapResponseV2 consensusBootstrapResponse = null;
-                while (consensusBootstrapResponse == null && !UpdateUtil.shouldTerminate()) {
-
-                    // Wait for the incoming message queue to clear. This will prevent a potential problem where this
-                    // loop continues to pile on more and more requests while not getting responses in time because the
-                    // queue is overfilled.
-                    MessageQueue.blockThisThreadUntilClear();
-
-                    AtomicInteger numberOfResponsesReceived = new AtomicInteger(0);
-
-                    // Send bootstrap requests to all trusted entry points.
-                    Message bootstrapRequest = new Message(MessageType.BootstrapRequestV2_35, new BootstrapRequest());
-                    for (TrustedEntryPoint entryPoint : trustedEntryPoints) {
-
-                        System.out.println("sending Bootstrap request to " + entryPoint);
-                        Message.fetchTcp(entryPoint.getHost(), entryPoint.getPort(), bootstrapRequest,
-                                new MessageCallback() {
-                                    @Override
-                                    public void responseReceived(Message message) {
-                                        if (message == null) {
-                                            System.out.println("Bootstrap response is null");
-                                        } else {
-                                            numberOfResponsesReceived.incrementAndGet();
-                                            ChainInitializationManager.processBootstrapResponseMessage(message);
-                                        }
-                                    }
-                                });
-                    }
-
-                    // Wait up to 5 seconds for requests to return.
-                    for (int i = 0; i < 20 && numberOfResponsesReceived.get() < trustedEntryPoints.size(); i++) {
-                        ThreadUtil.sleep(250L);
-                    }
-
-                    // Get the consensus response. If this can be determined, we can move to the next step.
-                    consensusBootstrapResponse = ChainInitializationManager.winningResponse();
-                    System.out.println("consensus bootstrap response: " + consensusBootstrapResponse);
-                }
-
-                // If the consensus frozen edge is more than 20 past the local frozen edge, and we are not in the cycle,
-                // fetch the consensus frozen edge. If the consensus frozen edge is more than the cycle length past the
-                // frozen edge, it does not matter if we were in the cycle. We have lost our place, and the frozen edge
-                // needs to be fetched. If we do not fetch the frozen edge here, the recovery mechanisms will attempt to
-                // catch us back up in time to verify a block.
-                if (consensusBootstrapResponse != null) {
-
-                    long consensusFrozenEdge = consensusBootstrapResponse.getFrozenEdgeHeight();
-                    boolean fetchRequiredNotInCycle = consensusFrozenEdge > BlockManager.getFrozenEdgeHeight() + 20 &&
-                            !inCycle();
-                    boolean fetchRequiredInCycle = consensusFrozenEdge > BlockManager.getFrozenEdgeHeight() +
-                            BlockManager.currentCycleLength();
-
-                    System.out.println("local frozen edge: " + BlockManager.getFrozenEdgeHeight() +
-                            ", consensus frozen edge: " + consensusFrozenEdge + ", fetch required (not-in-cycle): " +
-                            fetchRequiredNotInCycle + ", fetch required (in-cycle): " + fetchRequiredInCycle);
-
-                    if (fetchRequiredNotInCycle || fetchRequiredInCycle || !BlockManager.isCycleComplete()) {
-                        System.out.println("fetching block based on bootstrap response");
-                        ChainInitializationManager.fetchBlock(consensusBootstrapResponse);
-                    }
-                }
-            }
+            ChainInitializationManager.initializeFrozenEdge(trustedEntryPoints);
 
             // In order to process efficiently, we need to be well-connected to the cycle. If there are slow-downs that
             // have prevented connection to this point, they should be addressed before entering the main verifier loop.
@@ -389,7 +315,7 @@ public class Verifier {
         }
     }
 
-    private static List<TrustedEntryPoint> getTrustedEntryPoints() {
+    public static List<TrustedEntryPoint> getTrustedEntryPoints() {
 
         Path path = Paths.get(dataRootDirectory.getAbsolutePath() + "/trusted_entry_points");
         List<TrustedEntryPoint> entryPoints = new ArrayList<>();

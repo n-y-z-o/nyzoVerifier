@@ -2,10 +2,7 @@ package co.nyzo.verifier.sentinel;
 
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.messages.*;
-import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.ThreadUtil;
-import co.nyzo.verifier.util.UpdateUtil;
+import co.nyzo.verifier.util.*;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -51,6 +48,7 @@ public class Sentinel {
 
     public static void main(String[] args) {
 
+        RunMode.setRunMode(RunMode.Sentinel);
         SeedTransactionManager.start();
         start();
     }
@@ -200,48 +198,45 @@ public class Sentinel {
         System.out.println("requesting block with votes for height " + heightToRequest);
         BlockWithVotesRequest request = new BlockWithVotesRequest(heightToRequest);
         Message message = new Message(MessageType.BlockWithVotesRequest37, request);
-        Node node = randomNode();
-        if (node != null) {
-            Message.fetch(node, message, new MessageCallback() {
-                @Override
-                public void responseReceived(Message message) {
+        Message.fetchFromRandomNode(message, new MessageCallback() {
+            @Override
+            public void responseReceived(Message message) {
 
-                    BlockWithVotesResponse response = message == null ? null :
-                            (BlockWithVotesResponse) message.getContent();
-                    System.out.println("block-with-votes response is " + response);
-                    if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
+                BlockWithVotesResponse response = message == null ? null :
+                        (BlockWithVotesResponse) message.getContent();
+                LogUtil.println("block-with-votes response is " + response);
+                if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
 
-                        int voteThreshold = BlockManager.currentCycleLength() * 3 / 4;
-                        int voteCount = 0;
-                        byte[] blockHash = response.getBlock().getHash();
+                    int voteThreshold = BlockManager.currentCycleLength() * 3 / 4;
+                    int voteCount = 0;
+                    byte[] blockHash = response.getBlock().getHash();
 
-                        // Count the votes for the block.
-                        for (BlockVote vote : response.getVotes()) {
-                            if (ByteUtil.arraysAreEqual(blockHash, vote.getHash())) {
-                                // Reconstruct the message in which the vote was originally sent. If the signature is
-                                // valid and the verifier is in the cycle, count the vote.
-                                Message voteMessage = new Message(vote.getMessageTimestamp(), MessageType.BlockVote19,
-                                        vote, vote.getSenderIdentifier(), vote.getMessageSignature(),
-                                        new byte[FieldByteSize.ipAddress]);
-                                ByteBuffer senderIdentifier = ByteBuffer.wrap(vote.getSenderIdentifier());
-                                if (voteMessage.isValid() && BlockManager.verifierInCurrentCycle(senderIdentifier)) {
-                                    voteCount++;
-                                }
+                    // Count the votes for the block.
+                    for (BlockVote vote : response.getVotes()) {
+                        if (ByteUtil.arraysAreEqual(blockHash, vote.getHash())) {
+                            // Reconstruct the message in which the vote was originally sent. If the signature is
+                            // valid and the verifier is in the cycle, count the vote.
+                            Message voteMessage = new Message(vote.getMessageTimestamp(), MessageType.BlockVote19,
+                                    vote, vote.getSenderIdentifier(), vote.getMessageSignature(),
+                                    new byte[FieldByteSize.ipAddress]);
+                            ByteBuffer senderIdentifier = ByteBuffer.wrap(vote.getSenderIdentifier());
+                            if (voteMessage.isValid() && BlockManager.verifierInCurrentCycle(senderIdentifier)) {
+                                voteCount++;
                             }
                         }
+                    }
 
-                        // If the vote count exceeds the threshold, freeze the block.
-                        System.out.println("block with votes: count=" + voteCount + ", threshold=" + voteThreshold);
-                        if (voteCount > voteThreshold) {
-                            freezeBlock(response.getBlock());
-                        }
+                    // If the vote count exceeds the threshold, freeze the block.
+                    System.out.println("block with votes: count=" + voteCount + ", threshold=" + voteThreshold);
+                    if (voteCount > voteThreshold) {
+                        freezeBlock(response.getBlock());
                     }
                 }
-            });
-        }
+            }
+        });
     }
 
-    private static Node randomNode() {
+    public static Node randomNode() {
 
         Node node = null;
 
