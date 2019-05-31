@@ -1,6 +1,9 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
+import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
+import co.nyzo.verifier.nyzoString.NyzoStringPrivateSeed;
+import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
 import co.nyzo.verifier.util.*;
 
 import java.io.File;
@@ -87,7 +90,7 @@ public class Verifier {
             final Path seedFile = Paths.get(dataRootDirectory.getAbsolutePath() + "/verifier_private_seed");
             try {
                 List<String> lines = Files.readAllLines(seedFile);
-                if (lines != null && !lines.isEmpty()) {
+                if (!lines.isEmpty()) {
                     String line = lines.get(0);
                     if (line.length() > 64) {
                         privateSeed = ByteUtil.byteArrayFromHexString(lines.get(0), 32);
@@ -103,6 +106,18 @@ public class Verifier {
                     e.printStackTrace();
                     privateSeed = null;
                 }
+            }
+
+            // Write the information file with the Nyzo strings. These are typed, error-protected encodings of the
+            // private seed and public identifier.
+            if (privateSeed != null) {
+                NyzoStringPrivateSeed privateSeedString = new NyzoStringPrivateSeed(privateSeed);
+                byte[] publicIdentifier = KeyUtil.identifierForSeed(privateSeed);
+                NyzoStringPublicIdentifier publicIdentifierString = new NyzoStringPublicIdentifier(publicIdentifier);
+
+                Path informationFilePath = Paths.get(dataRootDirectory.getAbsolutePath() + "/verifier_info");
+                FileUtil.writeFile(informationFilePath, Arrays.asList(NyzoStringEncoder.encode(privateSeedString),
+                        NyzoStringEncoder.encode(publicIdentifierString)));
             }
         }
     }
