@@ -39,4 +39,8 @@ public class ClientNodeManager {
 
         return node;
     }
+
+    public static Collection<Node> getMesh() {
+        return nodes.values();
+    }
 }

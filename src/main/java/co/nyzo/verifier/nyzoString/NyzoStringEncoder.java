@@ -58,52 +58,55 @@ public class NyzoStringEncoder {
 
     public static NyzoString decode(String encodedString) {
 
-        // Get the type from the prefix.
-        NyzoStringType type = NyzoStringType.forPrefix(encodedString.substring(0, 4));
-
-        // If the type is valid, continue.
         NyzoString result = null;
-        if (type != null) {
 
-            // Get the array representation of the encoded string.
-            byte[] expandedArray = byteArrayForEncodedString(encodedString);
+        try {
+            // Get the type from the prefix.
+            NyzoStringType type = NyzoStringType.forPrefix(encodedString.substring(0, 4));
 
-            // Get the content length from the next byte and calculate the checksum length.
-            int contentLength = expandedArray[3] & 0xff;
-            int checksumLength = expandedArray.length - contentLength - 4;
+            // If the type is valid, continue.
+            if (type != null) {
 
-            // Only continue if the checksum length is valid.
-            if (checksumLength >= 4 && checksumLength <= 6) {
+                // Get the array representation of the encoded string.
+                byte[] expandedArray = byteArrayForEncodedString(encodedString);
 
-                // Calculate the checksum and compare it to the provided checksum. Only create the result array if the
-                // checksums match.
-                byte[] calculatedChecksum = Arrays.copyOf(HashUtil.doubleSHA256(Arrays.copyOf(expandedArray,
-                        headerLength + contentLength)), checksumLength);
-                byte[] providedChecksum = Arrays.copyOfRange(expandedArray, expandedArray.length - checksumLength,
-                        expandedArray.length);
+                // Get the content length from the next byte and calculate the checksum length.
+                int contentLength = expandedArray[3] & 0xff;
+                int checksumLength = expandedArray.length - contentLength - 4;
 
-                if (ByteUtil.arraysAreEqual(calculatedChecksum, providedChecksum)) {
+                // Only continue if the checksum length is valid.
+                if (checksumLength >= 4 && checksumLength <= 6) {
 
-                    // Get the content array. This is the encoded object with the prefix, length byte, and checksum
-                    // removed.
-                    byte[] contentBytes = Arrays.copyOfRange(expandedArray, headerLength, expandedArray.length -
-                            checksumLength);
+                    // Calculate the checksum and compare it to the provided checksum. Only create the result array if
+                    // the checksums match.
+                    byte[] calculatedChecksum = Arrays.copyOf(HashUtil.doubleSHA256(Arrays.copyOf(expandedArray,
+                            headerLength + contentLength)), checksumLength);
+                    byte[] providedChecksum = Arrays.copyOfRange(expandedArray, expandedArray.length - checksumLength,
+                            expandedArray.length);
 
-                    // Make the object from the content array.
-                    switch (type) {
-                        case PrivateSeed:
-                            result = new NyzoStringPrivateSeed(contentBytes);
-                            break;
-                        case PublicIdentifier:
-                            result = new NyzoStringPublicIdentifier(contentBytes);
-                            break;
-                        case Micropay:
-                            result = NyzoStringMicropay.fromByteBuffer(ByteBuffer.wrap(contentBytes));
-                            break;
+                    if (ByteUtil.arraysAreEqual(calculatedChecksum, providedChecksum)) {
+
+                        // Get the content array. This is the encoded object with the prefix, length byte, and checksum
+                        // removed.
+                        byte[] contentBytes = Arrays.copyOfRange(expandedArray, headerLength, expandedArray.length -
+                                checksumLength);
+
+                        // Make the object from the content array.
+                        switch (type) {
+                            case PrivateSeed:
+                                result = new NyzoStringPrivateSeed(contentBytes);
+                                break;
+                            case PublicIdentifier:
+                                result = new NyzoStringPublicIdentifier(contentBytes);
+                                break;
+                            case Micropay:
+                                result = NyzoStringMicropay.fromByteBuffer(ByteBuffer.wrap(contentBytes));
+                                break;
+                        }
                     }
                 }
             }
-        }
+        } catch (Exception ignored) { }
 
         return result;
     }

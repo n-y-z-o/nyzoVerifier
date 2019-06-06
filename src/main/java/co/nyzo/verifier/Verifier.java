@@ -69,7 +69,7 @@ public class Verifier {
                 System.out.println("fin.");
             } catch (Exception e) {
 
-                System.out.println("unable to load class " + args[0]);
+                System.out.println("unable to load class " + args[0] + ", exception: " + PrintUtil.printException(e));
             }
 
         } else {

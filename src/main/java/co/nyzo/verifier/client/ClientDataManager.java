@@ -24,6 +24,14 @@ public class ClientDataManager {
         // Load the trusted entry points. These are needed for a few tasks in the initialization process.
         List<TrustedEntryPoint> trustedEntryPoints = Verifier.getTrustedEntryPoints();
 
+        // Send a single ping to the first trusted entry point. This primes the messaging system and eliminates
+        // initialization delays that may cause the first mesh message to be rejected due to timestamp issues and
+        // replay protection.
+        if (trustedEntryPoints.size() > 0) {
+            TrustedEntryPoint entryPoint = trustedEntryPoints.get(0);
+            Message.fetchTcp(entryPoint.getHost(), entryPoint.getPort(), new Message(MessageType.Ping200, null), null);
+        }
+
         // Load the mesh from trusted entry points first, as this is needed for fetching other data.
         loadMesh(trustedEntryPoints);
 
@@ -64,9 +72,9 @@ public class ClientDataManager {
 
     private static void loadMesh(List<TrustedEntryPoint> trustedEntryPoints) {
 
-        Message message = new Message(MessageType.MeshRequest15, null);
         for (TrustedEntryPoint trustedEntryPoint : trustedEntryPoints) {
 
+            Message message = new Message(MessageType.MeshRequest15, null);
             Message.fetchTcp(trustedEntryPoint.getHost(), trustedEntryPoint.getPort(), message, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {

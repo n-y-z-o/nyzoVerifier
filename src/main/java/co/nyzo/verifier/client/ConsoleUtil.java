@@ -26,7 +26,7 @@ public class ConsoleUtil {
             List<String> column = columns.get(j);
             numberOfRows = Math.max(numberOfRows, column.size());
             for (String value : column) {
-                columnWidths[j] = Math.max(columnWidths[j], value.length());
+                columnWidths[j] = Math.max(columnWidths[j], length(value));
             }
             columnWidths[j] += 2;  // left and right padding
         }
@@ -52,7 +52,7 @@ public class ConsoleUtil {
                 List<String> column = columns.get(i);
                 String value = j < column.size() ? column.get(j) : "";
                 System.out.print(value);
-                for (int k = 0; k < columnWidths[i] - value.length() - 1; k++) {
+                for (int k = 0; k < columnWidths[i] - length(value) - 1; k++) {
                     System.out.print(" ");
                 }
             }
@@ -86,5 +86,10 @@ public class ConsoleUtil {
                 System.out.print("╩");
             }
         }
+    }
+
+    private static int length(String value) {
+        // Remove color codes from the length calculation.
+        return value.replaceAll("\u001B\\[[;\\d]*m", "").length();
     }
 }
