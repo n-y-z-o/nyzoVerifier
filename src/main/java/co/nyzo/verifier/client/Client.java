@@ -7,6 +7,7 @@ import co.nyzo.verifier.Version;
 import co.nyzo.verifier.client.commands.Command;
 import co.nyzo.verifier.client.commands.EmptyCommand;
 import co.nyzo.verifier.client.commands.InvalidCommand;
+import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -126,7 +127,12 @@ public class Client {
                     }
 
                     // Perform validation on the arguments.
-                    if (command.requiresValidation()) {
+                    if (!canceled && command.requiresValidation()) {
+
+                        // Reload the preferences. Some commands will not validate if correct preferences are not set,
+                        // so a user may want to edit the preferences file and attempt validation again.
+                        PreferencesUtil.reloadPreferences();
+
                         validationResult = command.validate(argumentValues);
                     }
                 }

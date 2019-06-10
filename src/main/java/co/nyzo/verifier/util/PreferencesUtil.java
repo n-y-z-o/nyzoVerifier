@@ -29,9 +29,11 @@ public class PreferencesUtil {
                         if (indexOfHash >= 0) {
                             line = line.substring(0, indexOfHash).trim();
                         }
-                        String[] split = line.split("=");
-                        if (split.length == 2) {
-                            preferences.put(split[0].trim().toLowerCase(), split[1].trim().toLowerCase());
+                        int splitIndex = line.indexOf("=");
+                        if (splitIndex > 0) {
+                            String key = line.substring(0, splitIndex).trim().toLowerCase();
+                            String value = line.substring(splitIndex + 1).trim();
+                            preferences.put(key, value);
                         }
                     } catch (Exception e) {
                         System.out.println("issue loading line from preferences: " + line);
@@ -43,6 +45,11 @@ public class PreferencesUtil {
         } else {
             System.out.println("skipping preferences loading; file not present");
         }
+    }
+
+    public static void reloadPreferences() {
+        preferences.clear();
+        loadPreferences();
     }
 
     public static String get(String key) {
@@ -72,6 +79,19 @@ public class PreferencesUtil {
             String preference = preferences.get(key.toLowerCase());
             if (preference != null && !preference.isEmpty()) {
                 result = Integer.parseInt(preference);
+            }
+        } catch (Exception ignored) { }
+
+        return result;
+    }
+
+    public static double getDouble(String key, double defaultValue) {
+
+        double result = defaultValue;
+        try {
+            String preference = preferences.get(key.toLowerCase());
+            if (preference != null && !preference.isEmpty()) {
+                result = Double.parseDouble(preference);
             }
         } catch (Exception ignored) { }
 

@@ -50,6 +50,15 @@ public class NyzoStringTest implements NyzoTest {
             }
         }
 
+        if (successful) {
+            try {
+                successful = testPrefilledDataStrings();
+            } catch (Exception e) {
+                failureCause = "exception in NyzoStringTest.testPrefilledDataStrings(): " + PrintUtil.printException(e);
+                successful = false;
+            }
+        }
+
         return successful;
     }
 
@@ -122,7 +131,7 @@ public class NyzoStringTest implements NyzoTest {
         // Create a pseudo-random generator. Using a fixed seed ensures reproducibility of problems.
         Random random = new Random(8059);
 
-        // Test 10000 public-identifier strings.
+        // Test 10000 strings.
         boolean successful = true;
         for (int i = 0; i < 100000 && successful; i++) {
 
@@ -133,9 +142,10 @@ public class NyzoStringTest implements NyzoTest {
             long amount = random.nextInt(5) == 0 ? 0 : random.nextLong();
             byte[] receiverIpAddress = random.nextInt(5) == 0 ? new byte[FieldByteSize.ipAddress] :
                     randomArray(random, FieldByteSize.ipAddress);
+            int receiverPort = random.nextInt();
 
             NyzoStringMicropay stringObject = new NyzoStringMicropay(receiverIdentifier, senderData, amount,
-                    receiverIpAddress);
+                    receiverIpAddress, receiverPort);
             String encoded = NyzoStringEncoder.encode(stringObject);
 
             // Reverse the process to get the object.
@@ -171,6 +181,13 @@ public class NyzoStringTest implements NyzoTest {
                         ByteUtil.arrayAsStringWithDashes(decodedString.getReceiverIpAddress()) + ") in iteration " + i +
                         " of NyzoStringTest.testNyzoMicropayStrings()";
             }
+
+            if (receiverPort != decodedString.getReceiverPort()) {
+                successful = false;
+                failureCause = "mismatch of generated port (" + receiverPort + ") and decoded port (" +
+                        decodedString.getReceiverPort() + ") in iteration " + i +
+                        " of NyzoStringTest.testNyzoMicropayStrings()";
+            }
         }
 
         System.out.println(TestUtil.passFail(successful));
@@ -178,6 +195,47 @@ public class NyzoStringTest implements NyzoTest {
         return successful;
     }
 
+    private boolean testPrefilledDataStrings() {
+
+        // Create a pseudo-random generator. Using a fixed seed ensures reproducibility of problems.
+        Random random = new Random(9199);
+
+        // Test 10000 strings.
+        boolean successful = true;
+        for (int i = 0; i < 100000 && successful; i++) {
+
+            // Make and encode the string from random bytes.
+            byte[] receiverIdentifier = randomArray(random, FieldByteSize.identifier);
+            int senderDataLength = random.nextInt(FieldByteSize.maximumSenderDataLength + 1);
+            byte[] senderData = randomArray(random, senderDataLength);
+
+            NyzoStringPrefilledData stringObject = new NyzoStringPrefilledData(receiverIdentifier, senderData);
+            String encoded = NyzoStringEncoder.encode(stringObject);
+
+            // Reverse the process to get the object.
+            NyzoStringPrefilledData decodedString = (NyzoStringPrefilledData) NyzoStringEncoder.decode(encoded);
+
+            if (!ByteUtil.arraysAreEqual(receiverIdentifier, decodedString.getReceiverIdentifier())) {
+                successful = false;
+                failureCause = "mismatch of generated receiver identifier (" +
+                        ByteUtil.arrayAsStringWithDashes(receiverIdentifier) + ") and decoded receiver identifier (" +
+                        ByteUtil.arrayAsStringWithDashes(decodedString.getReceiverIdentifier()) +
+                        ") in iteration " + i + " of NyzoStringTest.testPrefilledDataStrings()";
+            }
+
+            if (!ByteUtil.arraysAreEqual(senderData, decodedString.getSenderData())) {
+                successful = false;
+                failureCause = "mismatch of generated sender data (" + ByteUtil.arrayAsStringWithDashes(senderData) +
+                        ") and decoded sender data (" +
+                        ByteUtil.arrayAsStringWithDashes(decodedString.getSenderData()) + ") in iteration " + i +
+                        " of NyzoStringTest.testPrefilledDataStrings()";
+            }
+        }
+
+        System.out.println(TestUtil.passFail(successful));
+
+        return successful;
+    }
 
     private static byte[] randomArray(Random random, int length) {
 

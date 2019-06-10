@@ -12,8 +12,10 @@ public class NyzoStringMicropay implements NyzoString {
     private byte[] senderData;
     private long amount;
     private byte[] receiverIpAddress;
+    private int receiverPort;
 
-    public NyzoStringMicropay(byte[] receiverIdentifier, byte[] senderData, long amount, byte[] receiverIpAddress) {
+    public NyzoStringMicropay(byte[] receiverIdentifier, byte[] senderData, long amount, byte[] receiverIpAddress,
+                              int receiverPort) {
         this.receiverIdentifier = receiverIdentifier;
         if (senderData.length <= FieldByteSize.maximumSenderDataLength) {
             this.senderData = senderData;
@@ -22,6 +24,7 @@ public class NyzoStringMicropay implements NyzoString {
         }
         this.amount = amount;
         this.receiverIpAddress = receiverIpAddress;
+        this.receiverPort = receiverPort;
     }
 
     public byte[] getReceiverIdentifier() {
@@ -40,6 +43,10 @@ public class NyzoStringMicropay implements NyzoString {
         return receiverIpAddress;
     }
 
+    public int getReceiverPort() {
+        return receiverPort;
+    }
+
     @Override
     public NyzoStringType getType() {
         return NyzoStringType.Micropay;
@@ -49,7 +56,7 @@ public class NyzoStringMicropay implements NyzoString {
     public byte[] getBytes() {
 
         int length = FieldByteSize.identifier + 1 + senderData.length + FieldByteSize.transactionAmount +
-                FieldByteSize.ipAddress;
+                FieldByteSize.ipAddress + FieldByteSize.port;
 
         byte[] array = new byte[length];
         ByteBuffer buffer = ByteBuffer.wrap(array);
@@ -58,6 +65,7 @@ public class NyzoStringMicropay implements NyzoString {
         buffer.put(senderData);
         buffer.putLong(amount);
         buffer.put(receiverIpAddress);
+        buffer.putInt(receiverPort);
 
         return array;
     }
@@ -69,7 +77,8 @@ public class NyzoStringMicropay implements NyzoString {
         byte[] senderData = Message.getByteArray(buffer, senderDataLength);
         long amount = buffer.getLong();
         byte[] receiverIpAddress = Message.getByteArray(buffer, FieldByteSize.ipAddress);
+        int receiverPort = buffer.getInt();
 
-        return new NyzoStringMicropay(receiverIdentifier, senderData, amount, receiverIpAddress);
+        return new NyzoStringMicropay(receiverIdentifier, senderData, amount, receiverIpAddress, receiverPort);
     }
 }

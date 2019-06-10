@@ -11,6 +11,10 @@ public class CommandManager {
             new TransactionSendCommand(),
             new PrivateNyzoStringCommand(),
             new PublicNyzoStringCommand(),
+            new PrefilledDataCreateCommand(),
+            new PrefilledDataSendCommand(),
+            new MicropayCreateCommand(),
+            new MicropaySendCommand(),
             new ExitCommand()
     };
 

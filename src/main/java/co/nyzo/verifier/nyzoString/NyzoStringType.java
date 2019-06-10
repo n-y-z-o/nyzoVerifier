@@ -2,6 +2,7 @@ package co.nyzo.verifier.nyzoString;
 
 public enum NyzoStringType {
 
+    PrefilledData("pre_"),
     PrivateSeed("key_"),
     PublicIdentifier("id__"),
     Micropay("pay_");

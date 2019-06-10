@@ -39,4 +39,14 @@ public class ValidationResult {
 
         return validatedArguments;
     }
+
+    public static ValidationResult exceptionResult(int numberOfArguments) {
+
+        List<ArgumentResult> argumentResults = new ArrayList<>();
+        for (int i = 0; i < numberOfArguments; i++) {
+            argumentResults.add(new ArgumentResult(false, "", "validation exception"));
+        }
+
+        return new ValidationResult(argumentResults);
+    }
 }

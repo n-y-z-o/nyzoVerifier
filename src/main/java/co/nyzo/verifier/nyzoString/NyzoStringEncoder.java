@@ -13,7 +13,8 @@ public class NyzoStringEncoder {
     private static final char[] characterLookup = ("0123456789" +
             "abcdefghijkmnopqrstuvwxyz" +  // all except lowercase "L"
             "ABCDEFGHIJKLMNPQRSTUVWXYZ" +  // all except uppercase "o"
-            "*+=_").toCharArray();
+            //"*+=_").toCharArray();       // old encoding, less URL-friendly
+            "-.~_").toCharArray();         // see https://tools.ietf.org/html/rfc3986#section-2.3
 
     private static final Map<Character, Integer> characterToValueMap = new ConcurrentHashMap<>();
     static {
@@ -61,6 +62,13 @@ public class NyzoStringEncoder {
         NyzoString result = null;
 
         try {
+            // Map characters from the old encoding to the new encoding. A few characters were changed to make Nyzo
+            // strings more URL-friendly.
+            encodedString = encodedString.replace('*', '-').replace('+', '.').replace('=', '~');
+
+            // Map characters that may be mistyped. Nyzo strings contain neither 'l' nor 'O'.
+            encodedString = encodedString.replace('l', '1').replace('O', '0');
+
             // Get the type from the prefix.
             NyzoStringType type = NyzoStringType.forPrefix(encodedString.substring(0, 4));
 
@@ -93,6 +101,9 @@ public class NyzoStringEncoder {
 
                         // Make the object from the content array.
                         switch (type) {
+                            case PrefilledData:
+                                result = NyzoStringPrefilledData.fromByteBuffer(ByteBuffer.wrap(contentBytes));
+                                break;
                             case PrivateSeed:
                                 result = new NyzoStringPrivateSeed(contentBytes);
                                 break;

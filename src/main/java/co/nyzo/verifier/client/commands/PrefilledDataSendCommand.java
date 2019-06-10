@@ -1,39 +1,39 @@
 package co.nyzo.verifier.client.commands;
 
-import co.nyzo.verifier.*;
+import co.nyzo.verifier.ByteUtil;
+import co.nyzo.verifier.FieldByteSize;
+import co.nyzo.verifier.KeyUtil;
+import co.nyzo.verifier.Transaction;
 import co.nyzo.verifier.client.*;
-import co.nyzo.verifier.messages.TransactionResponse;
-import co.nyzo.verifier.nyzoString.NyzoString;
-import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
-import co.nyzo.verifier.nyzoString.NyzoStringPrivateSeed;
-import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
+import co.nyzo.verifier.nyzoString.*;
+import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.ThreadUtil;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
-public class TransactionSendCommand implements Command {
+public class PrefilledDataSendCommand implements Command {
 
     @Override
     public String getShortCommand() {
-        return "ST";
+        return "PRS";
     }
 
     @Override
     public String getLongCommand() {
-        return "send";
+        return "sendPrefill";
     }
 
     @Override
     public String getDescription() {
-        return "send a standard transaction";
+        return "send a prefilled-data transaction";
     }
 
     @Override
     public String[] getArgumentNames() {
-        return new String[] { "sender key", "receiver ID", "sender data", "amount, Nyzos" };
+        return new String[] { "sender key", "prefilled-data string", "amount, Nyzos" };
     }
 
     @Override
@@ -64,48 +64,43 @@ public class TransactionSendCommand implements Command {
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(0), message));
             }
 
-            // Check the receiver ID.
-            NyzoString receiverIdentifier = NyzoStringEncoder.decode(argumentValues.get(1));
-            if (receiverIdentifier instanceof NyzoStringPublicIdentifier) {
-                boolean receiverIsValid = true;
-                String receiverError = "";
-                if (senderKey instanceof NyzoStringPrivateSeed) {
-                    byte[] senderId = KeyUtil.identifierForSeed(((NyzoStringPrivateSeed) senderKey).getSeed());
-                    if (ByteUtil.arraysAreEqual(senderId,
-                            ((NyzoStringPublicIdentifier) receiverIdentifier).getIdentifier())) {
-                        receiverIsValid = false;
-                        receiverError = "sender and receiver are same";
-                    }
-                }
+            // Check the prefilled-data string.
+            NyzoString string = NyzoStringEncoder.decode(argumentValues.get(1));
+            if (string instanceof NyzoStringPrefilledData) {
+                // Show the receiver and sender data. This is not necessary for validation, but it is helpful for
+                // confirmation, because the confirmation process does not show the separate parts of the string.
+                NyzoStringPrefilledData prefilledData = (NyzoStringPrefilledData) string;
+                List<String> labels = Arrays.asList("receiver ID", "sender data");
+                List<String> values = Arrays.asList(
+                        NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(prefilledData.getReceiverIdentifier())),
+                        new String(prefilledData.getSenderData(), StandardCharsets.UTF_8));
+                ConsoleUtil.printTable(Arrays.asList(labels, values));
 
-                argumentResults.add(new ArgumentResult(receiverIsValid, NyzoStringEncoder.encode(receiverIdentifier),
-                        receiverError));
+                // Check that the sender and receiver are different. If so, this argument is valid.
+                if (senderKey != null && ByteUtil.arraysAreEqual(prefilledData.getReceiverIdentifier(),
+                        KeyUtil.identifierForSeed(senderKey.getBytes()))) {
+                    argumentResults.add(new ArgumentResult(false, NyzoStringEncoder.encode(prefilledData),
+                            "sender and receiver are same"));
+                } else {
+                    argumentResults.add(new ArgumentResult(true, NyzoStringEncoder.encode(prefilledData), ""));
+                }
             } else {
-                String message = argumentValues.get(1).trim().isEmpty() ? "missing Nyzo string public ID" :
-                        "not a valid Nyzo string public ID";
+                String message = argumentValues.get(1).trim().isEmpty() ? "missing prefilled-data string" :
+                        "not a valid prefilled-data string";
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(1), message));
             }
-
-            // Process the sender data.
-            byte[] senderDataBytes = argumentValues.get(2).getBytes(StandardCharsets.UTF_8);
-            if (senderDataBytes.length > FieldByteSize.maximumSenderDataLength) {
-                System.out.println(ConsoleColor.Yellow + "sender data too long; truncating" + ConsoleColor.reset);
-                senderDataBytes = Arrays.copyOf(senderDataBytes, FieldByteSize.maximumSenderDataLength);
-            }
-            String senderData = new String(senderDataBytes, StandardCharsets.UTF_8);
-            argumentResults.add(new ArgumentResult(true, senderData, ""));
 
             // Check the amount.
             long amountMicronyzos = -1L;
             try {
-                amountMicronyzos = (long) (Double.parseDouble(argumentValues.get(3)) *
+                amountMicronyzos = (long) (Double.parseDouble(argumentValues.get(2)) *
                         Transaction.micronyzoMultiplierRatio);
             } catch (Exception ignored) { }
             if (amountMicronyzos > 0) {
                 double amountNyzos = amountMicronyzos / (double) Transaction.micronyzoMultiplierRatio;
                 argumentResults.add(new ArgumentResult(true, String.format("%.6f", amountNyzos), ""));
             } else {
-                argumentResults.add(new ArgumentResult(false, argumentValues.get(3), "invalid amount"));
+                argumentResults.add(new ArgumentResult(false, argumentValues.get(2), "invalid amount"));
             }
 
             // Produce the result.
@@ -128,13 +123,14 @@ public class TransactionSendCommand implements Command {
         try {
             // Get the arguments.
             NyzoStringPrivateSeed signerSeed = (NyzoStringPrivateSeed) NyzoStringEncoder.decode(argumentValues.get(0));
-            NyzoStringPublicIdentifier receiverIdentifier =
-                    (NyzoStringPublicIdentifier) NyzoStringEncoder.decode(argumentValues.get(1));
-            byte[] senderData = argumentValues.get(2).getBytes(StandardCharsets.UTF_8);
-            long amount = (long) (Double.parseDouble(argumentValues.get(3)) * Transaction.micronyzoMultiplierRatio);
+            NyzoStringPrefilledData prefilledData  =
+                    (NyzoStringPrefilledData) NyzoStringEncoder.decode(argumentValues.get(1));
+            long amount = (long) (Double.parseDouble(argumentValues.get(2)) * Transaction.micronyzoMultiplierRatio);
 
             // Send the transaction to the cycle.
-            ClientTransactionUtil.createAndSendTransaction(signerSeed, receiverIdentifier, senderData, amount);
+            ClientTransactionUtil.createAndSendTransaction(signerSeed,
+                    new NyzoStringPublicIdentifier(prefilledData.getReceiverIdentifier()),
+                    prefilledData.getSenderData(), amount);
         } catch (Exception e) {
             System.out.println(ConsoleColor.Red + "unexpected issue creating transaction: " +
                     PrintUtil.printException(e) + ConsoleColor.reset);
