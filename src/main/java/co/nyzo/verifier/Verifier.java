@@ -5,6 +5,7 @@ import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
 import co.nyzo.verifier.nyzoString.NyzoStringPrivateSeed;
 import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
 import co.nyzo.verifier.util.*;
+import co.nyzo.verifier.web.WebListener;
 
 import java.io.File;
 import java.lang.reflect.Method;
@@ -223,6 +224,11 @@ public class Verifier {
                 MessageQueue.blockThisThreadUntilClear();
 
                 NodeManager.updateActiveVerifiersAndRemoveOldNodes();
+            }
+
+            // If the preference is set, start the web listener.
+            if (PreferencesUtil.getBoolean(WebListener.startWebListenerKey, false)) {
+                WebListener.start();
             }
 
             initializationTime = System.currentTimeMillis() - startTimestamp;

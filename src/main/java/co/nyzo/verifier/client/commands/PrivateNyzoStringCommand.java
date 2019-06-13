@@ -3,6 +3,7 @@ package co.nyzo.verifier.client.commands;
 import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.KeyUtil;
+import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.client.ConsoleUtil;
 import co.nyzo.verifier.client.ValidationResult;
 import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
@@ -66,5 +67,12 @@ public class PrivateNyzoStringCommand implements Command {
                 NyzoStringEncoder.encode(publicIdentifierString));
 
         ConsoleUtil.printTable(Arrays.asList(labels, values));
+    }
+
+    public static void printHexWarning() {
+        PrivateNyzoStringCommand command = new PrivateNyzoStringCommand();
+        System.out.println(ConsoleColor.Yellow.background() + "You appear to be using a raw hexadecimal " +
+                "private key. Please convert this to a Nyzo string with the \"" + command.getLongCommand() +
+                "\" (" + command.getShortCommand() + ") command." + ConsoleColor.reset);
     }
 }

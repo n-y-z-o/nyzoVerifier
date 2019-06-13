@@ -62,6 +62,10 @@ public class TransactionSendCommand implements Command {
                 String message = argumentValues.get(0).trim().isEmpty() ? "missing Nyzo string private key" :
                         "not a valid Nyzo string private key";
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(0), message));
+
+                if (argumentValues.get(0).length() >= 64) {
+                    PrivateNyzoStringCommand.printHexWarning();
+                }
             }
 
             // Check the receiver ID.
@@ -84,6 +88,10 @@ public class TransactionSendCommand implements Command {
                 String message = argumentValues.get(1).trim().isEmpty() ? "missing Nyzo string public ID" :
                         "not a valid Nyzo string public ID";
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(1), message));
+
+                if (argumentValues.get(1).length() >= 64) {
+                    PublicNyzoStringCommand.printHexWarning();
+                }
             }
 
             // Process the sender data.

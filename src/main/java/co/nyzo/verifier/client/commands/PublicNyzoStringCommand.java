@@ -81,4 +81,11 @@ public class PublicNyzoStringCommand implements Command {
             ConsoleUtil.printTable(Collections.singletonList(warning));
         }
     }
+
+    public static void printHexWarning() {
+        PublicNyzoStringCommand command = new PublicNyzoStringCommand();
+        System.out.println(ConsoleColor.Yellow.background() + "You appear to be using a raw hexadecimal " +
+                "public ID. Please convert this to a Nyzo string with the \"" + command.getLongCommand() +
+                "\" (" + command.getShortCommand() + ") command." + ConsoleColor.reset);
+    }
 }

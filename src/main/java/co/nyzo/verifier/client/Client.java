@@ -1,7 +1,6 @@
 package co.nyzo.verifier.client;
 
 import co.nyzo.verifier.BlockManager;
-import co.nyzo.verifier.NodeManager;
 import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.Version;
 import co.nyzo.verifier.client.commands.Command;
@@ -10,6 +9,7 @@ import co.nyzo.verifier.client.commands.InvalidCommand;
 import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.UpdateUtil;
+import co.nyzo.verifier.web.WebListener;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -27,6 +27,11 @@ public class Client {
 
         // Start the data manager. This collects the data necessary for the client to run properly.
         ClientDataManager.start();
+
+        // If the preference is set, start the web listener.
+        if (PreferencesUtil.getBoolean(WebListener.startWebListenerKey, false)) {
+            WebListener.start();
+        }
 
         runCommandLoop();
     }

@@ -54,9 +54,13 @@ public class PrefilledDataCreateCommand implements Command {
             if (receiverIdentifier instanceof NyzoStringPublicIdentifier) {
                 argumentResults.add(new ArgumentResult(true, NyzoStringEncoder.encode(receiverIdentifier), ""));
             } else {
-                String message = argumentValues.get(1).trim().isEmpty() ? "missing Nyzo string public ID" :
+                String message = argumentValues.get(0).trim().isEmpty() ? "missing Nyzo string public ID" :
                         "not a valid Nyzo string public ID";
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(0), message));
+
+                if (argumentValues.get(0).length() >= 64) {
+                    PublicNyzoStringCommand.printHexWarning();
+                }
             }
 
             // Process the sender data.

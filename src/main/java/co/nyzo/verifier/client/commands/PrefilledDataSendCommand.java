@@ -62,6 +62,10 @@ public class PrefilledDataSendCommand implements Command {
                 String message = argumentValues.get(0).trim().isEmpty() ? "missing Nyzo string private key" :
                         "not a valid Nyzo string private key";
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(0), message));
+
+                if (argumentValues.get(0).length() >= 64) {
+                    PrivateNyzoStringCommand.printHexWarning();
+                }
             }
 
             // Check the prefilled-data string.
