@@ -220,9 +220,7 @@ public class BlockManager {
 
             try {
                 setFrozenEdge(block, cycleVerifiers);
-
-                BalanceListManager.registerBalanceList(balanceList);
-                BalanceListManager.updateFrozenEdge();
+                BalanceListManager.updateFrozenEdge(balanceList);
 
                 writeBlocksToFile(Arrays.asList(block), Arrays.asList(balanceList),
                         individualFileForBlockHeight(block.getBlockHeight()));
@@ -321,8 +319,7 @@ public class BlockManager {
 
                 // Load the balance lists of the frozen edge into the balance list manager.
                 BalanceList frozenEdgeBalanceList = loadBalanceListFromFileForHeight(getFrozenEdgeHeight());
-                BalanceListManager.registerBalanceList(frozenEdgeBalanceList);
-                BalanceListManager.updateFrozenEdge();
+                BalanceListManager.updateFrozenEdge(frozenEdgeBalanceList);
 
                 initialized = true;
 

@@ -3,6 +3,7 @@ package co.nyzo.verifier.sentinel;
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.*;
+import co.nyzo.verifier.web.WebListener;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -331,7 +332,7 @@ public class Sentinel {
 
         // Get the local and chain frozen edges. If the chain is within four cycles of the local frozen edge, we do
         // not need to fetch anything here. The standard block-fetch process will get the chain. If the chain is not
-        // within four cycles of the local frozen edge, we fetch and freeze one block four cycles back.
+        // within four cycles of the local frozen edge, we fetch and freeze one recent block.
         long localFrozenEdge = BlockManager.getFrozenEdgeHeight();
         long chainFrozenEdge = localFrozenEdge;
         List<ByteBuffer> cycleVerifiers = new ArrayList<>();
@@ -349,11 +350,12 @@ public class Sentinel {
             successful = true;
         } else {
 
-            // Try to get the block at the cutoff height. This sends requests to every managed verifier, but only
+            // Try to get the block at the chain frozen edge. This sends requests to every managed verifier, but only
             // one good response is needed.
             Set<Block> blocks = ConcurrentHashMap.newKeySet();
             Set<BalanceList> balanceLists = ConcurrentHashMap.newKeySet();
-            Message message = new Message(MessageType.BlockRequest11, new BlockRequest(cutoffHeight, cutoffHeight,
+            long requestHeight = chainFrozenEdge;
+            Message message = new Message(MessageType.BlockRequest11, new BlockRequest(requestHeight, requestHeight,
                     true));
             AtomicInteger numberOfResponsesPending = new AtomicInteger(verifiers.size());
             for (ManagedVerifier verifier : verifiers.values()) {
@@ -367,8 +369,8 @@ public class Sentinel {
                                 BlockResponse blockResponse = (BlockResponse) message.getContent();
                                 Block block = blockResponse.getBlocks().get(0);
                                 BalanceList balanceList = blockResponse.getInitialBalanceList();
-                                if (block.getBlockHeight() == cutoffHeight &&
-                                        balanceList.getBlockHeight() == cutoffHeight) {
+                                if (block.getBlockHeight() == requestHeight &&
+                                        balanceList.getBlockHeight() == requestHeight) {
                                     blocks.add(block);
                                     balanceLists.add(balanceList);
                                 }

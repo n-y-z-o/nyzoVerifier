@@ -108,10 +108,7 @@ public class BalanceListManager {
         return accountsInSystem.contains(ByteBuffer.wrap(identifier));
     }
 
-    public static void updateFrozenEdge() {
-
-        Block frozenEdge = BlockManager.getFrozenEdge();
-        BalanceList frozenEdgeList = balanceListForBlock(frozenEdge);
+    public static void updateFrozenEdge(BalanceList frozenEdgeList) {
 
         if (frozenEdgeList != null) {
             for (int i = numberOfRecentLists - 1; i > 0; i--) {
