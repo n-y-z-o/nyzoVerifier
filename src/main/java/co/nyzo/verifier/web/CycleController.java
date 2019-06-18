@@ -10,13 +10,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class CycleController {
 
-    public static final String cyclePageEndpoint = "/cycle";
-    public static final String cycleUpdateEndpoint = "/cycleUpdate";
+    public static final String pageEndpoint = "/cycle";
+    public static final String updateEndpoint = "/cycleUpdate";
 
     private static RawHtml cycleElement = null;
     private static final AtomicLong cycleElementHeight = new AtomicLong(-1L);
 
-    public static byte[] cyclePage() {
+    public static byte[] page() {
 
         // Make the HTML page.
         Html html = new Html();
@@ -27,15 +27,15 @@ public class CycleController {
 
         // Add the div cycle container and the cycle content.
         Div cycleDiv = (Div) body.add(new Div().attr("id", "cycleDiv"));
-        cycleDiv.add(cycleDivContent());
+        cycleDiv.add(divContent());
 
-        // Add the AJAX update for the cycle div to the head of the document.
-        head.add(cycleDiv.ajaxUpdate(cycleUpdateEndpoint, 5000));
+        // Add the Ajax update for the cycle div to the head of the document.
+        head.add(cycleDiv.ajaxUpdate(updateEndpoint, 5000));
 
         return html.renderByteArray();
     }
 
-    private static HtmlElement cycleDivContent() {
+    private static HtmlElement divContent() {
 
         // Make an HTML element list to hold the result.
         HtmlElementList result = new HtmlElementList();
@@ -75,8 +75,8 @@ public class CycleController {
         return new RawHtml(result.toString());
     }
 
-    public static byte[] cycleUpdate() {
+    public static byte[] update() {
 
-        return cycleDivContent().render().getBytes(StandardCharsets.UTF_8);
+        return divContent().render().getBytes(StandardCharsets.UTF_8);
     }
 }

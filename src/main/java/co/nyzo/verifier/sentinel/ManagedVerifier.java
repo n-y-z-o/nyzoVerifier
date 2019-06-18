@@ -5,6 +5,8 @@ import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.KeyUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
+import java.util.Arrays;
+
 public class ManagedVerifier {
 
     private String host;
@@ -13,6 +15,15 @@ public class ManagedVerifier {
     private byte[] identifier;
     private boolean sentinelTransactionEnabled;
 
+    // These are used to track the health of the verifier.
+    private int[] queryResults;
+    private int queryIndex;
+    private boolean queriedLastInterval;
+
+    public static final int queryResultNotYetQueriedValue = -2;
+    public static final int queryResultErrorValue = -1;
+    public static final int queryHistoryLength = 10;
+
     private ManagedVerifier(String host, int port, byte[] seed, boolean sentinelTransactionEnabled) {
 
         this.host = host;
@@ -20,6 +31,11 @@ public class ManagedVerifier {
         this.seed = seed;
         this.identifier = KeyUtil.identifierForSeed(seed);
         this.sentinelTransactionEnabled = sentinelTransactionEnabled;
+
+        this.queryResults = new int[queryHistoryLength];
+        Arrays.fill(this.queryResults, queryResultNotYetQueriedValue);
+        this.queryIndex = 0;
+        this.queriedLastInterval = false;
     }
 
     public String getHost() {
@@ -75,6 +91,28 @@ public class ManagedVerifier {
         }
 
         return result;
+    }
+
+    public void logResult(int queryResult) {
+        // Store the result and advance the index.
+        queryResults[queryIndex] = queryResult;
+        queryIndex = (queryIndex + 1) % queryHistoryLength;
+    }
+
+    public int getQueryIndex() {
+        return queryIndex;
+    }
+
+    public int[] getQueryResults() {
+        return queryResults;
+    }
+
+    public boolean isQueriedLastInterval() {
+        return queriedLastInterval;
+    }
+
+    public void setQueriedLastInterval(boolean queriedLastInterval) {
+        this.queriedLastInterval = queriedLastInterval;
     }
 
     @Override

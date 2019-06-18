@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,7 +38,8 @@ public class Sentinel {
 
     private static AtomicLong lastBlockReceivedTimestamp = new AtomicLong(0L);
 
-    private static final Map<ByteBuffer, ManagedVerifier> verifiers = new ConcurrentHashMap<>();
+    private static final List<ManagedVerifier> verifierList = new CopyOnWriteArrayList<>();
+    private static final Map<ByteBuffer, ManagedVerifier> verifierMap = new ConcurrentHashMap<>();
 
     private static final Set<Block> blocksCreatedForManagedVerifiers = ConcurrentHashMap.newKeySet();
     private static boolean blockTransmittedForManagedVerifier = false;
@@ -50,6 +52,12 @@ public class Sentinel {
     public static void main(String[] args) {
 
         RunMode.setRunMode(RunMode.Sentinel);
+
+        // If the preference is set, start the web listener.
+        if (PreferencesUtil.getBoolean(WebListener.startWebListenerKey, false)) {
+            WebListener.start();
+        }
+
         SeedTransactionManager.start();
         start();
     }
@@ -77,7 +85,7 @@ public class Sentinel {
         // redundant work, but it will ensure that the sentinel continues to function properly even if a large segment
         // of the verifiers fail simultaneously.
         int querySlot = 0;
-        for (ManagedVerifier verifier : verifiers.values()) {
+        for (ManagedVerifier verifier : verifierList) {
             startThreadForVerifier(verifier, querySlot++);
         }
 
@@ -133,13 +141,18 @@ public class Sentinel {
                     // only in our assigned slot to improve efficiency. Otherwise, all threads operate in parallel.
                     long blockUpdateInterval = inFastFetchMode.get(identifier) ? blockUpdateIntervalFast :
                             blockUpdateIntervalStandard;
-                    int currentSlot = (int) ((System.currentTimeMillis() / blockUpdateInterval) % verifiers.size());
-                    if (lastBlockRequestedTimestamp < System.currentTimeMillis() - blockUpdateInterval &&
-                            (currentSlot == querySlot ||
-                                    frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 20000L)) {
-                        lastBlockRequestedTimestamp = System.currentTimeMillis();
-                        updateBlocks(verifier);
+                    int currentSlot = (int) ((System.currentTimeMillis() / blockUpdateInterval) % verifierList.size());
+                    if (lastBlockRequestedTimestamp < System.currentTimeMillis() - blockUpdateInterval) {
+                        if (currentSlot == querySlot ||
+                                frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 20000L) {
+                            lastBlockRequestedTimestamp = System.currentTimeMillis();
+                            updateBlocks(verifier);
+                            verifier.setQueriedLastInterval(true);
+                        } else {
+                            verifier.setQueriedLastInterval(false);
+                        }
                     }
+
 
                     // Ensure a minimum interval between iterations. This includes processing time, so the actual sleep
                     // time may be zero.
@@ -264,12 +277,20 @@ public class Sentinel {
             for (String line : contentsOfFile) {
                 line = line.trim();
                 int indexOfHash = line.indexOf("#");
+                String comment = "";
                 if (indexOfHash >= 0) {
+                    comment = line.substring(indexOfHash + 1).trim();
                     line = line.substring(0, indexOfHash).trim();
                 }
                 ManagedVerifier verifier = ManagedVerifier.fromString(line);
                 if (verifier != null) {
-                    verifiers.put(ByteBuffer.wrap(verifier.getIdentifier()), verifier);
+                    verifierMap.put(ByteBuffer.wrap(verifier.getIdentifier()), verifier);
+                    verifierList.add(verifier);
+
+                    // In there is a comment, add it to the nickname manager for display in the monitoring interface.
+                    if (!comment.isEmpty()) {
+                        NicknameManager.put(verifier.getIdentifier(), comment);
+                    }
 
                     // Also populate the maps here to avoid having to check for null values.
                     ByteBuffer identifier = ByteBuffer.wrap(verifier.getIdentifier());
@@ -281,8 +302,8 @@ public class Sentinel {
             System.out.println("issue getting managed verifiers: " + PrintUtil.printException(e));
         }
 
-        // Display the verifiers that were loaded into the map.
-        for (ManagedVerifier verifier : verifiers.values()) {
+        // Display the verifiers that were loaded into the list.
+        for (ManagedVerifier verifier : verifierList) {
             System.out.println("got managed verifier: " + verifier);
         }
     }
@@ -295,8 +316,8 @@ public class Sentinel {
         Set<BootstrapResponseV2> bootstrapResponses = ConcurrentHashMap.newKeySet();
         while (bootstrapResponses.isEmpty()) {
 
-            AtomicInteger numberOfResponsesPending = new AtomicInteger(verifiers.size());
-            for (ManagedVerifier verifier : verifiers.values()) {
+            AtomicInteger numberOfResponsesPending = new AtomicInteger(verifierList.size());
+            for (ManagedVerifier verifier : verifierList) {
 
                 Message bootstrapRequest = new Message(MessageType.BootstrapRequestV2_35, new BootstrapRequest());
                 Message.fetchTcp(verifier.getHost(), verifier.getPort(), bootstrapRequest, new MessageCallback() {
@@ -357,8 +378,8 @@ public class Sentinel {
             long requestHeight = chainFrozenEdge;
             Message message = new Message(MessageType.BlockRequest11, new BlockRequest(requestHeight, requestHeight,
                     true));
-            AtomicInteger numberOfResponsesPending = new AtomicInteger(verifiers.size());
-            for (ManagedVerifier verifier : verifiers.values()) {
+            AtomicInteger numberOfResponsesPending = new AtomicInteger(verifierList.size());
+            for (ManagedVerifier verifier : verifierList) {
 
                 Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
                     @Override
@@ -408,7 +429,7 @@ public class Sentinel {
 
         // If we know that we are more than 20 blocks behind the frozen edge, start in fast-fetch mode.
         if (BlockManager.getFrozenEdgeHeight() < chainFrozenEdge - 20) {
-            for (ManagedVerifier verifier : verifiers.values()) {
+            for (ManagedVerifier verifier : verifierList) {
                 inFastFetchMode.put(ByteBuffer.wrap(verifier.getIdentifier()), true);
             }
         }
@@ -453,16 +474,27 @@ public class Sentinel {
             @Override
             public void responseReceived(Message message) {
 
-                if (message != null) {
+                int result;
+                if (message == null) {
+                    result = ManagedVerifier.queryResultErrorValue;
+                } else {
                     try {
                         BlockResponse blockResponse = (BlockResponse) message.getContent();
                         List<Block> blocks = blockResponse.getBlocks();
-                        if (blocks.size() > 0 && blocks.get(0).getBlockHeight() == startHeightToFetch &&
+                        if (blocks.size() == 0) {
+                            result = 0;
+                        } else if (blocks.get(0).getBlockHeight() == startHeightToFetch &&
                                 blocks.get(blocks.size() - 1).getBlockHeight() == endHeightToFetch) {
                             blockList.addAll(blocks);
+                            result = blockList.size();
+                        } else {
+                            result = ManagedVerifier.queryResultErrorValue;
                         }
-                    } catch (Exception ignored) { }
+                    } catch (Exception ignored) {
+                        result = ManagedVerifier.queryResultErrorValue;
+                    }
                 }
+                verifier.logResult(result);
 
                 processedResponse.set(true);
             }
@@ -526,7 +558,7 @@ public class Sentinel {
 
             // If the map of blocks is empty, make the blocks now.
             if (blocksCreatedForManagedVerifiers.isEmpty()) {
-                for (ManagedVerifier verifier : verifiers.values()) {
+                for (ManagedVerifier verifier : verifierList) {
                     Block block = createNextBlock(frozenEdge, verifier);
                     if (block != null) {
                         blocksCreatedForManagedVerifiers.add(block);
@@ -570,7 +602,7 @@ public class Sentinel {
                         // by an in-cycle verifier to make it past the blacklist mechanism.
                         Message message = new Message(MessageType.NewBlock9, new NewBlockMessage(lowestScoredBlock));
                         ManagedVerifier verifier =
-                                verifiers.get(ByteBuffer.wrap(lowestScoredBlock.getVerifierIdentifier()));
+                                verifierMap.get(ByteBuffer.wrap(lowestScoredBlock.getVerifierIdentifier()));
                         message.sign(verifier.getSeed());
 
                         for (Node node : combinedCycle()) {
@@ -662,8 +694,15 @@ public class Sentinel {
             BlockManager.freezeBlock(block);
             frozenEdge = block;
 
-            double efficiency = numberOfBlocksFrozen * 100.0 / numberOfBlocksReceived;
-            System.out.println("froze block " + block + String.format(", efficiency: %.1f%%", efficiency));
+            System.out.println("froze block " + block + String.format(", efficiency: %.1f%%", getEfficiency()));
         }
+    }
+
+    public static double getEfficiency() {
+        return numberOfBlocksFrozen * 100.0 / Math.max(1.0, numberOfBlocksReceived);
+    }
+
+    public static List<ManagedVerifier> getManagedVerifiers() {
+        return verifierList;
     }
 }

@@ -17,12 +17,12 @@ public abstract class HtmlTag implements HtmlElement {
         return element;
     }
 
-    public HtmlElement attr(String name, String value) {
+    public HtmlTag attr(String name, String value) {
         attributes.put(name, value);
         return this;
     }
 
-    public HtmlElement addRaw(String rawHtml) {
+    public HtmlTag addRaw(String rawHtml) {
         elements.add(new RawHtml(rawHtml));
         return this;
     }
@@ -59,18 +59,45 @@ public abstract class HtmlTag implements HtmlElement {
             attributes.put("id", id);
         }
 
-        // This is a simple AJAX update performed at the specified interval (ms). The indentation is for readability in
+        // Wrap the script in a function for local variable scoping.
+        script.append("(function() {");
+
+        // Store the current timestamp and the arguments. The timestamp is used to ensure the div does not contain
+        // out-of-date content.
+        script.append("var refreshTimestamp = Date.now();");
+        script.append("var interval = ").append(interval).append(";");
+        script.append("var id = '").append(id).append("';");
+        script.append("var endpoint = '").append(endpoint).append("';");
+
+        // This is a simple Ajax update performed at the specified interval (ms). The indentation is for readability in
         // this code, not formatting in the rendered page.
         script.append("setInterval(function() {");
+        script.append("  var requestTimestamp = Date.now();");
         script.append("  var refreshRequest = new XMLHttpRequest();");
         script.append("  refreshRequest.onreadystatechange = function() {");
         script.append("    if (this.readyState == 4 && this.status == 200) {");
-        script.append("      document.getElementById('").append(id).append("').innerHTML = this.responseText;");
+        script.append("      document.getElementById(id).innerHTML = this.responseText;");
+        script.append("      refreshTimestamp = requestTimestamp;");
+        script.append("      if (refreshTimestamp >= Date.now() - 3 * interval) {");
+        script.append("        document.getElementById(id).style.opacity = 1.0;");
+        script.append("      }");
         script.append("    }");
         script.append("  };");
-        script.append("  refreshRequest.open('GET', '").append(endpoint).append("', true);");
+        script.append("  refreshRequest.open('GET', endpoint, true);");
         script.append("  refreshRequest.send();");
-        script.append("}, ").append(interval).append(");");
+        script.append("}, interval);");
+
+        // Set a second periodic function to indicate that the content is stale if its age is more than 3 times the
+        // specified interval. The update is at 2 times the refresh rate, so the visual indication will trigger at
+        // 3 to 3.5 times the interval.
+        script.append("setInterval(function() {");
+        script.append("  if (refreshTimestamp < Date.now() - 3 * interval) {");
+        script.append("    document.getElementById(id).style.opacity = 0.5;");
+        script.append("  }");
+        script.append("}, interval / 2);");
+
+        // Close the function that wraps the script.
+        script.append("})();");
 
         return new Script(script.toString());
     }

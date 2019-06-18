@@ -1,6 +1,8 @@
 package co.nyzo.verifier.web;
 
+import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.client.Client;
+import co.nyzo.verifier.sentinel.Sentinel;
 import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import com.sun.net.httpserver.Headers;
@@ -12,6 +14,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,8 +68,10 @@ public class WebListener implements HttpHandler {
 
         // Send the response and close the stream.
         int length = responseBytes.length;
+        String date = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now(ZoneOffset.UTC));
         Headers headers = httpExchange.getResponseHeaders();
-        headers.set("content-type", contentType);
+        headers.set("Content-type", contentType);
+        headers.set("Date", date);
         httpExchange.sendResponseHeaders(statusCode, length);
         OutputStream responseBody = httpExchange.getResponseBody();
         responseBody.write(responseBytes);
@@ -71,15 +79,20 @@ public class WebListener implements HttpHandler {
     }
 
     private static String path(HttpExchange httpExchange) {
-
         return httpExchange.getRequestURI().getPath();
     }
 
     private static void buildEndpointMap() {
 
-        add("/", CycleController::cyclePage);  // will be removed in a later version
-        add(CycleController.cyclePageEndpoint, CycleController::cyclePage);
-        add(CycleController.cycleUpdateEndpoint, CycleController::cycleUpdate);
+        RunMode runMode = RunMode.getRunMode();
+        if (runMode == RunMode.Sentinel) {
+            add(SentinelController.pageEndpoint, SentinelController::page);
+            add(SentinelController.updateEndpoint, SentinelController::update);
+        } else {
+            add("/", CycleController::page);  // will be removed in a later version
+            add(CycleController.pageEndpoint, CycleController::page);
+            add(CycleController.updateEndpoint, CycleController::update);
+        }
     }
 
     private static void add(String path, EndpointMethod method) {
