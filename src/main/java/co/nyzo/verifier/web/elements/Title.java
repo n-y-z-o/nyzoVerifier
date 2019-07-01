@@ -1,16 +1,14 @@
 package co.nyzo.verifier.web.elements;
 
-public class P extends HtmlTag {
+public class Title extends HtmlTag {
 
-    public P() { }
-
-    public P(String content) {
+    public Title(String content) {
         addRaw(content);
     }
 
     @Override
     public String getName() {
-        return "p";
+        return "title";
     }
 }
 

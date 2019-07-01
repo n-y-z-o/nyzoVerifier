@@ -13,8 +13,6 @@ public class CommandManager {
             new PublicNyzoStringCommand(),
             new PrefilledDataCreateCommand(),
             new PrefilledDataSendCommand(),
-            new MicropayCreateCommand(),
-            new MicropaySendCommand(),
             new ExitCommand()
     };
 

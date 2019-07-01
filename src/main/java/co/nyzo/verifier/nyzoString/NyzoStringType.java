@@ -5,7 +5,8 @@ public enum NyzoStringType {
     PrefilledData("pre_"),
     PrivateSeed("key_"),
     PublicIdentifier("id__"),
-    Micropay("pay_");
+    Micropay("pay_"),
+    Transaction("tx__");
 
     private String prefix;
     private byte[] prefixBytes;

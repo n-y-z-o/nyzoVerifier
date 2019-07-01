@@ -10,6 +10,11 @@ public class WebUtil {
     public static final String shrug = " \u00AF\\_(\u30C4)_/\u00AF ";
     public static final String disapprove = "\u0CA0_\u0CA0";
 
+    private static final String buttonStyle = "border: 1px solid; border-radius: 0.5rem; padding: 0.5rem; " +
+            "text-decoration: none; color: white; margin: auto; cursor: pointer; user-select: none;";
+    public static final String acceptButtonStyle = buttonStyle + " border-color: #080; background-color: #484;";
+    public static final String cancelButtonStyle = buttonStyle + "border-color: #f00; background-color: #f44;";
+
     private static final AtomicInteger nextId = new AtomicInteger(0);
 
     public static String sanitizedNickname(byte[] identifier) {

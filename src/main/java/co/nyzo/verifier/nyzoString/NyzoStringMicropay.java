@@ -2,6 +2,10 @@ package co.nyzo.verifier.nyzoString;
 
 import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.Message;
+import co.nyzo.verifier.Transaction;
+import co.nyzo.verifier.client.ConsoleColor;
+import co.nyzo.verifier.util.PreferencesUtil;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -11,11 +15,12 @@ public class NyzoStringMicropay implements NyzoString {
     private byte[] receiverIdentifier;
     private byte[] senderData;
     private long amount;
-    private byte[] receiverIpAddress;
-    private int receiverPort;
+    private long timestamp;
+    private long previousHashHeight;
+    private byte[] previousBlockHash;
 
-    public NyzoStringMicropay(byte[] receiverIdentifier, byte[] senderData, long amount, byte[] receiverIpAddress,
-                              int receiverPort) {
+    public NyzoStringMicropay(byte[] receiverIdentifier, byte[] senderData, long amount, long timestamp,
+                              long previousHashHeight, byte[] previousBlockHash) {
         this.receiverIdentifier = receiverIdentifier;
         if (senderData.length <= FieldByteSize.maximumSenderDataLength) {
             this.senderData = senderData;
@@ -23,8 +28,9 @@ public class NyzoStringMicropay implements NyzoString {
             this.senderData = Arrays.copyOf(senderData, FieldByteSize.maximumSenderDataLength);
         }
         this.amount = amount;
-        this.receiverIpAddress = receiverIpAddress;
-        this.receiverPort = receiverPort;
+        this.timestamp = timestamp;
+        this.previousHashHeight = previousHashHeight;
+        this.previousBlockHash = previousBlockHash;
     }
 
     public byte[] getReceiverIdentifier() {
@@ -39,12 +45,16 @@ public class NyzoStringMicropay implements NyzoString {
         return amount;
     }
 
-    public byte[] getReceiverIpAddress() {
-        return receiverIpAddress;
+    public long getTimestamp() {
+        return timestamp;
     }
 
-    public int getReceiverPort() {
-        return receiverPort;
+    public long getPreviousHashHeight() {
+        return previousHashHeight;
+    }
+
+    public byte[] getPreviousBlockHash() {
+        return previousBlockHash;
     }
 
     @Override
@@ -56,7 +66,7 @@ public class NyzoStringMicropay implements NyzoString {
     public byte[] getBytes() {
 
         int length = FieldByteSize.identifier + 1 + senderData.length + FieldByteSize.transactionAmount +
-                FieldByteSize.ipAddress + FieldByteSize.port;
+                FieldByteSize.timestamp + FieldByteSize.blockHeight + FieldByteSize.hash;
 
         byte[] array = new byte[length];
         ByteBuffer buffer = ByteBuffer.wrap(array);
@@ -64,8 +74,9 @@ public class NyzoStringMicropay implements NyzoString {
         buffer.put((byte) senderData.length);
         buffer.put(senderData);
         buffer.putLong(amount);
-        buffer.put(receiverIpAddress);
-        buffer.putInt(receiverPort);
+        buffer.putLong(timestamp);
+        buffer.putLong(previousHashHeight);
+        buffer.put(previousBlockHash);
 
         return array;
     }
@@ -76,9 +87,11 @@ public class NyzoStringMicropay implements NyzoString {
         int senderDataLength = Math.min(buffer.get() & 0xff, FieldByteSize.maximumSenderDataLength);
         byte[] senderData = Message.getByteArray(buffer, senderDataLength);
         long amount = buffer.getLong();
-        byte[] receiverIpAddress = Message.getByteArray(buffer, FieldByteSize.ipAddress);
-        int receiverPort = buffer.getInt();
+        long timestamp = buffer.getLong();
+        long previousHashHeight = buffer.getLong();
+        byte[] previousBlockHash = Message.getByteArray(buffer, FieldByteSize.hash);
 
-        return new NyzoStringMicropay(receiverIdentifier, senderData, amount, receiverIpAddress, receiverPort);
+        return new NyzoStringMicropay(receiverIdentifier, senderData, amount, timestamp, previousHashHeight,
+                previousBlockHash);
     }
 }

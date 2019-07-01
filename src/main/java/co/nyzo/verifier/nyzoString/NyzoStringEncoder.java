@@ -113,6 +113,9 @@ public class NyzoStringEncoder {
                             case Micropay:
                                 result = NyzoStringMicropay.fromByteBuffer(ByteBuffer.wrap(contentBytes));
                                 break;
+                            case Transaction:
+                                result = NyzoStringTransaction.fromByteBuffer(ByteBuffer.wrap(contentBytes));
+                                break;
                         }
                     }
                 }

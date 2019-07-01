@@ -2,6 +2,7 @@ package co.nyzo.verifier.tests;
 
 import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.FieldByteSize;
+import co.nyzo.verifier.Transaction;
 import co.nyzo.verifier.nyzoString.*;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -55,6 +56,15 @@ public class NyzoStringTest implements NyzoTest {
                 successful = testPrefilledDataStrings();
             } catch (Exception e) {
                 failureCause = "exception in NyzoStringTest.testPrefilledDataStrings(): " + PrintUtil.printException(e);
+                successful = false;
+            }
+        }
+
+        if (successful) {
+            try {
+                successful = testTransactionStrings();
+            } catch (Exception e) {
+                failureCause = "exception in NyzoStringTest.testTransactionStrings(): " + PrintUtil.printException(e);
                 successful = false;
             }
         }
@@ -135,17 +145,17 @@ public class NyzoStringTest implements NyzoTest {
         boolean successful = true;
         for (int i = 0; i < 100000 && successful; i++) {
 
-            // Make and encode the string from random bytes. For amount and receiver IP, force some 0 values.
+            // Make and encode the string from random bytes. For amount, force some 0 values.
             byte[] receiverIdentifier = randomArray(random, FieldByteSize.identifier);
             int senderDataLength = random.nextInt(FieldByteSize.maximumSenderDataLength + 1);
             byte[] senderData = randomArray(random, senderDataLength);
             long amount = random.nextInt(5) == 0 ? 0 : random.nextLong();
-            byte[] receiverIpAddress = random.nextInt(5) == 0 ? new byte[FieldByteSize.ipAddress] :
-                    randomArray(random, FieldByteSize.ipAddress);
-            int receiverPort = random.nextInt();
+            long timestamp = random.nextLong();
+            long previousHashHeight = random.nextLong();
+            byte[] previousBlockHash = randomArray(random, FieldByteSize.hash);
 
-            NyzoStringMicropay stringObject = new NyzoStringMicropay(receiverIdentifier, senderData, amount,
-                    receiverIpAddress, receiverPort);
+            NyzoStringMicropay stringObject = new NyzoStringMicropay(receiverIdentifier, senderData, amount, timestamp,
+                    previousHashHeight, previousBlockHash);
             String encoded = NyzoStringEncoder.encode(stringObject);
 
             // Reverse the process to get the object.
@@ -161,7 +171,7 @@ public class NyzoStringTest implements NyzoTest {
 
             if (!ByteUtil.arraysAreEqual(senderData, decodedString.getSenderData())) {
                 successful = false;
-                failureCause = "mismatch of generated sender data (" + ByteUtil.arrayAsStringWithDashes(senderData) +
+                failureCause = "mismatch of generated (" + ByteUtil.arrayAsStringWithDashes(senderData) +
                         ") and decoded sender data (" +
                         ByteUtil.arrayAsStringWithDashes(decodedString.getSenderData()) + ") in iteration " + i +
                         " of NyzoStringTest.testNyzoMicropayStrings()";
@@ -174,18 +184,25 @@ public class NyzoStringTest implements NyzoTest {
                         ") in iteration " + i + " of NyzoStringTest.testNyzoMicropayStrings()";
             }
 
-            if (!ByteUtil.arraysAreEqual(receiverIpAddress, decodedString.getReceiverIpAddress())) {
+            if (timestamp != decodedString.getTimestamp()) {
                 successful = false;
-                failureCause = "mismatch of generated IP address (" +
-                        ByteUtil.arrayAsStringWithDashes(receiverIpAddress) + ") and decoded IP address (" +
-                        ByteUtil.arrayAsStringWithDashes(decodedString.getReceiverIpAddress()) + ") in iteration " + i +
+                failureCause = "mismatch of generated (" + timestamp + ") and decoded timestamp (" +
+                        decodedString.getTimestamp() + ") in iteration " + i +
                         " of NyzoStringTest.testNyzoMicropayStrings()";
             }
 
-            if (receiverPort != decodedString.getReceiverPort()) {
+            if (previousHashHeight != decodedString.getPreviousHashHeight()) {
                 successful = false;
-                failureCause = "mismatch of generated port (" + receiverPort + ") and decoded port (" +
-                        decodedString.getReceiverPort() + ") in iteration " + i +
+                failureCause = "mismatch of generated (" + previousHashHeight + ") and decoded previous-hash height (" +
+                        decodedString.getPreviousHashHeight() + ") in iteration " + i +
+                        " of NyzoStringTest.testNyzoMicropayStrings()";
+            }
+
+            if (!ByteUtil.arraysAreEqual(previousBlockHash, decodedString.getPreviousBlockHash())) {
+                successful = false;
+                failureCause = "mismatch of generated (" + ByteUtil.arrayAsStringWithDashes(previousBlockHash) +
+                        ") and decoded previous-block hash (" +
+                        ByteUtil.arrayAsStringWithDashes(decodedString.getPreviousBlockHash()) + ") in iteration " + i +
                         " of NyzoStringTest.testNyzoMicropayStrings()";
             }
         }
@@ -229,6 +246,102 @@ public class NyzoStringTest implements NyzoTest {
                         ") and decoded sender data (" +
                         ByteUtil.arrayAsStringWithDashes(decodedString.getSenderData()) + ") in iteration " + i +
                         " of NyzoStringTest.testPrefilledDataStrings()";
+            }
+        }
+
+        System.out.println(TestUtil.passFail(successful));
+
+        return successful;
+    }
+
+    private boolean testTransactionStrings() {
+
+        // Create a pseudo-random generator. Using a fixed seed ensures reproducibility of problems.
+        Random random = new Random(1911);
+
+        // Test 10000 strings.
+        boolean successful = true;
+        for (int i = 0; i < 100000 && successful; i++) {
+
+            // Make and encode the transaction from random values.
+            long timestamp = random.nextLong();
+            long amount = random.nextLong();
+            byte[] receiverIdentifier = randomArray(random, FieldByteSize.identifier);
+            long previousHashHeight = random.nextLong();
+            byte[] previousBlockHash = randomArray(random, FieldByteSize.hash);
+            byte[] senderIdentifier = randomArray(random, FieldByteSize.identifier);
+            int senderDataLength = random.nextInt(FieldByteSize.maximumSenderDataLength + 1);
+            byte[] senderData = randomArray(random, senderDataLength);
+            byte[] signature = randomArray(random, FieldByteSize.signature);
+            Transaction transaction = Transaction.standardTransaction(timestamp, amount, receiverIdentifier,
+                    previousHashHeight, previousBlockHash, senderIdentifier, senderData, signature);
+
+            NyzoStringTransaction stringObject = new NyzoStringTransaction(transaction);
+            String encoded = NyzoStringEncoder.encode(stringObject);
+
+            // Reverse the process to get the object.
+            NyzoStringTransaction decodedString = (NyzoStringTransaction) NyzoStringEncoder.decode(encoded);
+            Transaction decodedTransaction = decodedString.getTransaction();
+
+            if (timestamp != decodedTransaction.getTimestamp()) {
+                successful = false;
+                failureCause = "mismatch of generated (" + timestamp + ") and decoded timestamp (" +
+                        decodedTransaction.getTimestamp() + ") in iteration " + i +
+                        " of NyzoStringTest.testTransactionStrings()";
+            }
+
+            if (amount != decodedTransaction.getAmount()) {
+                successful = false;
+                failureCause = "mismatch of generated (" + amount + ") and decoded amount (" +
+                        decodedTransaction.getAmount() + ") in iteration " + i +
+                        " of NyzoStringTest.testTransactionStrings()";
+            }
+
+            if (!ByteUtil.arraysAreEqual(receiverIdentifier, decodedTransaction.getReceiverIdentifier())) {
+                successful = false;
+                failureCause = "mismatch of generated (" + ByteUtil.arrayAsStringWithDashes(receiverIdentifier) +
+                        ") and decoded receiver identifier (" +
+                        ByteUtil.arrayAsStringWithDashes(decodedTransaction.getReceiverIdentifier()) +
+                        ") in iteration " + i + " of NyzoStringTest.testTransactionStrings()";
+            }
+
+            if (previousHashHeight != decodedTransaction.getPreviousHashHeight()) {
+                successful = false;
+                failureCause = "mismatch of generated (" + previousHashHeight + ") and decoded hash height (" +
+                        decodedTransaction.getPreviousHashHeight() + ") in iteration " + i +
+                        " of NyzoStringTest.testTransactionStrings()";
+            }
+
+            // The previous-block hash should always be all 0s, as it is not stored in a transaction.
+            if (!ByteUtil.isAllZeros(decodedTransaction.getPreviousBlockHash())) {
+                successful = false;
+                failureCause = "previous-block hash is " +
+                        ByteUtil.arrayAsStringWithDashes(decodedTransaction.getPreviousBlockHash()) +
+                        ", should be all 0s, in iteration " + i + " of NyzoStringTest.testTransactionStrings()";
+            }
+
+            if (!ByteUtil.arraysAreEqual(senderIdentifier, decodedTransaction.getSenderIdentifier())) {
+                successful = false;
+                failureCause = "mismatch of generated (" + ByteUtil.arrayAsStringWithDashes(senderIdentifier) +
+                        ") and decoded sender identifier " +
+                        ByteUtil.arrayAsStringWithDashes(decodedTransaction.getSenderIdentifier()) +
+                        ") in iteration " + i + " of NyzoStringTest.testTransactionStrings()";
+            }
+
+            if (!ByteUtil.arraysAreEqual(senderData, decodedTransaction.getSenderData())) {
+                successful = false;
+                failureCause = "mismatch of generated (" + ByteUtil.arrayAsStringWithDashes(senderData) +
+                        ") and decoded sender data " +
+                        ByteUtil.arrayAsStringWithDashes(decodedTransaction.getSenderData()) +
+                        ") in iteration " + i + " of NyzoStringTest.testTransactionStrings()";
+            }
+
+            if (!ByteUtil.arraysAreEqual(signature, decodedTransaction.getSignature())) {
+                successful = false;
+                failureCause = "mismatch of generated (" + ByteUtil.arrayAsStringWithDashes(signature) +
+                        ") and decoded signature " +
+                        ByteUtil.arrayAsStringWithDashes(decodedTransaction.getSignature()) +
+                        ") in iteration " + i + " of NyzoStringTest.testTransactionStrings()";
             }
         }
 

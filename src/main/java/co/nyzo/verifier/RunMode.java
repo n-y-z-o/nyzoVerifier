@@ -4,7 +4,9 @@ public enum RunMode {
 
     Verifier,
     Sentinel,
-    Client;
+    Client,
+    MicropayClient,
+    MicropayServer;
 
     private static RunMode runMode = null;
 

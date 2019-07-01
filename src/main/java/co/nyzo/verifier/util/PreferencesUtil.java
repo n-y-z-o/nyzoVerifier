@@ -1,5 +1,6 @@
 package co.nyzo.verifier.util;
 
+import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.Verifier;
 
 import java.nio.file.Files;
@@ -79,6 +80,32 @@ public class PreferencesUtil {
             String preference = preferences.get(key.toLowerCase());
             if (preference != null && !preference.isEmpty()) {
                 result = Integer.parseInt(preference);
+            }
+        } catch (Exception ignored) { }
+
+        return result;
+    }
+
+    public static long getLong(String key, long defaultValue) {
+
+        long result = defaultValue;
+        try {
+            String preference = preferences.get(key.toLowerCase());
+            if (preference != null && !preference.isEmpty()) {
+                result = Long.parseLong(preference);
+            }
+        } catch (Exception ignored) { }
+
+        return result;
+    }
+
+    public static byte[] getByteArray(String key, int length, byte[] defaultValue) {
+
+        byte[] result = defaultValue;
+        try {
+            String preference = preferences.get(key.toLowerCase());
+            if (preference != null && preference.length() >= length * 2) {
+                result = ByteUtil.byteArrayFromHexString(preference, length);
             }
         } catch (Exception ignored) { }
 

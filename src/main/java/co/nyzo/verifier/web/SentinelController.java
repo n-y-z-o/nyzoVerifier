@@ -9,13 +9,14 @@ import co.nyzo.verifier.web.elements.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.Map;
 
 public class SentinelController {
 
     public static final String pageEndpoint = "/";
     public static final String updateEndpoint = "/update";
 
-    public static byte[] page() {
+    public static EndpointResponse page(Map<String, String> queryParameters, byte[] sourceIpAddress) {
 
         // Make the HTML page.
         Html html = new Html();
@@ -37,11 +38,11 @@ public class SentinelController {
         // Add the version to the bottom of the page.
         body.add(new P("Nyzo sentinel, version " + Version.getVersion()).attr("style", "font-style: italic;"));
 
-        return html.renderByteArray();
+        return new EndpointResponse(html.renderByteArray());
     }
 
-    public static byte[] update() {
-        return divContent().render().getBytes(StandardCharsets.UTF_8);
+    public static EndpointResponse update(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+        return new EndpointResponse(divContent().render().getBytes(StandardCharsets.UTF_8));
     }
 
     private static HtmlElement divContent() {
@@ -75,7 +76,7 @@ public class SentinelController {
     private static HtmlElement verifierTable() {
 
         // Create the div and add the styles that will be used.
-        Div div = (Div) new Div().attr("style", "display: table;");
+        Div div = (Div) new Div().attr("style", "display: table; margin: auto;");
         String tileContainerWidth = String.format("%.1frem", 1.3 * ManagedVerifier.queryHistoryLength);
         div.add(new Style(".verifier-row { display: table-row; background-color: #ddd; }" +
                 ".verifier-label { display: table-cell; padding: 0.5rem 1.0rem 0 1.0rem; vertical-align: top; " +

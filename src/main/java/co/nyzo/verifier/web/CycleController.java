@@ -6,6 +6,7 @@ import co.nyzo.verifier.web.elements.*;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class CycleController {
@@ -16,7 +17,7 @@ public class CycleController {
     private static RawHtml cycleElement = null;
     private static final AtomicLong cycleElementHeight = new AtomicLong(-1L);
 
-    public static byte[] page() {
+    public static EndpointResponse page(Map<String, String> queryParameters, byte[] sourceIpAddress) {
 
         // Make the HTML page.
         Html html = new Html();
@@ -32,7 +33,7 @@ public class CycleController {
         // Add the Ajax update for the cycle div to the head of the document.
         head.add(cycleDiv.ajaxUpdate(updateEndpoint, 5000));
 
-        return html.renderByteArray();
+        return new EndpointResponse(html.renderByteArray());
     }
 
     private static HtmlElement divContent() {
@@ -75,8 +76,8 @@ public class CycleController {
         return new RawHtml(result.toString());
     }
 
-    public static byte[] update() {
+    public static EndpointResponse update(Map<String, String> queryParameters, byte[] sourceIpAddress) {
 
-        return divContent().render().getBytes(StandardCharsets.UTF_8);
+        return new EndpointResponse(divContent().render().getBytes(StandardCharsets.UTF_8));
     }
 }
