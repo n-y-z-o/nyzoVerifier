@@ -402,8 +402,9 @@ public class Message {
                     !ipIsWhitelisted(sourceIpAddress)) {
 
                 // Only add the IP to the blacklist if this is a TCP message. IP addresses can be spoofed for UDP
-                // messages.
-                if (!isUdp) {
+                // messages. To allow room for sentinels to send new blocks without concern for blacklisting, new-block
+                // messages from unexpected senders are discarded but do not result in blacklisting.
+                if (!isUdp && type != MessageType.NewBlock9) {
                     BlacklistManager.addToBlacklist(sourceIpAddress);
                 }
 
