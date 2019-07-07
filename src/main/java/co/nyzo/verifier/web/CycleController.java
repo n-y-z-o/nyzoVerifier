@@ -20,10 +20,10 @@ public class CycleController {
     public static EndpointResponse page(Map<String, String> queryParameters, byte[] sourceIpAddress) {
 
         // Make the HTML page.
-        Html html = new Html();
+        Html html = (Html) new Html().attr("lang", "en");
 
         // Add the head and body to the page.
-        Head head = (Head) html.add(new Head());
+        Head head = (Head) html.add(new Head().addStandardMetadata());
         Body body = (Body) html.add(new Body().attr("style", "font-family: sans-serif; text-align: center"));
 
         // Add the div cycle container and the cycle content.

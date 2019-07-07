@@ -9,6 +9,7 @@ public abstract class HtmlTag implements HtmlElement {
 
     private List<HtmlElement> elements = new ArrayList<>();
     private Map<String, String> attributes = new HashMap<>();
+    private boolean includeClosingTag = true;
 
     public abstract String getName();
 
@@ -27,6 +28,10 @@ public abstract class HtmlTag implements HtmlElement {
         return this;
     }
 
+    public void setIncludeClosingTag(boolean includeClosingTag) {
+        this.includeClosingTag = includeClosingTag;
+    }
+
     @Override
     public String render() {
         StringBuilder result = new StringBuilder();
@@ -38,7 +43,9 @@ public abstract class HtmlTag implements HtmlElement {
         for (HtmlElement element : elements) {
             result.append(element.render());
         }
-        result.append("</").append(getName()).append(">");
+        if (includeClosingTag) {
+            result.append("</").append(getName()).append(">");
+        }
 
         return result.toString();
     }

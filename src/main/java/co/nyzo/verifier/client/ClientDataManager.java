@@ -16,6 +16,8 @@ public class ClientDataManager {
 
     private static final long meshUpdateInterval = 1000L * 60L * 5L;  // 5 minutes
     private static final long blockUpdateInterval = 1000L * 4L;       // 4 seconds
+    private static final long minimumReinitializationInterval = 1000L * 60L * 10L;  // 10 minutes
+    private static final long reinitializationThreshold = 1000L * 60L * 10L;        // 10 minutes; about 86 blocks
 
     public static void start() {
 
@@ -48,6 +50,7 @@ public class ClientDataManager {
 
                 long lastMeshUpdateTimestamp = 0L;
                 long lastBlockUpdateTimestamp = 0L;
+                long lastReinitializationTimestamp = System.currentTimeMillis();
 
                 while (!UpdateUtil.shouldTerminate()) {
 
@@ -61,6 +64,21 @@ public class ClientDataManager {
                     if (lastBlockUpdateTimestamp < System.currentTimeMillis() - blockUpdateInterval) {
                         lastBlockUpdateTimestamp = System.currentTimeMillis();
                         requestBlockWithVotes();
+                    }
+
+                    // Reinitialize the frozen edge, if necessary. Both checks must be performed to avoid continuously
+                    // reinitializing if the blockchain is stalled.
+                    long timeSinceVerification = System.currentTimeMillis() -
+                            BlockManager.getFrozenEdge().getVerificationTimestamp();
+                    long timeSinceReinitialization = System.currentTimeMillis() - lastReinitializationTimestamp;
+                    if (timeSinceVerification > reinitializationThreshold &&
+                            timeSinceReinitialization > minimumReinitializationInterval) {
+                        System.out.println(ConsoleColor.Yellow.background() + "reinitializing frozen edge, height=" +
+                                BlockManager.getFrozenEdgeHeight() + ConsoleColor.reset);
+                        ChainInitializationManager.initializeFrozenEdge(trustedEntryPoints);
+                        System.out.println(ConsoleColor.Yellow.background() + "reinitialized frozen edge, height=" +
+                                BlockManager.getFrozenEdgeHeight() + ConsoleColor.reset);
+                        lastReinitializationTimestamp = System.currentTimeMillis();
                     }
 
                     // Sleep for a short time to keep the loop from running too tightly.

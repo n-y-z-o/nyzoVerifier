@@ -19,14 +19,11 @@ public class SentinelController {
     public static EndpointResponse page(Map<String, String> queryParameters, byte[] sourceIpAddress) {
 
         // Make the HTML page.
-        Html html = new Html();
+        Html html = (Html) new Html().attr("lang", "en");
 
         // Add the head and body to the page.
-        Head head = (Head) html.add(new Head());
+        Head head = (Head) html.add(new Head().addStandardMetadata());
         Body body = (Body) html.add(new Body().attr("style", "font-family: sans-serif; text-align: center"));
-
-        // Add standard metadata to the head.
-        head.addStandardMetadata();
 
         // Add the container div to the page and content to the container div.
         Div container = (Div) body.add(new Div().attr("id", "container").attr("style", "display: inline-block;"));

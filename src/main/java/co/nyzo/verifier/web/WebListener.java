@@ -56,6 +56,7 @@ public class WebListener implements HttpHandler {
         System.out.println("path: " + path(httpExchange));
         System.out.println("parameters: " + parameters(httpExchange));
 
+
         // Render the page.
         EndpointResponse response;
         int statusCode;
@@ -63,8 +64,7 @@ public class WebListener implements HttpHandler {
             response = new EndpointResponse("page not found".getBytes(StandardCharsets.UTF_8));
             statusCode = 404;
         } else {
-            response = endpoint.renderByteArray(parameters,
-                    httpExchange.getRemoteAddress().getAddress().getAddress());
+            response = endpoint.renderByteArray(parameters, httpExchange.getRemoteAddress().getAddress().getAddress());
             statusCode = 200;
         }
 
@@ -138,6 +138,9 @@ public class WebListener implements HttpHandler {
             map.put(SentinelController.pageEndpoint, SentinelController::page);
             map.put(SentinelController.updateEndpoint, SentinelController::update);
         } else if (runMode == RunMode.MicropayServer) {
+            // Add the ping endpoint. Add this before the dynamic pages to allow dynamic override.
+            map.put(MicropayController.serverPingEndpoint, MicropayController::serverPingPage);
+
             // The Micropay controller builds its map dynamically based on the contents of a directory.
             map.putAll(MicropayController.buildEndpointMap());
         } else if (runMode == RunMode.MicropayClient) {

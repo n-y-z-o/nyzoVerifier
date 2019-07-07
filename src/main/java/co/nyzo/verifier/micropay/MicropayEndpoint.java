@@ -125,7 +125,9 @@ public class MicropayEndpoint implements EndpointMethod {
             }
         } else {
             // Otherwise, present the authorization page.
-            result = serverAuthorizationPage(transactionProblem.toString(), sourceIpAddress);
+            String cancelParameter = queryParameters.getOrDefault("cancel", "").toLowerCase();
+            boolean isCancellation = cancelParameter.equals("y") || cancelParameter.equals("yes");
+            result = serverAuthorizationPage(transactionProblem.toString(), sourceIpAddress, isCancellation);
         }
 
         EndpointResponse response = new EndpointResponse(result);
@@ -133,13 +135,13 @@ public class MicropayEndpoint implements EndpointMethod {
         return response;
     }
 
-    private byte[] serverAuthorizationPage(String transactionProblem, byte[] sourceIpAddress) {
+    private byte[] serverAuthorizationPage(String transactionProblem, byte[] sourceIpAddress, boolean isCancellation) {
 
         // Make the HTML page.
-        Html html = new Html();
+        Html html = (Html) new Html().attr("lang", "en");
 
         // Add the head and body to the page.
-        Head head = (Head) html.add(new Head().attr("lang", "en"));
+        Head head = (Head) html.add(new Head().addStandardMetadata());
         head.add(new Title("Nyzo Micropay authorization"));
         Body body = (Body) html.add(new Body().attr("style", "font-family: sans-serif; text-align: center"));
 
@@ -153,24 +155,36 @@ public class MicropayEndpoint implements EndpointMethod {
         // Add the header.
         body.add(new H3("Nyzo Micropay premium content"));
 
-        // Add the problem with a previous transaction, if present.
+        // Add problem/cancellation notices, if relevant. Otherwise, build the redirect.
+        String redirect = "";
+        String authorizationEndpoint = MicropayController.clientAuthorizationEndpoint + "?micropay=" +
+                NyzoStringEncoder.encode(micropayString) + "&callback=" + MicropayServer.getCallbackBaseUrl() + path;
         if (transactionProblem != null && !transactionProblem.isEmpty()) {
             body.add(new H3(transactionProblem).attr("style", "color: red;"));
+        } else if (isCancellation) {
+            body.add(new H3("Transaction was cancelled").attr("style", "color: red;"));
+        } else {
+            redirect = "window.location.replace(protocol + '://127.0.0.1' + port + '" + authorizationEndpoint + "');";
         }
 
-        // Add the authorization link.
-        body.add(new A().attr("id", "authorizeLink").attr("style", WebUtil.acceptButtonStyle + " opacity: 0.4;")
-                .addRaw(PrintUtil.printAmount(amount)));
+        // Add the "scanning" message and authorization link.
+        body.add(new A().attr("id", "authorizeLink").attr("style", WebUtil.acceptButtonStyle +
+                " opacity: 0.4; display: table; margin-top: 1rem;")
+                .addRaw("Access this content for " + PrintUtil.printAmount(amount)));
+        body.add(new P("Scanning for Micropay client...").attr("id", "scanningMessage"));
 
         // Add the error message. This is only displayed if the following script is unable to find a client.
         body.add(new P().attr("id", "errorMessage").addRaw("Unable to determine Nyzo Micropay client port")
-                .attr("style", "color: red; display: none;"));
+                .attr("style", "color: red; visibility: hidden;"));
 
-        // Add a simple script that checks the most common ports and activates the link on the appropriate port.
-        String authorizationEndpoint = MicropayController.clientAuthorizationEndpoint + "?micropay=" +
-                NyzoStringEncoder.encode(micropayString) + "&callback=" + MicropayServer.getCallbackBaseUrl() + path;
+        // Add a link to return to the root of the site.
+        body.add(new A().attr("href", "/").addRaw("&larr; return to main page"));
+
+        // Add a simple script that checks the most common ports. If this is a first attempt (no transaction provided),
+        // the script redirects to the local authorization page.
         String pingEndpoint = MicropayController.clientPingEndpoint;
-        String pingResponse = MicropayController.pingResponse;
+        String pingResponse = MicropayController.clientPingResponse;
+
         body.add(new Script("" +
                 "var successful = false;" +
                 "function sendPing(port, protocol) {" +
@@ -180,9 +194,10 @@ public class MicropayEndpoint implements EndpointMethod {
                 "    if (this.responseText.startsWith('" + pingResponse + "')) {" +
                 "      successful = true;" +
                 "      var link = document.getElementById('authorizeLink');" +
-                "      link.href = protocol + '://127.0.0.1' + port + '" + authorizationEndpoint + "';\n" +
-                "      link.style.opacity = 1.0;\n" +
-                "      document.getElementById('errorMessage').style.display = 'none';\n" +
+                "      link.href = protocol + '://127.0.0.1' + port + '" + authorizationEndpoint + "';" +
+                "      link.style.opacity = 1.0;" +
+                "      document.getElementById('errorMessage').style.visibility = 'hidden';" + redirect +
+                "      document.getElementById('scanningMessage').style.visibility = 'hidden';" +
                 "    }" +
                 "  };" +
 
@@ -202,10 +217,10 @@ public class MicropayEndpoint implements EndpointMethod {
 
                 "var interval = setInterval(function() {" +
                 "  if (successful) {\n" +
-                "    document.getElementById('errorMessage').style.display = 'none';\n" +
+                "    document.getElementById('errorMessage').style.visibility = 'hidden';" +
                 "    clearInterval(interval);" +
                 "  } else {\n" +
-                "    document.getElementById('errorMessage').style.display = 'block';" +
+                "    document.getElementById('errorMessage').style.visibility = 'visible';" +
                 "    sendPings();" +
                 "  }\n" +
                 "}, 3000);"));

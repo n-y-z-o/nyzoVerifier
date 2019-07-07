@@ -24,8 +24,9 @@ public class MicropayController {
 
     private static final String dataRootDirectory = PreferencesUtil.get(dataRootKey);
     public static final String clientPingEndpoint = "/micropay/ping";
+    public static final String serverPingEndpoint = "/micropay/ping";
     public static final String clientAuthorizationEndpoint = "/micropay/authorize";
-    public static final String pingResponse = "hello, Micropay user!";
+    public static final String clientPingResponse = "hello, Micropay user!";
 
     public static Map<String, EndpointMethod> buildEndpointMap() {
 
@@ -81,19 +82,24 @@ public class MicropayController {
     }
 
     public static EndpointResponse clientPingPage(Map<String, String> queryParameters, byte[] sourceIpAddress) {
-        EndpointResponse response = new EndpointResponse((pingResponse + " " + IpUtil.addressAsString(sourceIpAddress))
-                .getBytes(StandardCharsets.UTF_8));
+        EndpointResponse response = new EndpointResponse((clientPingResponse + " " +
+                IpUtil.addressAsString(sourceIpAddress)).getBytes(StandardCharsets.UTF_8));
         response.setHeader("Access-Control-Allow-Origin", "*");
         return response;
+    }
+
+    public static EndpointResponse serverPingPage(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+        return new EndpointResponse(("hello, " + IpUtil.addressAsString(sourceIpAddress))
+                .getBytes(StandardCharsets.UTF_8));
     }
 
     public static EndpointResponse clientAuthorizationPage(Map<String, String> queryParameters, byte[] sourceIpAddress) {
 
         // Make the HTML page.
-        Html html = new Html();
+        Html html = (Html) new Html().attr("lang", "en");
 
         // Add the head and body to the page.
-        Head head = (Head) html.add(new Head().attr("lang", "en"));
+        Head head = (Head) html.add(new Head().addStandardMetadata());
         head.add(new Title("Nyzo Micropay authorization"));
         Body body = (Body) html.add(new Body().attr("style", "font-family: sans-serif; text-align: center"));
 
@@ -108,23 +114,10 @@ public class MicropayController {
 
                 // Add the header and Micropay amount and receiver.
                 body.add(new H1("Nyzo Micropay"));
-                NyzoStringMicropay micropay = (NyzoStringMicropay) decodedString;
-                body.add(new P("amount: " + PrintUtil.printAmount(micropay.getAmount())).attr("style",
-                        "font-size: larger; font-weight: bold;"));
-                body.add(new P("receiver ID: " +
-                        NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(micropay.getReceiverIdentifier())))
-                        .attr("style", "word-break: break-all;"));
-
-                // Add the sender data.
-                String senderData =
-                        WebUtil.sanitizeString(ClientTransactionUtil.senderDataString(micropay.getSenderData()).trim());
-                if (senderData.isEmpty()) {
-                    senderData = "<span style=\"font-style: italic\">empty</span>";
-                }
-                body.add(new P("sender data: " + senderData));
 
                 // If Micropay is configured correctly and the transaction amount is less than the Micropay maximum,
                 // create the transaction. Otherwise, display the issue.
+                NyzoStringMicropay micropay = (NyzoStringMicropay) decodedString;
                 String error = "";
                 NyzoStringPrivateSeed senderSeed = getSenderSeed();
                 long maximumAmount = getMaximumTransactionAmountMicronyzos();
@@ -163,9 +156,9 @@ public class MicropayController {
                         WebUtil.acceptButtonStyle + " display: table; margin-bottom: 0.5rem;"));
             }
 
-            // The "cancel" link is just the raw callback.
-            body.add(new A().attr("href", callback).addRaw("cancel").attr("style", WebUtil.cancelButtonStyle +
-                    " display: table;"));
+            // The "cancel" link has a "cancel=y" parameter instead of a transaction parameter.
+            body.add(new A().attr("href", callback + "?cancel=y").addRaw("cancel").attr("style",
+                    WebUtil.cancelButtonStyle + " display: table;"));
         }
 
         return new EndpointResponse(html.renderByteArray());
