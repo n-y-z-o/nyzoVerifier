@@ -119,4 +119,8 @@ public class ScriptUtil {
         // Terminate the application.
         UpdateUtil.terminate();
     }
+
+    public static void primeMessageQueue() {
+        Message.fetchTcp("127.0.0.1", MeshListener.getPortTcp(), new Message(MessageType.Ping200, null), null);
+    }
 }

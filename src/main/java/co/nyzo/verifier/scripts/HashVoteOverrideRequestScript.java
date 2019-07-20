@@ -56,6 +56,9 @@ public class HashVoteOverrideRequestScript {
 
         byte[] hash = ByteUtil.byteArrayFromHexString(localOperation ? args[1] : args[2], FieldByteSize.hash);
 
+        // Prime the message queue.
+        ScriptUtil.primeMessageQueue();
+
         // Send the request to our verifier instances.
         AtomicInteger numberOfResponsesNotYetReceived = new AtomicInteger(ipAddresses.size());
         HashVoteOverrideRequest request = new HashVoteOverrideRequest(height, hash);
