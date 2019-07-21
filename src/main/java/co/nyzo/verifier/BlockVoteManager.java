@@ -135,6 +135,20 @@ public class BlockVoteManager {
         return votesForHeight == null ? null : new HashMap<>(votesForHeight);
     }
 
+    public static byte[] voteForIdentifierAtHeight(byte[] identifier, long height) {
+
+        Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
+        byte[] result = null;
+        if (votesForHeight != null) {
+            BlockVote vote = votesForHeight.get(ByteBuffer.wrap(identifier));
+            if (vote != null) {
+                result = vote.getHash();
+            }
+        }
+
+        return result;
+    }
+
     public static int numberOfVotesAtHeight(long height) {
 
         Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);

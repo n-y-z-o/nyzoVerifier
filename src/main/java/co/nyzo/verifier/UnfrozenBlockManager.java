@@ -4,6 +4,7 @@ import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MissingBlockRequest;
 import co.nyzo.verifier.messages.MissingBlockResponse;
 import co.nyzo.verifier.util.NotificationUtil;
+import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
@@ -18,6 +19,9 @@ public class UnfrozenBlockManager {
     private static Map<Long, byte[]> hashOverrides = new ConcurrentHashMap<>();
 
     private static String voteDescription = "*** not yet voted ***";
+
+    private static final byte[] fallbackVoteSourceIdentifier =
+            PreferencesUtil.getByteArray("fallback_vote_source_identifier", FieldByteSize.identifier, null);
 
     private static Map<Long, Map<ByteBuffer, Block>> disconnectedBlocks = new ConcurrentHashMap<>();
 
@@ -143,7 +147,7 @@ public class UnfrozenBlockManager {
                 // We always use an override if one is available.
                 newVoteHash = hashOverride;
 
-                voteDescription = "override; ";
+                voteDescription = "override; " + PrintUtil.compactPrintByteArray(newVoteHash);
 
             } else if (BlockManager.inGenesisCycle()) {
 
@@ -220,11 +224,24 @@ public class UnfrozenBlockManager {
                     }
                 }
 
-                if (newVoteBlock != null) {
+                // If a block was not found, and if the retention edge is less than zero, then this verifier is in a
+                // state that does not yet allow voting to happen. In this case, we can fall back to a trusted source
+                // for voting.
+                if (newVoteBlock == null) {
+                    if (BlockManager.getRetentionEdgeHeight() < 0 && fallbackVoteSourceIdentifier != null) {
+                        newVoteHash = BlockVoteManager.voteForIdentifierAtHeight(fallbackVoteSourceIdentifier, height);
+                        if (newVoteHash == null) {
+                            voteDescription += "fallback unavailable; h=" + height + "; undetermined";
+                        } else {
+                            voteDescription += "fallback; h=" + height + "; " +
+                                    PrintUtil.compactPrintByteArray(newVoteHash);
+                        }
+                    } else {
+                        voteDescription += "h=" + height + "; undetermined";
+                    }
+                } else {
                     newVoteHash = newVoteBlock.getHash();
                     voteDescription += "h=" + height + "; " + PrintUtil.compactPrintByteArray(newVoteHash);
-                } else {
-                    voteDescription += "h=" + height + "; undetermined";
                 }
             }
 
