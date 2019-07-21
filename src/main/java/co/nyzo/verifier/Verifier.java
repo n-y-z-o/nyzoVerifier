@@ -362,6 +362,7 @@ public class Verifier {
 
     private static void verifierMain() {
 
+        long lastMeshMaintenanceTimestamp = 0L;
         while (!UpdateUtil.shouldTerminate()) {
 
             MessageQueue.blockThisThreadUntilClear();
@@ -461,6 +462,23 @@ public class Verifier {
                         requestBlockWithVotes();
                     }
 
+                    // These are mesh-maintenance operations. These were previously performed when a block was frozen,
+                    // but they have been moved to a separate block, based on block interval, to ensure that they still
+                    // happen regularly when the cycle is experiencing problems.
+                    if (lastMeshMaintenanceTimestamp < System.currentTimeMillis() - Block.blockDuration) {
+                        lastMeshMaintenanceTimestamp = System.currentTimeMillis();
+
+                        // Request the mesh. The node manager maintains a counter to ensure it is only performed once
+                        // per cycle equivalent.
+                        NodeManager.requestMesh();
+
+                        // Send up to 10 node-join requests. Previously, these were all sent when the mesh was
+                        // requested. Now, they are enqueued and sent a few at a time to reduce the spike in network
+                        // activity.
+                        NodeManager.sendNodeJoinRequests(10);
+
+                    }
+
                     // These are operations that only have to happen when a block is frozen.
                     long newFrozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
                     if (frozenEdgeHeight != newFrozenEdgeHeight) {
@@ -476,15 +494,6 @@ public class Verifier {
                             System.out.println("casting late vote for height " + newFrozenEdgeHeight);
                             UnfrozenBlockManager.castVote(newFrozenEdge.getBlockHeight(), newFrozenEdge.getHash());
                         }
-
-                        // Request the mesh. This is called only when an edge is frozen, and the node manager maintains
-                        // a counter to ensure it is only performed once per cycle.
-                        NodeManager.requestMesh();
-
-                        // Send up to 10 node-join requests. Previously, these were all sent when the mesh was
-                        // requested. Now, they are enqueued and sent a few at a time to reduce the spike in network
-                        // activity.
-                        NodeManager.sendNodeJoinRequests(10);
 
                         // Update scores with the verifier performance manager and send votes.
                         long scoreUpdateHeight = newFrozenEdgeHeight - 1;
