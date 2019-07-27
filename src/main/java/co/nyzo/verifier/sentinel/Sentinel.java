@@ -677,8 +677,8 @@ public class Sentinel {
                     approvedTransactions, verifier.getIdentifier());
             if (balanceList != null) {
                 long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
-                block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
-                        balanceList.getHash(), verifier.getSeed());
+                block = new Block(previousBlock.getBlockchainVersion(), blockHeight, previousBlock.getHash(),
+                        startTimestamp, approvedTransactions, balanceList.getHash(), verifier.getSeed());
             }
         }
 

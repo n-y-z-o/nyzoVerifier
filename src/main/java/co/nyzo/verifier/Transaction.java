@@ -4,9 +4,8 @@ import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Transaction implements MessageObject {
 
@@ -30,6 +29,7 @@ public class Transaction implements MessageObject {
     public static final byte typeCoinGeneration = 0;
     public static final byte typeSeed = 1;
     public static final byte typeStandard = 2;
+    public static final byte typeCycle = 3;
 
     // Included in all transactions.
     private byte type;                   // 1 byte; 0=coin generation, 1=sender verification
@@ -37,12 +37,17 @@ public class Transaction implements MessageObject {
     private long amount;                 // 8 bytes; 64-bit amount in micronyzos
     private byte[] receiverIdentifier;   // 32 bytes (256-bit public key of the recipient)
 
-    // Only included in type-1 and type-2 transactions
+    // Only included in type-1, type-2, and type-3 transactions
     private long previousHashHeight;     // 8 bytes; 64-bit index of the block height of the previous-block hash
     private byte[] previousBlockHash;    // 32 bytes (SHA-256 of a recent block in the chain)
     private byte[] senderIdentifier;     // 32 bytes (256-bit public key of the sender)
     private byte[] senderData;           // up to 32 bytes
+
+    // Only included in type-1 and type-2 transactions
     private byte[] signature;            // 64 bytes (512-bit signature)
+
+    // Only included in type-3 transactions
+    private Map<ByteBuffer, byte[]> cycleSignatures;
 
     private SignatureState signatureState = SignatureState.Undetermined;
 
@@ -186,6 +191,42 @@ public class Transaction implements MessageObject {
         return transaction;
     }
 
+    public static Transaction cycleTransaction(long timestamp, long amount, byte[] receiverIdentifier,
+                                               byte[] senderData, Map<ByteBuffer, byte[]> cycleSignatures) {
+
+        Transaction transaction = new Transaction();
+        transaction.type = typeCycle;
+        transaction.timestamp = timestamp;
+        transaction.amount = amount;
+        transaction.receiverIdentifier = receiverIdentifier;
+        transaction.previousHashHeight = 0L;
+        transaction.previousBlockHash = BlockManager.frozenBlockForHeight(0L).getHash();
+        transaction.senderIdentifier = BalanceListItem.cycleAccountIdentifier;
+        transaction.senderData = senderData;
+        transaction.cycleSignatures = cycleSignatures;
+
+        return transaction;
+    }
+
+    public static Transaction cycleTransaction(long timestamp, long amount, byte[] receiverIdentifier,
+                                               byte[] senderData, byte[] signerSeed) {
+
+        Transaction transaction = new Transaction();
+        transaction.type = typeCycle;
+        transaction.timestamp = timestamp;
+        transaction.amount = amount;
+        transaction.receiverIdentifier = receiverIdentifier;
+        transaction.previousHashHeight = 0L;
+        transaction.previousBlockHash = BlockManager.frozenBlockForHeight(0L).getHash();
+        transaction.senderIdentifier = BalanceListItem.cycleAccountIdentifier;
+        transaction.senderData = senderData;
+        transaction.cycleSignatures = new ConcurrentHashMap<>();
+        transaction.cycleSignatures.put(ByteBuffer.wrap(KeyUtil.identifierForSeed(signerSeed)),
+                SignatureUtil.signBytes(transaction.getBytes(true), signerSeed));
+
+        return transaction;
+    }
+
     public long getFee() {
 
         return (getAmount() + 399L) / 400L;
@@ -203,7 +244,7 @@ public class Transaction implements MessageObject {
                 FieldByteSize.transactionAmount +     // amount
                 FieldByteSize.identifier;             // receiver identifier
 
-        if (type == typeSeed || type == typeStandard) {
+        if (type == typeSeed || type == typeStandard || type == typeCycle) {
 
             if (forSigning) {
                 size += FieldByteSize.hash;           // previous-block hash for signing
@@ -349,12 +390,12 @@ public class Transaction implements MessageObject {
 
         try {
 
-            // Check the type (we only validate transactions past block zero, so 1 and 2 are the only valid types
+            // Check the type (we only validate transactions past block zero, so 1, 2, and 3 are the only valid types
             // right now).
-            if (type != typeSeed && type != typeStandard) {
+            if (type != typeSeed && type != typeStandard && type != typeCycle) {
                 valid = false;
-                validationError.append("Only seed (type-1) and standard (type-2) transactions are valid after block " +
-                        "0. ");
+                validationError.append("Only seed (type-1), standard (type-2), and cycle (type-3) transactions are ")
+                        .append("valid after block 0. ");
             }
 
             // Check that the previous-block hash is contained in the chain.
@@ -381,16 +422,17 @@ public class Transaction implements MessageObject {
             }
 
             // Check that the sender and receiver are the same address for seed transactions and different addresses
-            // for standard transactions.
+            // for standard and cycle transactions.
             if (valid && type == typeSeed) {
                 if (!ByteUtil.arraysAreEqual(getSenderIdentifier(), getReceiverIdentifier())) {
                     valid = false;
                     validationError.append("The sender and receiver must be the same for seed transactions. ");
                 }
-            } else if (valid && type == typeStandard) {
+            } else if (valid && (type == typeStandard || type == typeCycle)) {
                 if (ByteUtil.arraysAreEqual(getSenderIdentifier(), getReceiverIdentifier())) {
                     valid = false;
-                    validationError.append("The sender and receiver must be different for standard transactions. ");
+                    validationError.append("The sender and receiver must be different for standard and cycle ")
+                            .append("transactions. ");
                 }
             }
 
@@ -404,8 +446,8 @@ public class Transaction implements MessageObject {
                         valid = false;
                         validationError.append("This transaction's block has already been frozen. ");
                     } else {
-                        validationWarning.append("This transaction's block is already open for processing, so this " +
-                                "transaction may be received too late to be included. ");
+                        validationWarning.append("This transaction's block is already open for processing, so this ")
+                                .append("transaction may be received too late to be included. ");
                     }
                 }
             }
@@ -452,7 +494,8 @@ public class Transaction implements MessageObject {
 
     public boolean signatureIsValid() {
 
-        if (signatureState == SignatureState.Undetermined) {
+        if (signatureState == SignatureState.Undetermined && (type == Transaction.typeSeed ||
+                type == Transaction.typeStandard)) {
             signatureState = SignatureUtil.signatureIsValid(signature, getBytes(true), senderIdentifier) ?
                     SignatureState.Valid : SignatureState.Invalid;
         }

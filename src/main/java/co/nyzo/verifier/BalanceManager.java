@@ -8,7 +8,7 @@ import java.util.*;
 
 public class BalanceManager {
 
-    private static final byte[] seedAccountIdentifier = ByteUtil.byteArrayFromHexString("12d454a69523f739-" +
+    public static final byte[] seedAccountIdentifier = ByteUtil.byteArrayFromHexString("12d454a69523f739-" +
             "eb5eb71c7deb8701-1804df336ae0e2c1-9e0b24a636683e31", FieldByteSize.identifier);
     private static final long initialSeedTransactionAmount = (TestnetUtil.testnet ? 500000L : 599L) *
             Transaction.micronyzoMultiplierRatio;  // 500,000 nyzos testnet, 599 nyzos production
@@ -76,10 +76,14 @@ public class BalanceManager {
             }
         }
 
+        // Enforce the rules for accounts subject to the locking threshold.
+        BalanceList balanceList = BalanceListManager.balanceListForBlock(previousBlock);
+        enforceLockingRules(dedupedTransactions, balanceList.getBlockchainVersion(), balanceList.getUnlockThreshold(),
+                balanceList.getUnlockTransferSum());
+
         // Assemble the final list of transactions with valid amounts. This has to be done in ascending order of
         // timestamp, because older transactions take precedence over newer transactions.
         List<Transaction> approvedTransactions = new ArrayList<>();
-        BalanceList balanceList = BalanceListManager.balanceListForBlock(previousBlock);
         Map<ByteBuffer, Long> identifierToBalanceMap = makeBalanceMap(balanceList);
         for (Transaction transaction : dedupedTransactions) {
             ByteBuffer senderIdentifier = ByteBuffer.wrap(transaction.getSenderIdentifier());
@@ -312,6 +316,32 @@ public class BalanceManager {
                 // Perform the actual removal, if necessary.
                 if (needToRemoveTransaction) {
                     dedupedTransactions.remove(i);
+                }
+            }
+        }
+    }
+
+    private static void enforceLockingRules(List<Transaction> dedupedTransactions, int blockchainVersion,
+                                            long unlockThreshold, long unlockTransferSum) {
+
+        // Only enforce the locking rules for versions 1 and greater.
+        if (blockchainVersion >= 1) {
+
+            // Determine the sum of transactions from locked accounts.
+            long transactionSumFromLockedAccounts = 0L;
+            for (Transaction transaction : dedupedTransactions) {
+                if (LockedAccountManager.isSubjectToLock(transaction)) {
+                    transactionSumFromLockedAccounts += transaction.getAmount();
+                }
+            }
+
+            // If the sum is greater than the available threshold, remove all transactions subject to locking.
+            long availableTransferAmount = unlockThreshold - unlockTransferSum;
+            if (transactionSumFromLockedAccounts > availableTransferAmount) {
+                for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+                    if (LockedAccountManager.isSubjectToLock(dedupedTransactions.get(i))) {
+                        dedupedTransactions.remove(i);
+                    }
                 }
             }
         }

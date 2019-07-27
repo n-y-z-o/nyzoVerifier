@@ -30,6 +30,9 @@ public class BlockManager {
     private static boolean initialized = false;
     private static boolean cycleComplete = false;
 
+    private static final String lastVerifierJoinHeightKey = "last_verifier_join_height";
+    private static long lastVerifierJoinHeight = PersistentData.getLong(lastVerifierJoinHeightKey, -1L);
+
     private static final String lastVerifierRemovalHeightKey = "last_verifier_removal_height";
     private static long lastVerifierRemovalHeight = PersistentData.getLong(lastVerifierRemovalHeightKey, -1L);
 
@@ -80,8 +83,11 @@ public class BlockManager {
         return trailingEdgeHeight == -1L ? -1L : Math.max(0, trailingEdgeHeight - 24);
     }
 
-    public static long getLastVerifierRemovalHeight() {
+    public static long getLastVerifierJoinHeight() {
+        return lastVerifierJoinHeight;
+    }
 
+    public static long getLastVerifierRemovalHeight() {
         return lastVerifierRemovalHeight;
     }
 
@@ -620,6 +626,14 @@ public class BlockManager {
         }
 
         if (cycleComplete) {
+
+            // If this is a new verifier and the height is greater than the previous value of lastVerifierJoinHeight,
+            // store the height. This is used to cheaply determine whether new verifiers are eligible to join. The
+            // greater-than condition is used to avoid issues that may arise during initialization.
+            if (isNewVerifier && edgeHeight > lastVerifierJoinHeight) {
+                lastVerifierJoinHeight = edgeHeight;
+                PersistentData.put(lastVerifierJoinHeightKey, lastVerifierJoinHeight);
+            }
 
             // If a verifier was dropped from the cycle, store the height. This is used to determine whether to
             // penalize poorly performing verifiers, as we do not want to drop verifiers from the cycle too quickly.

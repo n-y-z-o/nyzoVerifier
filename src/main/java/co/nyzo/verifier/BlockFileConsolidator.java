@@ -1,12 +1,21 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.NotificationUtil;
+import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.File;
 import java.util.*;
 
 public class BlockFileConsolidator {
+
+    // These options control the low-level behavior of the consolidator. By default, the consolidator creates
+    // consolidated files and deletes individual files. To run the verifier in lean mode, deleting historical blocks,
+    // add create_consolidated_block_files=0 to the preferences file.
+    private static final boolean createConsolidatedFiles = PreferencesUtil.getBoolean("create_consolidated_block_files",
+            true);
+    private static final boolean deleteBlocksBehindConsolidationEdge =
+            PreferencesUtil.getBoolean("delete_blocks_behind_consolidation_height", true);
 
     public static void start() {
 

@@ -31,7 +31,7 @@ public class TestnetGenesisBlockCreator {
         // Create the balance list and the block.
         BalanceList balanceList = Block.balanceListForNextBlock(null, null, transactions,
                 verifierIdentifier);
-        Block block = new Block(0, nullBlockHash, genesisTimestamp, transactions, balanceList.getHash());
+        Block block = new Block(0, 0, nullBlockHash, genesisTimestamp, transactions, balanceList.getHash());
         block.sign(genesisTimestamp, verifierSeed);
         System.out.println("block " + 0 + " is valid: " + block.signatureIsValid());
 
@@ -42,7 +42,7 @@ public class TestnetGenesisBlockCreator {
     private static long nextGenesisTimestamp() {
 
         long currentTime = System.currentTimeMillis();
-        long increment = 1000L * 60L * 1L;  // align with a 1-minute interval
+        long increment = 1000L * 60L;  // align with a 1-minute interval
         long nextIncrement = (currentTime / increment) * increment + increment;
 
         long minimumDelay = 1000L * 30L;  // ensure that the minimum delay is 30 seconds

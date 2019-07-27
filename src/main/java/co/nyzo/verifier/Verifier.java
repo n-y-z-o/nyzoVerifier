@@ -363,6 +363,7 @@ public class Verifier {
     private static void verifierMain() {
 
         long lastMeshMaintenanceTimestamp = 0L;
+        long lastVoteRequestTimestamp = 0L;
         while (!UpdateUtil.shouldTerminate()) {
 
             MessageQueue.blockThisThreadUntilClear();
@@ -476,7 +477,17 @@ public class Verifier {
                         // requested. Now, they are enqueued and sent a few at a time to reduce the spike in network
                         // activity.
                         NodeManager.sendNodeJoinRequests(10);
+                    }
 
+                    // This is an additional recovery operation for when the cycle is in a bad state. To avoid a huge
+                    // spike in activity, this is a deliberately slow process. It will break through some stalls that
+                    // are difficult to handle otherwise, and it is a low-enough intensity that it will not cause the
+                    // cycle to become even more stressed.
+                    if (inCycle() && !frozeBlock &&
+                            frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 30000L &&
+                            lastVoteRequestTimestamp < System.currentTimeMillis() - 4000L) {
+                        lastVoteRequestTimestamp = System.currentTimeMillis();
+                        requestMissingVotes(frozenEdge.getBlockHeight() + 1L);
                     }
 
                     // These are operations that only have to happen when a block is frozen.
@@ -549,6 +560,25 @@ public class Verifier {
         }
     }
 
+    private static void requestMissingVotes(long height) {
+
+        // Get the votes for the current height.
+        Map<ByteBuffer, BlockVote> currentVotes = BlockVoteManager.votesForHeight(height);
+
+        // Fetch from 10 random verifiers. This is not an efficient process, but it avoids a number of different
+        // problems that could arise from a more targeted process. Any targeted process would have to carefully avoid
+        // requesting the same verifiers over and over.
+        for (int i = 0; i < 10; i++) {
+            Message message = new Message(MessageType.MissingBlockVoteRequest23, new MissingBlockVoteRequest(height));
+            Message.fetchFromRandomNode(message, new MessageCallback() {
+                @Override
+                public void responseReceived(Message message) {
+                    BlockVoteManager.registerVote(message);
+                }
+            });
+        }
+    }
+
     private static void extendBlock(Block block) {
 
         CycleInformation cycleInformation = block.getCycleInformation();
@@ -610,8 +640,8 @@ public class Verifier {
                         approvedTransactions, Verifier.getIdentifier());
                 if (balanceList != null) {
                     long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
-                    block = new Block(blockHeight, previousBlock.getHash(), startTimestamp, approvedTransactions,
-                            balanceList.getHash());
+                    block = new Block(previousBlock.getBlockchainVersion(), blockHeight, previousBlock.getHash(),
+                            startTimestamp, approvedTransactions, balanceList.getHash());
                 }
             }
         }

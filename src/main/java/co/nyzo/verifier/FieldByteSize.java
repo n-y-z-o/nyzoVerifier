@@ -9,6 +9,7 @@ public class FieldByteSize {
     public static final int blocksUntilFee = 2;
     public static final int booleanField = 1;
     public static final int cycleLength = 4;
+    public static final int combinedVersionAndHeight = 8;
     public static final int frozenBlockListLength = 2;
     public static final int hash = 32;
     public static final int hashListLength = 1;

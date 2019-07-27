@@ -21,8 +21,8 @@ public class BlockVoteManager {
 
     public static synchronized void registerVote(Message message) {
 
-        BlockVote vote = (BlockVote) message.getContent();
-        if (vote != null) {
+        if (message != null && message.getContent() instanceof BlockVote) {
+            BlockVote vote = (BlockVote) message.getContent();
             
             // Set the receipt timestamp and store message information on the vote.
             vote.setReceiptTimestamp(System.currentTimeMillis());

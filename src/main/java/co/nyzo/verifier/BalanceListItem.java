@@ -6,6 +6,8 @@ public class BalanceListItem {
 
     public static final byte[] transferIdentifier = ByteUtil.byteArrayFromHexString("0000000000000000-" +
             "0000000000000000-0000000000000000-0000000000000001", FieldByteSize.identifier);
+    public static final byte[] cycleAccountIdentifier = ByteUtil.byteArrayFromHexString("0000000000000000-" +
+            "0000000000000000-0000000000000000-0000000000000002", FieldByteSize.identifier);
 
     private static final short blocksBetweenFee = 500;
 

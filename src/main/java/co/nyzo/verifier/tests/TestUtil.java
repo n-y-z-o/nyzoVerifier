@@ -13,7 +13,8 @@ public class TestUtil {
     public static void main(String[] args) {
 
         NyzoTest[] tests = {
-                new NyzoStringTest()
+                new NyzoStringTest(),
+                new ShortLongTest()
         };
 
         boolean successful = true;

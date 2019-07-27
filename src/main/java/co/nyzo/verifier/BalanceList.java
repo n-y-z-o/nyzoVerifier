@@ -10,18 +10,24 @@ import java.util.List;
 
 public class BalanceList implements MessageObject {
 
+    private int blockchainVersion;
     private long blockHeight;
     private byte rolloverFees;
     private List<byte[]> previousVerifiers;
     private List<BalanceListItem> items;
+    private long unlockThreshold;
+    private long unlockTransferSum;
 
-    public BalanceList(long blockHeight, byte rolloverFees, List<byte[]> previousVerifiers,
-                       List<BalanceListItem> items) {
+    public BalanceList(int blockchainVersion, long blockHeight, byte rolloverFees, List<byte[]> previousVerifiers,
+                       List<BalanceListItem> items, long unlockThreshold, long unlockTransferSum) {
 
+        this.blockchainVersion = Block.limitBlockchainVersion(blockchainVersion);
         this.blockHeight = blockHeight;
         this.rolloverFees = rolloverFees;
         this.previousVerifiers = previousVerifiers;
         this.items = normalize(items);
+        this.unlockThreshold = this.blockchainVersion == 0 ? 0 : unlockThreshold;      // implicitly 0 for version 0
+        this.unlockTransferSum = this.blockchainVersion == 0 ? 0 : unlockTransferSum;  // implicitly 0 for version 0
     }
 
     private static List<BalanceListItem> normalize(List<BalanceListItem> balanceItems) {
@@ -66,6 +72,10 @@ public class BalanceList implements MessageObject {
         return sorted;
     }
 
+    public int getBlockchainVersion() {
+        return blockchainVersion;
+    }
+
     public long getBlockHeight() {
         return blockHeight;
     }
@@ -82,9 +92,19 @@ public class BalanceList implements MessageObject {
         return items;
     }
 
+    public long getUnlockThreshold() {
+        return unlockThreshold;
+    }
+
+    public long getUnlockTransferSum() {
+        return unlockTransferSum;
+    }
+
     public static BalanceList fromByteBuffer(ByteBuffer buffer) {
 
-        long blockHeight = buffer.getLong();
+        ShortLong versionAndHeight = ShortLong.fromByteBuffer(buffer);
+        int blockchainVersion = versionAndHeight.getShortValue();
+        long blockHeight = versionAndHeight.getLongValue();
         byte rolloverFees = buffer.get();
 
         int numberOfPreviousVerifiers = (int) Math.min(blockHeight, 9);
@@ -105,7 +125,15 @@ public class BalanceList implements MessageObject {
             items.add(new BalanceListItem(identifier, balance, blocksUntilFee));
         }
 
-        return new BalanceList(blockHeight, rolloverFees, previousVerifiers, items);
+        long unlockThreshold = 0L;
+        long unlockTransferSum = 0L;
+        if (blockchainVersion > 0) {
+            unlockThreshold = buffer.getLong();
+            unlockTransferSum = buffer.getLong();
+        }
+
+        return new BalanceList(blockchainVersion, blockHeight, rolloverFees, previousVerifiers, items, unlockThreshold,
+                unlockTransferSum);
     }
 
     @Override
@@ -117,7 +145,8 @@ public class BalanceList implements MessageObject {
                 FieldByteSize.rolloverTransactionFees +
                 FieldByteSize.identifier * numberOfPreviousVerifiers +
                 FieldByteSize.balanceListLength +
-                bytesPerItem * items.size();
+                bytesPerItem * items.size() +
+                (blockchainVersion > 0 ? FieldByteSize.transactionAmount * 2 : 0);
     }
 
     @Override
@@ -125,7 +154,7 @@ public class BalanceList implements MessageObject {
 
         byte[] result = new byte[getByteSize()];
         ByteBuffer buffer = ByteBuffer.wrap(result);
-        buffer.putLong(blockHeight);
+        buffer.putLong(ShortLong.combinedValue(blockchainVersion, blockHeight));
         buffer.put(rolloverFees);
         for (byte[] previousVerifier : previousVerifiers) {
             buffer.put(previousVerifier);
@@ -135,6 +164,10 @@ public class BalanceList implements MessageObject {
             buffer.put(item.getIdentifier());
             buffer.putLong(item.getBalance());
             buffer.putShort(item.getBlocksUntilFee());
+        }
+        if (blockchainVersion > 0) {
+            buffer.putLong(unlockThreshold);
+            buffer.putLong(unlockTransferSum);
         }
 
         return result;

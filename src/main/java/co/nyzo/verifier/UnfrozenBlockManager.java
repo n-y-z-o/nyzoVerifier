@@ -3,11 +3,15 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MissingBlockRequest;
 import co.nyzo.verifier.messages.MissingBlockResponse;
+import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
+import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -18,7 +22,8 @@ public class UnfrozenBlockManager {
     private static Map<Long, Integer> thresholdOverrides = new ConcurrentHashMap<>();
     private static Map<Long, byte[]> hashOverrides = new ConcurrentHashMap<>();
 
-    private static String voteDescription = "*** not yet voted ***";
+    private static final String initialVoteDescription = "*** not yet voted ***";
+    private static String voteDescription = initialVoteDescription;
 
     private static final byte[] fallbackVoteSourceIdentifier =
             PreferencesUtil.getByteArray("fallback_vote_source_identifier", FieldByteSize.identifier, null);
@@ -26,6 +31,34 @@ public class UnfrozenBlockManager {
     private static Map<Long, Map<ByteBuffer, Block>> disconnectedBlocks = new ConcurrentHashMap<>();
 
     private static long lastBlockVoteTimestamp = 0L;
+
+    private static final File currentVoteFile = new File(Verifier.dataRootDirectory, "current_block_vote");
+    private static BlockVote currentVote = loadCurrentVoteFromFile();
+
+    private static BlockVote loadCurrentVoteFromFile() {
+
+        BlockVote currentVote = null;
+        try {
+            List<String> fileContents = Files.readAllLines(Paths.get(currentVoteFile.getAbsolutePath()));
+            if (fileContents.size() == 1) {
+                String line = fileContents.get(0);
+                String[] split = line.split(",");
+                if (split.length == 2) {
+                    long height = Long.parseLong(split[0]);
+                    byte[] hash = ByteUtil.byteArrayFromHexString(split[1], FieldByteSize.hash);
+                    currentVote = new BlockVote(height, hash, 0L);
+                }
+            }
+        } catch (Exception ignored) { }
+
+        return currentVote;
+    }
+
+    private static void saveCurrentVoteToFile(BlockVote currentVote) {
+
+        String line = currentVote.getHeight() + "," + ByteUtil.arrayAsStringWithDashes(currentVote.getHash());
+        FileUtil.writeFile(Paths.get(currentVoteFile.getAbsolutePath()), Collections.singletonList(line));
+    }
 
     public static void attemptToRegisterDisconnectedBlocks() {
 
@@ -135,6 +168,11 @@ public class UnfrozenBlockManager {
         if (blocksForHeight != null && !blocksForHeight.isEmpty() &&
                 lastBlockVoteTimestamp < System.currentTimeMillis() - BlockVoteManager.minimumVoteInterval - 200L) {
 
+            // If the current vote is for the incorrect height, clear it.
+            if (currentVote != null && currentVote.getHeight() != height) {
+                currentVote = null;
+            }
+
             // This will be the vote that we determine based on the current state. Previously, we would only broadcast
             // changed votes to the cycle. Now, we broadcast all votes to the cycle, as the new flip-vote mechanism
             // requires multiple broadcasts.
@@ -171,8 +209,6 @@ public class UnfrozenBlockManager {
                 }
 
             } else {
-                Block newVoteBlock = null;
-
                 // Get the current votes for this height. If a block has greater than 50% of the vote, vote for it
                 // if its score allows voting yet. Otherwise, if the leading hash has a score that allowed voting more
                 // than 10 seconds ago, vote for it even if it does not exceed 50%. This allows us to reach consensus
@@ -189,7 +225,7 @@ public class UnfrozenBlockManager {
                         if ((voteCount > votingPoolSize / 2 && leadingHashBlock.getMinimumVoteTimestamp() <=
                                 System.currentTimeMillis()) ||
                                 leadingHashBlock.getMinimumVoteTimestamp() < System.currentTimeMillis() - 10000L) {
-                            newVoteBlock = leadingHashBlock;
+                            newVoteHash = leadingHashBlock.getHash();
                             voteDescription = "leading; ";
                         } else {
                             voteDescription = "insufficient leading score; ";
@@ -201,9 +237,20 @@ public class UnfrozenBlockManager {
                     voteDescription = "insufficient count=" + numberOfVotesAtHeight + "; ";
                 }
 
-                // If we did not determine a vote to agree with the rest of the mesh, then we independently choose the
-                // block that we think is best.
-                if (newVoteBlock == null) {
+                // If we did not find consensus, look to the current vote. This may be a vote from this method being
+                // called in the last loop iteration, and it may be a vote from a previous running of the application.
+                // This logic is especially important to avoid massive, under-informed changes to votes already cast
+                // if many verifiers restart during a stall.
+                if (newVoteHash == null && currentVote != null) {
+                    newVoteHash = currentVote.getHash();
+                    if (initialVoteDescription.equals(UnfrozenBlockManager.voteDescription)) {
+                        voteDescription += "recent restart; ";
+                    }
+                }
+
+                // If we did not determine a vote to agree with the rest of the mesh, and we do not already have a vote,
+                // then we independently choose the block that we think is best.
+                if (newVoteHash == null) {
 
                     // Find the block with the lowest score at this height.
                     Block lowestScoredBlock = null;
@@ -219,7 +266,7 @@ public class UnfrozenBlockManager {
                     if (lowestScoredBlock != null &&
                             lowestScoredBlock.getMinimumVoteTimestamp() <= System.currentTimeMillis()) {
 
-                        newVoteBlock = lowestScoredBlock;
+                        newVoteHash = lowestScoredBlock.getHash();
                         voteDescription += "lowest-scored; ";
                     }
                 }
@@ -227,7 +274,7 @@ public class UnfrozenBlockManager {
                 // If a block was not found, and if the retention edge is less than zero, then this verifier is in a
                 // state that does not yet allow voting to happen. In this case, we can fall back to a trusted source
                 // for voting.
-                if (newVoteBlock == null) {
+                if (newVoteHash == null) {
                     if (BlockManager.getRetentionEdgeHeight() < 0 && fallbackVoteSourceIdentifier != null) {
                         newVoteHash = BlockVoteManager.voteForIdentifierAtHeight(fallbackVoteSourceIdentifier, height);
                         if (newVoteHash == null) {
@@ -240,7 +287,6 @@ public class UnfrozenBlockManager {
                         voteDescription += "h=" + height + "; undetermined";
                     }
                 } else {
-                    newVoteHash = newVoteBlock.getHash();
                     voteDescription += "h=" + height + "; " + PrintUtil.compactPrintByteArray(newVoteHash);
                 }
             }
@@ -250,6 +296,14 @@ public class UnfrozenBlockManager {
             // If we determined a vote, broadcast it to the cycle.
             if (newVoteHash != null) {
                 castVote(height, newVoteHash);
+
+                // If the current vote is null, or if the hash has changed, store the new vote.
+                if (currentVote == null || !ByteUtil.arraysAreEqual(currentVote.getHash(), newVoteHash)) {
+                    currentVote = new BlockVote(height, newVoteHash, 0L);
+                    System.out.println("storing new vote, height=" + currentVote.getHeight() + ", hash=" +
+                            PrintUtil.compactPrintByteArray(currentVote.getHash()));
+                    saveCurrentVoteToFile(currentVote);
+                }
             }
         }
     }

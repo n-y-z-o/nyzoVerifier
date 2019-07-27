@@ -25,6 +25,28 @@ public class PrintUtil {
         return String.format(amountIsNegative ? "(∩%d.%06d)" : "∩%d.%06d", whole, fraction);
     }
 
+    public static String printAmountWithCommas(long micronyzos) {
+
+        boolean amountIsNegative = micronyzos < 0;
+        micronyzos = Math.abs(micronyzos);
+        long whole = micronyzos / Transaction.micronyzoMultiplierRatio;
+        long fraction = micronyzos % Transaction.micronyzoMultiplierRatio;
+        StringBuilder wholeString = new StringBuilder();
+        if (whole == 0) {
+            wholeString.append("0");
+        } else {
+            while (whole > 0) {
+                if (whole >= 1000) {
+                    wholeString.insert(0, String.format(",%03d", whole % 1000));
+                } else {
+                    wholeString.insert(0, (whole % 1000) + "");
+                }
+                whole /= 1000L;
+            }
+        }
+        return String.format(amountIsNegative ? "(∩%s.%06d)" : "∩%s.%06d", wholeString, fraction);
+    }
+
     public static String printAmountAsMicronyzos(long micronyzos) {
 
         return String.format("µ%d", micronyzos);

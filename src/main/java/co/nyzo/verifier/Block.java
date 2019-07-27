@@ -31,7 +31,14 @@ public class Block implements MessageObject {
     public static final long blockDuration = 7000L;
     public static final long minimumVerificationInterval = 1500L;
 
-    private long height;                           // 8 bytes; 64-bit integer block height from the Genesis block,
+    // These are the minimum and maximum blockchain versions that this software knows how to process. The version is
+    // strictly enforced. Attempting to process an unknown version would seldom lead to correct results and would open
+    // possibilities for manipulation.
+    private static final int minimumBlockchainVersion = 0;
+    private static final int maximumBlockchainVersion = 0;  // increase to 1 when blockchain v1 is fully implemented
+
+    private int blockchainVersion;                 // 2 bytes; 16-bit integer of the blockchain version
+    private long height;                           // 6 bytes; 48-bit integer block height from the Genesis block,
                                                    // which has a height of 0
     private byte[] previousBlockHash;              // 32 bytes (this is the double-SHA-256 of the previous block
                                                    // signature)
@@ -48,9 +55,10 @@ public class Block implements MessageObject {
     private SignatureState signatureState = SignatureState.Undetermined;
     private CycleInformation cycleInformation = null;
 
-    public Block(long height, byte[] previousBlockHash, long startTimestamp, List<Transaction> transactions,
-                 byte[] balanceListHash) {
+    public Block(int blockchainVersion, long height, byte[] previousBlockHash, long startTimestamp,
+                 List<Transaction> transactions, byte[] balanceListHash) {
 
+        this.blockchainVersion = limitBlockchainVersion(blockchainVersion);
         this.height = height;
         this.previousBlockHash = previousBlockHash;
         this.startTimestamp = startTimestamp;
@@ -67,9 +75,10 @@ public class Block implements MessageObject {
         }
     }
 
-    public Block(long height, byte[] previousBlockHash, long startTimestamp, List<Transaction> transactions,
-                 byte[] balanceListHash, byte[] verifierSeed) {
+    public Block(int blockchainVersion, long height, byte[] previousBlockHash, long startTimestamp,
+                 List<Transaction> transactions, byte[] balanceListHash, byte[] verifierSeed) {
 
+        this.blockchainVersion = limitBlockchainVersion(blockchainVersion);
         this.height = height;
         this.previousBlockHash = previousBlockHash;
         this.startTimestamp = startTimestamp;
@@ -80,10 +89,11 @@ public class Block implements MessageObject {
         this.verifierSignature = SignatureUtil.signBytes(getBytes(false), verifierSeed);
     }
 
-    public Block(long height, byte[] previousBlockHash, long startTimestamp, long verificationTimestamp,
-                  List<Transaction> transactions, byte[] balanceListHash, byte[] verifierIdentifier,
-                  byte[] verifierSignature, boolean validateTransactions) {
+    public Block(int blockchainVersion, long height, byte[] previousBlockHash, long startTimestamp,
+                 long verificationTimestamp, List<Transaction> transactions, byte[] balanceListHash,
+                 byte[] verifierIdentifier, byte[] verifierSignature, boolean validateTransactions) {
 
+        this.blockchainVersion = limitBlockchainVersion(blockchainVersion);
         this.height = height;
         this.previousBlockHash = previousBlockHash;
         this.startTimestamp = startTimestamp;
@@ -92,6 +102,10 @@ public class Block implements MessageObject {
         this.balanceListHash = balanceListHash;
         this.verifierIdentifier = verifierIdentifier;
         this.verifierSignature = verifierSignature;
+    }
+
+    public static int limitBlockchainVersion(int blockchainVersion) {
+        return Math.max(minimumBlockchainVersion, Math.min(maximumBlockchainVersion, blockchainVersion));
     }
 
     private static List<Transaction> validTransactions(List<Transaction> transactions, long startTimestamp) {
@@ -113,6 +127,10 @@ public class Block implements MessageObject {
         }
 
         return validTransactions;
+    }
+
+    public int getBlockchainVersion() {
+        return blockchainVersion;
     }
 
     public long getBlockHeight() {
@@ -194,12 +212,12 @@ public class Block implements MessageObject {
 
     public int getByteSize(boolean includeSignature) {
 
-        int size = FieldByteSize.blockHeight +           // height
-                FieldByteSize.hash +                     // previous-block hash
-                FieldByteSize.timestamp +                // start timestamp
-                FieldByteSize.timestamp +                // verification timestamp
-                4 +                                      // number of transactions
-                FieldByteSize.hash;                      // balance-list hash
+        int size = FieldByteSize.combinedVersionAndHeight +    // version + height
+                FieldByteSize.hash +                           // previous-block hash
+                FieldByteSize.timestamp +                      // start timestamp
+                FieldByteSize.timestamp +                      // verification timestamp
+                4 +                                            // number of transactions
+                FieldByteSize.hash;                            // balance-list hash
         for (Transaction transaction : transactions) {
             size += transaction.getByteSize();
         }
@@ -383,7 +401,7 @@ public class Block implements MessageObject {
         // Assemble the buffer.
         byte[] array = new byte[size];
         ByteBuffer buffer = ByteBuffer.wrap(array);
-        buffer.putLong(height);
+        buffer.putLong(ShortLong.combinedValue(blockchainVersion, height));
         buffer.put(previousBlockHash);
         buffer.putLong(startTimestamp);
         buffer.putLong(verificationTimestamp);
@@ -433,6 +451,23 @@ public class Block implements MessageObject {
             // Wait a minimum of two seconds to vote for an existing verifier, adding 20 seconds for each score above
             // zero.
             timestamp = Verifier.getLastBlockFrozenTimestamp() + 2000L + chainScore * 20000L;
+
+            // The new-verifier lottery window changes every 50 blocks. The integrity of the system is reliant on the
+            // integrity of the entrance process. Therefore, allowing new verifiers to successfully join in their
+            // eligibility windows is imperative. To encourage this, an additional delay is added on blocks 25 and 49
+            // of each eligibility window when a new verifier is likely to be accepted. This delay is infrequent enough
+            // and small enough that it will not cause significant delays in blockchain processing.
+            if (height > BlockManager.getLastVerifierJoinHeight() + getCycleInformation().getCycleLength() * 2) {
+                if (height % 50 == 25) {
+                    System.out.println("10-second wait for new verifier at height " + height);
+                    timestamp += 10000L;
+                } else if (height % 50 == 49) {
+                    // This should be reduced in the future. For now, it is an acceptable compromise to improve the
+                    // entrance process.
+                    System.out.println("40-second wait for new verifier at height " + height);
+                    timestamp += 40000L;
+                }
+            }
         }
 
         return timestamp;
@@ -450,7 +485,9 @@ public class Block implements MessageObject {
 
     public static Block fromByteBuffer(ByteBuffer buffer, boolean validateTransactions) {
 
-        long blockHeight = buffer.getLong();
+        ShortLong versionAndHeight = ShortLong.fromByteBuffer(buffer);
+        int blockchainVersion = versionAndHeight.getShortValue();
+        long blockHeight = versionAndHeight.getLongValue();
         byte[] previousBlockHash = new byte[FieldByteSize.hash];
         buffer.get(previousBlockHash);
         long startTimestamp = buffer.getLong();
@@ -468,8 +505,8 @@ public class Block implements MessageObject {
         byte[] verifierSignature = new byte[FieldByteSize.signature];
         buffer.get(verifierSignature);
 
-        return new Block(blockHeight, previousBlockHash, startTimestamp, verificationTimestamp, transactions,
-                balanceListHash, verifierIdentifier, verifierSignature, validateTransactions);
+        return new Block(blockchainVersion, blockHeight, previousBlockHash, startTimestamp, verificationTimestamp,
+                transactions, balanceListHash, verifierIdentifier, verifierSignature, validateTransactions);
     }
 
     public static BalanceList balanceListForNextBlock(Block previousBlock, BalanceList previousBalanceList,
@@ -477,20 +514,29 @@ public class Block implements MessageObject {
 
         BalanceList result = null;
         try {
-            // For the Genesis block, start with an empty balance list, no rollover fees, and an empty list of previous
-            // verifiers. For all others, start with the information from the previous block's balance list.
-            long blockHeight;
-            List<BalanceListItem> previousBalanceItems = null;
-            long previousRolloverFees = -1;
-            List<byte[]> previousVerifiers = null;
-            if (previousBlock == null) {
-                blockHeight = 0L;
-                previousBalanceItems = new ArrayList<>();
-                previousRolloverFees = 0L;
-                previousVerifiers = new ArrayList<>();
-            } else {
-                blockHeight = previousBlock.getBlockHeight() + 1L;
-                if (previousBalanceList != null) {
+            // Only continue if the necessary data is available. For all blocks other than the Genesis block, the
+            // previous balance list is required.
+            if (previousBlock == null || previousBalanceList != null) {
+
+                // For the Genesis block, start with an empty/zero values. For all others, start with the information
+                // from the previous block's balance list.
+                List<BalanceListItem> previousBalanceItems;
+                List<byte[]> previousVerifiers;
+                long blockHeight;
+                int blockchainVersion;
+                long previousRolloverFees;
+                long previousUnlockThreshold;
+                long previousUnlockTransferSum;
+                if (previousBlock == null) {
+                    previousBalanceItems = new ArrayList<>();
+                    previousVerifiers = new ArrayList<>();
+                    blockHeight = 0L;
+                    blockchainVersion = 0;
+                    previousRolloverFees = 0;
+                    previousUnlockThreshold = 0L;
+                    previousUnlockTransferSum = 0L;
+                } else {
+                    blockHeight = previousBlock.getBlockHeight() + 1L;
                     previousBalanceItems = previousBalanceList.getItems();
                     previousRolloverFees = previousBalanceList.getRolloverFees();
 
@@ -500,11 +546,12 @@ public class Block implements MessageObject {
                     if (previousVerifiers.size() > 9) {
                         previousVerifiers.remove(0);
                     }
-                }
-            }
 
-            // Only continue if we have the necessary data.
-            if (previousBalanceItems != null && previousRolloverFees >= 0) {
+                    blockchainVersion = previousBalanceList.getBlockchainVersion();
+                    previousUnlockThreshold = previousBalanceList.getUnlockThreshold();
+                    previousUnlockTransferSum = previousBalanceList.getUnlockTransferSum();
+                }
+
                 // Make a map of the identifiers to balance list items.
                 Map<ByteBuffer, BalanceListItem> identifierToItemMap = new HashMap<>();
                 for (BalanceListItem item : previousBalanceItems) {
@@ -518,8 +565,11 @@ public class Block implements MessageObject {
                     transactions = BalanceManager.approvedTransactionsForBlock(transactions, previousBlock);
                 }
 
-                // Add/subtract all transactions.
+                // Add/subtract all transactions. While doing this, sum the fees, organic transaction fees, and
+                // transaction amounts from locked accounts.
                 long feesThisBlock = 0L;
+                long organicTransactionFees = 0L;
+                long transactionSumFromLockedAccounts = 0L;
                 for (Transaction transaction : transactions) {
 
                     feesThisBlock += transaction.getFee();
@@ -532,16 +582,37 @@ public class Block implements MessageObject {
                     if (amountAfterFee > 0) {
                         adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToItemMap);
                     }
+
+                    if (transaction.getType() == Transaction.typeStandard) {
+                        organicTransactionFees += transaction.getFee();
+                    }
+
+                    if (LockedAccountManager.isSubjectToLock(transaction)) {
+                        transactionSumFromLockedAccounts += transaction.getAmount();
+                    }
                 }
 
-                // Subtract fees for all balance list items that owe fees and whose values are greater than zero.
+                // TODO: For blockchain version 1+, move some of the organic transaction fees to the cycle account.
+
+                // Subtract fees for all balance list items that owe fees.
                 long periodicAccountFees = 0L;
                 for (ByteBuffer identifier : identifierToItemMap.keySet()) {
                     BalanceListItem item = identifierToItemMap.get(identifier);
-                    if (item.getBlocksUntilFee() <= 0 && item.getBalance() > 0L &&
+                    if (item.getBlocksUntilFee() <= 0 &&
                             !ByteUtil.arraysAreEqual(identifier.array(), BalanceListItem.transferIdentifier)) {
-                        periodicAccountFees++;
-                        identifierToItemMap.put(identifier, item.adjustByAmount(-1L).resetBlocksUntilFee());
+
+                        // In version 0 of the blockchain, charge μ1 every 500 blocks. In version 1 of the blockchain,
+                        // charge μ100 every 500 blocks for all accounts less than ∩1. Always reset the fee counter.
+                        item = item.resetBlocksUntilFee();
+                        if (blockchainVersion == 0 && item.getBalance() > 0L) {
+                            item = item.adjustByAmount(-1L);
+                            periodicAccountFees++;
+                        } else if (blockchainVersion == 1 && item.getBalance() < Transaction.micronyzoMultiplierRatio) {
+                            long fee = Math.min(item.getBalance(), 100L);
+                            item = item.adjustByAmount(-1L * fee);
+                            periodicAccountFees += fee;
+                        }
+                        identifierToItemMap.put(identifier, item);
                     }
                 }
 
@@ -571,10 +642,19 @@ public class Block implements MessageObject {
                 byte rolloverFees = (byte) (totalFees % verifiers.size());
                 micronyzosInSystem += rolloverFees;
                 if (micronyzosInSystem == Transaction.micronyzosInSystem) {
-                    result = new BalanceList(blockHeight, rolloverFees, previousVerifiers, balanceItems);
+                    // Version 0 of the blockchain does not track the unlock threshold and transfer sum.
+                    long unlockThreshold = blockchainVersion == 0 ? 0 : previousUnlockThreshold +
+                            organicTransactionFees;
+                    long unlockTransferSum = blockchainVersion == 0 ? 0 : previousUnlockTransferSum +
+                            transactionSumFromLockedAccounts;
+
+                    result = new BalanceList(blockchainVersion, blockHeight, rolloverFees, previousVerifiers,
+                            balanceItems, unlockThreshold, unlockTransferSum);
                 }
             }
-        } catch (Exception ignored) { ignored.printStackTrace(); }
+        } catch (Exception e) {
+            System.out.println(PrintUtil.printException(e));
+        }
 
         return result;
     }

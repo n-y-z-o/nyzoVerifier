@@ -2,10 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.messages.debug.*;
-import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.ThreadUtil;
-import co.nyzo.verifier.util.UpdateUtil;
+import co.nyzo.verifier.util.*;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -27,7 +24,8 @@ public class MeshListener {
     private static final AtomicLong numberOfMessagesRejected = new AtomicLong(0);
     private static final AtomicLong numberOfMessagesAccepted = new AtomicLong(0);
 
-    private static final int maximumConcurrentConnectionsForIp = 20;
+    private static final int maximumConcurrentConnectionsForIp =
+            PreferencesUtil.getInt("maximum_conncurrent_connections_per_ip", 20);
 
     private static final AtomicBoolean aliveTcp = new AtomicBoolean(false);
     private static final AtomicBoolean aliveUdp = new AtomicBoolean(false);
