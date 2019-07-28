@@ -9,35 +9,50 @@ import java.util.*;
 
 public class BlockFileConsolidator {
 
-    // These options control the low-level behavior of the consolidator. By default, the consolidator creates
-    // consolidated files and deletes individual files. To run the verifier in lean mode, deleting historical blocks,
-    // add create_consolidated_block_files=0 to the preferences file.
-    private static final boolean createConsolidatedFiles = PreferencesUtil.getBoolean("create_consolidated_block_files",
-            true);
-    private static final boolean deleteBlocksBehindConsolidationEdge =
-            PreferencesUtil.getBoolean("delete_blocks_behind_consolidation_height", true);
+    // The consolidator has 3 run options:
+    // - consolidate: create consolidated files and delete individual files (normal operation)
+    // - delete: delete individual files only (do not create consolidated files)
+    // - disable: do not run (do not create consolidated files, do not delete individual files)
+    private static final String runOptionKey = "block_file_consolidator";
+    private static final String runOptionValueDeleteOnly = "delete";
+    private static final String runOptionValueDisable = "disable";
+    private static String runOption = PreferencesUtil.get(runOptionKey).toLowerCase();
+
+    public static void main(String[] args) {
+        // If a command-line argument is specified, it overrides the run option value from the preferences file. This
+        // allows behavior such as disabling of the consolidator for the verifier in the preferences file, then running
+        // the consolidator as a separate process.
+        if (args.length > 0) {
+            runOption = args[0];
+        }
+        start();
+    }
 
     public static void start() {
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        if (runOption.equals(runOptionValueDisable)) {
+            System.out.println("BlockFileConsolidator disabled (" + runOptionKey + "=" + runOptionValueDisable + ")");
+        } else {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
 
-                while (!UpdateUtil.shouldTerminate()) {
+                    while (!UpdateUtil.shouldTerminate()) {
 
-                    // Sleep for 5 minutes (300 seconds) in 3-second intervals.
-                    for (int i = 0; i < 100 && !UpdateUtil.shouldTerminate(); i++) {
+                        // Sleep for 5 minutes (300 seconds) in 3-second intervals.
+                        for (int i = 0; i < 100 && !UpdateUtil.shouldTerminate(); i++) {
+                            try {
+                                Thread.sleep(3000L);
+                            } catch (Exception ignored) { }
+                        }
+
                         try {
-                            Thread.sleep(3000L);
+                            consolidateFiles();
                         } catch (Exception ignored) { }
                     }
-
-                    try {
-                        consolidateFiles();
-                    } catch (Exception ignored) { }
                 }
-            }
-        }, "BlockFileConsolidator").start();
+            }, "BlockFileConsolidator").start();
+        }
     }
 
     private static void consolidateFiles() {
@@ -66,9 +81,14 @@ public class BlockFileConsolidator {
             }
         }
 
-        // Consolidate the files for each file index.
+        // Process each file index.
         for (Long fileIndex : fileMap.keySet()) {
-            consolidateFiles(fileIndex, fileMap.get(fileIndex));
+            // If the delete-only option is set, skip consolidation.
+            if (!runOption.equals(runOptionValueDeleteOnly)) {
+                consolidateFiles(fileIndex, fileMap.get(fileIndex));
+            }
+
+            deleteFiles(fileMap.get(fileIndex));
         }
     }
 
@@ -117,16 +137,21 @@ public class BlockFileConsolidator {
         // Write the combined file.
         BlockManager.writeBlocksToFile(blocks, balanceLists, consolidatedFile);
 
-        // Delete the individual files. Do not delete the Genesis file, because it will continue to be used in regular
-        // operation.
-        individualFiles.remove(BlockManager.individualFileForBlockHeight(0L));
-        for (File file : individualFiles) {
-            file.delete();
-        }
-
         NotificationUtil.send("consolidated " + individualFiles.size() + " files to a single file for start height " +
                 startBlockHeight + " on " + Verifier.getNickname() + "; used " + balanceLists.size() +
                 " balance lists");
+    }
+
+    private static void deleteFiles(List<File> individualFiles) {
+
+        // Delete the individual files. Do not delete the Genesis file, because it will continue to be used in regular
+        // operation.
+        for (File file : individualFiles) {
+            if (blockHeightForFile(file) > 0) {
+                file.delete();
+            }
+        }
+        System.out.println("deleted " + individualFiles.size() + " block files in BlockFileConsolidator");
     }
 
     private static long blockHeightForFile(File file) {
