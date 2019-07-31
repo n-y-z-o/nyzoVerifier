@@ -199,12 +199,10 @@ public class Message {
                 public void run() {
                     Socket socket = new Socket();
                     try {
-                        socket.connect(new InetSocketAddress(hostNameOrIp, port), 3000);
+                        socket.connect(new InetSocketAddress(hostNameOrIp, port), 2000);
                     } catch (Exception e) {
                         if (socket.isConnected()) {
-                            try {
-                                socket.close();
-                            } catch (Exception ignored) { }
+                            ConnectionManager.fastCloseSocket(socket);
                         }
                         socket = null;
                     }
@@ -219,6 +217,7 @@ public class Message {
                             OutputStream outputStream = socket.getOutputStream();
                             outputStream.write(message.getBytesForTransmission());
 
+                            socket.setSoTimeout(1000);
                             response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress(),
                                     message.getType());
                         } catch (Exception reportOnly) {
@@ -226,11 +225,7 @@ public class Message {
                                     hostNameOrIp + ":" + port + ": " + PrintUtil.printException(reportOnly));
                         }
 
-                        try {
-                            socket.close();
-                        } catch (Exception ignored) {
-                            System.out.println("unable to close socket to " + hostNameOrIp + ":" + port);
-                        }
+                        ConnectionManager.fastCloseSocket(socket);
                     }
 
                     if (messageCallback != null) {

@@ -208,10 +208,8 @@ public class MeshListener {
 
         byte[] ipAddress = clientSocket.getInetAddress().getAddress();
         if (BlacklistManager.inBlacklist(ipAddress)) {
-            try {
-                numberOfMessagesRejected.incrementAndGet();
-                clientSocket.close();
-            } catch (Exception ignored) { }
+            numberOfMessagesRejected.incrementAndGet();
+            ConnectionManager.fastCloseSocket(clientSocket);
         } else {
             ByteBuffer ipBuffer = ByteBuffer.wrap(ipAddress);
             int connectionsForIp = connectionsPerIp.merge(ipBuffer, 1, mergeFunction);
@@ -224,9 +222,7 @@ public class MeshListener {
                 // Decrement the counter, add the IP to the blacklist, and close the socket without responding.
                 connectionsPerIp.merge(ipBuffer, -1, mergeFunction);
                 BlacklistManager.addToBlacklist(ipAddress);
-                try {
-                    clientSocket.close();
-                } catch (Exception ignored) { }
+                ConnectionManager.fastCloseSocket(clientSocket);
 
             } else {
 
@@ -239,7 +235,7 @@ public class MeshListener {
 
                         try {
                             clientSocket.setSoTimeout(300);
-                            readMessageAndRespond(clientSocket);
+                            readMessageAndRespond(clientSocket);  // socket is closed in this method
                         } catch (Exception ignored) { }
 
                         // Decrement the counter for this IP.
@@ -276,15 +272,13 @@ public class MeshListener {
                 Message response = response(message);
                 if (response != null) {
                     clientSocket.getOutputStream().write(response.getBytesForTransmission());
+                    clientSocket.getOutputStream().flush();
                 }
             }
 
         } catch (Exception ignored) { }
 
-        try {
-            Thread.sleep(3L);
-            clientSocket.close();
-        } catch (Exception ignored) { }
+        ConnectionManager.slowCloseSocket(clientSocket);
     }
 
     private static void readMessage(DatagramPacket packet) {

@@ -4,8 +4,10 @@ public class ThreadUtil {
 
     public static void sleep(long milliseconds) {
 
-        try {
-            Thread.sleep(Math.max(0L, milliseconds));
-        } catch (Exception ignored) { }
+        if (milliseconds > 0) {
+            try {
+                Thread.sleep(milliseconds);
+            } catch (Exception ignored) { }
+        }
     }
 }
