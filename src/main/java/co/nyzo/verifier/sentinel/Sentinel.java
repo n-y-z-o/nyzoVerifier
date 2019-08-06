@@ -1,6 +1,7 @@
 package co.nyzo.verifier.sentinel;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.*;
 import co.nyzo.verifier.web.WebListener;
@@ -30,11 +31,17 @@ public class Sentinel {
     private static final long blockCreationDelay = 20000L;
     private static final long blockTransmissionDelay = 10000L;
 
+    // This is an additional safeguard to avoid spamming the mesh with blocks if the sentinel has somehow gotten into
+    // a bad state.
+    private static long lastBlockTransmissionTimestamp = 0L;
+    private static final long minimumBlockTransmissionInterval = 30000L;
+
     private static Map<ByteBuffer, AtomicInteger> consecutiveSuccessfulBlockFetches = new ConcurrentHashMap<>();
     private static Map<ByteBuffer, Boolean> inFastFetchMode = new ConcurrentHashMap<>();
 
     private static int numberOfBlocksReceived = 0;
     private static int numberOfBlocksFrozen = 0;
+    private static boolean calculatingValidChainScores = false;
 
     private static AtomicLong lastBlockReceivedTimestamp = new AtomicLong(0L);
 
@@ -42,7 +49,8 @@ public class Sentinel {
     private static final Map<ByteBuffer, ManagedVerifier> verifierMap = new ConcurrentHashMap<>();
 
     private static final Set<Block> blocksCreatedForManagedVerifiers = ConcurrentHashMap.newKeySet();
-    private static boolean blockTransmittedForManagedVerifier = false;
+    private static final String lastBlockTransmissionHeightKey = "sentinel_last_block_transmission_height";
+    private static long lastBlockTransmissionHeight = PersistentData.getLong(lastBlockTransmissionHeightKey, -1L);
 
     private static final Map<ByteBuffer, List<Node>> verifierIdentifierToMeshMap = new ConcurrentHashMap<>();
 
@@ -544,8 +552,10 @@ public class Sentinel {
         long heightToProcess = frozenEdgeHeight + 1L;
 
         // The block creation delay prevents unnecessary work and unnecessary transmissions to the mesh when the
-        // sentinel is initializing.
-        if (lastBlockReceivedTimestamp.get() < System.currentTimeMillis() - blockCreationDelay) {
+        // sentinel is initializing. We also allow the condition to be entered at least once to confirm that the
+        // sentinel is able to calculate valid chain scores.
+        if (!calculatingValidChainScores ||
+                lastBlockReceivedTimestamp.get() < System.currentTimeMillis() - blockCreationDelay) {
 
             // This loop is fully serial, so there is no concern about threading issues. Check if the blocks
             // created are for the height to process. If not, clear them out.
@@ -564,22 +574,21 @@ public class Sentinel {
                         blocksCreatedForManagedVerifiers.add(block);
                     }
                 }
-
-                // Flag that we have not yet transmitted a block for the managed verifier.
-                blockTransmittedForManagedVerifier = false;
             }
 
-            // If we have not yet transmitted a block for the managed verifier, check the scores for all blocks at
-            // this height to see if one is suitable for transmission. There is no reasonable case where the
-            // sentinel should transmit more than one block per height, so we only consider transmitting the block
-            // with the lowest score.
-            if (!blockTransmittedForManagedVerifier) {
+            // If we have not yet transmitted a block for a managed verifier, check the scores for all blocks at this
+            // height to see if one is suitable for transmission. There is no reasonable case where the sentinel should
+            // transmit more than one block per height, so we only consider transmitting the block with the lowest
+            // score.
+            if (lastBlockTransmissionHeight < heightToProcess) {
 
                 Block lowestScoredBlock = null;
+                long lowestChainScore = Long.MAX_VALUE;
                 for (Block block : blocksCreatedForManagedVerifiers) {
+                    long chainScore = block.chainScore(frozenEdgeHeight);
                     if (BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(block.getVerifierIdentifier())) &&
-                            (lowestScoredBlock == null || block.chainScore(frozenEdgeHeight) <
-                            lowestScoredBlock.chainScore(frozenEdgeHeight))) {
+                            chainScore < lowestChainScore) {
+                        lowestChainScore = chainScore;
                         lowestScoredBlock = block;
                     }
                 }
@@ -587,16 +596,22 @@ public class Sentinel {
                 // If the block's minimum vote timestamp is in the past, transmit the block now. This is stricter
                 // than the verifier, which will transmit a block whose minimum vote timestamp is up to 10 seconds
                 // in the future.
-                if (lowestScoredBlock != null) {
+                if (lowestChainScore < Long.MAX_VALUE - 1L) {
+
+                    // Mark that we are able to create valid chain scores.
+                    calculatingValidChainScores = true;
 
                     long minimumVoteTimestamp = frozenEdge.getVerificationTimestamp() +
-                            Block.minimumVerificationInterval +
-                            lowestScoredBlock.chainScore(frozenEdgeHeight) * 20000L + blockTransmissionDelay;
+                            Block.minimumVerificationInterval + lowestChainScore * 20000L + blockTransmissionDelay;
 
                     System.out.println(String.format("minimum vote timestamp is in %.1f seconds",
-                            (minimumVoteTimestamp - System.currentTimeMillis()) / 1000.0));
+                            (minimumVoteTimestamp - System.currentTimeMillis()) / 1000.0) + " for chain score " +
+                            lowestChainScore);
 
-                    if (minimumVoteTimestamp < System.currentTimeMillis()) {
+                    if (minimumVoteTimestamp < System.currentTimeMillis() && lastBlockTransmissionTimestamp <
+                            System.currentTimeMillis() - minimumBlockTransmissionInterval) {
+
+                        lastBlockTransmissionTimestamp = System.currentTimeMillis();
 
                         // Make the message and resign with the appropriate verifier seed. The message must be signed
                         // by an in-cycle verifier to make it past the blacklist mechanism.
@@ -608,11 +623,12 @@ public class Sentinel {
                         for (Node node : combinedCycle()) {
                             Message.fetch(node, message, null);
                         }
-                        blockTransmittedForManagedVerifier = true;
-                        System.out.println("sent block for " +
+                        lastBlockTransmissionHeight = lowestScoredBlock.getBlockHeight();
+                        PersistentData.put(lastBlockTransmissionHeightKey, lastBlockTransmissionHeight);
+                        System.out.println(ConsoleColor.Yellow.background() + "sent block for " +
                                 PrintUtil.compactPrintByteArray(lowestScoredBlock.getVerifierIdentifier()) +
                                 " with hash " + PrintUtil.compactPrintByteArray(lowestScoredBlock.getHash()) +
-                                " at height " + lowestScoredBlock.getBlockHeight());
+                                " at height " + lowestScoredBlock.getBlockHeight() + ConsoleColor.reset);
                     }
                 }
             }
@@ -657,16 +673,32 @@ public class Sentinel {
             // from the sender to a dead wallet (all zeros). The minimum transaction fee is 1 micronyzo, so no funds
             // will be transferred. The only purpose of this transaction is to add metadata to the blockchain.
             if (verifier.isSentinelTransactionEnabled()) {
-                long timestamp = previousBlock.getStartTimestamp() + Block.blockDuration + 1L;
-                long amount = 1L;
-                byte[] receiverIdentifier = new byte[FieldByteSize.identifier];
-                long previousHashHeight = previousBlock.getBlockHeight();
-                byte[] previousBlockHash = previousBlock.getHash();
-                String dataString = "block from sentinel v" + Version.getVersion();
-                byte[] senderData = dataString.getBytes(StandardCharsets.UTF_8);
-                Transaction sentinelTransaction = Transaction.standardTransaction(timestamp, amount, receiverIdentifier,
-                        previousHashHeight, previousBlockHash, senderData, verifier.getSeed());
-                transactions.add(sentinelTransaction);
+                BalanceList balanceList = BalanceListManager.balanceListForBlock(previousBlock);
+                if (balanceList == null) {
+                    LogUtil.println("omitting sentinel transaction due to unavailable balance list");
+                } else {
+                    // Only add the sentinel transaction if the balance is over the minimum preferred balance.
+                    Map<ByteBuffer, Long> balanceMap = BalanceManager.makeBalanceMap(balanceList);
+                    long verifierBalance = balanceMap.getOrDefault(ByteBuffer.wrap(verifier.getIdentifier()), 0L);
+                    if (verifierBalance <= BalanceManager.minimumPreferredBalance) {
+                        LogUtil.println("omitting sentinel transaction because balance of " +
+                                PrintUtil.compactPrintByteArray(verifier.getIdentifier()) + " is " +
+                                PrintUtil.printAmount(verifierBalance) + ", which is less than minimum preferred " +
+                                "balance of " + PrintUtil.printAmount(BalanceManager.minimumPreferredBalance));
+                    } else {
+                        long timestamp = previousBlock.getStartTimestamp() + Block.blockDuration + 1L;
+                        long amount = 1L;
+                        byte[] receiverIdentifier = new byte[FieldByteSize.identifier];
+                        long previousHashHeight = previousBlock.getBlockHeight();
+                        byte[] previousBlockHash = previousBlock.getHash();
+                        String dataString = "block from sentinel v" + Version.getVersion();
+                        byte[] senderData = dataString.getBytes(StandardCharsets.UTF_8);
+                        Transaction sentinelTransaction = Transaction.standardTransaction(timestamp, amount,
+                                receiverIdentifier, previousHashHeight, previousBlockHash, senderData,
+                                verifier.getSeed());
+                        transactions.add(sentinelTransaction);
+                    }
+                }
             }
 
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
@@ -704,5 +736,13 @@ public class Sentinel {
 
     public static List<ManagedVerifier> getManagedVerifiers() {
         return verifierList;
+    }
+
+    public static boolean isCalculatingValidChainScores() {
+        return calculatingValidChainScores;
+    }
+
+    public static long getLastBlockTransmissionHeight() {
+        return lastBlockTransmissionHeight;
     }
 }

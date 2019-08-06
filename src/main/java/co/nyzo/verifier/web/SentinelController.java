@@ -32,9 +32,6 @@ public class SentinelController {
         // Add the Ajax update for the container div to the head of the document.
         head.add(container.ajaxUpdate(updateEndpoint, 5000));
 
-        // Add the version to the bottom of the page.
-        body.add(new P("Nyzo sentinel, version " + Version.getVersion()).attr("style", "font-style: italic;"));
-
         return new EndpointResponse(html.renderByteArray());
     }
 
@@ -46,6 +43,7 @@ public class SentinelController {
         HtmlElementList content = new HtmlElementList();
         content.add(header());
         content.add(verifierTable());
+        content.add(new P("Nyzo sentinel, version " + Version.getVersion()).attr("style", "font-style: italic;"));
         return content;
     }
 
@@ -57,14 +55,34 @@ public class SentinelController {
         if (frozenEdge == null) {
             header.append("Frozen edge not yet available");
         } else {
-            header.append("Frozen edge: ").append(BlockManager.getFrozenEdgeHeight());
+            header.append("Frozen edge: ").append(frozenEdge.getBlockHeight());
             int blocksFromOpen = (int) (BlockManager.openEdgeHeight(false) - frozenEdge.getBlockHeight());
             header.append("<br>(").append(WebUtil.sanitizedNickname(frozenEdge.getVerifierIdentifier())).append(", ")
                     .append(blocksFromOpen).append(" behind open edge)");
         }
 
+        // Add the cycle length.
+        header.append("<br>Current cycle: ").append(BlockManager.isCycleComplete() ? BlockManager.currentCycleLength() :
+                "-");
+
         // Add the efficiency rating.
         header.append(String.format("<br>Efficiency: %.1f%%", Sentinel.getEfficiency()));
+
+        // Add the height at which a block was last transmitted.
+        long lastBlockTransmitted = Sentinel.getLastBlockTransmissionHeight();
+        header.append("<br>Last block transmitted: " + (lastBlockTransmitted < 0 ? "-" : lastBlockTransmitted));
+
+        // Add whether the sentinel is actively protecting verifiers. If the sentinel is not yet calculating valid chain
+        // scores, it is unable to protect verifiers. If the frozen edge was verified longer ago than the
+        // verifier-removal interval (80 seconds), then the protection status is uncertain.
+        header.append("<br>Protecting verifiers: ");
+        if (!Sentinel.isCalculatingValidChainScores()) {
+            header.append("<span style=\"color: #f00;\">no</span>");
+        } else if (frozenEdge == null || frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 80000L) {
+            header.append("<span style=\"color: #f80;\">uncertain</span>");
+        } else {
+            header.append("<span style=\"color: #080;\">yes</span>");
+        }
 
         // Return the header.
         return new H3(header.toString());
@@ -79,11 +97,9 @@ public class SentinelController {
                 ".verifier-label { display: table-cell; padding: 0.5rem 1.0rem 0 1.0rem; vertical-align: top; " +
                 "white-space: nowrap; height: 1.6rem; }" +
                 ".verifier-label-active { background-color: #999; }" +
-                ".verifier-tile-container { width: " + tileContainerWidth + "; min-width: " + tileContainerWidth +
-                "; height: 0; display: table-caption; }" +
-                ".verifier-tile { display: inline-block; width: 1.3rem; height: 2.1rem; }" +
+                ".verifier-tile { display: table-cell; width: 1.3rem; height: 2.1rem; }" +
                 ".verifier-tile-line { position: relative; left: 0; width: 1.3rem; height: 0.2rem; " +
-                "background-color: #0005; }" +
+                "background-color: rgba(0,0,0,0.3); }" +
                 ".verifier-tile-label { color: white; width: 1.3rem; position: relative; display: table-cell; " +
                 "padding-top: 0.3rem; font-weight: bold; }" +
                 ".separator-row { height: 1px; }"));
@@ -99,12 +115,16 @@ public class SentinelController {
             int queryIndex = verifier.getQueryIndex();
             int[] results = verifier.getQueryResults();
 
+            Div row = (Div) div.add(new Div().attr("class", "verifier-row"));
+            String nickname = WebUtil.sanitizedNickname(verifier.getIdentifier());
+            String className = "verifier-label" + (verifier.isQueriedLastInterval() ? " verifier-label-active" : "");
+            row.add(new Div().attr("class", className).addRaw(nickname));
+
             // Build the div of color-coded tiles for the recent results, counting the results in the process.
             int countNotYetQueried = 0;
             int countError = 0;
             int countEmpty = 0;
             int countReceivedBlock = 0;
-            Div tileContainer = (Div) new Div().attr("class", "verifier-tile-container");
             for (int i = 0; i < results.length; i++) {
                 int arrayIndex = (queryIndex + results.length - i - 1) % results.length;
                 int result = results[arrayIndex];
@@ -125,7 +145,7 @@ public class SentinelController {
                     color = "#080;";
                     label = result + "";
                 }
-                Div tile = (Div) tileContainer.add(new Div().attr("class", "verifier-tile")
+                Div tile = (Div) row.add(new Div().attr("class", "verifier-tile")
                         .attr("style", "background-color: " + color));
 
                 // This is a simple line over the cell to show motion.
@@ -136,12 +156,6 @@ public class SentinelController {
                 // This is the number label.
                 tile.add(new Div().attr("class", "verifier-tile-label").addRaw(label));
             }
-
-            Div row = (Div) div.add(new Div().attr("class", "verifier-row"));
-            String nickname = WebUtil.sanitizedNickname(verifier.getIdentifier());
-            String className = "verifier-label" + (verifier.isQueriedLastInterval() ? " verifier-label-active" : "");
-            row.add(new Div().attr("class", className).addRaw(nickname));
-            row.add(tileContainer);
 
             div.add(new Div().attr("class", "separator-row"));
         }
