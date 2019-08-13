@@ -1,6 +1,8 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NewVerifierVote;
+import co.nyzo.verifier.util.LogUtil;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -74,35 +76,30 @@ public class NewVerifierVoteManager {
         return voteTotals;
     }
 
-    public static List<ByteBuffer> topVerifiers() {
+    public static ByteBuffer topVerifier() {
 
-        // Make and sort the list descending on votes.
+        // Find the verifier with the most votes. The top vote count is initially at least half of the cycle length,
+        // which means that the top verifier will remain null if no verifier has the mojority of votes.
+        ByteBuffer topVerifier = null;
+        int topVoteCount = (BlockManager.currentCycleLength() + 1) / 2;
         Map<ByteBuffer, Integer> voteTotals = voteTotals();
-        List<ByteBuffer> topVerifiers = new ArrayList<>(voteTotals.keySet());
-        Collections.sort(topVerifiers, new Comparator<ByteBuffer>() {
-            @Override
-            public int compare(ByteBuffer verifierVote1, ByteBuffer verifierVote2) {
-                Integer voteCount1 = voteTotals.get(verifierVote1);
-                Integer voteCount2 = voteTotals.get(verifierVote2);
-                return voteCount2.compareTo(voteCount1);
-            }
-        });
-
-        // Limit the list to three verifiers. We do not consider ties, as they are inconsequential and do not
-        // justify additional logic complexity.
-        while (topVerifiers.size() > 3) {
-            topVerifiers.remove(topVerifiers.size() - 1);
-        }
-
-        // If the verifiers list is empty and this is a new verifier, add it to the list now.
-        if (topVerifiers.isEmpty()) {
-            ByteBuffer verifierIdentifier = ByteBuffer.wrap(Verifier.getIdentifier());
-            if (!BlockManager.verifierInCurrentCycle(verifierIdentifier)) {
-                topVerifiers.add(verifierIdentifier);
+        for (ByteBuffer verifier : voteTotals.keySet()) {
+            int voteCount = voteTotals.get(verifier);
+            if (voteCount > topVoteCount) {
+                topVoteCount = voteCount;
+                topVerifier = verifier;
             }
         }
+        if (topVerifier == null) {
+            LogUtil.println("top verifier is null");
+        } else {
+            int cycleLength = BlockManager.currentCycleLength();
+            LogUtil.println(String.format("top verifier %s has %d votes with a cycle length of %d (%.1f%%)",
+                    PrintUtil.compactPrintByteArray(topVerifier.array()), topVoteCount, cycleLength,
+                    topVoteCount * 100.0 / cycleLength));
+        }
 
-        return topVerifiers;
+        return topVerifier;
     }
 
     public static NewVerifierVote getLocalVote() {

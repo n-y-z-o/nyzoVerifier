@@ -16,8 +16,9 @@ public class BootstrapResponseV2 implements MessageObject {
 
     public BootstrapResponseV2() {
 
-        this.frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-        this.frozenEdgeHash = BlockManager.frozenBlockForHeight(this.frozenEdgeHeight).getHash();
+        Block frozenEdge = BlockManager.getFrozenEdge();
+        this.frozenEdgeHeight = frozenEdge == null ? -1 : frozenEdge.getBlockHeight();
+        this.frozenEdgeHash = frozenEdge == null ? new byte[FieldByteSize.hash] : frozenEdge.getHash();
         this.cycleVerifiers = BlockManager.verifiersInCurrentCycleList();
     }
 

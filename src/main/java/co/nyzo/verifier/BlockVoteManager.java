@@ -44,7 +44,7 @@ public class BlockVoteManager {
                 // Get the map for the height.
                 Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
                 if (votesForHeight == null) {
-                    votesForHeight = new HashMap<>();
+                    votesForHeight = new ConcurrentHashMap<>();
                     voteMap.put(height, votesForHeight);
                 }
 
@@ -62,7 +62,7 @@ public class BlockVoteManager {
                     // Get the flip map for the height.
                     Map<ByteBuffer, BlockVote> flipVotesForHeight = flipVoteMap.get(height);
                     if (flipVotesForHeight == null) {
-                        flipVotesForHeight = new HashMap<>();
+                        flipVotesForHeight = new ConcurrentHashMap<>();
                         flipVoteMap.put(height, flipVotesForHeight);
                     }
 
@@ -104,7 +104,7 @@ public class BlockVoteManager {
         }
     }
 
-    public static synchronized String votesAtHeight(long height) {
+    public static String votesAtHeight(long height) {
 
         int numberOfVotes = 0;
         int maximumVotes = 0;
@@ -115,12 +115,7 @@ public class BlockVoteManager {
             Map<ByteBuffer, Integer> voteCounts = new HashMap<>();
             for (BlockVote vote : votesForHeight.values()) {
                 ByteBuffer hash = ByteBuffer.wrap(vote.getHash());
-                Integer count = voteCounts.get(hash);
-                if (count == null) {
-                    count = 1;
-                } else {
-                    count++;
-                }
+                int count = voteCounts.getOrDefault(hash, 0) + 1;
                 voteCounts.put(hash, count);
                 maximumVotes = Math.max(maximumVotes, count);
             }
@@ -131,8 +126,7 @@ public class BlockVoteManager {
 
     public static Map<ByteBuffer, BlockVote> votesForHeight(long height) {
 
-        Map<ByteBuffer, BlockVote> votesForHeight = voteMap.get(height);
-        return votesForHeight == null ? null : new HashMap<>(votesForHeight);
+        return voteMap.get(height);
     }
 
     public static byte[] voteForIdentifierAtHeight(byte[] identifier, long height) {

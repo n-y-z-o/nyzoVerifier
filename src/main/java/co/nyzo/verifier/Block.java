@@ -675,7 +675,7 @@ public class Block implements MessageObject {
 
         // This score is always relative to a provided block height. The zero block height has a score of zero, and
         // each subsequent block affects the score as follows:
-        // - a new verifier subtracts 2 but adds 4 times the verifier's position in the new-verifier queue
+        // - the preferred new verifier subtracts 2; all others add 10,000
         // - an existing verifier adds the difference in cycle length between the previous block and this block,
         //   multiplied by 4
         // - an existing verifier that is no longer in the mesh or shares an IP with another verifier adds 5
@@ -698,15 +698,13 @@ public class Block implements MessageObject {
                         score = (Math.abs(HashUtil.longSHA256(block.getVerifierIdentifier())) % 9000) * -1L - 1000L;
 
                     } else {
-                        score -= 2L;
-
-                        List<ByteBuffer> topNewVerifiers = NewVerifierVoteManager.topVerifiers();
-                        ByteBuffer verifierIdentifier = ByteBuffer.wrap(block.getVerifierIdentifier());
-                        int indexInQueue = topNewVerifiers.indexOf(verifierIdentifier);
-                        if (indexInQueue < 0 || indexInQueue > 2) {
-                            score += 12L;  // maximum of three new in queue; this is behind the queue
+                        // Only allow the top new verifier to join.
+                        ByteBuffer topNewVerifier = NewVerifierVoteManager.topVerifier();
+                        if (topNewVerifier != null &&
+                                ByteUtil.arraysAreEqual(topNewVerifier.array(), block.getVerifierIdentifier())) {
+                            score -= 2L;
                         } else {
-                            score += indexInQueue * 4L;
+                            score += 10000L;
                         }
 
                         // Penalize for each balance-list spam transaction.

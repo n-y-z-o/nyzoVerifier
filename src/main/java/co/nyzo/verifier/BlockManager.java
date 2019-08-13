@@ -656,7 +656,10 @@ public class BlockManager {
             // Build the cycle-and-near set.
             Set<ByteBuffer> currentAndNearCycleSet = ConcurrentHashMap.newKeySet();
             currentAndNearCycleSet.addAll(currentCycleList);
-            currentAndNearCycleSet.addAll(NewVerifierVoteManager.topVerifiers());
+            ByteBuffer topNewVerifier = NewVerifierVoteManager.topVerifier();
+            if (topNewVerifier != null) {
+                currentAndNearCycleSet.add(topNewVerifier);
+            }
             BlockManager.currentAndNearCycleSet = currentAndNearCycleSet;
 
             // Build the cycle-and-near node set.

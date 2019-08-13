@@ -564,7 +564,8 @@ public class LockedAccountManager {
 
     public static boolean isSubjectToLock(Transaction transaction) {
 
-        return transaction.getType() != Transaction.typeSeed &&
+        return transaction.getType() != Transaction.typeCoinGeneration &&
+                transaction.getType() != Transaction.typeSeed &&
                 lockedAccounts.contains(ByteBuffer.wrap(transaction.getSenderIdentifier())) &&
                 !ByteUtil.arraysAreEqual(transaction.getReceiverIdentifier(), BalanceListItem.cycleAccountIdentifier);
     }
