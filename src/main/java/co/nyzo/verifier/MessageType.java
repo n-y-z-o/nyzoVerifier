@@ -28,8 +28,8 @@ public enum MessageType {
     BlockVoteResponse20(20),
     NewVerifierVote21(21),
     NewVerifierVoteResponse22(22),
-    MissingBlockVoteRequest23(23),   // no longer used as of v515; will be eliminated in a future version
-    MissingBlockVoteResponse24(24),  // no longer used as of v515; will be eliminated in a future version
+    MissingBlockVoteRequest23(23),
+    MissingBlockVoteResponse24(24),
     MissingBlockRequest25(25),
     MissingBlockResponse26(26),
     TimestampRequest27(27),
@@ -52,6 +52,10 @@ public enum MessageType {
     NodeJoinResponseV2_44(44),
     FrozenEdgeBalanceListRequest_45(45),
     FrozenEdgeBalanceListResponse_46(46),
+    CycleTransactionSignature_47(47),
+    CycleTransactionSignatureResponse_48(48),
+    CycleTransactionListRequest_49(49),
+    CycleTransactionListResponse_50(50),
 
     // test messages
     Ping200(200),

@@ -49,7 +49,7 @@ public class BalanceListManager {
             if (block.getBlockHeight() == 0) {
                 if (genesisList == null) {
                     genesisList = Block.balanceListForNextBlock(null, null, block.getTransactions(),
-                            block.getVerifierIdentifier());
+                            block.getVerifierIdentifier(), block.getBlockchainVersion());
                 }
                 balanceList = genesisList;
             } else if (recentList != null) {
@@ -79,7 +79,8 @@ public class BalanceListManager {
                         balanceList = startBalanceList;
                         for (int i = 0; i < blocks.size() - 1; i++) {
                             balanceList = Block.balanceListForNextBlock(blocks.get(i), balanceList,
-                                    blocks.get(i + 1).getTransactions(), blocks.get(i + 1).getVerifierIdentifier());
+                                    blocks.get(i + 1).getTransactions(), blocks.get(i + 1).getVerifierIdentifier(),
+                                    blocks.get(i + 1).getBlockchainVersion());
                         }
 
                         registerBalanceList(balanceList);

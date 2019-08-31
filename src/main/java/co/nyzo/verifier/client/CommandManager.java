@@ -13,6 +13,9 @@ public class CommandManager {
             new PublicNyzoStringCommand(),
             new PrefilledDataCreateCommand(),
             new PrefilledDataSendCommand(),
+            new CycleTransactionSendCommand(),
+            new CycleTransactionListCommand(),
+            new CycleTransactionSignCommand(),
             new ExitCommand()
     };
 

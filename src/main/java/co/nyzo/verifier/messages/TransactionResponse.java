@@ -20,21 +20,39 @@ public class TransactionResponse implements MessageObject {
 
         accepted = false;
         if (transactionValid) {
-            boolean addedToPool = TransactionPool.addTransaction(transaction, error, warning);
-            if (addedToPool) {
-                String warningString = "";
-                if (warning.length() > 0) {
-                    warningString = " (warning=\"" + warning.toString().trim() + "\")";
-                }
+            if (transaction.getType() == Transaction.typeStandard) {
+                boolean addedToPool = TransactionPool.addTransaction(transaction, error, warning);
+                if (addedToPool) {
+                    String warningString = "";
+                    if (warning.length() > 0) {
+                        warningString = " (warning=\"" + warning.toString().trim() + "\")";
+                    }
 
-                long height = BlockManager.heightForTimestamp(transaction.getTimestamp());
-                accepted = true;
-                message = "Your transaction from wallet " +
-                        PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + " to " +
-                        PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
-                        " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
-                        " has been accepted by the system and is scheduled for incorporation into block " +
-                        height + "." + warningString;
+                    long height = BlockManager.heightForTimestamp(transaction.getTimestamp());
+                    accepted = true;
+                    message = "Your transaction from wallet " +
+                            PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + " to " +
+                            PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
+                            " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
+                            " has been accepted by the system and is scheduled for incorporation into block " +
+                            height + "." + warningString;
+                }
+            } else if (transaction.getType() == Transaction.typeCycle) {
+                boolean addedToManager = CycleTransactionManager.registerTransaction(transaction, error, warning);
+                if (addedToManager) {
+                    String warningString = "";
+                    if (warning.length() > 0) {
+                        warningString = " (warning=\"" + warning.toString().trim() + "\")";
+                    }
+
+                    long height = BlockManager.heightForTimestamp(transaction.getTimestamp());
+                    accepted = true;
+                    message = "Your cycle transaction to wallet " +
+                            PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
+                            " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
+                            " has been accepted by the system and is scheduled for incorporation into block " +
+                            height + "." + warningString;
+                }
             }
         }
 

@@ -40,9 +40,10 @@ public class Verifier {
     private static int recentMessageTimestampsIndex = 0;
     private static final long[] recentMessageTimestamps = new long[10];
 
-    private static final Map<ByteBuffer, Block> blocksExtended = new HashMap<>();
-    private static final Map<ByteBuffer, Block> blocksCreated = new HashMap<>();
-    private static final Map<ByteBuffer, Block> blocksTransmitted = new HashMap<>();
+    private static Block nextBlock = null;
+    private static Block nextBlockUpgrade = null;
+    private static boolean transmittedBlock = false;
+    private static boolean transmittedBlockUpgrade = false;
 
     private static long initializationTime = 0L;
 
@@ -130,7 +131,7 @@ public class Verifier {
 
             // Load the private seed. This seed is used to sign all messages, so this is done first.
             loadPrivateSeed();
-            NotificationUtil.send("setting temporary local verifier entry on " + Verifier.getNickname());
+            LogUtil.println("setting temporary local verifier entry on " + Verifier.getNickname());
             NodeManager.addTemporaryLocalVerifierEntry();
 
             // Start the mesh listener and wait for it to start and for the port to settle.
@@ -241,11 +242,11 @@ public class Verifier {
                 @Override
                 public void run() {
                     try {
-                        NotificationUtil.send("started main verifier loop on " + getNickname());
+                        LogUtil.println("started main verifier loop on " + getNickname());
                         StatusResponse.print();
                         verifierMain();
                     } catch (Exception reportOnly) {
-                        NotificationUtil.send("exited verifierMain() on " + getNickname() + " due to exception: " +
+                        LogUtil.println("exited verifierMain() on " + getNickname() + " due to exception: " +
                                 reportOnly.getMessage());
                     }
                     alive.set(false);
@@ -308,7 +309,8 @@ public class Verifier {
             System.out.println("genesis block is null");
             try {
 
-                URL url = new URL(SeedTransactionManager.s3UrlForFile("genesis"));
+                URL url = TestnetUtil.testnet ? new URL("https://testnet.nyzo.co/genesisBlock") :
+                        new URL(SeedTransactionManager.urlForFile("genesis"));
                 ReadableByteChannel channel = Channels.newChannel(url.openStream());
                 byte[] array = new byte[2048];
                 ByteBuffer buffer = ByteBuffer.wrap(array);
@@ -318,17 +320,13 @@ public class Verifier {
                 buffer.rewind();
                 genesisBlock = Block.fromByteBuffer(buffer);
 
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
-            }
+            } catch (Exception ignored) { }
 
             // The verifier cannot start without a Genesis block. If there was a problem, sleep for two seconds and
             // try again.
             if (genesisBlock == null) {
-                try {
-                    Thread.sleep(2000L);
-                } catch (Exception ignored) {
-                }
+                LogUtil.println("unable to fetch Genesis block; retrying");
+                ThreadUtil.sleep(2000L);
             } else {
                 BalanceList balanceList = BalanceListManager.balanceListForBlock(genesisBlock);
                 BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash(), balanceList, null);
@@ -376,56 +374,42 @@ public class Verifier {
                     // Perform setup tasks for the NodeManager.
                     NodeManager.updateActiveVerifiersAndRemoveOldNodes();
 
-                    // Clean up the map of blocks we have extended. We will never extend behind the frozen edge, so
-                    // those can be removed. This map is used to ensure that we do not extend the same block more than
-                    // once.
-                    long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-                    for (ByteBuffer blockHash : new HashSet<>(blocksExtended.keySet())) {
-                        Block block = blocksExtended.get(blockHash);
-                        if (block.getBlockHeight() < frozenEdgeHeight) {
-                            blocksExtended.remove(blockHash);
-                        }
-                    }
-
-                    // Clean up the maps of blocks we have created and transmitted. These maps only need entries past
-                    // the frozen edge. We can iterate over the keys from the created map, because the transmitted
-                    // map is a subset of the created map.
-                    for (ByteBuffer blockHash : new HashSet<>(blocksCreated.keySet())) {
-                        Block block = blocksCreated.get(blockHash);
-                        if (block.getBlockHeight() <= frozenEdgeHeight) {
-                            blocksCreated.remove(blockHash);
-                            blocksTransmitted.remove(blockHash);
-                        }
-                    }
-
                     // Try to extend the frozen edge. We extend the frozen edge if the minimum verification interval
                     // has passed and if the edge is open.
-                    Block frozenEdge = BlockManager.frozenBlockForHeight(frozenEdgeHeight);
-                    if (frozenEdge.getVerificationTimestamp() <=
+                    Block frozenEdge = BlockManager.getFrozenEdge();
+                    long frozenEdgeHeight = frozenEdge.getBlockHeight();
+                    if (nextBlock == null && frozenEdge.getVerificationTimestamp() <=
                             System.currentTimeMillis() - Block.minimumVerificationInterval &&
                             frozenEdge.getBlockHeight() < BlockManager.openEdgeHeight(false)) {
-                        extendBlock(frozenEdge);
+                        extendBlock(frozenEdge, false);
+
+                        // This will happen rarely, but it is a necessary condition. If a blockchain upgrade is pending,
+                        // also create the upgrade block now.
+                        if (BlockchainVersionManager.upgradePending(frozenEdge)) {
+                            extendBlock(frozenEdge, true);
+                        }
                     }
 
-                    // Now, transmit blocks with suitable scores that have not been transmitted yet.
-                    for (ByteBuffer blockHash : new HashSet<>(blocksCreated.keySet())) {
+                    // If the regular block has been created but not yet transmitted, transmit it if other verifiers
+                    // would cast a vote for it in the next 10 seconds.
+                    if (!transmittedBlock && nextBlock != null &&
+                            nextBlock.getMinimumVoteTimestamp() <= System.currentTimeMillis() + 10000L) {
 
-                        Block block = blocksCreated.get(blockHash);
-                        if (!blocksTransmitted.containsKey(blockHash) &&
-                                block.getContinuityState() == Block.ContinuityState.Continuous) {
+                        LogUtil.println("transmitting block " + nextBlock);
+                        Message.broadcast(new Message(MessageType.NewBlock9, new NewBlockMessage(nextBlock)));
+                        numberOfBlocksTransmitted++;
+                        transmittedBlock = true;
+                    }
 
-                            // Only transmit a block if other verifiers would cast a vote for it in the next 10 seconds
-                            // and broadcasting would not get us blacklisted.
-                            if (BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier())) &&
-                                    block.getMinimumVoteTimestamp() <= System.currentTimeMillis() + 10000L) {
+                    // If the upgrade block has been created but not yet transmitted, transmit it if other verifiers
+                    // would cast a vote for it in the next 10 seconds.
+                    if (!transmittedBlockUpgrade && nextBlockUpgrade != null &&
+                            nextBlockUpgrade.getMinimumVoteTimestamp() <= System.currentTimeMillis() + 10000L) {
 
-                                numberOfBlocksTransmitted++;
-                                Message.broadcast(new Message(MessageType.NewBlock9, new NewBlockMessage(block)));
-
-                                blocksTransmitted.put(blockHash, block);
-                            }
-
-                        }
+                        LogUtil.println("transmitting upgrade block " + nextBlockUpgrade);
+                        Message.broadcast(new Message(MessageType.NewBlock9, new NewBlockMessage(nextBlockUpgrade)));
+                        numberOfBlocksTransmitted++;
+                        transmittedBlockUpgrade = true;
                     }
 
                     // Update the local vote with the unfrozen block manager. This may change for several reasons,
@@ -494,7 +478,13 @@ public class Verifier {
                     long newFrozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
                     if (frozenEdgeHeight != newFrozenEdgeHeight) {
 
-                        System.out.println("cleaning up because block " + newFrozenEdgeHeight + " was frozen");
+                        LogUtil.println("cleaning up because block " + newFrozenEdgeHeight + " was frozen");
+
+                        // Reset the fields for the next block.
+                        nextBlock = null;
+                        nextBlockUpgrade = null;
+                        transmittedBlock = false;
+                        transmittedBlockUpgrade = false;
 
                         // If this verifier has not yet cast a vote for the height that was just frozen, cast it now
                         // to show that this verifier is actively participating in the mesh and to fortify the
@@ -516,9 +506,10 @@ public class Verifier {
                         // Update vote counts for verifier removal.
                         VerifierRemovalManager.updateVoteCounts();
 
-                        // Perform blacklist and unfrozen block maintenance.
+                        // Perform blacklist, unfrozen block, and cycle transaction maintenance.
                         BlacklistManager.performMaintenance();
                         UnfrozenBlockManager.performMaintenance();
+                        CycleTransactionManager.performMaintenance();
 
                         // Update the new-verifier vote. This is necessary if the previous choice is now in the
                         // cycle.
@@ -547,7 +538,7 @@ public class Verifier {
                 }
 
             } catch (Exception reportOnly) {
-                NotificationUtil.send("verifier main exception: " + PrintUtil.printException(reportOnly));
+                LogUtil.println("verifier main exception: " + PrintUtil.printException(reportOnly));
             }
 
             // Sleep for a short time to avoid consuming too much computational power.
@@ -579,34 +570,31 @@ public class Verifier {
         }
     }
 
-    private static void extendBlock(Block block) {
+    private static void extendBlock(Block block, boolean upgradeBlockchainVersion) {
 
         CycleInformation cycleInformation = block.getCycleInformation();
         ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
         if (cycleInformation != null &&
                 block.getContinuityState() == Block.ContinuityState.Continuous &&
-                !ByteUtil.arraysAreEqual(block.getVerifierIdentifier(), Verifier.getIdentifier()) &&
-                !blocksExtended.containsKey(blockHash)) {
+                !ByteUtil.arraysAreEqual(block.getVerifierIdentifier(), Verifier.getIdentifier())) {
 
-            // Create the next block. If the next block is not null, mark that the previous block has been extended so
-            // we do not extend it again. Also, if the next block is not discontinuous, add it to the set of blocks
-            // that have been created and register it with UnfrozenBlockManager.
-            Block nextBlock = createNextBlock(block);
+            // Create the block. If the block is not discontinuous, register it with UnfrozenBlockManager.
+            Block nextBlock = createNextBlock(block, upgradeBlockchainVersion);
             numberOfBlocksCreated++;
-            if (nextBlock != null) {
-                blocksExtended.put(blockHash, block);
+            if (nextBlock != null && nextBlock.getContinuityState() != Block.ContinuityState.Discontinuous) {
+                UnfrozenBlockManager.registerBlock(nextBlock);
+            }
 
-                if (block.getContinuityState() != Block.ContinuityState.Discontinuous) {
-                    ByteBuffer nextBlockHash = ByteBuffer.wrap(nextBlock.getHash());
-                    blocksCreated.put(nextBlockHash, nextBlock);
-
-                    UnfrozenBlockManager.registerBlock(nextBlock);
-                }
+            // Store the block in the appropriate static variable.
+            if (upgradeBlockchainVersion) {
+                nextBlockUpgrade = nextBlock;
+            } else {
+                Verifier.nextBlock = nextBlock;
             }
         }
     }
 
-    private static Block createNextBlock(Block previousBlock) {
+    private static Block createNextBlock(Block previousBlock, boolean upgradeBlockchainVersion) {
 
         Block block = null;
         if (previousBlock != null && !ByteUtil.arraysAreEqual(previousBlock.getVerifierIdentifier(),
@@ -622,6 +610,31 @@ public class Verifier {
                 transactions.add(seedTransaction);
             }
 
+            // Add any valid cycle transactions that are available. Filter the signatures on these transactions to
+            // ensure that invalid or out-of-cycle signatures do not cause the transaction to be rejected.
+            List<Transaction> cycleTransactions = CycleTransactionManager.transactionsForHeight(blockHeight);
+            for (Transaction transaction : cycleTransactions) {
+                transaction.filterCycleSignatures();
+                int numberOfSignatures = transaction.getCycleSignatures().size() + 1;
+                Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
+                int signatureThreshold = (currentCycle.size() + 1) * 3 / 4;  // ceiling of 75%
+                if (!currentCycle.contains(ByteBuffer.wrap(transaction.getSenderIdentifier()))) {
+                    LogUtil.println("omitting cycle transaction because initiator, " +
+                            PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + ", is not in cycle: " +
+                            transaction);
+                } else if (!transaction.signatureIsValid()) {
+                    LogUtil.println("omitting cycle transaction due to invalid initiator signature: " + transaction);
+                } else if (numberOfSignatures < signatureThreshold) {
+                    LogUtil.println("omitting cycle transaction due to inadequate signature count (count=" +
+                            numberOfSignatures + ", threshold=" + signatureThreshold + ", cycle length=" +
+                            currentCycle.size() + "): " + transaction);
+                } else {
+                    LogUtil.println("including cycle transaction in block " + blockHeight + ": " + transaction);
+                    transactions.add(transaction);
+                }
+            }
+
+            // Check the transactions list, keeping only approved transactions.
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
                     previousBlock);
 
@@ -636,11 +649,12 @@ public class Verifier {
                         approvedTransactions);
 
                 // Make the balance list for the new block. If the balance list is good, make the block.
+                int blockchainVersion = previousBlock.getBlockchainVersion() + (upgradeBlockchainVersion ? 1 : 0);
                 BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
-                        approvedTransactions, Verifier.getIdentifier());
+                        approvedTransactions, Verifier.getIdentifier(), blockchainVersion);
                 if (balanceList != null) {
                     long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
-                    block = new Block(previousBlock.getBlockchainVersion(), blockHeight, previousBlock.getHash(),
+                    block = new Block(balanceList.getBlockchainVersion(), blockHeight, previousBlock.getHash(),
                             startTimestamp, approvedTransactions, balanceList.getHash());
                 }
             }
@@ -723,6 +737,10 @@ public class Verifier {
     public static long getLastBlockFrozenTimestamp() {
 
         return lastBlockFrozenTimestamp;
+    }
+
+    public static long getInitializationTime() {
+        return initializationTime;
     }
 
     public static boolean inCycle() {

@@ -1,18 +1,33 @@
 package co.nyzo.verifier.messages;
 
-import co.nyzo.verifier.FieldByteSize;
-import co.nyzo.verifier.MessageObject;
-import co.nyzo.verifier.Transaction;
+import co.nyzo.verifier.*;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TransactionPoolResponse implements MessageObject {
+public class TransactionListResponse implements MessageObject {
 
     private List<Transaction> transactions;
 
-    public TransactionPoolResponse(List<Transaction> transactions) {
+    public TransactionListResponse(Message request) {
+
+        // Both types of transaction list responses require self-signed requests.
+        if (ByteUtil.arraysAreEqual(request.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
+            if (request.getType() == MessageType.TransactionPoolResponse14) {
+                transactions = TransactionPool.allTransactions();
+            } else if (request.getType() == MessageType.CycleTransactionListRequest_49) {
+                transactions = new ArrayList<>(CycleTransactionManager.getTransactions());
+            } else {
+                transactions = new ArrayList<>();
+            }
+        } else {
+            // Provide an empty result for requests that are not self-signed.
+            transactions = new ArrayList<>();
+        }
+    }
+
+    public TransactionListResponse(List<Transaction> transactions) {
         this.transactions = transactions;
     }
 
@@ -23,7 +38,7 @@ public class TransactionPoolResponse implements MessageObject {
     @Override
     public int getByteSize() {
 
-        int size = FieldByteSize.transactionPoolLength;
+        int size = FieldByteSize.unnamedInteger;
         for (Transaction transaction : transactions) {
             size += transaction.getByteSize();
         }
@@ -45,9 +60,9 @@ public class TransactionPoolResponse implements MessageObject {
         return result;
     }
 
-    public static TransactionPoolResponse fromByteBuffer(ByteBuffer buffer) {
+    public static TransactionListResponse fromByteBuffer(ByteBuffer buffer) {
 
-        TransactionPoolResponse result = null;
+        TransactionListResponse result = null;
 
         try {
             List<Transaction> transactions = new ArrayList<>();
@@ -57,7 +72,7 @@ public class TransactionPoolResponse implements MessageObject {
                 transactions.add(Transaction.fromByteBuffer(buffer));
             }
 
-            result = new TransactionPoolResponse(transactions);
+            result = new TransactionListResponse(transactions);
         } catch (Exception ignored) {
             ignored.printStackTrace();
         }

@@ -117,10 +117,10 @@ public class SeedTransactionManager {
         return new File(rootDirectory, String.format("%06d.nyzotransaction", index));
     }
 
-    public static String s3UrlForFile(String filename) {
+    public static String urlForFile(String filename) {
 
-        String bucket = TestnetUtil.testnet ? "nyzo-testnet" : "nyzo";
-        return "https://s3-us-west-2.amazonaws.com/" + bucket + "/" + filename;
+        return TestnetUtil.testnet ? "https://testnet.nyzo.co/seed/" + filename :
+                "https://s3-us-west-2.amazonaws.com/nyzo/" + filename;
     }
 
     public static void fetchFile(File file) {
@@ -129,7 +129,7 @@ public class SeedTransactionManager {
 
             file.getParentFile().mkdirs();
 
-            URL url = new URL(s3UrlForFile(file.getName()));
+            URL url = new URL(urlForFile(file.getName()));
             ReadableByteChannel channel = Channels.newChannel(url.openStream());
             FileOutputStream outputStream = new FileOutputStream(file);
             outputStream.getChannel().transferFrom(channel, 0, Long.MAX_VALUE);

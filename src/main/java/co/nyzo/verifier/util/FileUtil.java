@@ -32,7 +32,7 @@ public class FileUtil {
 
         } catch (Exception ignored) {
             ignored.printStackTrace();
-            NotificationUtil.sendOnce("unable to write file " + path.getFileName() + ": " + ignored.getMessage());
+            LogUtil.println("unable to write file " + path.getFileName() + ": " + ignored.getMessage());
         }
     }
 

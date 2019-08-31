@@ -1,6 +1,8 @@
 package co.nyzo.verifier.client;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.messages.CycleTransactionSignature;
+import co.nyzo.verifier.messages.CycleTransactionSignatureResponse;
 import co.nyzo.verifier.messages.TransactionResponse;
 import co.nyzo.verifier.nyzoString.*;
 import co.nyzo.verifier.util.IpUtil;
@@ -9,10 +11,8 @@ import co.nyzo.verifier.util.ThreadUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ClientTransactionUtil {
@@ -179,6 +179,73 @@ public class ClientTransactionUtil {
                             PrintUtil.compactPrintByteArray(transaction.getSignature()) + ConsoleColor.reset);
                 } else {
                     System.out.println(ConsoleColor.Red + "transaction not processed" + ConsoleColor.reset);
+                }
+            }
+        }
+    }
+
+    public static void sendCycleTransaction(Transaction transaction) {
+
+        // Cycle transactions are sent to all verifiers in the cycle, retrying once for failures.
+        Set<Node> nodesReceived = ConcurrentHashMap.newKeySet();
+        Set<ByteBuffer> cycleVerifiers = BlockManager.verifiersInCurrentCycleSet();
+        for (int i = 0; i < 2; i++) {
+            for (Node node : ClientNodeManager.getMesh()) {
+                if (!nodesReceived.contains(node) && cycleVerifiers.contains(ByteBuffer.wrap(node.getIdentifier()))) {
+                    if (i == 0) {
+                        System.out.println("sending transaction to " + NicknameManager.get(node.getIdentifier()));
+                    } else {
+                        System.out.println("resending transaction to " + NicknameManager.get(node.getIdentifier()));
+                    }
+                    Message message = new Message(MessageType.Transaction5, transaction);
+                    Message.fetch(node, message, new MessageCallback() {
+                        @Override
+                        public void responseReceived(Message message) {
+                            System.out.println("response: " + message);
+                            if (message != null && message.getType() == MessageType.TransactionResponse6) {
+                                nodesReceived.add(node);
+                                if (message.getContent() instanceof TransactionResponse) {
+                                    TransactionResponse response = (TransactionResponse) message.getContent();
+                                    System.out.println("response: " + response);
+                                }
+                            }
+                        }
+                    });
+                    ThreadUtil.sleep(500L);  // sleep 0.5 seconds after each send to limit traffic to a reasonable rate
+                }
+            }
+        }
+    }
+
+    public static void sendCycleTransactionSignature(CycleTransactionSignature signature) {
+
+        // Cycle transaction signatures are sent to all verifiers in the cycle, retrying once for failures.
+        Set<Node> nodesReceived = ConcurrentHashMap.newKeySet();
+        Set<ByteBuffer> cycleVerifiers = BlockManager.verifiersInCurrentCycleSet();
+        for (int i = 0; i < 2; i++) {
+            for (Node node : ClientNodeManager.getMesh()) {
+                if (!nodesReceived.contains(node) && cycleVerifiers.contains(ByteBuffer.wrap(node.getIdentifier()))) {
+                    if (i == 0) {
+                        System.out.println("sending signature to " + NicknameManager.get(node.getIdentifier()));
+                    } else {
+                        System.out.println("resending signature to " + NicknameManager.get(node.getIdentifier()));
+                    }
+                    Message message = new Message(MessageType.CycleTransactionSignature_47, signature);
+                    Message.fetch(node, message, new MessageCallback() {
+                        @Override
+                        public void responseReceived(Message message) {
+                            System.out.println("response: " + message);
+                            if (message != null &&
+                                    message.getType() == MessageType.CycleTransactionSignatureResponse_48) {
+                                nodesReceived.add(node);
+                                if (message.getContent() instanceof CycleTransactionSignatureResponse) {
+                                    TransactionResponse response = (TransactionResponse) message.getContent();
+                                    System.out.println("response: " + response);
+                                }
+                            }
+                        }
+                    });
+                    ThreadUtil.sleep(500L);  // sleep 0.5 seconds after each send to limit traffic to a reasonable rate
                 }
             }
         }

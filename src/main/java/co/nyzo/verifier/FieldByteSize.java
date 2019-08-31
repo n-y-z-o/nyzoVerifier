@@ -27,7 +27,6 @@ public class FieldByteSize {
     public static final int nodeListLength = 4;
     public static final int signature = 64;
     public static final int stringLength = 2;
-    public static final int transactionPoolLength = 4;
     public static final int unfrozenBlockPoolLength = 2;
     public static final int unnamedByte = 1;
     public static final int unnamedDouble = 8;

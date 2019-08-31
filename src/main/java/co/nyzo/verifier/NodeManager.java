@@ -3,7 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.NotificationUtil;
+import co.nyzo.verifier.util.LogUtil;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -82,10 +82,8 @@ public class NodeManager {
             if (node != null) {
                 node.setInactiveTimestamp(-1);
             }
-
         } else {
-
-            NotificationUtil.send("unrecognized message type in updateNode(): " + message.getType());
+            LogUtil.println("unrecognized message type in updateNode(): " + message.getType());
         }
     }
 
@@ -183,8 +181,12 @@ public class NodeManager {
         return new ArrayList<>(ipAddressToNodeMap.values());
     }
 
-    public static int getMeshSize() {
-        return ipAddressToNodeMap.size();
+    public static int getMeshSizeForGenesisCycleVoting() {
+        Set<ByteBuffer> identifiers = new HashSet<>();
+        for (Node node : ipAddressToNodeMap.values()) {
+            identifiers.add(ByteBuffer.wrap(node.getIdentifier()));
+        }
+        return identifiers.size();
     }
 
     public static int getNumberOfActiveIdentifiers() {
@@ -303,7 +305,7 @@ public class NodeManager {
                 }
             } else if (node.getInactiveTimestamp() < thresholdTimestamp) {
                 ipAddressToNodeMap.remove(ipAddress);
-                NotificationUtil.send("removed node " + NicknameManager.get(node.getIdentifier()) + " from mesh on " +
+                LogUtil.println("removed node " + NicknameManager.get(node.getIdentifier()) + " from mesh on " +
                         Verifier.getNickname());
             }
         }

@@ -1,7 +1,5 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.client.Client;
-import co.nyzo.verifier.client.ClientDataManager;
 import co.nyzo.verifier.client.ClientNodeManager;
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.messages.debug.*;
@@ -439,7 +437,7 @@ public class Message {
             case BlockResponse12:
                 return BlockResponse.fromByteBuffer(buffer);
             case TransactionPoolResponse14:
-                return TransactionPoolResponse.fromByteBuffer(buffer);
+                return TransactionListResponse.fromByteBuffer(buffer);
             case MeshResponse16:
                 return MeshResponse.fromByteBuffer(buffer);
             case StatusResponse18:
@@ -488,6 +486,12 @@ public class Message {
                 return NodeJoinResponseV2.fromByteBuffer(buffer);
             case FrozenEdgeBalanceListResponse_46:
                 return BalanceListResponse.fromByteBuffer(buffer);
+            case CycleTransactionSignature_47:
+                return CycleTransactionSignature.fromByteBuffer(buffer);
+            case CycleTransactionSignatureResponse_48:
+                return CycleTransactionSignatureResponse.fromByteBuffer(buffer);
+            case CycleTransactionListResponse_50:
+                return TransactionListResponse.fromByteBuffer(buffer);
             case PingResponse201:
                 return PingResponse.fromByteBuffer(buffer);
             case UpdateResponse301:

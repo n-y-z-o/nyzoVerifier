@@ -1,7 +1,6 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.util.NotificationUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
 import co.nyzo.verifier.MemoryMonitor;
@@ -69,6 +68,7 @@ public class StatusResponse implements MessageObject {
             lines.add("blocks: " + BlockManagerMap.mapInformation());
             lines.add("node-joins sent: " + NodeManager.getNodeJoinRequestsSent());
             lines.add("memory (min/max/avg): " + MemoryMonitor.getMemoryStats());
+            lines.add("initialization time: " + String.format("%.1f", Verifier.getInitializationTime() / 1000.0f));
 
             Map<Long, Integer> thresholdOverrides = UnfrozenBlockManager.getThresholdOverrides();
             for (Long height : thresholdOverrides.keySet()) {
@@ -79,13 +79,6 @@ public class StatusResponse implements MessageObject {
             for (Long height : hashOverrides.keySet()) {
                 lines.add("override @+" + (height - frozenEdgeHeight) + ": " +
                         PrintUtil.superCompactPrintByteArray(hashOverrides.get(height)));
-            }
-
-            // The notification budget is initialized to -1. A non-negative value is only set if the notification
-            // endpoint is configured, so this will not be displayed if notifications are not used.
-            long notificationBudget = NotificationUtil.getCurrentBudget();
-            if (notificationBudget >= 0) {
-                lines.add("notif. budget: " + notificationBudget);
             }
 
             // These are for testing and tracking UDP.

@@ -1,8 +1,6 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.FileUtil;
-import co.nyzo.verifier.util.PrintUtil;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,6 +15,11 @@ public class TestnetGenesisBlockCreator {
 
     public static void main(String[] args) {
 
+        createGenesisBlock();
+    }
+
+    public static Block createGenesisBlock() {
+
         long genesisTimestamp = nextGenesisTimestamp();
 
         // Delete the existing blockchain.
@@ -30,13 +33,15 @@ public class TestnetGenesisBlockCreator {
 
         // Create the balance list and the block.
         BalanceList balanceList = Block.balanceListForNextBlock(null, null, transactions,
-                verifierIdentifier);
+                verifierIdentifier, 0);
         Block block = new Block(0, 0, nullBlockHash, genesisTimestamp, transactions, balanceList.getHash());
         block.sign(genesisTimestamp, verifierSeed);
         System.out.println("block " + 0 + " is valid: " + block.signatureIsValid());
 
         BlockManager.writeBlocksToFile(Collections.singletonList(block), Collections.singletonList(balanceList),
                 BlockManager.individualFileForBlockHeight(0));
+
+        return block;
     }
 
     private static long nextGenesisTimestamp() {

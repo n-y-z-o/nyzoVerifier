@@ -367,8 +367,7 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.TransactionPoolRequest13) {
 
-                    response = new Message(MessageType.TransactionPoolResponse14,
-                            new TransactionPoolResponse(TransactionPool.allTransactions()));
+                    response = new Message(MessageType.TransactionPoolResponse14, new TransactionListResponse(message));
 
                 } else if (messageType == MessageType.MeshRequest15) {
 
@@ -458,6 +457,16 @@ public class MeshListener {
 
                     response = new Message(MessageType.FrozenEdgeBalanceListResponse_46,
                             new BalanceListResponse(message.getSourceIpAddress()));
+
+                } else if (messageType == MessageType.CycleTransactionSignature_47) {
+
+                    response = new Message(MessageType.CycleTransactionSignatureResponse_48,
+                            new CycleTransactionSignatureResponse(message));
+
+                } else if (messageType == MessageType.CycleTransactionListRequest_49) {
+
+                    response = new Message(MessageType.CycleTransactionListResponse_50,
+                            new TransactionListResponse(message));
 
                 } else if (messageType == MessageType.Ping200) {
 

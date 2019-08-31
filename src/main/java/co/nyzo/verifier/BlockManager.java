@@ -203,7 +203,7 @@ public class BlockManager {
         }
 
         if (!successful) {
-            NotificationUtil.send("unable to write block file " + file.getName() + " on " + Verifier.getNickname());
+            LogUtil.println("unable to write block file " + file.getName() + " on " + Verifier.getNickname());
         }
 
         return successful;
@@ -375,7 +375,7 @@ public class BlockManager {
                     BalanceList balanceList;
                     if (previousBlock != null && block.getBlockHeight() == previousBlock.getBlockHeight() + 1L) {
                         balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
-                                block.getTransactions(), block.getVerifierIdentifier());
+                                block.getTransactions(), block.getVerifierIdentifier(), block.getBlockchainVersion());
                     } else {
                         System.out.println("reading balance list for height " + block.getBlockHeight());
                         balanceList = BalanceList.fromByteBuffer(buffer);
@@ -418,7 +418,7 @@ public class BlockManager {
                         balanceList = BalanceList.fromByteBuffer(buffer);
                     } else {
                         balanceList = Block.balanceListForNextBlock(previousBlock, balanceList, block.getTransactions(),
-                                block.getVerifierIdentifier());
+                                block.getVerifierIdentifier(), block.getBlockchainVersion());
                     }
 
                     if (block.getBlockHeight() == blockHeight) {

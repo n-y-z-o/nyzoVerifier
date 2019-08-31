@@ -1,6 +1,6 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.NotificationUtil;
+import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -126,7 +126,7 @@ public class BlockFileConsolidator {
             if (i == 0 || blocks.get(i).getBlockHeight() != (blocks.get(i - 1).getBlockHeight() + 1)) {
                 BalanceList balanceList = BlockManager.loadBalanceListFromFileForHeight(blocks.get(i).getBlockHeight());
                 if (balanceList == null) {
-                    NotificationUtil.send("unexpected null balance list at height " + blocks.get(i).getBlockHeight() +
+                    LogUtil.println("unexpected null balance list at height " + blocks.get(i).getBlockHeight() +
                             " in block consolidation process on " + Verifier.getNickname());
                 } else {
                     balanceLists.add(balanceList);
@@ -137,7 +137,7 @@ public class BlockFileConsolidator {
         // Write the combined file.
         BlockManager.writeBlocksToFile(blocks, balanceLists, consolidatedFile);
 
-        NotificationUtil.send("consolidated " + individualFiles.size() + " files to a single file for start height " +
+        LogUtil.println("consolidated " + individualFiles.size() + " files to a single file for start height " +
                 startBlockHeight + " on " + Verifier.getNickname() + "; used " + balanceLists.size() +
                 " balance lists");
     }

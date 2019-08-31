@@ -4,7 +4,7 @@ import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MissingBlockRequest;
 import co.nyzo.verifier.messages.MissingBlockResponse;
 import co.nyzo.verifier.util.FileUtil;
-import co.nyzo.verifier.util.NotificationUtil;
+import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -110,7 +110,10 @@ public class UnfrozenBlockManager {
                 }
             }
 
-            if (!alreadyContainsBlock && verificationTimestampValid) {
+            // Only continue if this is a new block, the verification timestamp is valid, and the version is not a
+            // downgrade.
+            if (!alreadyContainsBlock && verificationTimestampValid &&
+                    block.getBlockchainVersion() >= BlockManager.getFrozenEdge().getBlockchainVersion()) {
 
                 // At this point, it is prudent to independently calculate the balance list. We only register the block
                 // if we can calculate the balance list and if the hash matches what we expect. This will ensure that no
@@ -122,10 +125,10 @@ public class UnfrozenBlockManager {
                     blocksAtHeight.put(ByteBuffer.wrap(block.getHash()), block);
                     registeredBlock = true;
 
-                    // Only keep the best 500 blocks at any level. For stability in the list, consider the just-added
+                    // Only keep the best 10 blocks at any level. For stability in the list, consider the just-added
                     // block to be the highest-scored, and only remove another block if it has a higher score than the
                     // new block.
-                    if (blocksAtHeight.size() > 500 && !BlockManager.inGenesisCycle()) {
+                    if (blocksAtHeight.size() > 10 && !BlockManager.inGenesisCycle()) {
                         Block highestScoredBlock = block;
                         long highestScore = highestScoredBlock.chainScore(frozenEdgeHeight);
                         for (Block blockAtHeight : blocksAtHeight.values()) {
@@ -336,7 +339,7 @@ public class UnfrozenBlockManager {
 
         // If the vote count is greater than 75% of the voting pool, freeze the block. Previously, there was a delay
         // and a second check here, but it will no longer have any effect due to the new flip-vote mechanism.
-        int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSize() :
+        int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSizeForGenesisCycleVoting() :
                 BlockManager.currentCycleLength();
         int voteCountThreshold = thresholdOverrides.containsKey(heightToFreeze) ?
                 votingPoolSize * thresholdOverrides.get(heightToFreeze) / 100 :
@@ -350,6 +353,9 @@ public class UnfrozenBlockManager {
                 BlockManager.freezeBlock(block);
                 frozeBlock = true;
             }
+        } else if (BlockManager.inGenesisCycle()) {
+            LogUtil.println("unable to freeze: " + voteCount + " <= " + voteCountThreshold + ", mesh size " +
+                    NodeManager.getMeshSizeForGenesisCycleVoting());
         }
 
         return frozeBlock;
@@ -369,13 +375,14 @@ public class UnfrozenBlockManager {
         // To avoid unnecessary work, only attempt this process if we have votes for at least five different heights.
         List<Long> voteHeights = BlockVoteManager.getHeights();
 
-        int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSize() :
+        int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSizeForGenesisCycleVoting() :
                 BlockManager.currentCycleLength();
         int voteCountThreshold = votingPoolSize * 3 / 4;
 
         long firstPassingHeight = -1L;
         byte[] firstPassingHash = null;
         boolean foundSecondPassingHeight = false;
+
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         for (int i = 0; i < voteHeights.size() && !foundSecondPassingHeight; i++) {
 
@@ -478,8 +485,8 @@ public class UnfrozenBlockManager {
 
     public static void fetchMissingBlock(long height, byte[] hash) {
 
-        NotificationUtil.send("fetching block " + height + " (" + PrintUtil.compactPrintByteArray(hash) +
-                ") from mesh on " + Verifier.getNickname());
+        LogUtil.println("fetching block " + height + " (" + PrintUtil.compactPrintByteArray(hash) + ") from mesh on " +
+                Verifier.getNickname());
         Message blockRequest = new Message(MessageType.MissingBlockRequest25,
                 new MissingBlockRequest(height, hash));
         Message.fetchFromRandomNode(blockRequest, new MessageCallback() {
@@ -489,7 +496,7 @@ public class UnfrozenBlockManager {
                 MissingBlockResponse response = (MissingBlockResponse) message.getContent();
                 Block responseBlock = response.getBlock();
                 if (responseBlock != null && ByteUtil.arraysAreEqual(responseBlock.getHash(), hash)) {
-                    System.out.println("got block for height " + responseBlock.getBlockHeight());
+                    LogUtil.println("got missing block: " + response);
                     registerBlock(responseBlock);
                 }
             }

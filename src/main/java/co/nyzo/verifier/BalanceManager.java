@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
 
@@ -30,22 +31,29 @@ public class BalanceManager {
         long endTimestamp = BlockManager.endTimestampForHeight(blockHeight);
         while (dedupedTransactions.size() > 0 && dedupedTransactions.get(0).getTimestamp() < startTimestamp) {
             dedupedTransactions.remove(0);
-            System.out.println("removed transaction because timestamp was before beginning of block");
+            LogUtil.println("removed transaction because timestamp was before beginning of block");
         }
         while (dedupedTransactions.size() > 0 &&
                 dedupedTransactions.get(dedupedTransactions.size() - 1).getTimestamp() >= endTimestamp) {
             dedupedTransactions.remove(dedupedTransactions.size() - 1);
-            System.out.println("removed transaction because timestamp was past end of block");
+            LogUtil.println("removed transaction because timestamp was past end of block");
         }
 
-        // If the block height is above zero, remove all transactions that are not seed or standard.
-        if (blockHeight > 0) {
-            for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
-                if (dedupedTransactions.get(i).getType() != Transaction.typeSeed &&
-                        dedupedTransactions.get(i).getType() != Transaction.typeStandard) {
-                    dedupedTransactions.remove(i);
-                    System.out.println("removed transaction because type is invalid");
-                }
+        // Remove all transactions with invalid types.
+        Set<Byte> validTypes;
+        if (blockHeight == 0) {
+            validTypes = new HashSet<>(Arrays.asList(Transaction.typeCoinGeneration, Transaction.typeSeed,
+                    Transaction.typeStandard));
+        } else if (previousBlock.getBlockchainVersion() == 0) {
+            validTypes = new HashSet<>(Arrays.asList(Transaction.typeSeed, Transaction.typeStandard));
+        } else {
+            validTypes = new HashSet<>(Arrays.asList(Transaction.typeSeed, Transaction.typeStandard,
+                    Transaction.typeCycle));
+        }
+        for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+            if (!validTypes.contains(dedupedTransactions.get(i).getType())) {
+                dedupedTransactions.remove(i);
+                LogUtil.println("removed transaction because type is invalid");
             }
         }
 
@@ -53,7 +61,7 @@ public class BalanceManager {
         for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
             if (dedupedTransactions.get(i).getAmount() < 1L) {
                 dedupedTransactions.remove(i);
-                System.out.println("removed transaction at index " + i + " due to amount less than 1 micronyzo");
+                LogUtil.println("removed transaction at index " + i + " due to amount less than 1 micronyzo");
             }
         }
 
@@ -61,7 +69,7 @@ public class BalanceManager {
         for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
             if (!dedupedTransactions.get(i).previousHashIsValid()) {
                 dedupedTransactions.remove(i);
-                System.out.println("removed transaction because previous hash was invalid");
+                LogUtil.println("removed transaction because previous hash was invalid");
             }
         }
 
@@ -72,9 +80,12 @@ public class BalanceManager {
         for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
             if (!dedupedTransactions.get(i).signatureIsValid()) {
                 dedupedTransactions.remove(i);
-                System.out.println("removed transaction because signature was invalid");
+                LogUtil.println("removed transaction because signature was invalid");
             }
         }
+
+        // Enforce the rules for cycle transactions.
+        enforceCycleTransactionRules(dedupedTransactions, previousBlock.getBlockchainVersion());
 
         // Enforce the rules for accounts subject to the locking threshold.
         BalanceList balanceList = BalanceListManager.balanceListForBlock(previousBlock);
@@ -86,7 +97,9 @@ public class BalanceManager {
         List<Transaction> approvedTransactions = new ArrayList<>();
         Map<ByteBuffer, Long> identifierToBalanceMap = makeBalanceMap(balanceList);
         for (Transaction transaction : dedupedTransactions) {
-            ByteBuffer senderIdentifier = ByteBuffer.wrap(transaction.getSenderIdentifier());
+            ByteBuffer senderIdentifier = transaction.getType() == Transaction.typeCycle ?
+                    ByteBuffer.wrap(BalanceListItem.cycleAccountIdentifier) :
+                    ByteBuffer.wrap(transaction.getSenderIdentifier());
             Long senderBalance = identifierToBalanceMap.getOrDefault(senderIdentifier, 0L);
             if (transaction.getAmount() <= senderBalance || (transaction.getType() == Transaction.typeSeed &&
                     transaction.getFee() <= senderBalance)) {
@@ -106,7 +119,7 @@ public class BalanceManager {
                     identifierToBalanceMap.put(receiverIdentifier, receiverBalance);
                 }
             } else {
-                System.out.println("removed transaction because amount " + transaction.getAmount() + " was greater " +
+                LogUtil.println("removed transaction because amount " + transaction.getAmount() + " was greater " +
                         "than balance " + senderBalance);
             }
         }
@@ -284,38 +297,112 @@ public class BalanceManager {
                 boolean needToRemoveTransaction = false;
                 if (transaction.getType() != Transaction.typeSeed) {
                     needToRemoveTransaction = true;
-                    System.out.println("removed non-seed transaction from seed-funding account");
+                    LogUtil.println("removed non-seed transaction from seed-funding account");
                 }
 
                 if (transaction.getAmount() != transactionAmount) {
                     needToRemoveTransaction = true;
-                    System.out.println("removed seed transaction with incorrect amount: " +
+                    LogUtil.println("removed seed transaction with incorrect amount: " +
                             PrintUtil.printAmount(transaction.getAmount()) + ", expected " +
                             PrintUtil.printAmount(transactionAmount));
                 }
 
                 if (transaction.getTimestamp() != transactionTimestamp) {
                     needToRemoveTransaction = true;
-                    System.out.println("removed seed transaction with incorrect timestamp: " +
+                    LogUtil.println("removed seed transaction with incorrect timestamp: " +
                             PrintUtil.printTimestamp(transaction.getTimestamp()) + ", expected " +
                             PrintUtil.printTimestamp(transactionTimestamp));
                 }
 
                 if (transaction.getSenderData().length > 0) {
                     needToRemoveTransaction = true;
-                    System.out.println("removed seed transaction with non-empty sender data: " +
+                    LogUtil.println("removed seed transaction with non-empty sender data: " +
                             ByteUtil.arrayAsStringNoDashes(transaction.getSenderData()));
                 }
 
                 if (transaction.getPreviousHashHeight() != 0L) {
                     needToRemoveTransaction = true;
-                    System.out.println("removed seed transaction with previous-hash height of " +
+                    LogUtil.println("removed seed transaction with previous-hash height of " +
                             transaction.getPreviousHashHeight());
                 }
 
                 // Perform the actual removal, if necessary.
                 if (needToRemoveTransaction) {
                     dedupedTransactions.remove(i);
+                }
+            }
+        }
+    }
+
+    private static void enforceCycleTransactionRules(List<Transaction> dedupedTransactions, int blockchainVersion) {
+
+        // If the blockchain is earlier than version 1, remove all cycle transactions.
+        if (blockchainVersion < 1) {
+            for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+                if (dedupedTransactions.get(i).getType() == Transaction.typeCycle) {
+                    dedupedTransactions.remove(i);
+                    LogUtil.println("removed cycle transaction due to blockchain version less than 1");
+                }
+            }
+        }
+
+        // Remove any cycle transactions over ∩100,000.
+        for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+            Transaction transaction = dedupedTransactions.get(i);
+            if (transaction.getType() == Transaction.typeCycle &&
+                    transaction.getAmount() > Transaction.maximumCycleTransactionAmount) {
+                dedupedTransactions.remove(i);
+                LogUtil.println("removed cycle transaction over ∩100,000: " +
+                        PrintUtil.printAmount(transaction.getAmount()));
+            }
+        }
+
+        // Remove any cycle transactions with insufficient signatures, duplicate signatures, out-of-cycle signatures,
+        // or invalid signatures.
+        for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+            Transaction transaction = dedupedTransactions.get(i);
+            if (transaction.getType() == Transaction.typeCycle) {
+                // To make this calculation invulnerable to manipulations from a single verifier attempting to submit
+                // multiple signatures, we count the number of verifiers in the current cycle for which a valid
+                // signature is not present.
+                Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
+                int cycleLength = currentCycle.size();
+                int missingThreshold = cycleLength / 4;
+
+                // Make a new set of all verifier identifiers in the current cycle. Then, remove all identifiers for
+                // which a valid signature is found.
+                Set<ByteBuffer> signaturesMissing = new HashSet<>(currentCycle);
+                boolean transactionIsValid = true;
+                if (currentCycle.contains(ByteBuffer.wrap((transaction.getSenderIdentifier())))) {
+                    signaturesMissing.remove(ByteBuffer.wrap(transaction.getSenderIdentifier()));
+                    Map<ByteBuffer, byte[]> cycleSignatures = transaction.getCycleSignatures();
+                    for (ByteBuffer identifier : cycleSignatures.keySet()) {
+                        if (signaturesMissing.contains(identifier)) {
+                            if (transaction.signatureIsValid(identifier.array(), cycleSignatures.get(identifier))) {
+                                signaturesMissing.remove(identifier);
+                            } else {
+                                // A signature is invalid. This makes the entire transaction invalid.
+                                transactionIsValid = false;
+                            }
+                        } else {
+                            // A verifier was included twice in the signature list, the initiator was included in the
+                            // signature list, or an out-of-cycle verifier was included in the signature list. This
+                            // makes the entire transaction invalid.
+                            transactionIsValid = false;
+                        }
+                    }
+                } else {
+                    // The initiator of the transaction is not in the cycle. This makes the transaction invalid.
+                    transactionIsValid = false;
+                }
+
+                // If the transaction is invalid or the number of signatures missing exceeds the threshold, remove the
+                // transaction.
+                if (!transactionIsValid || signaturesMissing.size() > missingThreshold) {
+                    dedupedTransactions.remove(i);
+                    LogUtil.println("removed cycle transaction because " + signaturesMissing.size() +
+                            " signatures were missing with a threshold of " + missingThreshold + ", cycle length=" +
+                            cycleLength + ", or because transaction was invalid (valid=" + transactionIsValid + ")");
                 }
             }
         }

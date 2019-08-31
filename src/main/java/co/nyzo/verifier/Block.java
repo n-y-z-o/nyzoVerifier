@@ -35,7 +35,7 @@ public class Block implements MessageObject {
     // strictly enforced. Attempting to process an unknown version would seldom lead to correct results and would open
     // possibilities for manipulation.
     private static final int minimumBlockchainVersion = 0;
-    private static final int maximumBlockchainVersion = 0;  // increase to 1 when blockchain v1 is fully implemented
+    public static final int maximumBlockchainVersion = 1;
 
     private int blockchainVersion;                 // 2 bytes; 16-bit integer of the blockchain version
     private long height;                           // 6 bytes; 48-bit integer block height from the Genesis block,
@@ -510,7 +510,8 @@ public class Block implements MessageObject {
     }
 
     public static BalanceList balanceListForNextBlock(Block previousBlock, BalanceList previousBalanceList,
-                                                      List<Transaction> transactions, byte[] verifierIdentifier) {
+                                                      List<Transaction> transactions, byte[] verifierIdentifier,
+                                                      int blockchainVersion) {
 
         BalanceList result = null;
         try {
@@ -523,7 +524,6 @@ public class Block implements MessageObject {
                 List<BalanceListItem> previousBalanceItems;
                 List<byte[]> previousVerifiers;
                 long blockHeight;
-                int blockchainVersion;
                 long previousRolloverFees;
                 long previousUnlockThreshold;
                 long previousUnlockTransferSum;
@@ -531,7 +531,6 @@ public class Block implements MessageObject {
                     previousBalanceItems = new ArrayList<>();
                     previousVerifiers = new ArrayList<>();
                     blockHeight = 0L;
-                    blockchainVersion = 0;
                     previousRolloverFees = 0;
                     previousUnlockThreshold = 0L;
                     previousUnlockTransferSum = 0L;
@@ -547,7 +546,6 @@ public class Block implements MessageObject {
                         previousVerifiers.remove(0);
                     }
 
-                    blockchainVersion = previousBalanceList.getBlockchainVersion();
                     previousUnlockThreshold = previousBalanceList.getUnlockThreshold();
                     previousUnlockTransferSum = previousBalanceList.getUnlockTransferSum();
                 }
@@ -573,9 +571,10 @@ public class Block implements MessageObject {
                 for (Transaction transaction : transactions) {
 
                     feesThisBlock += transaction.getFee();
+                    byte[] senderIdentifier = transaction.getType() == Transaction.typeCycle ?
+                            BalanceListItem.cycleAccountIdentifier : transaction.getSenderIdentifier();
                     if (transaction.getType() != Transaction.typeCoinGeneration) {
-                        adjustBalance(transaction.getSenderIdentifier(), -transaction.getAmount(),
-                                identifierToItemMap);
+                        adjustBalance(senderIdentifier, -transaction.getAmount(), identifierToItemMap);
                     }
 
                     long amountAfterFee = transaction.getAmount() - transaction.getFee();
@@ -592,7 +591,16 @@ public class Block implements MessageObject {
                     }
                 }
 
-                // TODO: For blockchain version 1+, move some of the organic transaction fees to the cycle account.
+                // For a blockchain versions greater than 0, move 1% of the organic transaction fees to the cycle
+                // account.
+                if (blockchainVersion > 0 && organicTransactionFees >= 100L) {
+                    // Calculate the amount, rounding down to the nearest micronyzo.
+                    long cycleTransferAmount = organicTransactionFees / 100L;
+
+                    // Subtract the amount from the fees this block and move the funds to the cycle account.
+                    feesThisBlock -= cycleTransferAmount;
+                    adjustBalance(BalanceListItem.cycleAccountIdentifier, cycleTransferAmount, identifierToItemMap);
+                }
 
                 // Subtract fees for all balance list items that owe fees.
                 long periodicAccountFees = 0L;
@@ -727,6 +735,27 @@ public class Block implements MessageObject {
 
                         // Penalize for each balance-list spam transaction.
                         score += block.spamTransactionCount() * 5L;
+
+                        // Account for the blockchain version. If this is a version downgrade, a skip in versions, or
+                        // higher than the maximum allowed version, the block is invalid.
+                        if (block.getBlockchainVersion() < previousBlock.getBlockchainVersion() ||
+                                block.getBlockchainVersion() > previousBlock.getBlockchainVersion() + 1 ||
+                                block.getBlockchainVersion() > maximumBlockchainVersion) {
+                            score = Long.MAX_VALUE;  // invalid
+                        } else if (BlockchainVersionManager.isMissedUpgradeOpportunity(block,
+                                previousBlock.getBlockchainVersion())) {
+                            // In this case, an upgrade is allowed but this block is not an upgrade. Apply a 1-point
+                            // penalty to this block to encourage an upgrade block from the same verifier to be approved
+                            // if available.
+                            score += 1L;
+                            LogUtil.println("applying penalty of 1 to block " + block + ", score=" + score +
+                                    ", verifier=" + PrintUtil.compactPrintByteArray(block.getVerifierIdentifier()));
+                        } else if (BlockchainVersionManager.isImproperlyTimedUpgrade(block,
+                                previousBlock.getBlockchainVersion())) {
+                            // In this case, the block is an upgrade when we are not looking to upgrade. This is a valid
+                            // block, but it is not preferred. Apply a large penalty.
+                            score += 10000L;
+                        }
                     }
                 }
             }
@@ -773,6 +802,7 @@ public class Block implements MessageObject {
 
     @Override
     public String toString() {
-        return "[Block: height=" + getBlockHeight() + ", hash=" + PrintUtil.compactPrintByteArray(getHash()) + "]";
+        return "[Block:v=" + getBlockchainVersion() + ",height=" + getBlockHeight() + ",hash=" +
+                PrintUtil.compactPrintByteArray(getHash()) + "]";
     }
 }

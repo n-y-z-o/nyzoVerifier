@@ -706,7 +706,7 @@ public class Sentinel {
 
             BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock);
             BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
-                    approvedTransactions, verifier.getIdentifier());
+                    approvedTransactions, verifier.getIdentifier(), previousBlock.getBlockchainVersion());
             if (balanceList != null) {
                 long startTimestamp = BlockManager.startTimestampForHeight(blockHeight);
                 block = new Block(previousBlock.getBlockchainVersion(), blockHeight, previousBlock.getHash(),
