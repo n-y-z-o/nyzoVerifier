@@ -70,7 +70,11 @@ public class SentinelController {
 
         // Add the height at which a block was last transmitted.
         long lastBlockTransmitted = Sentinel.getLastBlockTransmissionHeight();
-        header.append("<br>Last block transmitted: " + (lastBlockTransmitted < 0 ? "-" : lastBlockTransmitted));
+        String lastBlockString = Sentinel.getLastBlockTransmissionString();
+        if (lastBlockString == null || lastBlockString.isEmpty()) {
+            lastBlockString = lastBlockTransmitted < 0 ? "-" : lastBlockTransmitted + "";
+        }
+        header.append("<br>Last block transmitted: " + lastBlockString);
 
         // Add whether the sentinel is actively protecting verifiers. If the sentinel is not yet calculating valid chain
         // scores, it is unable to protect verifiers. If the frozen edge was verified longer ago than the

@@ -1,8 +1,8 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BlockRequest;
-import co.nyzo.verifier.messages.BlockResponse;
 import co.nyzo.verifier.messages.BlockVote;
+import co.nyzo.verifier.util.ConsensusTracker;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -29,6 +29,11 @@ public class BlockVoteManager {
             vote.setSenderIdentifier(message.getSourceNodeIdentifier());
             vote.setMessageTimestamp(message.getTimestamp());
             vote.setMessageSignature(message.getSourceNodeSignature());
+
+            // Register the vote with the consensus tracker.
+            if (vote != null) {
+                ConsensusTracker.register(vote.getHeight(), vote);
+            }
 
             // Register the vote. The map ensures that each identifier only gets one vote. Votes are only counted for
             // verifiers in the current cycle, except in the Genesis cycle, where all votes are counted. We accept votes

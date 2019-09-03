@@ -3,10 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.MissingBlockRequest;
 import co.nyzo.verifier.messages.MissingBlockResponse;
-import co.nyzo.verifier.util.FileUtil;
-import co.nyzo.verifier.util.LogUtil;
-import co.nyzo.verifier.util.PreferencesUtil;
-import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.*;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -75,6 +72,11 @@ public class UnfrozenBlockManager {
     public static boolean registerBlock(Block block) {
 
         boolean registeredBlock = false;
+
+        // Register the block with the consensus tracker. This tracks all blocks, regardless of validity.
+        if (block != null) {
+            ConsensusTracker.register(block.getBlockHeight(), block);
+        }
 
         // Reject all blocks with invalid signatures. We should only be working one past the frozen edge, but we will
         // accept to the open edge in case we have gotten behind.

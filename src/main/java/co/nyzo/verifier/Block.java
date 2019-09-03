@@ -803,6 +803,7 @@ public class Block implements MessageObject {
     @Override
     public String toString() {
         return "[Block:v=" + getBlockchainVersion() + ",height=" + getBlockHeight() + ",hash=" +
-                PrintUtil.compactPrintByteArray(getHash()) + "]";
+                PrintUtil.compactPrintByteArray(getHash()) + ",id=" +
+                PrintUtil.compactPrintByteArray(getVerifierIdentifier()) + "]";
     }
 }

@@ -60,6 +60,14 @@ public class PrintUtil {
         return String.format("%d.%03d (%s UTC)", whole, fraction, dateFormat.format(date));
     }
 
+    public static String compactPrintTimestamp(long timestamp) {
+
+        long whole = timestamp / 1000L;
+        long fraction = timestamp % 1000L;
+        Date date = new Date(timestamp);
+        return String.format("%d.%03d", whole, fraction);
+    }
+
     public static String printException(Exception exception) {
 
         StringBuilder result = new StringBuilder("exception: ");

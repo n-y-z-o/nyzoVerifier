@@ -479,6 +479,7 @@ public class Verifier {
                     if (frozenEdgeHeight != newFrozenEdgeHeight) {
 
                         LogUtil.println("cleaning up because block " + newFrozenEdgeHeight + " was frozen");
+                        ConsensusTracker.register(newFrozenEdgeHeight, "froze block");
 
                         // Reset the fields for the next block.
                         nextBlock = null;
@@ -506,10 +507,11 @@ public class Verifier {
                         // Update vote counts for verifier removal.
                         VerifierRemovalManager.updateVoteCounts();
 
-                        // Perform blacklist, unfrozen block, and cycle transaction maintenance.
+                        // Perform blacklist, unfrozen block, cycle-transaction, and consensus-tracker maintenance.
                         BlacklistManager.performMaintenance();
                         UnfrozenBlockManager.performMaintenance();
                         CycleTransactionManager.performMaintenance();
+                        ConsensusTracker.performMaintenance();
 
                         // Update the new-verifier vote. This is necessary if the previous choice is now in the
                         // cycle.

@@ -51,6 +51,8 @@ public class Sentinel {
     private static final Set<Block> blocksCreatedForManagedVerifiers = ConcurrentHashMap.newKeySet();
     private static final String lastBlockTransmissionHeightKey = "sentinel_last_block_transmission_height";
     private static long lastBlockTransmissionHeight = PersistentData.getLong(lastBlockTransmissionHeightKey, -1L);
+    private static final String lastBlockTransmissionStringKey = "sentinel_last_block_transmitted";
+    private static String lastBlockTransmissionString = PersistentData.get(lastBlockTransmissionStringKey);
 
     private static final Map<ByteBuffer, List<Node>> verifierIdentifierToMeshMap = new ConcurrentHashMap<>();
 
@@ -624,7 +626,9 @@ public class Sentinel {
                             Message.fetch(node, message, null);
                         }
                         lastBlockTransmissionHeight = lowestScoredBlock.getBlockHeight();
+                        lastBlockTransmissionString = lowestScoredBlock.toString();
                         PersistentData.put(lastBlockTransmissionHeightKey, lastBlockTransmissionHeight);
+                        PersistentData.put(lastBlockTransmissionStringKey, lastBlockTransmissionString);
                         System.out.println(ConsoleColor.Yellow.background() + "sent block for " +
                                 PrintUtil.compactPrintByteArray(lowestScoredBlock.getVerifierIdentifier()) +
                                 " with hash " + PrintUtil.compactPrintByteArray(lowestScoredBlock.getHash()) +
@@ -744,5 +748,9 @@ public class Sentinel {
 
     public static long getLastBlockTransmissionHeight() {
         return lastBlockTransmissionHeight;
+    }
+
+    public static String getLastBlockTransmissionString() {
+        return lastBlockTransmissionString;
     }
 }

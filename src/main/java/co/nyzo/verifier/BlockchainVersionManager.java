@@ -24,13 +24,14 @@ public class BlockchainVersionManager {
 
         // This is only used to lightly penalize blocks that are not upgrades when an upgrade is allowed. This gives
         // preference to the upgrade block, if provided.
-        return block.getBlockchainVersion() == previousBlockVersion &&
+        return block.getBlockHeight() >= activationHeight && block.getBlockchainVersion() == previousBlockVersion &&
                 block.getBlockchainVersion() < Block.maximumBlockchainVersion && block.getBlockHeight() % 50L == 0;
     }
 
     public static boolean isImproperlyTimedUpgrade(Block block, int previousBlockVersion) {
 
         // This is used to penalize upgrade blocks that are submitted at non-preferred times.
-        return block.getBlockchainVersion() > previousBlockVersion && block.getBlockHeight() % 50L != 0;
+        return block.getBlockchainVersion() > previousBlockVersion &&
+                (block.getBlockHeight() < activationHeight || block.getBlockHeight() % 50L != 0);
     }
 }

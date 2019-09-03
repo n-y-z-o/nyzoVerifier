@@ -34,9 +34,11 @@ public class PersistentData {
                         if (indexOfHash >= 0) {
                             line = line.substring(0, indexOfHash).trim();
                         }
-                        String[] split = line.split("=");
-                        if (split.length == 2) {
-                            dataMap.put(split[0].trim().toLowerCase(), split[1].trim().toLowerCase());
+                        int splitIndex = line.indexOf("=");
+                        if (splitIndex > 0) {
+                            String key = line.substring(0, splitIndex).trim().toLowerCase();
+                            String value = line.substring(splitIndex + 1).trim();
+                            dataMap.put(key, value);
                         }
                     } catch (Exception e) {
                         System.out.println("issue loading line from persistent data file: " + line);
