@@ -25,9 +25,8 @@ public class Message {
 
     private static final long maximumMessageLength = 4194304;  // 4 MB
     private static final Set<ByteBuffer> whitelist = ConcurrentHashMap.newKeySet();
-    private static final Set<MessageType> disallowedNonCycleTypes = new HashSet<>(Arrays.asList(MessageType.NewBlock9,
-            MessageType.BlockVote19, MessageType.NewVerifierVote21, MessageType.MissingBlockVoteRequest23,
-            MessageType.MissingBlockRequest25));
+    private static final Set<MessageType> disallowedNonCycleTypes = new HashSet<>(Arrays.asList(MessageType.BlockVote19,
+            MessageType.NewVerifierVote21, MessageType.MissingBlockVoteRequest23, MessageType.MissingBlockRequest25));
     private static final Set<MessageType> udpTypes = new HashSet<>(Arrays.asList(MessageType.BlockVote19,
             MessageType.NewVerifierVote21));
     public static final long replayProtectionInterval = 5000L;
@@ -183,14 +182,9 @@ public class Message {
 
     public static void fetchTcp(String hostNameOrIp, int port, Message message, MessageCallback messageCallback) {
 
-        byte[] identifier = NodeManager.identifierForIpAddress(hostNameOrIp);
-
-        // Do not send the message to this verifier, and do not send a message that will get this verifier blacklisted
-        // if it is not in the cycle.
-        if (!ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier()) &&
-                (BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(Verifier.getIdentifier())) ||
-                        BlockManager.inGenesisCycle() ||
-                        !disallowedNonCycleTypes.contains(message.getType()))) {
+        // Do not send a message that will get this IP blacklisted.
+        if (BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(message.getSourceNodeIdentifier())) ||
+                        BlockManager.inGenesisCycle() || !disallowedNonCycleTypes.contains(message.getType())) {
 
             new Thread(new Runnable() {
                 @Override
