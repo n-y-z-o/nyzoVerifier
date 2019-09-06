@@ -13,15 +13,7 @@ sudo apt update
 ```
 
 ```
-sudo apt install haveged -y
-```
-
-```
-sudo apt install openjdk-8-jdk -y
-```
-
-```
-sudo apt install supervisor -y
+sudo apt install -y haveged openjdk-8-jdk supervisor
 ```
 
 ```
