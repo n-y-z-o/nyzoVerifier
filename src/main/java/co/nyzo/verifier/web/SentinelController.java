@@ -74,7 +74,12 @@ public class SentinelController {
         if (lastBlockString == null || lastBlockString.isEmpty()) {
             lastBlockString = lastBlockTransmitted < 0 ? "-" : lastBlockTransmitted + "";
         }
-        header.append("<br>Last block transmitted: " + lastBlockString);
+        header.append("<br>Last block transmitted: ").append(lastBlockString);
+
+        // Add the results of the last block transmission.
+        String lastBlockTransmissionResults = Sentinel.getLastBlockTransmissionResults();
+        header.append("<br>Transmission results: ").append(lastBlockTransmissionResults.isEmpty() ? "-" :
+                lastBlockTransmissionResults);
 
         // Add whether the sentinel is actively protecting verifiers. If the sentinel is not yet calculating valid chain
         // scores, it is unable to protect verifiers. If the frozen edge was verified longer ago than the

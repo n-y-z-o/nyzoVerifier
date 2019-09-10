@@ -53,6 +53,8 @@ public class Sentinel {
     private static long lastBlockTransmissionHeight = PersistentData.getLong(lastBlockTransmissionHeightKey, -1L);
     private static final String lastBlockTransmissionStringKey = "sentinel_last_block_transmitted";
     private static String lastBlockTransmissionString = PersistentData.get(lastBlockTransmissionStringKey);
+    private static final String lastBlockTransmissionResultsKey = "sentinel_last_block_transmission_results";
+    private static String lastBlockTransmissionResults = PersistentData.get(lastBlockTransmissionResultsKey);
 
     private static final Map<ByteBuffer, List<Node>> verifierIdentifierToMeshMap = new ConcurrentHashMap<>();
 
@@ -606,7 +608,7 @@ public class Sentinel {
                     long minimumVoteTimestamp = frozenEdge.getVerificationTimestamp() +
                             Block.minimumVerificationInterval + lowestChainScore * 20000L + blockTransmissionDelay;
 
-                    System.out.println(String.format("minimum vote timestamp is in %.1f seconds",
+                    LogUtil.println(String.format("minimum vote timestamp is in %.1f seconds",
                             (minimumVoteTimestamp - System.currentTimeMillis()) / 1000.0) + " for chain score " +
                             lowestChainScore);
 
@@ -622,17 +624,37 @@ public class Sentinel {
                                 verifierMap.get(ByteBuffer.wrap(lowestScoredBlock.getVerifierIdentifier()));
                         message.sign(verifier.getSeed());
 
-                        for (Node node : combinedCycle()) {
-                            Message.fetch(node, message, null);
+                        Set<Node> combinedCycle = combinedCycle();
+                        AtomicInteger responsesReceived = new AtomicInteger(0);
+                        for (Node node : combinedCycle) {
+                            Message.fetch(node, message, new MessageCallback() {
+                                @Override
+                                public void responseReceived(Message message) {
+                                    if (message != null && message.getType() == MessageType.NewBlockResponse10) {
+                                        responsesReceived.incrementAndGet();
+                                    }
+                                }
+                            });
                         }
                         lastBlockTransmissionHeight = lowestScoredBlock.getBlockHeight();
                         lastBlockTransmissionString = lowestScoredBlock.toString();
                         PersistentData.put(lastBlockTransmissionHeightKey, lastBlockTransmissionHeight);
                         PersistentData.put(lastBlockTransmissionStringKey, lastBlockTransmissionString);
-                        System.out.println(ConsoleColor.Yellow.background() + "sent block for " +
+                        LogUtil.println(ConsoleColor.Yellow.background() + "sent block for " +
                                 PrintUtil.compactPrintByteArray(lowestScoredBlock.getVerifierIdentifier()) +
                                 " with hash " + PrintUtil.compactPrintByteArray(lowestScoredBlock.getHash()) +
                                 " at height " + lowestScoredBlock.getBlockHeight() + ConsoleColor.reset);
+
+                        // Wait 3 seconds for the responses and store the results for display. This is done to ensure
+                        // that any problems that affect delivery of blocks, from network issues to bugs in the code,
+                        // are detected promptly.
+                        ThreadUtil.sleep(3000L);
+                        int successes = responsesReceived.get();
+                        int failures = combinedCycle.size() - successes;
+                        lastBlockTransmissionResults = successes + " success, " + failures + " fail";
+                        PersistentData.put(lastBlockTransmissionResultsKey, lastBlockTransmissionResults);
+                        LogUtil.println(ConsoleColor.Yellow.background() + "transmission results: " +
+                                lastBlockTransmissionResults + ConsoleColor.reset);
                     }
                 }
             }
@@ -752,5 +774,9 @@ public class Sentinel {
 
     public static String getLastBlockTransmissionString() {
         return lastBlockTransmissionString;
+    }
+
+    public static String getLastBlockTransmissionResults() {
+        return lastBlockTransmissionResults;
     }
 }

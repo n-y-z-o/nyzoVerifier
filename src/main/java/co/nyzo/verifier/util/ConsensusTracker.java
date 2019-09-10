@@ -33,7 +33,7 @@ public class ConsensusTracker {
     public static void register(long height, Object object) {
         // Only register the event if the tracker is enabled, the run mode is verifier, the object is valid, and the
         // height is in a reasonable range.
-        if (enableTracker && RunMode.getRunMode() == RunMode.Verifier && object != null && height >= frozenEdge - 1 &&
+        if (enableTracker && RunMode.getRunMode() == RunMode.Verifier && object != null && height >= frozenEdge - 3 &&
                 height < frozenEdge + 5) {
 
             // Register the event in the set for the appropriate height.
@@ -83,7 +83,7 @@ public class ConsensusTracker {
             synchronized (ConsensusTracker.class) {
                 for (Long height : new HashSet<>(events.keySet())) {
                     Set<ConsensusEvent> eventsForHeight = events.get(height);
-                    if (height < frozenEdge - 2 || eventsForHeight.size() > eventsPerFile) {
+                    if (height < frozenEdge - 4 || eventsForHeight.size() > eventsPerFile) {
                         events.remove(height);
                         writeFile(height, eventsForHeight);
                     }
@@ -138,16 +138,12 @@ public class ConsensusTracker {
                     if (event.getData() instanceof BlockVote) {
                         if (blockVoteCounts.size() > 1) {
                             BlockVote blockVote = (BlockVote) event.getData();
-                            fileContents.add(PrintUtil.compactPrintTimestamp(event.getTimestamp()) +
-                                    ":block vote,hash=" + PrintUtil.compactPrintByteArray(blockVote.getHash()) +
-                                    ",sender=" + PrintUtil.compactPrintByteArray(blockVote.getSenderIdentifier()));
+                            fileContents.add(PrintUtil.compactPrintTimestamp(event.getTimestamp()) + ":" + blockVote);
                         }
                     } else if (event.getData() instanceof Block) {
 
                         Block block = (Block) event.getData();
-                        String blockLine = PrintUtil.compactPrintTimestamp(event.getTimestamp()) + ":block,hash=" +
-                                PrintUtil.compactPrintByteArray(block.getHash()) + ",identifier=" +
-                                PrintUtil.compactPrintByteArray(block.getVerifierIdentifier());
+                        String blockLine = PrintUtil.compactPrintTimestamp(event.getTimestamp()) + ":" + block;
 
                         // If the verifier included a transaction in the block, add its sender data to the line.
                         Transaction verifierTransaction = null;

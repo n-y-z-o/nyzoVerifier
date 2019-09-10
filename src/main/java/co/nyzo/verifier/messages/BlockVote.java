@@ -131,6 +131,7 @@ public class BlockVote implements MessageObject {
 
     @Override
     public String toString() {
-        return "[BlockVote: height=" + getHeight() + ", hash=" + PrintUtil.compactPrintByteArray(getHash()) + "]";
+        return "[BlockVote:height=" + getHeight() + ",hash=" + PrintUtil.compactPrintByteArray(getHash()) + ",sender=" +
+                PrintUtil.compactPrintByteArray(getSenderIdentifier()) + "]";
     }
 }
