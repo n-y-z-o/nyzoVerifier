@@ -279,7 +279,7 @@ public class MicropayEndpoint implements EndpointMethod {
         // If the transaction is likely to be accepted, send it to the cycle. Otherwise, provide minimal feedback if
         // the feedback is currently empty.
         if (likelyToBeAccepted) {
-            ClientTransactionUtil.sendTransactionToExpectedBlockVerifier(transaction, false);
+            ClientTransactionUtil.sendTransactionToLikelyBlockVerifiers(transaction, false);
         } else if (transactionProblem.length() == 0) {
             transactionProblem.append("There was an unspecified issue with the transaction provided.");
         }

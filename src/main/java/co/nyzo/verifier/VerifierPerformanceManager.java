@@ -26,6 +26,7 @@ public class VerifierPerformanceManager {
     private static final int perVoteDecrement = -7;
     private static final int removalThresholdScore = 12343 * 2 * perBlockIncrement;  // two days from 0
     private static final int minimumScore = -removalThresholdScore;  // up to two additional days for good performance
+    private static final int maximumScore = removalThresholdScore + 12343 * perBlockIncrement;  // one day past removal
 
     private static final Map<ByteBuffer, Integer> verifierScoreMap = new ConcurrentHashMap<>();
     private static AtomicInteger blocksSinceWritingFile = new AtomicInteger();
@@ -41,7 +42,7 @@ public class VerifierPerformanceManager {
                 public Integer apply(Integer integer0, Integer integer1) {
                     int value0 = integer0 == null ? 0 : integer0;
                     int value1 = integer1 == null ? 0 : integer1;
-                    return Math.max(minimumScore, value0 + value1);
+                    return Math.min(Math.max(minimumScore, value0 + value1), maximumScore);
                 }
             };
 

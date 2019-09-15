@@ -59,7 +59,7 @@ public class ClientTransactionUtil {
         Transaction transaction = createTransaction(signerSeed, receiverIdentifier, senderData, amount);
 
         if (receiverIpAddress == null || ByteUtil.isAllZeros(receiverIpAddress) || receiverPort <= 0) {
-            sendTransactionToExpectedBlockVerifier(transaction, true);
+            sendTransactionToLikelyBlockVerifiers(transaction, true);
         } else {
             sendTransactionToReceiver(transaction, receiverIpAddress, receiverPort);
         }
@@ -103,7 +103,7 @@ public class ClientTransactionUtil {
         }
     }
 
-    public static void sendTransactionToExpectedBlockVerifier(Transaction transaction, boolean waitForBlock) {
+    public static void sendTransactionToLikelyBlockVerifiers(Transaction transaction, boolean waitForBlock) {
 
         // Determine the height at which the transaction will be included.
         long transactionHeight = BlockManager.heightForTimestamp(transaction.getTimestamp());
@@ -113,13 +113,19 @@ public class ClientTransactionUtil {
         Block frozenEdge = BlockManager.getFrozenEdge();
         List<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleList();
         int frozenEdgeVerifierIndex = currentCycle.indexOf(ByteBuffer.wrap(frozenEdge.getVerifierIdentifier()));
-        int indexOfExpectedVerifier = (int) ((transactionHeight - frozenEdge.getBlockHeight() +
-                frozenEdgeVerifierIndex) % currentCycle.size());
-        byte[] expectedVerifier = currentCycle.get(indexOfExpectedVerifier).array();
 
-        System.out.println("index of expected verifier: " + indexOfExpectedVerifier);
+        // Send the transaction to the expected verifier, the previous verifier, and the next verifier.
+        Set<ByteBuffer> likelyVerifiers = new HashSet<>();
+        for (int i = -1; i < 2; i++) {
+            int indexOfVerifier = (int) ((transactionHeight - frozenEdge.getBlockHeight() +
+                    frozenEdgeVerifierIndex + i) % currentCycle.size());
+            if (indexOfVerifier >= 0 && indexOfVerifier < currentCycle.size()) {
+                likelyVerifiers.add(ByteBuffer.wrap(currentCycle.get(indexOfVerifier).array()));
+            }
+        }
+
         for (Node node : ClientNodeManager.getMesh()) {
-            if (ByteUtil.arraysAreEqual(node.getIdentifier(), expectedVerifier)) {
+            if (likelyVerifiers.contains(ByteBuffer.wrap(node.getIdentifier()))) {
                 Message message = new Message(MessageType.Transaction5, transaction);
                 Message.fetch(node, message, new MessageCallback() {
                     @Override
@@ -137,8 +143,8 @@ public class ClientTransactionUtil {
                                             NicknameManager.get(message.getSourceNodeIdentifier()));
                                 } else {
                                     System.out.println(ConsoleColor.Yellow + "transaction not accepted by " +
-                                            NicknameManager.get(message.getSourceNodeIdentifier()) +
-                                            ConsoleColor.reset);
+                                            NicknameManager.get(message.getSourceNodeIdentifier()) + ": " +
+                                            response.getMessage() + ConsoleColor.reset);
                                 }
                             } else {
                                 System.out.println(ConsoleColor.Red + "transaction response: invalid" +
