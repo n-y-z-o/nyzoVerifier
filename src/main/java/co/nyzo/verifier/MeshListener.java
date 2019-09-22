@@ -9,10 +9,7 @@ import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,11 +27,11 @@ public class MeshListener {
     private static final AtomicBoolean aliveTcp = new AtomicBoolean(false);
     private static final AtomicBoolean aliveUdp = new AtomicBoolean(false);
 
-    // The only messages sent via UDP right now are BlockVote19 and NewVerifierVote21. BlockVote19 is the larger of
-    // these.
+    // The only messages sent via UDP right now are BlockVote19, NewVerifierVote21, and MinimalBlock_51. Of these,
+    // MinimalBlock_51 is the largest.
     private static final int udpBufferSize = FieldByteSize.messageLength + FieldByteSize.timestamp +  // message fields
             FieldByteSize.messageType + FieldByteSize.identifier + FieldByteSize.signature +  // message fields
-            FieldByteSize.blockHeight + FieldByteSize.hash + FieldByteSize.timestamp;  // block vote fields
+            FieldByteSize.timestamp + FieldByteSize.signature;  // MinimalBlock fields
 
     // To promote forward compatibility with messages we might want to add, the verifier will accept all readable
     // messages except those explicitly disallowed. The response types should not be processed for incoming messages,
@@ -180,27 +177,82 @@ public class MeshListener {
                     if (datagramPacketReadIndex == datagramPacketWriteIndex) {
                         ThreadUtil.sleep(30L);
                     } else {
-                        // Get the packet from the queue.
-                        DatagramPacket packet = datagramPackets[datagramPacketReadIndex];
+                        try {
+                            // Get the packet from the queue.
+                            DatagramPacket packet = datagramPackets[datagramPacketReadIndex];
 
-                        // Do some simple checks to avoid reading the message if it will not be used.
-                        ByteBuffer sourceIpAddress =  ByteBuffer.wrap(packet.getAddress().getAddress());
-                        if (BlacklistManager.inBlacklist(sourceIpAddress) ||
-                                !NodeManager.ipAddressInCycle(sourceIpAddress)) {
-                                numberOfMessagesRejected.incrementAndGet();
-                                StatusResponse.incrementUdpRejectionCount();
-                        } else {
-                            try {
-                                numberOfMessagesAccepted.incrementAndGet();
-                                readMessage(packet);
-                            } catch (Exception ignored) { }
-                        }
+                            // Economically get the message type from the packet. Doing this now can avoid full
+                            // processing of the message in many cases.
+                            byte[] packetData = packet.getData();
+                            int messageTypeValue = ((packetData[12] & 0xff) << 8) | (packetData[13] & 0xff);
+                            MessageType messageType = MessageType.forValue(messageTypeValue);
 
-                        datagramPacketReadIndex = (datagramPacketReadIndex + 1) % numberOfDatagramPackets;
+                            // Process MinimalBlock messages first. These are accepted from out-of-cycle verifiers,
+                            // while other UDP messages are only accepted from in-cycle verifiers.
+                            if (messageType == MessageType.MinimalBlock_51) {
+                                processMinimalBlockMessage(packetData);
+                            } else {
+                                // Do some simple checks to avoid reading the message if it will not be used.
+                                ByteBuffer sourceIpAddress = ByteBuffer.wrap(packet.getAddress().getAddress());
+                                if (BlacklistManager.inBlacklist(sourceIpAddress) ||
+                                        !NodeManager.ipAddressInCycle(sourceIpAddress)) {
+                                    numberOfMessagesRejected.incrementAndGet();
+                                    StatusResponse.incrementUdpRejectionCount();
+                                } else {
+                                    numberOfMessagesAccepted.incrementAndGet();
+                                    readMessage(packet);
+                                }
+                            }
+
+                            datagramPacketReadIndex = (datagramPacketReadIndex + 1) % numberOfDatagramPackets;
+                        } catch (Exception ignored) { }
                     }
                 }
             }
         }, "MeshListener-udpProcessingQueue").start();
+    }
+
+    private static void processMinimalBlockMessage(byte[] packetData) {
+
+        // Only accept this type of message at block 49 of the voting window (frozen edge is at block 48 of window) and
+        // if a new verifier is likely to be accepted.
+        Block frozenEdge = BlockManager.getFrozenEdge();
+        if (frozenEdge.getBlockHeight() % 50 == 48 && BlockManager.likelyAcceptingNewVerifiers()) {
+            // Only continue if the top verifier is not null and the top verifier matches the sender of the message.
+            ByteBuffer topVerifier = NewVerifierVoteManager.topVerifier();
+            if (topVerifier != null) {
+                Message message = Message.fromBytes(packetData, new byte[FieldByteSize.ipAddress], true);
+                if (message.isValid() &&
+                        ByteUtil.arraysAreEqual(topVerifier.array(), message.getSourceNodeIdentifier())) {
+
+                    // Rebuild the block. Only the verification timestamp and signature are provided. All other fields
+                    // are implied. If the block is valid, register it.
+                    int blockchainVersion = frozenEdge.getBlockchainVersion();
+                    long height = frozenEdge.getBlockHeight() + 1L;
+                    byte[] previousBlockHash = frozenEdge.getHash();
+                    long startTimestamp = BlockManager.startTimestampForHeight(height);
+                    long verificationTimestamp = ((MinimalBlock) message.getContent()).getVerificationTimestamp();
+                    List<Transaction> transactions = new ArrayList<>();
+                    Transaction seedTransaction = SeedTransactionManager.transactionForBlock(height);
+                    if (seedTransaction != null) {
+                        transactions.add(seedTransaction);
+                    }
+                    BalanceList balanceList = Block.balanceListForNextBlock(frozenEdge,
+                            BalanceListManager.getFrozenEdgeList(), transactions, message.getSourceNodeIdentifier(),
+                            blockchainVersion);
+                    byte[] balanceListHash = balanceList.getHash();
+                    byte[] verifierIdentifier = message.getSourceNodeIdentifier();
+                    byte[] verifierSignature = ((MinimalBlock) message.getContent()).getSignature();
+                    boolean validateTransactions = false;  // not necessary because the list was locally created
+                    Block block = new Block(blockchainVersion, height, previousBlockHash, startTimestamp,
+                            verificationTimestamp, transactions, balanceListHash, verifierIdentifier, verifierSignature,
+                            validateTransactions);
+                    if (block.signatureIsValid()) {
+                        UnfrozenBlockManager.registerBlock(block);
+                    }
+                }
+            }
+        }
     }
 
     private static void processSocket(Socket clientSocket, AtomicInteger activeReadThreads,

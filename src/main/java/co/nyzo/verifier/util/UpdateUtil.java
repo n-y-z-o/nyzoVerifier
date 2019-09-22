@@ -1,9 +1,6 @@
 package co.nyzo.verifier.util;
 
-import co.nyzo.verifier.BlockManager;
-import co.nyzo.verifier.MeshListener;
-import co.nyzo.verifier.SeedTransactionManager;
-import co.nyzo.verifier.Verifier;
+import co.nyzo.verifier.*;
 
 public class UpdateUtil {
 
@@ -47,9 +44,10 @@ public class UpdateUtil {
                     } catch (Exception ignored) { }
                 }
 
-                // Delete the block directory and the seed transaction directory.
+                // Delete the block directory and the seed transaction directory, and clear the persistent data.
                 FileUtil.delete(BlockManager.blockRootDirectory);
                 FileUtil.delete(SeedTransactionManager.rootDirectory);
+                PersistentData.reset();
 
                 // Exit the application.
                 System.exit(0);

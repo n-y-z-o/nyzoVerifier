@@ -457,7 +457,7 @@ public class Block implements MessageObject {
             // eligibility windows is imperative. To encourage this, an additional delay is added on blocks 25 and 49
             // of each eligibility window when a new verifier is likely to be accepted. This delay is infrequent enough
             // and small enough that it will not cause significant delays in blockchain processing.
-            if (height > BlockManager.getLastVerifierJoinHeight() + getCycleInformation().getCycleLength() * 2) {
+            if (BlockManager.likelyAcceptingNewVerifiers()) {
                 if (height % 50 == 25) {
                     System.out.println("10-second wait for new verifier at height " + height);
                     timestamp += 10000L;

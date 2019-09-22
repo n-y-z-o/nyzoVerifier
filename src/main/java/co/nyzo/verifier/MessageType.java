@@ -1,6 +1,8 @@
 package co.nyzo.verifier;
 
 import java.io.*;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public enum MessageType {
 
@@ -56,6 +58,8 @@ public enum MessageType {
     CycleTransactionSignatureResponse_48(48),
     CycleTransactionListRequest_49(49),
     CycleTransactionListResponse_50(50),
+    MinimalBlock_51(51),
+    MinimalBlockResponse_52(52),   // currently unused -- UDP-only message
 
     // test messages
     Ping200(200),
@@ -99,19 +103,11 @@ public enum MessageType {
     Error65534(65534),
     Unknown65535(65535);
 
-    public static void main(String[] args) throws Exception {
-
-        File targetFile = new File("src/main/resources/javascript/messageType.js");
-        System.out.println("file exists: " + targetFile.exists() + " (" + targetFile.getAbsolutePath() + ")");
-
-        targetFile.delete();
-        BufferedWriter writer = new BufferedWriter(new FileWriter(targetFile));
+    private static final Map<Integer, MessageType> messageTypeMap = new ConcurrentHashMap<>();
+    static {
         for (MessageType messageType : values()) {
-            writer.write("const " + messageType + " = " + messageType.getValue() + ";");
-            writer.newLine();
+            messageTypeMap.put(messageType.getValue(), messageType);
         }
-        writer.flush();
-        writer.close();
     }
 
     private int value;
@@ -125,14 +121,6 @@ public enum MessageType {
     }
 
     public static MessageType forValue(int value) {
-
-        MessageType result = Unknown65535;
-        for (MessageType type : values()) {
-            if (value == type.value) {
-                result = type;
-            }
-        }
-
-        return result;
+        return messageTypeMap.getOrDefault(value, Unknown65535);
     }
 }

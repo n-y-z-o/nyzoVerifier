@@ -513,6 +513,10 @@ public class Verifier {
                         CycleTransactionManager.performMaintenance();
                         ConsensusTracker.performMaintenance();
 
+                        // Update the top-voted verifier. This is done once per block frozen to save repeated derivation
+                        // from the vote map.
+                        NewVerifierVoteManager.updateTopVerifier();
+
                         // Update the new-verifier vote. This is necessary if the previous choice is now in the
                         // cycle.
                         NewVerifierQueueManager.updateVote();

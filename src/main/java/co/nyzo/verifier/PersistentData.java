@@ -52,6 +52,11 @@ public class PersistentData {
         }
     }
 
+    public static void reset() {
+        dataMap.clear();
+        writeFile();
+    }
+
     private static void writeFile() {
 
         // Despite the simplicity of structure, the process of putting the data in the map and writing the file is

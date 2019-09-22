@@ -105,6 +105,9 @@ public class Sentinel {
         // unresponsive.
         startFullMeshThread();
 
+        // Start a single thread for transmitting blocks for new verifiers.
+        startNewVerifierThread();
+
         // Start the thread for transmitting blocks. While a separate thread is needed for fetching data from each
         // managed verifier, only one thread is required for transmitting blocks, as only a single block at each height
         // will protect all verifiers, regardless of how many are down at that time.
@@ -279,6 +282,62 @@ public class Sentinel {
         }
 
         return node;
+    }
+
+    private static void startNewVerifierThread() {
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                long lastTransmissionHeight = 0L;
+                while (!UpdateUtil.shouldTerminate()) {
+
+                    long loopStartTimestamp = System.currentTimeMillis();
+
+                    try {
+                        // This thread is only sending UDP messages, so it does not use MessageQueue.
+
+                        // The last block of a voting window has an extended delay to allow a new verifier to join. If
+                        // this is an eligible window, and blocks have not yet been sent, send a new block for each
+                        // managed out-of-cycle verifier.
+                        long height = frozenEdge.getBlockHeight() + 1;
+                        if (height % 50 == 49 && height > lastTransmissionHeight &&
+                                height <= BlockManager.openEdgeHeight(false) &&
+                                BlockManager.likelyAcceptingNewVerifiers()) {
+                            lastTransmissionHeight = height;
+
+                            for (ManagedVerifier verifier : verifierList) {
+                                if (!BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(verifier.getIdentifier()))) {
+                                    LogUtil.println("sending UDP block for " + verifier + " at height " + height);
+                                    broadcastUdpBlockForNewVerifier(verifier);
+                                }
+                            }
+                        }
+
+                    } catch (Exception e) {
+                        LogUtil.println("exception in new-verifier thread main loop: " + PrintUtil.printException(e));
+                    }
+
+                    // Ensure a minimum interval between iterations. This includes processing time, so the actual sleep
+                    // time may be zero.
+                    while (System.currentTimeMillis() < loopStartTimestamp + minimumLoopInterval) {
+                        ThreadUtil.sleep(300L);
+                    }
+                }
+            }
+        }).start();
+    }
+
+    private static void broadcastUdpBlockForNewVerifier(ManagedVerifier verifier) {
+
+        Block block = createNextBlock(frozenEdge, verifier);
+        Message message = new Message(MessageType.MinimalBlock_51, new MinimalBlock(block.getVerificationTimestamp(),
+                block.getVerifierSignature()));
+        message.sign(verifier.getSeed());
+        for (Node node : combinedCycle()) {
+            Message.sendUdp(node.getIpAddress(), MeshListener.standardPortUdp, message);
+        }
     }
 
     private static void loadManagedVerifiers() {
@@ -698,7 +757,10 @@ public class Sentinel {
             // If the verifier is supposed to add a sentinel transaction, add it now. This is a 1-micronyzo transaction
             // from the sender to a dead wallet (all zeros). The minimum transaction fee is 1 micronyzo, so no funds
             // will be transferred. The only purpose of this transaction is to add metadata to the blockchain.
-            if (verifier.isSentinelTransactionEnabled()) {
+            // Out-of-cycle verifiers do not add sentinel transactions, as these transactions would complicate the
+            // block-rebuilding process.
+            if (verifier.isSentinelTransactionEnabled() &&
+                    BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(verifier.getIdentifier()))) {
                 BalanceList balanceList = BalanceListManager.balanceListForBlock(previousBlock);
                 if (balanceList == null) {
                     LogUtil.println("omitting sentinel transaction due to unavailable balance list");

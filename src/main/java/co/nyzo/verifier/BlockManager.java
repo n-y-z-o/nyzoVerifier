@@ -83,6 +83,11 @@ public class BlockManager {
         return trailingEdgeHeight == -1L ? -1L : Math.max(0, trailingEdgeHeight - 24);
     }
 
+    public static boolean likelyAcceptingNewVerifiers() {
+        return frozenEdge != null && frozenEdge.getCycleInformation() != null && frozenEdge.getBlockHeight() >
+                getLastVerifierJoinHeight() + frozenEdge.getCycleInformation().getCycleLength() * 2;
+    }
+
     public static long getLastVerifierJoinHeight() {
         return lastVerifierJoinHeight;
     }

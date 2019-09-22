@@ -486,6 +486,8 @@ public class Message {
                 return CycleTransactionSignatureResponse.fromByteBuffer(buffer);
             case CycleTransactionListResponse_50:
                 return TransactionListResponse.fromByteBuffer(buffer);
+            case MinimalBlock_51:
+                return MinimalBlock.fromByteBuffer(buffer);
             case PingResponse201:
                 return PingResponse.fromByteBuffer(buffer);
             case UpdateResponse301:

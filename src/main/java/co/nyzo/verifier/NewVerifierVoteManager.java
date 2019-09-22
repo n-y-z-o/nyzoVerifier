@@ -20,6 +20,7 @@ public class NewVerifierVoteManager {
     // node-join messages.
     private static NewVerifierVote localVote = new NewVerifierVote(new byte[FieldByteSize.identifier]);
     private static final Map<ByteBuffer, ByteBuffer> voteMap = new ConcurrentHashMap<>();
+    private static ByteBuffer topVerifier = null;
 
     private static byte[] override = new byte[FieldByteSize.identifier];
 
@@ -77,9 +78,13 @@ public class NewVerifierVoteManager {
     }
 
     public static ByteBuffer topVerifier() {
+        return topVerifier;
+    }
+
+    public static void updateTopVerifier() {
 
         // Find the verifier with the most votes. The top vote count is initially at least half of the cycle length,
-        // which means that the top verifier will remain null if no verifier has the mojority of votes.
+        // which means that the top verifier will remain null if no verifier has the majority of votes.
         ByteBuffer topVerifier = null;
         int topVoteCount = (BlockManager.currentCycleLength() + 1) / 2;
         Map<ByteBuffer, Integer> voteTotals = voteTotals();
@@ -99,7 +104,7 @@ public class NewVerifierVoteManager {
                     topVoteCount * 100.0 / cycleLength));
         }
 
-        return topVerifier;
+        NewVerifierVoteManager.topVerifier = topVerifier;
     }
 
     public static NewVerifierVote getLocalVote() {
