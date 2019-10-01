@@ -101,9 +101,9 @@ public class Sentinel {
             startThreadForVerifier(verifier, querySlot++);
         }
 
-        // Start a single thread as a fallback for fetching blocks from the full mesh if all managed verifiers become
+        // Start a single thread as a fallback for fetching blocks from the full cycle if all managed verifiers become
         // unresponsive.
-        startFullMeshThread();
+        startFullCycleThread();
 
         // Start a single thread for transmitting blocks for new verifiers.
         startNewVerifierThread();
@@ -179,7 +179,7 @@ public class Sentinel {
         }).start();
     }
 
-    private static void startFullMeshThread() {
+    private static void startFullCycleThread() {
 
         new Thread(new Runnable() {
             @Override

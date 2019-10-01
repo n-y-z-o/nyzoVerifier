@@ -38,11 +38,6 @@ public class Message {
         } catch (Exception ignored) { }
     }
 
-    // We do not broadcast any messages to the full mesh from the broadcast method. We do, however, use the full mesh
-    // as a potential pool for random requests for the following types. This reduces strain on in-cycle verifiers.
-    private static final Set<MessageType> fullMeshMessageTypes = new HashSet<>(Arrays.asList(MessageType.BlockRequest11,
-            MessageType.BlockWithVotesRequest37));
-
     static {
         loadWhitelist();
     }
@@ -154,16 +149,13 @@ public class Message {
 
     private static Node randomNode(MessageType messageType) {
 
-        boolean isFullMeshMessage = fullMeshMessageTypes.contains(messageType);
-
         Node node = null;
-        List<Node> mesh = NodeManager.getMesh();
+        List<Node> mesh = NodeManager.getCycle();
         Random random = new Random();
         while (node == null && !mesh.isEmpty()) {
             Node meshNode = mesh.remove(random.nextInt(mesh.size()));
             ByteBuffer nodeIdentifierBuffer = ByteBuffer.wrap(meshNode.getIdentifier());
-            if (!ByteUtil.arraysAreEqual(meshNode.getIdentifier(), Verifier.getIdentifier()) && (isFullMeshMessage ||
-                    BlockManager.verifierInCurrentCycle(nodeIdentifierBuffer) || !BlockManager.isCycleComplete())) {
+            if (!ByteUtil.arraysAreEqual(meshNode.getIdentifier(), Verifier.getIdentifier())) {
                 node = meshNode;
             }
         }
