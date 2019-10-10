@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
+import co.nyzo.verifier.util.ThreadUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.BufferedReader;
@@ -23,7 +24,6 @@ public class SeedTransactionManager {
     public static final File rootDirectory = new File(Verifier.dataRootDirectory, "seed_transactions");
 
     public static final long blocksPerFile = 10000L;
-    private static long lastBlockRequested = 0L;
 
     public static final long transactionsPerYear = (60L * 60L * 24L * 365L * 1000L + Block.blockDuration - 1) /
             Block.blockDuration;  // round up
@@ -48,20 +48,16 @@ public class SeedTransactionManager {
                 @Override
                 public void run() {
 
-                    try {
-                        Thread.sleep(100L);
-                    } catch (Exception e) {
-                    }
+                    while (!UpdateUtil.shouldTerminate() &&
+                            BlockManager.getFrozenEdgeHeight() < highestSeedTransactionHeight) {
 
-                    while (!UpdateUtil.shouldTerminate() && lastBlockRequested < highestSeedTransactionHeight) {
-
-                        long currentFileIndex = lastBlockRequested / blocksPerFile;
+                        long currentFileIndex = BlockManager.getFrozenEdgeHeight() / blocksPerFile;
 
                         // Check if we have transactions for the next 20 blocks (100 seconds). If we do, we can skip
                         // the rest of the process for this iteration.
                         boolean haveBlocks = true;
                         for (int i = 0; i < 20 && haveBlocks; i++) {
-                            long height = lastBlockRequested + i + 1;
+                            long height = BlockManager.getFrozenEdgeHeight() + i + 1;
                             if (height >= lowestSeedTransactionHeight && height <= highestSeedTransactionHeight &&
                                     transactionMap.get(height) == null) {
                                 haveBlocks = false;
@@ -85,23 +81,18 @@ public class SeedTransactionManager {
                                 previousFile.delete();
                             }
 
-                            // Remove any items from the map below the last-requested height.
+                            // Remove any items from the map below the frozen edge.
                             Set<Long> keys = new HashSet<>(transactionMap.keySet());
                             for (Long key : keys) {
-                                if (key < lastBlockRequested) {
+                                if (key < BlockManager.getFrozenEdgeHeight()) {
                                     transactionMap.remove(key);
                                 }
                             }
                         }
 
                         // Sleep for 30 seconds, checking periodically if we should allow the thread to exit.
-                        for (int i = 0; i < 15; i++) {
-                            if (!UpdateUtil.shouldTerminate()) {
-                                try {
-                                    Thread.sleep(2000L);
-                                } catch (Exception ignored) {
-                                }
-                            }
+                        for (int i = 0; i < 15 && !UpdateUtil.shouldTerminate(); i++) {
+                            ThreadUtil.sleep(2000L);
                         }
                     }
 
@@ -120,7 +111,7 @@ public class SeedTransactionManager {
     public static String urlForFile(String filename) {
 
         return TestnetUtil.testnet ? "https://testnet.nyzo.co/seed/" + filename :
-                "https://s3-us-west-2.amazonaws.com/nyzo/" + filename;
+                "https://nyzo-transactions.nyc3.digitaloceanspaces.com/" + filename;
     }
 
     public static void fetchFile(File file) {
@@ -182,7 +173,6 @@ public class SeedTransactionManager {
         // transaction per block, but we are only generating one per block in the initial seed transactions. So,
         // this is only a simplification based on our data, not a limitation of the system, and other seed transactions
         // could potentially be passed around the network.
-        lastBlockRequested = blockHeight;
         return transactionMap.get(blockHeight);
     }
 

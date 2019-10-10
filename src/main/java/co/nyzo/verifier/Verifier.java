@@ -25,6 +25,9 @@ public class Verifier {
     public static final File dataRootDirectory = TestnetUtil.testnet ?  new File("/var/lib/nyzo/testnet") :
             new File("/var/lib/nyzo/production");
 
+    private static final String alwaysTrackBlockchainKey = "always_track_blockchain";
+    private static final boolean alwaysTrackBlockchain = PreferencesUtil.getBoolean(alwaysTrackBlockchainKey, false);
+
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
     private static String nickname = null;
@@ -36,6 +39,13 @@ public class Verifier {
 
     private static final long blockWithVotesRequestInterval = 2000L;  // 2 seconds
     private static long lastBlockWithVotesRequestTimestamp = 0L;
+
+    private static final long reinitializationIntervalTopVerifier = 1000L * 60L;  // 1 minute
+    private static final long reinitializationIntervalIdle = 1000L * 60L * 20L;  // 20 minutes
+    private static long lastReinitializationTimestamp = 0L;
+
+    private static final long backfillInterval = 1000L * 60L * 2L;  // 2 minutes
+    private static long lastBackfillTimestamp = 0L;
 
     private static int recentMessageTimestampsIndex = 0;
     private static final long[] recentMessageTimestamps = new long[10];
@@ -51,7 +61,7 @@ public class Verifier {
         // This ensures the seed is always available, even if this class is used from a test script.
         loadPrivateSeed();
 
-        System.out.println("verifier identifier is " + ByteUtil.arrayAsStringWithDashes(getIdentifier()));
+        LogUtil.println("verifier identifier is " + ByteUtil.arrayAsStringWithDashes(getIdentifier()));
     }
 
     public static void main(String[] args) {
@@ -430,26 +440,58 @@ public class Verifier {
                     NewVerifierVoteManager.removeOldVotes();
                     VerifierRemovalManager.removeOldVotes();
 
-                    // Vote requests and block requests should only happen if this verifier is in the cycle. Otherwise,
-                    // other verifiers might blacklist this verifier.
-                    if (inCycle()) {
+                    // Vote requests and block requests should only happen if this verifier is in or near the cycle.
+                    // Otherwise, other verifiers might blacklist this verifier.
+                    if (inCycle() || isTopNewVerifier()) {
 
                         // Request any frozen blocks that appear to be missing.
                         BlockVoteManager.requestMissingFrozenBlocks();
 
                         // Request any blocks that appear to be missing.
                         UnfrozenBlockManager.requestMissingBlocks();
-                    } else {
+
+                        // If this is the top new verifier, two more operations need to be performed. First, the next
+                        // block with votes should be requested to help the verifier cover any blocks that might be
+                        // missing. Second, a reinitialization of the frozen edge should be attempted. This would allow
+                        // a verifier that has not been tracking the blockchain to jump into a recent position.
+                        if (isTopNewVerifier()) {
+                            requestBlockWithVotes();
+
+                            // This is a tighter reinitialization interval (1 minute) just for the top-voted verifier.
+                            if (lastReinitializationTimestamp < System.currentTimeMillis() -
+                                    reinitializationIntervalTopVerifier) {
+                                lastReinitializationTimestamp = System.currentTimeMillis();
+                                reinitializeFrozenEdge();
+                            }
+                        }
+                    } else if (alwaysTrackBlockchain) {
 
                         // In-cycle verifiers do not allow other verifiers to request missing blocks or votes, as they
                         // would use considerable bandwidth to service such requests. Instead, they provide frozen
-                        // blocks bundled with votes in a single message.
+                        // blocks bundled with votes in a single message. This is the method that was previously used
+                        // by all queue verifiers. It is now used only when specified.
                         requestBlockWithVotes();
+
+                    } else if (lastReinitializationTimestamp < System.currentTimeMillis() -
+                            reinitializationIntervalIdle) {
+                        lastReinitializationTimestamp = System.currentTimeMillis();
+
+                        // At a regular interval (20 minutes), reinitialize the frozen edge for an out-of-cycle
+                        // verifier that is not always tracking the blockchain.
+                        reinitializeFrozenEdge();
+                    }
+
+                    // This is a special operation for in-cycle verifiers that do not currently have sufficient history
+                    // to score blocks.
+                    if (inCycle() && BlockManager.getTrailingEdgeHeight() < 0 &&
+                            lastBackfillTimestamp < System.currentTimeMillis() - backfillInterval) {
+                        lastBackfillTimestamp = System.currentTimeMillis();
+                        HistoricalChainFiller.fillChainHistory();
                     }
 
                     // These are mesh-maintenance operations. These were previously performed when a block was frozen,
-                    // but they have been moved to a separate block, based on block interval, to ensure that they still
-                    // happen regularly when the cycle is experiencing problems.
+                    // but they have been moved to a separate condition, based on block interval, to ensure that they
+                    // still happen regularly when the cycle is experiencing problems.
                     if (lastMeshMaintenanceTimestamp < System.currentTimeMillis() - Block.blockDuration) {
                         lastMeshMaintenanceTimestamp = System.currentTimeMillis();
 
@@ -461,6 +503,10 @@ public class Verifier {
                         // requested. Now, they are enqueued and sent a few at a time to reduce the spike in network
                         // activity.
                         NodeManager.sendNodeJoinRequests(10);
+
+                        // Update the top-voted verifier. This is done periodically to save frequent derivation from the
+                        // vote map.
+                        NewVerifierVoteManager.updateTopVerifier();
                     }
 
                     // This is an additional recovery operation for when the cycle is in a bad state. To avoid a huge
@@ -472,6 +518,7 @@ public class Verifier {
                             lastVoteRequestTimestamp < System.currentTimeMillis() - 4000L) {
                         lastVoteRequestTimestamp = System.currentTimeMillis();
                         requestMissingVotes(frozenEdge.getBlockHeight() + 1L);
+                        requestBlockWithVotes();
                     }
 
                     // These are operations that only have to happen when a block is frozen.
@@ -512,10 +559,6 @@ public class Verifier {
                         UnfrozenBlockManager.performMaintenance();
                         CycleTransactionManager.performMaintenance();
                         ConsensusTracker.performMaintenance();
-
-                        // Update the top-voted verifier. This is done once per block frozen to save repeated derivation
-                        // from the vote map.
-                        NewVerifierVoteManager.updateTopVerifier();
 
                         // Update the new-verifier vote. This is necessary if the previous choice is now in the
                         // cycle.
@@ -580,8 +623,8 @@ public class Verifier {
 
         CycleInformation cycleInformation = block.getCycleInformation();
         ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
-        if (cycleInformation != null &&
-                block.getContinuityState() == Block.ContinuityState.Continuous &&
+        if (((cycleInformation != null && block.getContinuityState() == Block.ContinuityState.Continuous) ||
+                isTopNewVerifier()) &&
                 !ByteUtil.arraysAreEqual(block.getVerifierIdentifier(), Verifier.getIdentifier())) {
 
             // Create the block. If the block is not discontinuous, register it with UnfrozenBlockManager.
@@ -750,8 +793,23 @@ public class Verifier {
     }
 
     public static boolean inCycle() {
-
         return BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(getIdentifier()));
+    }
+
+    public static boolean isTopNewVerifier() {
+        ByteBuffer topNewVerifier = NewVerifierVoteManager.topVerifier();
+        return topNewVerifier != null && ByteUtil.arraysAreEqual(getIdentifier(), topNewVerifier.array());
+    }
+
+    private static void reinitializeFrozenEdge() {
+
+        // The reinitialization is performed in a separate thread to avoid interfering with other verifier activities.
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ChainInitializationManager.initializeFrozenEdge(getTrustedEntryPoints());
+            }
+        }).start();
     }
 
     private static void requestBlockWithVotes() {

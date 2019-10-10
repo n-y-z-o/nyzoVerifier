@@ -505,6 +505,9 @@ public class Block implements MessageObject {
         byte[] verifierSignature = new byte[FieldByteSize.signature];
         buffer.get(verifierSignature);
 
+        // Transaction validation only needs to occur on blocks past the frozen edge.
+        validateTransactions &= blockHeight > BlockManager.getFrozenEdgeHeight();
+
         return new Block(blockchainVersion, blockHeight, previousBlockHash, startTimestamp, verificationTimestamp,
                 transactions, balanceListHash, verifierIdentifier, verifierSignature, validateTransactions);
     }
@@ -693,7 +696,16 @@ public class Block implements MessageObject {
         while (block != null && block.getBlockHeight() > zeroBlockHeight && score < Long.MAX_VALUE - 1) {
             CycleInformation cycleInformation = block.getCycleInformation();
             ContinuityState continuityState = block.getContinuityState();
-            if (cycleInformation == null || continuityState == ContinuityState.Undetermined) {
+
+            if (ByteUtil.arraysAreEqual(Verifier.getIdentifier(), block.getVerifierIdentifier()) &&
+                    !Verifier.inCycle() && Verifier.isTopNewVerifier()) {
+                // This is likely an incorrect score. If a different verifier has joined recently, then the correct
+                // score would be Long.MAX_VALUE to signify a discontinuity. However, the only consequence of the
+                // incorrect score would be transmission of an invalid block, which would quickly be rejected by the
+                // entire cycle. As this verifier is out-of-cycle, it does not yet have any voting power, so this
+                // miscalculation does not weaken the system in any way.
+                score = -2L;
+            } else if (cycleInformation == null || continuityState == ContinuityState.Undetermined) {
                 score = Long.MAX_VALUE - 1;  // unable to compute; might improve with more information
             } else {
                 if (continuityState == ContinuityState.Discontinuous) {

@@ -406,7 +406,7 @@ public class BlockManager {
         }
     }
 
-    private static BalanceList loadBalanceListFromFile(File file, long blockHeight) {
+    public static BalanceList loadBalanceListFromFile(File file, long blockHeight) {
 
         BalanceList blockBalanceList = null;
         if (file.exists()) {

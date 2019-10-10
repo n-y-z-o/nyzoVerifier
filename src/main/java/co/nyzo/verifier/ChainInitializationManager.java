@@ -54,7 +54,9 @@ public class ChainInitializationManager {
         Set<BalanceList> balanceListSet = new HashSet<>();  // single item; using a set to allow access from thread
         Set<Block> blockSet = new HashSet<>();  // single item; using a set to allow access from thread
 
-        while (!UpdateUtil.shouldTerminate() && (balanceListSet.isEmpty() || blockSet.isEmpty())) {
+        int numberOfAttempts = 0;
+        while (!UpdateUtil.shouldTerminate() && (balanceListSet.isEmpty() || blockSet.isEmpty()) &&
+                numberOfAttempts++ < 10) {
 
             System.out.println("trying to fetch block for height " + bootstrapResponse.getFrozenEdgeHeight());
 
@@ -122,7 +124,7 @@ public class ChainInitializationManager {
         // block manager, we can treat the restart as a temporary outage and use standard recovery mechanisms.
         long openEdgeHeight = BlockManager.openEdgeHeight(false);
         if (BlockManager.isCycleComplete() && openEdgeHeight < BlockManager.getFrozenEdgeHeight() + 20) {
-            System.out.println("skipping frozen-edge consensus process due to short downtime and complete cycle");
+            LogUtil.println("skipping frozen-edge consensus process due to closeness to open edge and complete cycle");
         } else {
 
             System.out.println("entering frozen-edge consensus process because open edge, " + openEdgeHeight +

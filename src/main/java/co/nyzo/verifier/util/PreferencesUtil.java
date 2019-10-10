@@ -54,8 +54,11 @@ public class PreferencesUtil {
     }
 
     public static String get(String key) {
-
         return preferences.getOrDefault(key.toLowerCase(), "");
+    }
+
+    public static String get(String key, String defaultValue) {
+        return preferences.getOrDefault(key, defaultValue);
     }
 
     public static boolean getBoolean(String key, boolean defaultValue) {

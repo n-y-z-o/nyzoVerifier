@@ -133,8 +133,7 @@ public class NodeManager {
                 }
                 existingNode.setInactiveTimestamp(-1L);
 
-                if (!ByteUtil.arraysAreEqual(existingNode.getIdentifier(), identifier) &&
-                        verifierChangeAllowed(existingNode)) {
+                if (!ByteUtil.arraysAreEqual(existingNode.getIdentifier(), identifier)) {
                     existingNode.setIdentifier(identifier);
                     existingNode.setQueueTimestamp(System.currentTimeMillis());
                     existingNode.setIdentifierChangeTimestamp(System.currentTimeMillis());
@@ -156,13 +155,6 @@ public class NodeManager {
                 node.setQueueTimestamp(System.currentTimeMillis());
             }
         }
-    }
-
-    private static boolean verifierChangeAllowed(Node node) {
-
-        long blocksSinceChange = (System.currentTimeMillis() - node.getIdentifierChangeTimestamp()) /
-                Block.blockDuration;
-        return blocksSinceChange > BlockManager.currentCycleLength() + 2;
     }
 
     public static List<Node> getCycle() {
