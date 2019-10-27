@@ -7,8 +7,9 @@ public class HtmlElementList implements HtmlElement {
 
     private List<HtmlElement> elements = new ArrayList<>();
 
-    public void add(HtmlElement element) {
+    public HtmlElement add(HtmlElement element) {
         elements.add(element);
+        return element;
     }
 
     @Override

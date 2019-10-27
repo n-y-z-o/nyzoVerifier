@@ -96,7 +96,14 @@ public class NewVerifierVoteManager {
             }
         }
         if (topVerifier == null) {
-            LogUtil.println("top verifier is null");
+            if (Verifier.inCycle()) {
+                LogUtil.println("Top verifier is null. This is likely due to vote scattering, a transition period " +
+                        "between voting windows, or recent restart of this verifier. If this continues for more than " +
+                        "50 blocks, please check your verifier configuration.");
+            } else {
+                LogUtil.println("Unable to determine top verifier. This is normal; out-of-cycle verifiers are not " +
+                        "typically notified about new-verifier votes.");
+            }
         } else {
             int cycleLength = BlockManager.currentCycleLength();
             LogUtil.println(String.format("top verifier %s has %d votes with a cycle length of %d (%.1f%%)",

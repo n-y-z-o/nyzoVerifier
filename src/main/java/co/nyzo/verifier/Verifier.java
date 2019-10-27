@@ -685,7 +685,7 @@ public class Verifier {
 
             // Check the transactions list, keeping only approved transactions.
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
-                    previousBlock);
+                    previousBlock, true);
 
             BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock);
             if (previousBalanceList != null) {

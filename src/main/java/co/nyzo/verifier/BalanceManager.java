@@ -18,7 +18,8 @@ public class BalanceManager {
 
     public static final long minimumPreferredBalance = 10L * Transaction.micronyzoMultiplierRatio;
 
-    public static List<Transaction> approvedTransactionsForBlock(List<Transaction> transactions, Block previousBlock) {
+    public static List<Transaction> approvedTransactionsForBlock(List<Transaction> transactions, Block previousBlock,
+                                                                 boolean forBlockAssembly) {
 
         // Sort the transactions in block order, then remove all duplicates.
         sortTransactions(transactions);
@@ -122,6 +123,28 @@ public class BalanceManager {
                 LogUtil.println("removed transaction because amount " + transaction.getAmount() + " was greater " +
                         "than balance " + senderBalance);
             }
+        }
+
+        // If this method is being used for new-block assembly and the list of approved transactions is larger than
+        // allowed for the block, remove the smallest transactions until the list is an acceptable size.
+        int maximumListSize = BlockchainMetricsManager.maximumTransactionsForBlockAssembly();
+        if (approvedTransactions.size() > maximumListSize && forBlockAssembly) {
+
+            // Sort the transactions on amount descending.
+            approvedTransactions.sort(new Comparator<Transaction>() {
+                @Override
+                public int compare(Transaction transaction1, Transaction transaction2) {
+                    return Long.compare(transaction2.getAmount(), transaction1.getAmount());
+                }
+            });
+
+            // Remove the tail of the list until it is an appropriate size.
+            while (approvedTransactions.size() > maximumListSize) {
+                approvedTransactions.remove(approvedTransactions.size() - 1);
+            }
+
+            // Sort the list back to block order.
+            sortTransactions(approvedTransactions);
         }
 
         return approvedTransactions;

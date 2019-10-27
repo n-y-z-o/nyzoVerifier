@@ -23,6 +23,10 @@ public abstract class HtmlTag implements HtmlElement {
         return this;
     }
 
+    public String getAttr(String name) {
+        return attributes.get(name);
+    }
+
     public HtmlTag addRaw(String rawHtml) {
         elements.add(new RawHtml(rawHtml));
         return this;

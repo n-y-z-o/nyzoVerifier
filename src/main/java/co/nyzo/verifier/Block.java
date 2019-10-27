@@ -563,7 +563,7 @@ public class Block implements MessageObject {
                 // only needs to be performed on blocks past the frozen edge, as blocks that have been frozen are no
                 // longer subject to scrutiny.
                 if (previousBlock != null && blockHeight > BlockManager.getFrozenEdgeHeight()) {
-                    transactions = BalanceManager.approvedTransactionsForBlock(transactions, previousBlock);
+                    transactions = BalanceManager.approvedTransactionsForBlock(transactions, previousBlock, false);
                 }
 
                 // Add/subtract all transactions. While doing this, sum the fees, organic transaction fees, and

@@ -87,7 +87,7 @@ public class UnfrozenBlockManager {
             // Get the map of blocks at this height.
             Map<ByteBuffer, Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
             if (blocksAtHeight == null) {
-                blocksAtHeight = new HashMap<>();
+                blocksAtHeight = new ConcurrentHashMap<>();
                 unfrozenBlocks.put(block.getBlockHeight(), blocksAtHeight);
             }
 
@@ -150,7 +150,7 @@ public class UnfrozenBlockManager {
                     // to avoid having to request it later.
                     Map<ByteBuffer, Block> disconnectedBlocksForHeight = disconnectedBlocks.get(block.getBlockHeight());
                     if (disconnectedBlocksForHeight == null) {
-                        disconnectedBlocksForHeight = new HashMap<>();
+                        disconnectedBlocksForHeight = new ConcurrentHashMap<>();
                         disconnectedBlocks.put(block.getBlockHeight(), disconnectedBlocksForHeight);
                     }
 

@@ -2,6 +2,9 @@ package co.nyzo.verifier.util;
 
 import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.Transaction;
+import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
+import co.nyzo.verifier.nyzoString.NyzoStringPrivateSeed;
+import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
 
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -144,5 +147,20 @@ public class PrintUtil {
         result.append("]");
 
         return result.toString();
+    }
+
+    public static String printPublicIdentifier(byte[] identifier) {
+        NyzoStringPublicIdentifier identifierString = new NyzoStringPublicIdentifier(identifier);
+        return NyzoStringEncoder.encode(identifierString);
+    }
+
+    public static String printPublicIdentifierExtraWrap(byte[] identifier) {
+        String normalString = printPublicIdentifier(identifier);
+        StringBuilder stringWithExtraWrap = new StringBuilder(normalString.charAt(0) + "");
+        for (int i = 1; i < normalString.length(); i++) {
+            stringWithExtraWrap.append("&#8203;").append(normalString.charAt(i));
+        }
+
+        return stringWithExtraWrap.toString();
     }
 }

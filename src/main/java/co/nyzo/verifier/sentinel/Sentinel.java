@@ -790,7 +790,7 @@ public class Sentinel {
             }
 
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,
-                    previousBlock);
+                    previousBlock, true);
 
             BalanceList previousBalanceList = BalanceListManager.balanceListForBlock(previousBlock);
             BalanceList balanceList = Block.balanceListForNextBlock(previousBlock, previousBalanceList,
