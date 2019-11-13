@@ -101,6 +101,9 @@ public class NyzoStringEncoder {
 
                         // Make the object from the content array.
                         switch (type) {
+                            case Micropay:
+                                result = NyzoStringMicropay.fromByteBuffer(ByteBuffer.wrap(contentBytes));
+                                break;
                             case PrefilledData:
                                 result = NyzoStringPrefilledData.fromByteBuffer(ByteBuffer.wrap(contentBytes));
                                 break;
@@ -110,8 +113,8 @@ public class NyzoStringEncoder {
                             case PublicIdentifier:
                                 result = new NyzoStringPublicIdentifier(contentBytes);
                                 break;
-                            case Micropay:
-                                result = NyzoStringMicropay.fromByteBuffer(ByteBuffer.wrap(contentBytes));
+                            case Signature:
+                                result = new NyzoStringSignature(contentBytes);
                                 break;
                             case Transaction:
                                 result = NyzoStringTransaction.fromByteBuffer(ByteBuffer.wrap(contentBytes));

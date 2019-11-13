@@ -1,14 +1,11 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
 import co.nyzo.verifier.util.ThreadUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;

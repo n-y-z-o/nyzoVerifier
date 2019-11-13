@@ -236,13 +236,13 @@ public class ClientTransactionUtil {
                     } else {
                         System.out.println("resending signature to " + NicknameManager.get(node.getIdentifier()));
                     }
-                    Message message = new Message(MessageType.CycleTransactionSignature_47, signature);
+                    Message message = new Message(MessageType.CycleTransactionSignature47, signature);
                     Message.fetch(node, message, new MessageCallback() {
                         @Override
                         public void responseReceived(Message message) {
                             System.out.println("response: " + message);
                             if (message != null &&
-                                    message.getType() == MessageType.CycleTransactionSignatureResponse_48) {
+                                    message.getType() == MessageType.CycleTransactionSignatureResponse48) {
                                 nodesReceived.add(node);
                                 if (message.getContent() instanceof CycleTransactionSignatureResponse) {
                                     TransactionResponse response = (TransactionResponse) message.getContent();

@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class Sentinel {
 
+    private static final AtomicBoolean loadedManagedVerifiers = new AtomicBoolean(false);
     private static final File managedVerifiersFile = new File(Verifier.dataRootDirectory, "managed_verifiers");
 
     private static final long meshUpdateInterval = 1000L * 60L * 5L;  // 5 minutes
@@ -83,7 +84,9 @@ public class Sentinel {
 
         // Load the managed verifiers. These are the verifiers for which the sentinel will produce blocks, if
         // necessary, and they are also used as data sources.
-        loadManagedVerifiers();
+        if (!loadedManagedVerifiers.getAndSet(true)) {
+            loadManagedVerifiers();
+        }
 
         // Fetch and process the bootstrap response. This process will repeat until it is successful.
         boolean completedInitialization = false;
@@ -332,7 +335,7 @@ public class Sentinel {
     private static void broadcastUdpBlockForNewVerifier(ManagedVerifier verifier) {
 
         Block block = createNextBlock(frozenEdge, verifier);
-        Message message = new Message(MessageType.MinimalBlock_51, new MinimalBlock(block.getVerificationTimestamp(),
+        Message message = new Message(MessageType.MinimalBlock51, new MinimalBlock(block.getVerificationTimestamp(),
                 block.getVerifierSignature()));
         message.sign(verifier.getSeed());
         for (Node node : combinedCycle()) {
@@ -823,6 +826,9 @@ public class Sentinel {
     }
 
     public static List<ManagedVerifier> getManagedVerifiers() {
+        if (!loadedManagedVerifiers.getAndSet(true)) {
+            loadManagedVerifiers();
+        }
         return verifierList;
     }
 

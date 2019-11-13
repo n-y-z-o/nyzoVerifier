@@ -1,7 +1,12 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.util.FileUtil;
+import co.nyzo.verifier.client.ConsoleColor;
+import co.nyzo.verifier.util.*;
 
+import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,7 +34,7 @@ public class TestnetGenesisBlockCreator {
 
         List<Transaction> transactions = new ArrayList<>();
         transactions.add(Transaction.coinGenerationTransaction(genesisTimestamp + 1000L,
-                Transaction.micronyzosInSystem, verifierIdentifier));
+                Transaction.micronyzosInSystem, BalanceListItem.cycleAccountIdentifier));
 
         // Create the balance list and the block.
         BalanceList balanceList = Block.balanceListForNextBlock(null, null, transactions,

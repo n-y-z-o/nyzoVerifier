@@ -51,32 +51,50 @@ public class CycleTransactionManager {
             error.append("Amount is greater than maximum allowed for cycle transactions.");
         } else {
 
-            if (transaction.getTimestamp() < System.currentTimeMillis() + 1000L * 60L * 60L * 24L) {
-                warning.append("Transaction is in the next 24 hours. This is a short time frame for a cycle ")
-                        .append("transaction.");
-            }
+            // Check the map for an existing transaction that would take precedence over this transaction. This avoids
+            // unnecessary map operations, including those that could result in signature losses for existing
+            // transactions.
+            ByteBuffer key = ByteBuffer.wrap(transaction.getSenderIdentifier());
+            Transaction existingTransaction = transactions.get(key);
+            if (existingTransaction != null &&
+                    ByteUtil.arraysAreEqual(transaction.getSignature(), existingTransaction.getSignature())) {
+                // Mark the transaction as accepted, but warn the sender that it is a duplicate.
+                accepted = true;
+                warning.append("This transaction is already registered.");
+            } else if (existingTransaction != null && transaction.getTimestamp() < existingTransaction.getTimestamp()) {
+                error.append("A newer transaction is already registered");
+            } else {
+                // Add a warning for transactions near in the future.
+                if (transaction.getTimestamp() < System.currentTimeMillis() + 1000L * 60L * 60L * 24L) {
+                    warning.append("Transaction is in the next 24 hours. This is a short time frame for a cycle ")
+                            .append("transaction.");
+                }
 
-            accepted = true;
-            mapHasChanged.set(true);
-            transactions.merge(ByteBuffer.wrap(transaction.getSenderIdentifier()), transaction,
-                    new BiFunction<Transaction, Transaction, Transaction>() {
-                        @Override
-                        public Transaction apply(Transaction transaction1, Transaction transaction2) {
-                            // If either input is null, take the other input. If neither is null, take the newer input.
-                            Transaction result;
-                            if (transaction1 == null) {
-                                result = transaction2;
-                            } else if (transaction2 == null) {
-                                result = transaction1;
-                            } else if (transaction1.getTimestamp() > transaction2.getTimestamp()) {
-                                result = transaction1;
-                            } else {
-                                result = transaction2;
+                // Despite the previous checks, this is still handled as a fully asynchronous process, accounting for
+                // collisions, to improve thread safety.
+                accepted = true;
+                mapHasChanged.set(true);
+                transactions.merge(ByteBuffer.wrap(transaction.getSenderIdentifier()), transaction,
+                        new BiFunction<Transaction, Transaction, Transaction>() {
+                            @Override
+                            public Transaction apply(Transaction transaction1, Transaction transaction2) {
+                                // If either input is null, take the other input. If neither is null, take the input
+                                // with the later timestamp.
+                                Transaction result;
+                                if (transaction1 == null) {
+                                    result = transaction2;
+                                } else if (transaction2 == null) {
+                                    result = transaction1;
+                                } else if (transaction1.getTimestamp() > transaction2.getTimestamp()) {
+                                    result = transaction1;
+                                } else {
+                                    result = transaction2;
+                                }
+
+                                return result;
                             }
-
-                            return result;
-                        }
-                    });
+                        });
+            }
         }
 
         return accepted;
@@ -88,8 +106,8 @@ public class CycleTransactionManager {
         // validity and cycle membership.
         boolean registered = false;
         Transaction transaction = transactions.get(ByteBuffer.wrap(signature.getTransactionInitiator()));
-        if (transaction != null && BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(signature.getIdentifier()))) {
-            transaction.addSignature(signature.getIdentifier(), signature.getSignature());
+        if (transaction != null && BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(signature.getIdentifier())) &&
+            transaction.addSignature(signature.getIdentifier(), signature.getSignature())) {
             registered = true;
             mapHasChanged.set(true);
         }

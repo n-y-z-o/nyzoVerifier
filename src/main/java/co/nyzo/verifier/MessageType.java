@@ -52,14 +52,14 @@ public enum MessageType {
     FullMeshResponse42(42),
     NodeJoinV2_43(43),
     NodeJoinResponseV2_44(44),
-    FrozenEdgeBalanceListRequest_45(45),
-    FrozenEdgeBalanceListResponse_46(46),
-    CycleTransactionSignature_47(47),
-    CycleTransactionSignatureResponse_48(48),
-    CycleTransactionListRequest_49(49),
-    CycleTransactionListResponse_50(50),
-    MinimalBlock_51(51),
-    MinimalBlockResponse_52(52),   // currently unused -- UDP-only message
+    FrozenEdgeBalanceListRequest45(45),
+    FrozenEdgeBalanceListResponse46(46),
+    CycleTransactionSignature47(47),
+    CycleTransactionSignatureResponse48(48),
+    CycleTransactionListRequest49(49),
+    CycleTransactionListResponse50(50),
+    MinimalBlock51(51),
+    MinimalBlockResponse52(52),   // currently unused -- UDP-only message
 
     // test messages
     Ping200(200),

@@ -470,15 +470,15 @@ public class Message {
                 return NodeJoinMessageV2.fromByteBuffer(buffer);
             case NodeJoinResponseV2_44:
                 return NodeJoinResponseV2.fromByteBuffer(buffer);
-            case FrozenEdgeBalanceListResponse_46:
+            case FrozenEdgeBalanceListResponse46:
                 return BalanceListResponse.fromByteBuffer(buffer);
-            case CycleTransactionSignature_47:
+            case CycleTransactionSignature47:
                 return CycleTransactionSignature.fromByteBuffer(buffer);
-            case CycleTransactionSignatureResponse_48:
+            case CycleTransactionSignatureResponse48:
                 return CycleTransactionSignatureResponse.fromByteBuffer(buffer);
-            case CycleTransactionListResponse_50:
+            case CycleTransactionListResponse50:
                 return TransactionListResponse.fromByteBuffer(buffer);
-            case MinimalBlock_51:
+            case MinimalBlock51:
                 return MinimalBlock.fromByteBuffer(buffer);
             case PingResponse201:
                 return PingResponse.fromByteBuffer(buffer);

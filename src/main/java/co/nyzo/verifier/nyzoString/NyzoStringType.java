@@ -2,10 +2,11 @@ package co.nyzo.verifier.nyzoString;
 
 public enum NyzoStringType {
 
+    Micropay("pay_"),
     PrefilledData("pre_"),
     PrivateSeed("key_"),
     PublicIdentifier("id__"),
-    Micropay("pay_"),
+    Signature("sig_"),
     Transaction("tx__");
 
     private String prefix;

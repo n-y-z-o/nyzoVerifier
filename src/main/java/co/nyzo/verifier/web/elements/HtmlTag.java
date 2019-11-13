@@ -14,7 +14,9 @@ public abstract class HtmlTag implements HtmlElement {
     public abstract String getName();
 
     public HtmlElement add(HtmlElement element) {
-        elements.add(element);
+        if (element != null) {
+            elements.add(element);
+        }
         return element;
     }
 

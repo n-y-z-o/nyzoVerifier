@@ -340,6 +340,13 @@ public class Verifier {
             } else {
                 BalanceList balanceList = BalanceListManager.balanceListForBlock(genesisBlock);
                 BlockManager.freezeBlock(genesisBlock, genesisBlock.getPreviousBlockHash(), balanceList, null);
+
+                // If the Genesis block did not properly freeze, sleep for two seconds and try again.
+                if (BlockManager.getFrozenEdgeHeight() < 0) {
+                    LogUtil.println("unable to freeze Genesis block; retrying");
+                    genesisBlock = null;
+                    ThreadUtil.sleep(2000L);
+                }
             }
         }
     }

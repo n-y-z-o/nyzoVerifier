@@ -1,6 +1,7 @@
 package co.nyzo.verifier.web;
 
 import co.nyzo.verifier.NicknameManager;
+import co.nyzo.verifier.client.ClientTransactionUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,6 +37,10 @@ public class WebUtil {
         }
 
         return nickname;
+    }
+
+    public static String sanitizedSenderDataString(byte[] senderData) {
+        return sanitizeString(ClientTransactionUtil.senderDataString(senderData));
     }
 
     public static String removeNumeralStrings(String string) {

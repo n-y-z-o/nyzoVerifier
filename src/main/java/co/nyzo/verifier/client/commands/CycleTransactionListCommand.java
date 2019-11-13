@@ -106,7 +106,7 @@ public class CycleTransactionListCommand implements Command {
                         System.out.println("querying node " + NicknameManager.get(identifier));
                         numberQueried++;
                         numberWaiting.incrementAndGet();
-                        Message message = new Message(MessageType.CycleTransactionListRequest_49, null);
+                        Message message = new Message(MessageType.CycleTransactionListRequest49, null);
                         message.sign(verifierKey.getSeed());
                         Message.fetchTcp(IpUtil.addressAsString(node.getIpAddress()), MeshListener.standardPortTcp,
                                 message, new MessageCallback() {
