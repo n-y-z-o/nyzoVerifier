@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class Sentinel {
 
     private static final AtomicBoolean loadedManagedVerifiers = new AtomicBoolean(false);
-    private static final File managedVerifiersFile = new File(Verifier.dataRootDirectory, "managed_verifiers");
+    public static final File managedVerifiersFile = new File(Verifier.dataRootDirectory, "managed_verifiers");
 
     private static final long meshUpdateInterval = 1000L * 60L * 5L;  // 5 minutes
     private static final long blockUpdateIntervalFast = 1000L;
@@ -88,13 +88,15 @@ public class Sentinel {
             loadManagedVerifiers();
         }
 
-        // Fetch and process the bootstrap response. This process will repeat until it is successful.
-        boolean completedInitialization = false;
-        while (!completedInitialization) {
-            Set<BootstrapResponseV2> bootstrapResponses = fetchBootstrapResponses();
-            System.out.println("got " + bootstrapResponses.size() + " bootstrap responses");
-            completedInitialization = processBootstrapResponses(bootstrapResponses);
-        }
+        // Initialize the frozen edge. This process will repeat until it is successful.
+        SentinelUtil.initializeFrozenEdge(verifierList);
+
+        // Store the frozen edge locally.
+        frozenEdge = BlockManager.getFrozenEdge();
+
+        // This timestamp is set whenever we receive a block so we do not try to create a block too soon
+        // afterwards.
+        lastBlockReceivedTimestamp.set(System.currentTimeMillis());
 
         // Start a separate thread for fetching data from each of the managed verifiers. This may generate some
         // redundant work, but it will ensure that the sentinel continues to function properly even if a large segment
@@ -380,135 +382,6 @@ public class Sentinel {
         for (ManagedVerifier verifier : verifierList) {
             System.out.println("got managed verifier: " + verifier);
         }
-    }
-
-    private static Set<BootstrapResponseV2> fetchBootstrapResponses() {
-
-        // Try to get a bootstrap response from each managed node. While we fully trust every node we manage, some may
-        // be behind, so we want to query as many as possible to ensure we start as close to the cycle frozen edge as
-        // possible. Continue looping until at least one response is received.
-        Set<BootstrapResponseV2> bootstrapResponses = ConcurrentHashMap.newKeySet();
-        while (bootstrapResponses.isEmpty()) {
-
-            AtomicInteger numberOfResponsesPending = new AtomicInteger(verifierList.size());
-            for (ManagedVerifier verifier : verifierList) {
-
-                Message bootstrapRequest = new Message(MessageType.BootstrapRequestV2_35, new BootstrapRequest());
-                Message.fetchTcp(verifier.getHost(), verifier.getPort(), bootstrapRequest, new MessageCallback() {
-                    @Override
-                    public void responseReceived(Message message) {
-
-                        System.out.println("response from " + verifier.getHost() + " is " + message);
-                        if (message != null && (message.getContent() instanceof BootstrapResponseV2)) {
-                            bootstrapResponses.add((BootstrapResponseV2) message.getContent());
-                        }
-                        numberOfResponsesPending.decrementAndGet();
-                    }
-                });
-            }
-
-            // Wait for all responses to return.
-            int waitIteration = 0;
-            while (numberOfResponsesPending.get() > 0) {
-                ThreadUtil.sleep(300L);
-                System.out.println("after wait iteration " + waitIteration++ + ", " + numberOfResponsesPending.get() +
-                        " bootstrap responses pending, have " + bootstrapResponses.size() + " good responses");
-            }
-        }
-
-        return bootstrapResponses;
-    }
-
-    private static boolean processBootstrapResponses(Set<BootstrapResponseV2> bootstrapResponses) {
-
-        boolean successful = false;
-
-        System.out.println("processing bootstrap responses");
-
-        // Get the local and chain frozen edges. If the chain is within four cycles of the local frozen edge, we do
-        // not need to fetch anything here. The standard block-fetch process will get the chain. If the chain is not
-        // within four cycles of the local frozen edge, we fetch and freeze one recent block.
-        long localFrozenEdge = BlockManager.getFrozenEdgeHeight();
-        long chainFrozenEdge = localFrozenEdge;
-        List<ByteBuffer> cycleVerifiers = new ArrayList<>();
-        for (BootstrapResponseV2 bootstrapResponse : bootstrapResponses) {
-            if (bootstrapResponse.getFrozenEdgeHeight() > chainFrozenEdge) {
-                chainFrozenEdge = bootstrapResponse.getFrozenEdgeHeight();
-                cycleVerifiers = bootstrapResponse.getCycleVerifiers();
-            }
-        }
-
-        long cutoffHeight = chainFrozenEdge - cycleVerifiers.size() * 4;
-        if (localFrozenEdge >= cutoffHeight) {
-            // If the frozen edge is close enough, nothing needs to be done. Flag processing as successful.
-            frozenEdge = BlockManager.frozenBlockForHeight(localFrozenEdge);
-            successful = true;
-        } else {
-
-            // Try to get the block at the chain frozen edge. This sends requests to every managed verifier, but only
-            // one good response is needed.
-            Set<Block> blocks = ConcurrentHashMap.newKeySet();
-            Set<BalanceList> balanceLists = ConcurrentHashMap.newKeySet();
-            long requestHeight = chainFrozenEdge;
-            Message message = new Message(MessageType.BlockRequest11, new BlockRequest(requestHeight, requestHeight,
-                    true));
-            AtomicInteger numberOfResponsesPending = new AtomicInteger(verifierList.size());
-            for (ManagedVerifier verifier : verifierList) {
-
-                Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
-                    @Override
-                    public void responseReceived(Message message) {
-
-                        if (message != null) {
-                            try {
-                                BlockResponse blockResponse = (BlockResponse) message.getContent();
-                                Block block = blockResponse.getBlocks().get(0);
-                                BalanceList balanceList = blockResponse.getInitialBalanceList();
-                                if (block.getBlockHeight() == requestHeight &&
-                                        balanceList.getBlockHeight() == requestHeight) {
-                                    blocks.add(block);
-                                    balanceLists.add(balanceList);
-                                }
-                            } catch (Exception ignored) { }
-                        }
-
-                        numberOfResponsesPending.decrementAndGet();
-                    }
-                });
-            }
-
-            // Wait for all responses to return.
-            int waitIteration = 0;
-            while (numberOfResponsesPending.get() > 0) {
-                ThreadUtil.sleep(300L);
-                System.out.println("after wait iteration " + waitIteration++ + ", " + numberOfResponsesPending.get() +
-                        " block responses pending");
-            }
-
-            // If a block was obtained, freeze it and flag that we have successfully processed the bootstrap response.
-            if (!blocks.isEmpty() && !balanceLists.isEmpty()) {
-
-                Block block = blocks.iterator().next();
-                BalanceList balanceList = balanceLists.iterator().next();
-                BlockManager.freezeBlock(block, block.getPreviousBlockHash(), balanceList, cycleVerifiers);
-                frozenEdge = block;
-
-                successful = true;
-
-                // This timestamp is set whenever we receive a block so we do not try to create a block too soon
-                // afterwards.
-                lastBlockReceivedTimestamp.set(System.currentTimeMillis());
-            }
-        }
-
-        // If we know that we are more than 20 blocks behind the frozen edge, start in fast-fetch mode.
-        if (BlockManager.getFrozenEdgeHeight() < chainFrozenEdge - 20) {
-            for (ManagedVerifier verifier : verifierList) {
-                inFastFetchMode.put(ByteBuffer.wrap(verifier.getIdentifier()), true);
-            }
-        }
-
-        return successful;
     }
 
     private static void updateMesh(ManagedVerifier verifier) {

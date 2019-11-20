@@ -60,6 +60,16 @@ public class Message {
         this.valid = true;
     }
 
+    // This is the constructor for a new message originating from this system not signed by the default verifier.
+    public Message(MessageType type, MessageObject content, byte[] privateSeed) {
+        this.timestamp = System.currentTimeMillis();
+        this.type = type;
+        this.content = content;
+        this.sourceNodeIdentifier = KeyUtil.identifierForSeed(privateSeed);
+        this.sourceNodeSignature = SignatureUtil.signBytes(getBytesForSigning(), privateSeed);
+        this.valid = true;
+    }
+
     // This is the constructor for a message from another system.
     public Message(long timestamp, MessageType type, MessageObject content, byte[] sourceNodeIdentifier,
                    byte[] sourceNodeSignature, byte[] sourceIpAddress) {

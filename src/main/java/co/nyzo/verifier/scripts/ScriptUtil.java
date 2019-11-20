@@ -3,17 +3,16 @@ package co.nyzo.verifier.scripts;
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.messages.MeshResponse;
 import co.nyzo.verifier.messages.MultilineTextResponse;
-import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.UpdateUtil;
+import co.nyzo.verifier.util.*;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ScriptUtil {
+
+    public static int maximumInFlightRequests = PreferencesUtil.getInt("script_maximum_in_flight_requests", 50);
+    public static int maximumMessageAttempts = PreferencesUtil.getInt("script_maximum_message_attempts", 3);
 
     public static List<byte[]> ipAddressesForVerifier(byte[] identifier) {  
         
@@ -122,5 +121,66 @@ public class ScriptUtil {
 
     public static void primeMessageQueue() {
         Message.fetchTcp("127.0.0.1", MeshListener.getPortTcp(), new Message(MessageType.Ping200, null), null);
+    }
+
+    public static void sendMessages(Set<PendingMessage> messages) {
+
+        LogUtil.println("need to send " + messages.size() + " messages");
+        boolean done = false;
+        AtomicInteger numberOfInFlightRequests = new AtomicInteger(0);
+        int iteration = 0;
+        AtomicInteger numberOfSuccessfulMessages = new AtomicInteger(0);
+        AtomicInteger numberOfFailedMessages = new AtomicInteger(0);
+        while (!messages.isEmpty()) {
+            // While the number of messages in flight is at the maximum, wait for messages to return.
+            while (numberOfInFlightRequests.get() >= maximumInFlightRequests) {
+                ThreadUtil.sleep(100L);
+            }
+
+            // Find a message that needs to be sent.
+            PendingMessage messageToSend = null;
+            Iterator<PendingMessage> iterator = messages.iterator();
+            while (iterator.hasNext() && messageToSend == null) {
+                PendingMessage message = iterator.next();
+                if (message.getNumberOfSuccesses() == 0 &&
+                        message.getNumberOfFailures() == message.getNumberOfAttempts() &&
+                        message.getNumberOfAttempts() < maximumMessageAttempts) {
+                    messageToSend = message;
+                }
+            }
+
+            // If no message was found, sleep for a short time to allow states to update. Otherwise, send the message.
+            if (messageToSend == null) {
+                ThreadUtil.sleep(100L);
+            } else {
+                final PendingMessage messageToSendFinal = messageToSend;
+                messageToSendFinal.incrementAndGetNumberOfAttempts();
+                Message.fetch(messageToSendFinal.getRecipient(), new Message(messageToSendFinal.getMessageType(),
+                        messageToSendFinal.getMessageObject(), messageToSend.getSignerSeed()), new MessageCallback() {
+                    @Override
+                    public void responseReceived(Message message) {
+                        if (message == null) {
+                            messageToSendFinal.incrementAndGetNumberOfFailures();
+                            numberOfFailedMessages.incrementAndGet();
+                        } else {
+                            messageToSendFinal.incrementAndGetNumberOfSuccesses();
+                            numberOfSuccessfulMessages.incrementAndGet();
+                        }
+                    }
+                });
+            }
+
+            // Clean the map.
+            Set<PendingMessage> pendingMessagesCopy = new HashSet<>(messages);
+            for (PendingMessage message : pendingMessagesCopy) {
+                if (message.getNumberOfAttempts() >= maximumMessageAttempts ||
+                        message.getNumberOfSuccesses() > 0) {
+                    messages.remove(message);
+                }
+            }
+        }
+
+        LogUtil.println("number of successful messages: " + numberOfSuccessfulMessages.get());
+        LogUtil.println("number of failed messages: " + numberOfFailedMessages.get());
     }
 }

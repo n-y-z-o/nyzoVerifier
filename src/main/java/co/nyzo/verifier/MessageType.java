@@ -69,8 +69,7 @@ public enum MessageType {
     UpdateRequest300(300),  // updates the verifier with the latest code from the Git repository, rebuilds, and restarts
     UpdateResponse301(301),
 
-    // debugging messages -- these are meant to cause problems to test resiliency or to provide information that is not
-    // necessary for normal operation
+    // Debugging and private messages.
     BlockRejectionRequest400(400),  // discards all blocks received for the next 10 seconds
     BlockRejectionResponse401(401),
     DetachmentRequest402(402),  // stops producing blocks for two verifier cycles
