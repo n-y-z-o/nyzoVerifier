@@ -13,4 +13,13 @@ public class Head extends HtmlTag {
                 .attr("content", "width=device-width, initial-scale=1, maximum-scale=1"));
         return this;
     }
+
+    public Head addStandardMetadata(String title) {
+        addStandardMetadata();
+        add(new Title(title));
+        add(new Meta().attr("property", "og:title").attr("content", title));
+        add(new Meta().attr("property", "og:description").attr("content", title));
+        add(new Meta().attr("property", "og:type").attr("content", "website"));
+        return this;
+    }
 }

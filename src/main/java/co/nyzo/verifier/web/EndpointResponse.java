@@ -6,15 +6,24 @@ import java.util.Set;
 
 public class EndpointResponse {
 
-    public static final String contentTypeDefault = "text/html;charset=UTF-8";
     public static final String contentTypeCss = "text/css";
+    public static final String contentTypeHtml = "text/html;charset=UTF-8";
+    public static final String contentTypeJpeg = "image/jpeg";
+    public static final String contentTypePng = "image/png";
+
+    public static final String contentTypeDefault = contentTypeHtml;
+
 
     private byte[] content;
     private Map<String, String> headers = new HashMap<>();
 
     public EndpointResponse(byte[] content) {
+        this(content, contentTypeDefault);
+    }
+
+    public EndpointResponse(byte[] content, String contentType) {
         this.content = content;
-        headers.put("Content-type", contentTypeDefault);
+        headers.put("Content-type", contentType);
     }
 
     public byte[] getContent() {

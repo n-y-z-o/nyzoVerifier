@@ -2,6 +2,7 @@ package co.nyzo.verifier.web;
 
 import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.client.Client;
+import co.nyzo.verifier.documentation.DocumentationController;
 import co.nyzo.verifier.micropay.MicropayController;
 import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
@@ -146,10 +147,12 @@ public class WebListener implements HttpHandler {
         } else if (runMode == RunMode.MicropayClient) {
             map.put(MicropayController.clientPingEndpoint, MicropayController::clientPingPage);
             map.put(MicropayController.clientAuthorizationEndpoint, MicropayController::clientAuthorizationPage);
-        } else {  // runMode == Client || runMode == Verifier
+        } else if (runMode == RunMode.Client || runMode == RunMode.Verifier) {
             map.put("/", CycleController::page);  // will be removed in a later version
             map.put(CycleController.pageEndpoint, CycleController::page);
             map.put(CycleController.updateEndpoint, CycleController::update);
+        } else {  // runMode == DocumentationServer
+            map.putAll(DocumentationController.buildEndpointMap());
         }
 
         // Assign the map to the static variable. Building and swapping results in an atomic update of the endpoints.
@@ -172,8 +175,10 @@ public class WebListener implements HttpHandler {
             overrideSuffix = "client";
         } else if (runMode == RunMode.MicropayClient) {
             overrideSuffix = "micropay_client";
-        } else {  // runMode == RunMode.MicropayServer
+        } else if (runMode == RunMode.MicropayServer) {
             overrideSuffix = "micropay_server";
+        } else {  // runMode == DocumentationServer
+            overrideSuffix = "documentation_server";
         }
 
         // Return the web port.
