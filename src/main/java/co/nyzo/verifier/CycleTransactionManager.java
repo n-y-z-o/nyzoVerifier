@@ -70,12 +70,19 @@ public class CycleTransactionManager {
                             .append("transaction.");
                 }
 
+                // For registration, make a copy of the transaction without cycle signatures.
+                Transaction transactionWithoutCycleSignatures = Transaction.cycleTransaction(transaction.getTimestamp(),
+                        transaction.getAmount(), transaction.getReceiverIdentifier(),
+                        transaction.getPreviousHashHeight(), transaction.getPreviousBlockHash(),
+                        transaction.getSenderIdentifier(), transaction.getSenderData(), transaction.getSignature(),
+                        new ConcurrentHashMap<>());
+
                 // Despite the previous checks, this is still handled as a fully asynchronous process, accounting for
                 // collisions, to improve thread safety.
                 accepted = true;
                 mapHasChanged.set(true);
-                transactions.merge(ByteBuffer.wrap(transaction.getSenderIdentifier()), transaction,
-                        new BiFunction<Transaction, Transaction, Transaction>() {
+                transactions.merge(ByteBuffer.wrap(transaction.getSenderIdentifier()),
+                        transactionWithoutCycleSignatures, new BiFunction<Transaction, Transaction, Transaction>() {
                             @Override
                             public Transaction apply(Transaction transaction1, Transaction transaction2) {
                                 // If either input is null, take the other input. If neither is null, take the input
@@ -94,6 +101,16 @@ public class CycleTransactionManager {
                                 return result;
                             }
                         });
+
+                // Register the cycle signatures separately. This ensures that the same level of scrutiny is applied to
+                // incoming cycle transaction signatures whether they arrive bundled with transactions or in separate
+                // messages.
+                for (ByteBuffer signer : transaction.getCycleSignatures().keySet()) {
+                    CycleTransactionSignature signature =
+                            new CycleTransactionSignature(transaction.getSenderIdentifier(), signer.array(),
+                                    transaction.getCycleSignatures().get(signer));
+                    registerSignature(signature);
+                }
             }
         }
 

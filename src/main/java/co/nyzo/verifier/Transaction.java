@@ -192,7 +192,7 @@ public class Transaction implements MessageObject {
         return transaction;
     }
 
-    private static Transaction cycleTransaction(long timestamp, long amount, byte[] receiverIdentifier,
+    public static Transaction cycleTransaction(long timestamp, long amount, byte[] receiverIdentifier,
                                                long previousHashHeight, byte[] previousBlockHash,
                                                byte[] senderIdentifier, byte[] senderData, byte[] signature,
                                                Map<ByteBuffer, byte[]> cycleSignatures) {

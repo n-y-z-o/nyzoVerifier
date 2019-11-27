@@ -2,6 +2,7 @@ package co.nyzo.verifier.client.commands;
 
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.*;
+import co.nyzo.verifier.messages.CycleTransactionSignature;
 import co.nyzo.verifier.messages.TransactionListResponse;
 import co.nyzo.verifier.nyzoString.*;
 import co.nyzo.verifier.util.IpUtil;
@@ -161,7 +162,7 @@ public class CycleTransactionListCommand implements Command {
             }
 
         } catch (Exception e) {
-            System.out.println(ConsoleColor.Red + "unexpected issue list cycle transactions: " +
+            System.out.println(ConsoleColor.Red + "unexpected issue listing cycle transactions: " +
                     PrintUtil.printException(e) + ConsoleColor.reset);
         }
     }
@@ -171,7 +172,17 @@ public class CycleTransactionListCommand implements Command {
         if (message != null && (message.getContent() instanceof TransactionListResponse)) {
             TransactionListResponse response = (TransactionListResponse) message.getContent();
             for (Transaction transaction : response.getTransactions()) {
+                // Register the transaction.
                 CycleTransactionManager.registerTransaction(transaction, null, null);
+
+                // Register the signatures. In the registerTransaction() method, signatures are only registered for new
+                // cycle transactions.
+                for (ByteBuffer signer : transaction.getCycleSignatures().keySet()) {
+                    CycleTransactionSignature signature =
+                            new CycleTransactionSignature(transaction.getSenderIdentifier(), signer.array(),
+                                    transaction.getCycleSignatures().get(signer));
+                    CycleTransactionManager.registerSignature(signature);
+                }
             }
         }
     }
