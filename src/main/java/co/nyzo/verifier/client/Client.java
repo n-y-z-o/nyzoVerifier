@@ -26,14 +26,20 @@ public class Client {
                 Version.getVersion())));
 
         // Start the data manager. This collects the data necessary for the client to run properly.
-        ClientDataManager.start();
+        boolean startedDataManager = ClientDataManager.start();
 
-        // If the preference is set, start the web listener.
-        if (PreferencesUtil.getBoolean(WebListener.startWebListenerKey, false)) {
-            WebListener.start();
+        // If the data manager started properly, continue. Otherwise, display an error message.
+        if (startedDataManager) {
+            // If the preference is set, start the web listener.
+            if (PreferencesUtil.getBoolean(WebListener.startWebListenerKey, false)) {
+                WebListener.start();
+            }
+
+            runCommandLoop();
+        } else {
+            System.out.println(ConsoleColor.Red + "data manager did not start; exiting" + ConsoleColor.reset);
+            UpdateUtil.terminate();
         }
-
-        runCommandLoop();
     }
 
     private static void runCommandLoop() {

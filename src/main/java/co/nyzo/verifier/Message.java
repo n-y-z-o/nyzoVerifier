@@ -224,8 +224,10 @@ public class Message {
 
                     if (messageCallback != null) {
                         if (response != null && response.isValid() &&
-                                response.getTimestamp() >= System.currentTimeMillis() - replayProtectionInterval &&
-                                response.getTimestamp() <= System.currentTimeMillis() + replayProtectionInterval) {
+                                ((response.getTimestamp() >= System.currentTimeMillis() - replayProtectionInterval &&
+                                        response.getTimestamp() <= System.currentTimeMillis() +
+                                                replayProtectionInterval) ||
+                                        response.getType() == MessageType.TimestampResponse28)) {
                             MessageQueue.add(messageCallback, response);
                         } else {
                             MessageQueue.add(messageCallback, null);

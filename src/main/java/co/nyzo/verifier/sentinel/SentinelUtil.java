@@ -23,7 +23,7 @@ public class SentinelUtil {
         boolean completedInitialization = false;
         while (!completedInitialization) {
             Set<BootstrapResponseV2> bootstrapResponses = fetchBootstrapResponses(verifiers);
-            LogUtil.println("forzen edge initialization: got " + bootstrapResponses.size() + " bootstrap responses");
+            LogUtil.println("frozen edge initialization: got " + bootstrapResponses.size() + " bootstrap responses");
             completedInitialization = processBootstrapResponses(bootstrapResponses, verifiers);
 
             // If initialization was not completed, sleep for 5 seconds to prevent looping too tightly and hammering

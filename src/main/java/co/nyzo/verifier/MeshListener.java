@@ -380,8 +380,9 @@ public class MeshListener {
             // Many actions are taken inside this block as a result of messages. Therefore, we only want to continue if
             // the message is valid. The timestamp check protects against various replay attacks.
             if (message != null && message.isValid() &&
-                    message.getTimestamp() >= System.currentTimeMillis() - Message.replayProtectionInterval &&
-                    message.getTimestamp() <= System.currentTimeMillis() + Message.replayProtectionInterval) {
+                    ((message.getTimestamp() >= System.currentTimeMillis() - Message.replayProtectionInterval &&
+                    message.getTimestamp() <= System.currentTimeMillis() + Message.replayProtectionInterval) ||
+                            message.getType() == MessageType.TimestampRequest27)) {
 
                 Verifier.registerMessage();
 
