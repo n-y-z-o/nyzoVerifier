@@ -8,6 +8,7 @@ public class EndpointResponse {
 
     public static final String contentTypeCss = "text/css";
     public static final String contentTypeHtml = "text/html;charset=UTF-8";
+    public static final String contentTypeIco = "image/x-icon";
     public static final String contentTypeJpeg = "image/jpeg";
     public static final String contentTypePng = "image/png";
 

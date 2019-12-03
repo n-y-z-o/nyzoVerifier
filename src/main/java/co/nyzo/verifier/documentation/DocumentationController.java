@@ -52,10 +52,12 @@ public class DocumentationController {
                 String filenameLowercase = filename.toLowerCase();
                 if (!file.isHidden() && !filename.startsWith(".") && !filename.endsWith("~")) {
 
-                    // Process files. Recurse into subdirectories. Only accept .html, .png, .jpg, and .css extensions.
+                    // Process files. Recurse into subdirectories. Only accept .html, .png, .jpg, .css, and .ico
+                    // extensions.
                     if (file.isDirectory() || (filenameLowercase.endsWith(".html") ||
                             filenameLowercase.endsWith(".png") || filenameLowercase.endsWith(".jpg") ||
-                            filenameLowercase.endsWith(".css")) && !filenameLowercase.equals("index.html")) {
+                            filenameLowercase.endsWith(".css") || filenameLowercase.endsWith(".ico")) &&
+                            !filenameLowercase.equals("index.html")) {
 
                         // Remove the root and replace backslashes with forward slashes.
                         String path = file.getAbsolutePath().replace(rootFilePath, "");

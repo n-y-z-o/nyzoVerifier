@@ -142,6 +142,8 @@ public class DocumentationEndpoint implements EndpointMethod {
         String filename = file.getName().toLowerCase();
         if (filename.endsWith(".css")) {
             type = DocumentationEndpointType.Css;
+        } else if (filename.endsWith(".ico")) {
+            type = DocumentationEndpointType.Ico;
         } else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
             type = DocumentationEndpointType.Jpeg;
         } else if (filename.endsWith(".png")) {
@@ -177,12 +179,28 @@ public class DocumentationEndpoint implements EndpointMethod {
         Head head = (Head) html.add(new Head().addStandardMetadata(title));
         Body body = (Body) html.add(new Body().attr("style", "font-family: sans-serif;"));
 
-        // Add the styles to the head.
+        // Get the contents of the file for this page.
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(Paths.get(file.getAbsolutePath()));
+        } catch (Exception ignored) {
+            lines = new ArrayList<>();
+        }
+
+        // Add the button styles to the head.
         head.add(new Style(".simple-hover-button { color: black; text-decoration: none; margin: 0.1rem; " +
                 "padding: 0.5rem; border: 1px solid black; cursor: default; border-radius: 0.5rem; " +
                 "display: inline-block; } " +
                 ".simple-hover-button-selected { background-color: rgba(0,0,0,0.3); cursor: default; } " +
                 ".simple-hover-button:hover { background-color: rgba(0,0,0,0.3); }"));
+
+        // Add the styles from the page.
+        for (String line : lines) {
+            line = getLink(line);
+            if (!line.isEmpty()) {
+                head.add(new RawHtml(line));
+            }
+        }
 
         // Add the breadcrumbs to the top of the page.
         if (!path.equals("/")) {
@@ -203,18 +221,19 @@ public class DocumentationEndpoint implements EndpointMethod {
         }
 
         // Add the contents for the page.
-        try {
-            List<String> lines = Files.readAllLines(Paths.get(file.getAbsolutePath()));
-            if (!lines.isEmpty()) {
-                StringBuilder contents = new StringBuilder();
-                String separator = "";
-                for (String line : lines) {
+        if (!lines.isEmpty()) {
+            StringBuilder contents = new StringBuilder();
+            String separator = "";
+            for (String line : lines) {
+                // Filter CSS links and add all non-empty lines.
+                line = removeLink(line);
+                if (!line.isEmpty()) {
                     contents.append(separator).append(line);
                     separator = "\n";
                 }
-                body.add(new RawHtml(contents.toString()));
             }
-        } catch (Exception ignored) { }
+            body.add(new RawHtml(contents.toString()));
+        }
 
         // Add buttons for all HTML children.
         for (DocumentationEndpoint child : children) {
@@ -244,6 +263,33 @@ public class DocumentationEndpoint implements EndpointMethod {
         }
 
         return new EndpointResponse(result, type.getContentType());
+    }
+
+    private static String getLink(String htmlLine) {
+        int startIndex = htmlLine.indexOf("<link ");
+        int endIndex = startIndex < 0 ? -1 : htmlLine.indexOf(">", startIndex + 1);
+        return startIndex >= 0 && endIndex > 0 ? htmlLine.substring(startIndex, endIndex + 1) : "";
+    }
+
+    private static String removeLink(String htmlLine) {
+
+        int startIndex = htmlLine.indexOf("<link ");
+        int endIndex = startIndex < 0 ? -1 : htmlLine.indexOf(">", startIndex + 1);
+
+        String result;
+        if (startIndex < 0 || endIndex < 0) {
+            result = htmlLine;
+        } else {
+            result = "";
+            if (startIndex > 0) {
+                result += htmlLine.substring(0, startIndex);
+            }
+            if (endIndex < htmlLine.length() - 1) {
+                result += htmlLine.substring(endIndex + 1);
+            }
+        }
+
+        return result;
     }
 
     @Override
