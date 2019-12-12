@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.client.CommandOutput;
+import co.nyzo.verifier.client.CommandOutputConsole;
 import co.nyzo.verifier.client.ConsoleUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -547,6 +549,7 @@ public class LockedAccountManager {
             long totalCirculation = Transaction.micronyzosInSystem - sumOfficialVerifiers - sumOtherVerifiers -
                     sumGenesisAndBlock1 - seedAccountBalance - transferAccountBalance - cycleAccountBalance;
 
+            CommandOutput output = new CommandOutputConsole();
             ConsoleUtil.printTable(Arrays.asList(
                     Arrays.asList("height", "official verifiers", "other verifiers", "Genesis & block-1",
                             "seed account", "transfer account", "cycle account", "circulation"),
@@ -558,7 +561,7 @@ public class LockedAccountManager {
                             PrintUtil.printAmountWithCommas(transferAccountBalance),
                             PrintUtil.printAmountWithCommas(cycleAccountBalance),
                             PrintUtil.printAmountWithCommas(totalCirculation))),
-                    new HashSet<>(Arrays.asList(0, 6)));
+                    new HashSet<>(Arrays.asList(0, 6)), output);
         }
     }
 

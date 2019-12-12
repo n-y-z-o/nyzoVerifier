@@ -1,10 +1,7 @@
 package co.nyzo.verifier.client.commands;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.client.ArgumentResult;
-import co.nyzo.verifier.client.ClientTransactionUtil;
-import co.nyzo.verifier.client.ConsoleColor;
-import co.nyzo.verifier.client.ValidationResult;
+import co.nyzo.verifier.client.*;
 import co.nyzo.verifier.nyzoString.NyzoString;
 import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
 import co.nyzo.verifier.nyzoString.NyzoStringPrivateSeed;
@@ -50,7 +47,7 @@ public class CycleTransactionSendCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
 
         ValidationResult result = null;
         try {
@@ -67,7 +64,7 @@ public class CycleTransactionSendCommand implements Command {
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(0), message));
 
                 if (argumentValues.get(0).length() >= 64) {
-                    PrivateNyzoStringCommand.printHexWarning();
+                    PrivateNyzoStringCommand.printHexWarning(output);
                 }
             }
 
@@ -94,14 +91,14 @@ public class CycleTransactionSendCommand implements Command {
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(2), message));
 
                 if (argumentValues.get(2).length() >= 64) {
-                    PublicNyzoStringCommand.printHexWarning();
+                    PublicNyzoStringCommand.printHexWarning(output);
                 }
             }
 
             // Process the sender data.
             byte[] senderDataBytes = argumentValues.get(3).getBytes(StandardCharsets.UTF_8);
             if (senderDataBytes.length > FieldByteSize.maximumSenderDataLength) {
-                System.out.println(ConsoleColor.Yellow + "sender data too long; truncating" + ConsoleColor.reset);
+                output.println(ConsoleColor.Yellow + "sender data too long; truncating" + ConsoleColor.reset);
                 senderDataBytes = Arrays.copyOf(senderDataBytes, FieldByteSize.maximumSenderDataLength);
             }
             String senderData = new String(senderDataBytes, StandardCharsets.UTF_8);
@@ -135,7 +132,7 @@ public class CycleTransactionSendCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         try {
             // Get the arguments.
@@ -150,9 +147,9 @@ public class CycleTransactionSendCommand implements Command {
             long timestamp = BlockManager.startTimestampForHeight(blockHeight) + 1000L;
             Transaction transaction = Transaction.cycleTransaction(timestamp, amount,
                     receiverIdentifier.getIdentifier(), senderData, signerSeed.getSeed());
-            ClientTransactionUtil.sendCycleTransaction(transaction);
+            ClientTransactionUtil.sendCycleTransaction(transaction, output);
         } catch (Exception e) {
-            System.out.println(ConsoleColor.Red + "unexpected issue creating cycle transaction: " +
+            output.println(ConsoleColor.Red + "unexpected issue creating cycle transaction: " +
                     PrintUtil.printException(e) + ConsoleColor.reset);
         }
     }

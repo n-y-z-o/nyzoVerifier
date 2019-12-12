@@ -47,7 +47,7 @@ public class PrefilledDataSendCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
 
         ValidationResult result = null;
         try {
@@ -64,7 +64,7 @@ public class PrefilledDataSendCommand implements Command {
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(0), message));
 
                 if (argumentValues.get(0).length() >= 64) {
-                    PrivateNyzoStringCommand.printHexWarning();
+                    PrivateNyzoStringCommand.printHexWarning(output);
                 }
             }
 
@@ -78,7 +78,7 @@ public class PrefilledDataSendCommand implements Command {
                 List<String> values = Arrays.asList(
                         NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(prefilledData.getReceiverIdentifier())),
                         new String(prefilledData.getSenderData(), StandardCharsets.UTF_8));
-                ConsoleUtil.printTable(Arrays.asList(labels, values));
+                ConsoleUtil.printTable(Arrays.asList(labels, values), output);
 
                 // Check that the sender and receiver are different. If so, this argument is valid.
                 if (senderKey != null && ByteUtil.arraysAreEqual(prefilledData.getReceiverIdentifier(),
@@ -122,7 +122,7 @@ public class PrefilledDataSendCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         try {
             // Get the arguments.
@@ -134,10 +134,10 @@ public class PrefilledDataSendCommand implements Command {
             // Send the transaction to the cycle.
             ClientTransactionUtil.createAndSendTransaction(signerSeed,
                     new NyzoStringPublicIdentifier(prefilledData.getReceiverIdentifier()),
-                    prefilledData.getSenderData(), amount);
+                    prefilledData.getSenderData(), amount, output);
         } catch (Exception e) {
-            System.out.println(ConsoleColor.Red + "unexpected issue creating transaction: " +
-                    PrintUtil.printException(e) + ConsoleColor.reset);
+            output.println(ConsoleColor.Red + "unexpected issue creating transaction: " + PrintUtil.printException(e) +
+                    ConsoleColor.reset);
         }
     }
 }

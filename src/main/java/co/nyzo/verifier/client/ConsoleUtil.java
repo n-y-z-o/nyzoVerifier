@@ -7,17 +7,17 @@ import java.util.Set;
 
 public class ConsoleUtil {
 
-    public static void printTable(String message) {
+    public static void printTable(String message, CommandOutput output) {
 
-        printTable(Collections.singletonList(Collections.singletonList(message)));
+        printTable(Collections.singletonList(Collections.singletonList(message)), output);
     }
 
-    public static void printTable(List<List<String>> columns) {
+    public static void printTable(List<List<String>> columns, CommandOutput output) {
 
-        printTable(columns, new HashSet<>());
+        printTable(columns, new HashSet<>(), output);
     }
 
-    public static void printTable(List<List<String>> columns, Set<Integer> dividerRows) {
+    public static void printTable(List<List<String>> columns, Set<Integer> dividerRows, CommandOutput output) {
 
         int numberOfColumns = columns.size();
         int numberOfRows = 0;
@@ -32,15 +32,15 @@ public class ConsoleUtil {
         }
 
         // Print the top border.
-        System.out.print("╔");
+        output.print("╔");
         for (int j = 0; j < numberOfColumns; j++) {
             for (int i = 0; i < columnWidths[j]; i++) {
-                System.out.print("═");
+                output.print("═");
             }
             if (j == numberOfColumns - 1) {
-                System.out.println("╗");
+                output.println("╗");
             } else {
-                System.out.print("╦");
+                output.print("╦");
             }
         }
 
@@ -48,42 +48,42 @@ public class ConsoleUtil {
         for (int j = 0; j < numberOfRows; j++) {
 
             for (int i = 0; i < numberOfColumns; i++) {
-                System.out.print("║ ");
+                output.print("║ ");
                 List<String> column = columns.get(i);
                 String value = j < column.size() ? column.get(j) : "";
-                System.out.print(value);
+                output.print(value);
                 for (int k = 0; k < columnWidths[i] - length(value) - 1; k++) {
-                    System.out.print(" ");
+                    output.print(" ");
                 }
             }
-            System.out.println("║");
+            output.println("║");
 
             // Print the divider row.
             if (dividerRows.contains(j)) {
-                System.out.print("╠");
+                output.print("╠");
                 for (int i = 0; i < numberOfColumns; i++) {
                     for (int k = 0; k < columnWidths[i]; k++) {
-                        System.out.print("═");
+                        output.print("═");
                     }
                     if (i == numberOfColumns - 1) {
-                        System.out.println("╣");
+                        output.println("╣");
                     } else {
-                        System.out.print("╬");
+                        output.print("╬");
                     }
                 }
             }
         }
 
         // Print the bottom border.
-        System.out.print("╚");
+        output.print("╚");
         for (int j = 0; j < numberOfColumns; j++) {
             for (int i = 0; i < columnWidths[j]; i++) {
-                System.out.print("═");
+                output.print("═");
             }
             if (j == numberOfColumns - 1) {
-                System.out.println("╝");
+                output.println("╝");
             } else {
-                System.out.print("╩");
+                output.print("╩");
             }
         }
     }

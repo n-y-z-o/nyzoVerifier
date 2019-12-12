@@ -23,7 +23,7 @@ public class CommandManager {
         return commands;
     }
 
-    public static void printCommands() {
+    public static void printCommands(CommandOutput output) {
 
         // Build the columns.
         List<List<String>> columns = new ArrayList<>();
@@ -37,6 +37,6 @@ public class CommandManager {
         }
 
         // Print the table.
-        ConsoleUtil.printTable(columns, new HashSet<>(Collections.singleton(1)));
+        ConsoleUtil.printTable(columns, new HashSet<>(Collections.singleton(1)), output);
     }
 }

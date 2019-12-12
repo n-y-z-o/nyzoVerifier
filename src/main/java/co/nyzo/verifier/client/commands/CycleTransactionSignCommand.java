@@ -54,7 +54,7 @@ public class CycleTransactionSignCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
 
         ValidationResult result = null;
         try {
@@ -66,7 +66,7 @@ public class CycleTransactionSignCommand implements Command {
             int index = -1;
             if (transactions.isEmpty()) {
                 CycleTransactionListCommand listCommand = new CycleTransactionListCommand();
-                System.out.println(ConsoleColor.Yellow.background() + "No cycle transactions are available. Please " +
+                output.println(ConsoleColor.Yellow.background() + "No cycle transactions are available. Please " +
                         "run the " + listCommand.getLongCommand() + " (" + listCommand.getShortCommand() +
                         ") command." + ConsoleColor.reset);
                 argumentResults.add(new ArgumentResult(false, "", "no transactions available"));
@@ -93,7 +93,7 @@ public class CycleTransactionSignCommand implements Command {
                     argumentResults.add(new ArgumentResult(false, argumentValues.get(1), message));
 
                     if (argumentValues.get(1).length() >= 64) {
-                        PrivateNyzoStringCommand.printHexWarning();
+                        PrivateNyzoStringCommand.printHexWarning(output);
                     }
                 }
             }
@@ -112,7 +112,7 @@ public class CycleTransactionSignCommand implements Command {
                             PrintUtil.printAmount(transaction.getAmount()),
                             BlockManager.heightForTimestamp(transaction.getTimestamp()) + "",
                             (transaction.getCycleSignatures().size() + 1) + "")
-            ));
+            ), new CommandOutputConsole());
 
         } catch (Exception ignored) { }
 
@@ -126,7 +126,7 @@ public class CycleTransactionSignCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         try {
             // Get the arguments.
@@ -138,9 +138,9 @@ public class CycleTransactionSignCommand implements Command {
             CycleTransactionSignature signature = new CycleTransactionSignature(transaction.getSenderIdentifier(),
                     KeyUtil.identifierForSeed(signerSeed.getSeed()), SignatureUtil.signBytes(transaction.getBytes(true),
                     signerSeed.getSeed()));
-            ClientTransactionUtil.sendCycleTransactionSignature(signature);
+            ClientTransactionUtil.sendCycleTransactionSignature(signature, output);
         } catch (Exception e) {
-            System.out.println(ConsoleColor.Red + "unexpected issue sending cycle transaction signature: " +
+            output.println(ConsoleColor.Red + "unexpected issue sending cycle transaction signature: " +
                     PrintUtil.printException(e) + ConsoleColor.reset);
         }
     }

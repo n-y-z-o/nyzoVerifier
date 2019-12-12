@@ -22,8 +22,9 @@ public class Client {
 
         RunMode.setRunMode(RunMode.Client);
 
+        CommandOutput output = new CommandOutputConsole();
         ConsoleUtil.printTable(Collections.singletonList(Collections.singletonList("Nyzo client, version " +
-                Version.getVersion())));
+                Version.getVersion())), output);
 
         // Start the data manager. This collects the data necessary for the client to run properly.
         boolean startedDataManager = ClientDataManager.start();
@@ -35,20 +36,20 @@ public class Client {
                 WebListener.start();
             }
 
-            runCommandLoop();
+            runCommandLoop(output);
         } else {
             System.out.println(ConsoleColor.Red + "data manager did not start; exiting" + ConsoleColor.reset);
             UpdateUtil.terminate();
         }
     }
 
-    private static void runCommandLoop() {
+    private static void runCommandLoop(CommandOutput output) {
 
         // Create a reader for the standard input stream.
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
         // Print the commands once before entering the command loop.
-        CommandManager.printCommands();
+        CommandManager.printCommands(output);
 
         // Enter the command loop.
         while (!UpdateUtil.shouldTerminate()) {
@@ -107,7 +108,7 @@ public class Client {
 
                         ConsoleUtil.printTable(Arrays.asList(argumentNamesWithHeader, validInvalidColumn,
                                 argumentValuesWithHeader, validationMessageColumn),
-                                new HashSet<>(Collections.singleton(1)));
+                                new HashSet<>(Collections.singleton(1)), output);
 
                         // Print a notice that the invalid arguments must be corrected.
                         System.out.println(ConsoleColor.Red + "** " +
@@ -144,7 +145,7 @@ public class Client {
                         // so a user may want to edit the preferences file and attempt validation again.
                         PreferencesUtil.reloadPreferences();
 
-                        validationResult = command.validate(argumentValues);
+                        validationResult = command.validate(argumentValues, output);
                     }
                 }
 
@@ -163,7 +164,7 @@ public class Client {
                         } else {
                             columns.add(validationResult.getValidatedArguments());
                         }
-                        ConsoleUtil.printTable(columns);
+                        ConsoleUtil.printTable(columns, output);
 
                         // Get the response: yes, cancel, or edit.
                         String response = "";
@@ -193,7 +194,7 @@ public class Client {
                     // command.
                     if (runCommand) {
                         try {
-                            command.run(argumentValues);
+                            command.run(argumentValues, output);
                         } catch (Exception e) {
                             System.out.println(ConsoleColor.Red + "exception running command: " +
                                     PrintUtil.printException(e) + ConsoleColor.reset);

@@ -1,16 +1,15 @@
 package co.nyzo.verifier.micropay;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.client.ClientDataManager;
 import co.nyzo.verifier.client.ClientTransactionUtil;
+import co.nyzo.verifier.client.CommandOutput;
+import co.nyzo.verifier.client.CommandOutputConsole;
 import co.nyzo.verifier.nyzoString.NyzoString;
 import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
 import co.nyzo.verifier.nyzoString.NyzoStringMicropay;
 import co.nyzo.verifier.nyzoString.NyzoStringTransaction;
 import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.web.EndpointMethod;
-import co.nyzo.verifier.web.EndpointResponse;
-import co.nyzo.verifier.web.WebUtil;
+import co.nyzo.verifier.web.*;
 import co.nyzo.verifier.web.elements.*;
 
 import java.io.File;
@@ -24,7 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MicropayEndpoint implements EndpointMethod {
+public class MicropayEndpoint implements EndpointResponseProvider {
 
     // This is a map from IP address to authorization. This is a minimal implementation with no persistence. This will
     // likely evolve into a more interesting implementation with persistence/recovery from blockchain data.
@@ -74,13 +73,13 @@ public class MicropayEndpoint implements EndpointMethod {
     }
 
     @Override
-    public EndpointResponse renderByteArray(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public EndpointResponse getResponse(EndpointRequest request) {
 
         boolean authorized = amount == 0;
 
         // If not automatically authorized, look for a previous authorization.
         if (!authorized) {
-            MicropayAuthorization authorization = authorizations.get(ByteBuffer.wrap(sourceIpAddress));
+            MicropayAuthorization authorization = authorizations.get(ByteBuffer.wrap(request.getSourceIpAddress()));
             authorized = authorization != null && authorization.isValid();
         }
 
@@ -90,14 +89,14 @@ public class MicropayEndpoint implements EndpointMethod {
         byte[] result = null;
         StringBuilder transactionProblem = new StringBuilder();
         if (!authorized) {
-            String transactionParameter = queryParameters.get("tx");
+            String transactionParameter = request.getQueryParameters().get("tx");
             if (transactionParameter != null && processTransactionParameter(transactionParameter, transactionProblem,
-                    sourceIpAddress)) {
+                    request.getSourceIpAddress())) {
                 // Authorize this view and store the authorization in the map. Periodically remove old authorizations
                 // from the map.
                 authorized = true;
                 MicropayAuthorization authorization = new MicropayAuthorization();
-                authorizations.put(ByteBuffer.wrap(sourceIpAddress), authorization);
+                authorizations.put(ByteBuffer.wrap(request.getSourceIpAddress()), authorization);
                 if (authorizationsAddedSinceCleanup.incrementAndGet() > 1000) {
                     authorizationsAddedSinceCleanup.set(0);
                     for (ByteBuffer mapIpAddress : new HashSet<>(authorizations.keySet())) {
@@ -125,9 +124,10 @@ public class MicropayEndpoint implements EndpointMethod {
             }
         } else {
             // Otherwise, present the authorization page.
-            String cancelParameter = queryParameters.getOrDefault("cancel", "").toLowerCase();
+            String cancelParameter = request.getQueryParameters().getOrDefault("cancel", "").toLowerCase();
             boolean isCancellation = cancelParameter.equals("y") || cancelParameter.equals("yes");
-            result = serverAuthorizationPage(transactionProblem.toString(), sourceIpAddress, isCancellation);
+            result = serverAuthorizationPage(transactionProblem.toString(), request.getSourceIpAddress(),
+                    isCancellation);
         }
 
         EndpointResponse response = new EndpointResponse(result);
@@ -182,7 +182,7 @@ public class MicropayEndpoint implements EndpointMethod {
 
         // Add a simple script that checks the most common ports. If this is a first attempt (no transaction provided),
         // the script redirects to the local authorization page.
-        String pingEndpoint = MicropayController.clientPingEndpoint;
+        Endpoint pingEndpoint = MicropayController.clientPingEndpoint;
         String pingResponse = MicropayController.clientPingResponse;
 
         body.add(new Script("" +
@@ -201,7 +201,7 @@ public class MicropayEndpoint implements EndpointMethod {
                 "    }" +
                 "  };" +
 
-                "  var endpoint = protocol + '://127.0.0.1' + port + '/micropay/ping';" +
+                "  var endpoint = protocol + '://127.0.0.1' + port + '" + pingEndpoint.getPath() + "';" +
                 "  ping.open('GET', endpoint, true);" +
                 "  ping.send();" +
                 "}" +
@@ -279,7 +279,8 @@ public class MicropayEndpoint implements EndpointMethod {
         // If the transaction is likely to be accepted, send it to the cycle. Otherwise, provide minimal feedback if
         // the feedback is currently empty.
         if (likelyToBeAccepted) {
-            ClientTransactionUtil.sendTransactionToLikelyBlockVerifiers(transaction, false);
+            CommandOutput output = new CommandOutputConsole();
+            ClientTransactionUtil.sendTransactionToLikelyBlockVerifiers(transaction, false, output);
         } else if (transactionProblem.length() == 0) {
             transactionProblem.append("There was an unspecified issue with the transaction provided.");
         }

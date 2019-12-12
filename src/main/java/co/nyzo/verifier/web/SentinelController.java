@@ -13,10 +13,10 @@ import java.util.Map;
 
 public class SentinelController {
 
-    public static final String pageEndpoint = "/";
-    public static final String updateEndpoint = "/update";
+    public static final Endpoint pageEndpoint = new Endpoint("/");
+    public static final Endpoint updateEndpoint = new Endpoint("/update");
 
-    public static EndpointResponse page(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public static EndpointResponse page(EndpointRequest request) {
 
         // Make the HTML page.
         Html html = (Html) new Html().attr("lang", "en");
@@ -30,12 +30,12 @@ public class SentinelController {
         container.add(divContent());
 
         // Add the Ajax update for the container div to the head of the document.
-        head.add(container.ajaxUpdate(updateEndpoint, 5000));
+        head.add(container.ajaxUpdate(updateEndpoint.getPath(), 5000));
 
         return new EndpointResponse(html.renderByteArray());
     }
 
-    public static EndpointResponse update(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public static EndpointResponse update(EndpointRequest request) {
         return new EndpointResponse(divContent().render().getBytes(StandardCharsets.UTF_8));
     }
 

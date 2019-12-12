@@ -2,14 +2,24 @@ package co.nyzo.verifier;
 
 public enum RunMode {
 
-    Verifier,
-    Sentinel,
-    Client,
-    MicropayClient,
-    MicropayServer,
-    DocumentationServer;
+    Client("client"),
+    DocumentationServer("documentation_server"),
+    MicropayClient("micropay_client"),
+    MicropayServer("micropay_server"),
+    Sentinel("sentinel"),
+    Verifier("verifier");
 
     private static RunMode runMode = null;
+
+    private String overrideSuffix;
+
+    RunMode(String overrideSuffix) {
+        this.overrideSuffix = overrideSuffix;
+    }
+
+    public String getOverrideSuffix() {
+        return overrideSuffix;
+    }
 
     public static RunMode getRunMode() {
         return runMode;

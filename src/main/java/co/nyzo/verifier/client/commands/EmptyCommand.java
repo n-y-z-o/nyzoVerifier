@@ -1,6 +1,7 @@
 package co.nyzo.verifier.client.commands;
 
 import co.nyzo.verifier.client.CommandManager;
+import co.nyzo.verifier.client.CommandOutput;
 import co.nyzo.verifier.client.ValidationResult;
 
 import java.util.*;
@@ -38,12 +39,12 @@ public class EmptyCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
         return null;
     }
 
     @Override
-    public void run(List<String> argumentValues) {
-        CommandManager.printCommands();
+    public void run(List<String> argumentValues, CommandOutput output) {
+        CommandManager.printCommands(output);
     }
 }

@@ -3,7 +3,10 @@ package co.nyzo.verifier.web;
 import co.nyzo.verifier.NicknameManager;
 import co.nyzo.verifier.client.ClientTransactionUtil;
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.web.elements.Style;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class WebUtil {
@@ -15,6 +18,42 @@ public class WebUtil {
             "text-decoration: none; color: white; margin: auto; cursor: pointer; user-select: none;";
     public static final String acceptButtonStyle = buttonStyle + " border-color: #080; background-color: #484;";
     public static final String cancelButtonStyle = buttonStyle + "border-color: #f00; background-color: #f44;";
+
+    public static final Style hoverButtonStyles = new Style(".simple-hover-button { " +
+            "color: black; text-decoration: none; margin: 0.1rem; " +
+            "padding: 0.5rem; border: 1px solid black; cursor: default; border-radius: 0.5rem; " +
+            "display: inline-block; } " +
+            ".simple-hover-button-selected { background-color: rgba(0,0,0,0.3); cursor: default; } " +
+            ".simple-hover-button:hover { background-color: rgba(0,0,0,0.3); }");
+
+    private static final Map<Character, String> characterToPercentEncodingMap = new HashMap<>();
+    private static final Map<String, Character> percentEncodingToCharacterMap = new HashMap<>();
+    static {
+        characterToPercentEncodingMap.put('!', "%21");
+        characterToPercentEncodingMap.put('#', "%23");
+        characterToPercentEncodingMap.put('$', "%24");
+        characterToPercentEncodingMap.put('%', "%25");
+        characterToPercentEncodingMap.put('&', "%26");
+        characterToPercentEncodingMap.put('\'', "%27");
+        characterToPercentEncodingMap.put('(', "%28");
+        characterToPercentEncodingMap.put(')', "%29");
+        characterToPercentEncodingMap.put('*', "%2A");
+        characterToPercentEncodingMap.put('+', "%2B");
+        characterToPercentEncodingMap.put(',', "%2C");
+        characterToPercentEncodingMap.put('/', "%2F");
+        characterToPercentEncodingMap.put(':', "%3A");
+        characterToPercentEncodingMap.put(';', "%3B");
+        characterToPercentEncodingMap.put('=', "%3D");
+        characterToPercentEncodingMap.put('?', "%3F");
+        characterToPercentEncodingMap.put('@', "%40");
+        characterToPercentEncodingMap.put('[', "%5B");
+        characterToPercentEncodingMap.put(']', "%5D");
+        characterToPercentEncodingMap.put('~', "%7E");
+
+        for (Character character : characterToPercentEncodingMap.keySet()) {
+            percentEncodingToCharacterMap.put(characterToPercentEncodingMap.get(character), character);
+        }
+    }
 
     private static final AtomicInteger nextId = new AtomicInteger(0);
 
@@ -109,6 +148,40 @@ public class WebUtil {
         }
 
         return groupLengthsCorrect && numberOfGroups == 4;
+    }
+
+    public static String applyPercentEncoding(String value) {
+        StringBuilder result = new StringBuilder();
+        for (char character : value.toCharArray()) {
+            result.append(characterToPercentEncodingMap.getOrDefault(character, character + ""));
+        }
+
+        return result.toString();
+    }
+
+    public static String removePercentEncoding(String value) {
+        StringBuilder result = new StringBuilder();
+        char[] characters = value.toCharArray();
+        for (int i = 0; i < characters.length; i++) {
+            char character = characters[i];
+            if (character == '+') {
+                result.append(' ');
+            } else if (character == '%') {
+                String encoding = character + "";
+                if (i < characters.length - 1) {
+                    encoding += characters[i + 1];
+                }
+                if (i < characters.length - 2) {
+                    encoding += characters[i + 2];
+                }
+                result.append(percentEncodingToCharacterMap.getOrDefault(encoding, ' '));
+                i += 2;
+            } else {
+                result.append(character);
+            }
+        }
+
+        return result.toString();
     }
 
     public static String nextId() {

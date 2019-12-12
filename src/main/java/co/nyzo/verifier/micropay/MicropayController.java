@@ -1,14 +1,11 @@
 package co.nyzo.verifier.micropay;
 
 import co.nyzo.verifier.Transaction;
-import co.nyzo.verifier.client.ClientTransactionUtil;
 import co.nyzo.verifier.nyzoString.*;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.web.EndpointMethod;
-import co.nyzo.verifier.web.EndpointResponse;
-import co.nyzo.verifier.web.WebUtil;
+import co.nyzo.verifier.web.*;
 import co.nyzo.verifier.web.elements.*;
 
 import java.io.File;
@@ -23,14 +20,14 @@ public class MicropayController {
     private static final String dataRootKey = "micropay_data_root";
 
     private static final String dataRootDirectory = PreferencesUtil.get(dataRootKey);
-    public static final String clientPingEndpoint = "/micropay/ping";
-    public static final String serverPingEndpoint = "/micropay/ping";
-    public static final String clientAuthorizationEndpoint = "/micropay/authorize";
+    public static final Endpoint clientPingEndpoint = new Endpoint("/micropay/ping");
+    public static final Endpoint serverPingEndpoint = new Endpoint("/micropay/ping");
+    public static final Endpoint clientAuthorizationEndpoint = new Endpoint("/micropay/authorize");
     public static final String clientPingResponse = "hello, Micropay user!";
 
-    public static Map<String, EndpointMethod> buildEndpointMap() {
+    public static Map<Endpoint, EndpointResponseProvider> buildEndpointMap() {
 
-        Map<String, EndpointMethod> map = new ConcurrentHashMap<>();
+        Map<Endpoint, EndpointResponseProvider> map = new ConcurrentHashMap<>();
 
         File rootFile = new File(dataRootDirectory);
         File[] files = rootFile.listFiles();
@@ -39,7 +36,7 @@ public class MicropayController {
         return map;
     }
 
-    private static void process(File[] files, String rootFilePath, Map<String, EndpointMethod> map) {
+    private static void process(File[] files, String rootFilePath, Map<Endpoint, EndpointResponseProvider> map) {
 
         if (files != null) {
             for (File file : files) {
@@ -74,26 +71,26 @@ public class MicropayController {
 
                         MicropayEndpoint endpoint = new MicropayEndpoint(path, file);
                         System.out.println("endpoint: " + endpoint);
-                        map.put(path, new MicropayEndpoint(path, file));
+                        map.put(new Endpoint(path), new MicropayEndpoint(path, file));
                     }
                 }
             }
         }
     }
 
-    public static EndpointResponse clientPingPage(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public static EndpointResponse clientPingPage(EndpointRequest request) {
         EndpointResponse response = new EndpointResponse((clientPingResponse + " " +
-                IpUtil.addressAsString(sourceIpAddress)).getBytes(StandardCharsets.UTF_8));
+                IpUtil.addressAsString(request.getSourceIpAddress())).getBytes(StandardCharsets.UTF_8));
         response.setHeader("Access-Control-Allow-Origin", "*");
         return response;
     }
 
-    public static EndpointResponse serverPingPage(Map<String, String> queryParameters, byte[] sourceIpAddress) {
-        return new EndpointResponse(("hello, " + IpUtil.addressAsString(sourceIpAddress))
+    public static EndpointResponse serverPingPage(EndpointRequest request) {
+        return new EndpointResponse(("hello, " + IpUtil.addressAsString(request.getSourceIpAddress()))
                 .getBytes(StandardCharsets.UTF_8));
     }
 
-    public static EndpointResponse clientAuthorizationPage(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public static EndpointResponse clientAuthorizationPage(EndpointRequest request) {
 
         // Make the HTML page.
         Html html = (Html) new Html().attr("lang", "en");
@@ -104,7 +101,7 @@ public class MicropayController {
         Body body = (Body) html.add(new Body().attr("style", "font-family: sans-serif; text-align: center"));
 
         // Get the Micropay string.
-        String micropayParameter = queryParameters.getOrDefault("micropay", "").trim();
+        String micropayParameter = request.getQueryParameters().getOrDefault("micropay", "").trim();
         NyzoStringTransaction transactionString = null;
         if (micropayParameter.isEmpty()) {
             body.add(new P("no Micropay string provided"));
@@ -144,7 +141,7 @@ public class MicropayController {
         }
 
         // Get the callback URL and add the appropriate buttons.
-        String callback = queryParameters.getOrDefault("callback", "");
+        String callback = request.getQueryParameters().getOrDefault("callback", "");
         if (callback.isEmpty()) {
             body.add(new P("no callback provided"));
         } else {

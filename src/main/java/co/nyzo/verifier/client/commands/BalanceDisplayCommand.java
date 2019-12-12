@@ -4,6 +4,7 @@ import co.nyzo.verifier.BalanceList;
 import co.nyzo.verifier.BalanceListItem;
 import co.nyzo.verifier.BalanceListManager;
 import co.nyzo.verifier.ByteUtil;
+import co.nyzo.verifier.client.CommandOutput;
 import co.nyzo.verifier.client.ValidationResult;
 import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.client.ConsoleUtil;
@@ -11,6 +12,7 @@ import co.nyzo.verifier.nyzoString.NyzoString;
 import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
 import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.ThreadUtil;
 
 import java.util.*;
 
@@ -47,26 +49,26 @@ public class BalanceDisplayCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
         return null;
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         String walletIdOrPrefix = argumentValues.size() < 1 ? "" : argumentValues.get(0);
         walletIdOrPrefix = walletIdOrPrefix == null ? "" : walletIdOrPrefix.trim().toLowerCase();
         walletIdOrPrefix = walletIdOrPrefix.replaceAll("[^a-f0-9]", "");
 
-        System.out.println("wallet ID or prefix after normalization: " + walletIdOrPrefix);
+        output.println("wallet ID or prefix after normalization: " + walletIdOrPrefix);
 
         if (walletIdOrPrefix.isEmpty()) {
-            System.out.println(ConsoleColor.Red + "please provide a wallet ID or prefix" + ConsoleColor.reset);
+            output.println(ConsoleColor.Red + "please provide a wallet ID or prefix" + ConsoleColor.reset);
         } else {
 
             BalanceList balanceList = BalanceListManager.getFrozenEdgeList();
             if (balanceList == null) {
-                System.out.println(ConsoleColor.Red + "unable to get balance list" + ConsoleColor.reset);
+                output.println(ConsoleColor.Red + "unable to get balance list" + ConsoleColor.reset);
             } else {
                 List<List<String>> columns = new ArrayList<>();
                 columns.add(new ArrayList<>(Arrays.asList("block", "height")));
@@ -88,9 +90,10 @@ public class BalanceDisplayCommand implements Command {
                 }
 
                 if (numberFound == 0) {
-                    ConsoleUtil.printTable("unable to find any accounts matching ID/prefix " + walletIdOrPrefix);
+                    ConsoleUtil.printTable("unable to find any accounts matching ID/prefix " + walletIdOrPrefix,
+                            output);
                 } else {
-                    ConsoleUtil.printTable(columns, new HashSet<>(Collections.singleton(1)));
+                    ConsoleUtil.printTable(columns, new HashSet<>(Collections.singleton(1)), output);
                 }
             }
         }

@@ -3,19 +3,19 @@ package co.nyzo.verifier.documentation;
 import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PreferencesUtil;
-import co.nyzo.verifier.web.EndpointMethod;
+import co.nyzo.verifier.web.Endpoint;
+import co.nyzo.verifier.web.EndpointResponseProvider;
 
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
 
 public class DocumentationController {
 
     private static final String dataRootKey = "documentation_data_root";
     private static final String dataRootDirectory = PreferencesUtil.get(dataRootKey);
 
-    public static Map<String, EndpointMethod> buildEndpointMap() {
+    public static Map<Endpoint, EndpointResponseProvider> buildEndpointMap() {
 
         if (dataRootDirectory.isEmpty()) {
             LogUtil.println(ConsoleColor.Yellow.background() + "Please set a documentation data root in preferences (" +
@@ -23,7 +23,7 @@ public class DocumentationController {
         }
         LogUtil.println("data root: " + dataRootDirectory);
 
-        Map<String, EndpointMethod> map = new ConcurrentHashMap<>();
+        Map<Endpoint, EndpointResponseProvider> map = new ConcurrentHashMap<>();
 
         File rootFile = new File(dataRootDirectory);
         File[] files = { rootFile };
@@ -32,7 +32,7 @@ public class DocumentationController {
         return map;
     }
 
-    private static void process(File[] files, String rootFilePath, Map<String, EndpointMethod> map,
+    private static void process(File[] files, String rootFilePath, Map<Endpoint, EndpointResponseProvider> map,
                                 DocumentationEndpoint parentEndpoint) {
 
         if (files != null) {
@@ -76,7 +76,7 @@ public class DocumentationController {
                         // Create the endpoint.
                         DocumentationEndpoint endpoint = new DocumentationEndpoint(path, file);
                         LogUtil.println("loaded documentation endpoint: " + endpoint);
-                        map.put(endpoint.getPath(), endpoint);
+                        map.put(new Endpoint(endpoint.getPath()), endpoint);
 
                         // Add this endpoint to the parent, if one is available.
                         if (parentEndpoint != null) {

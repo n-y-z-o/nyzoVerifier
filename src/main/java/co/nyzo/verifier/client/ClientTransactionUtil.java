@@ -48,24 +48,26 @@ public class ClientTransactionUtil {
 
     public static void createAndSendTransaction(NyzoStringPrivateSeed signerSeed,
                                                 NyzoStringPublicIdentifier receiverIdentifier, byte[] senderData,
-                                                long amount) {
-        createAndSendTransaction(signerSeed, receiverIdentifier, senderData, amount, null, 0);
+                                                long amount, CommandOutput output) {
+        createAndSendTransaction(signerSeed, receiverIdentifier, senderData, amount, null, 0, output);
     }
 
     public static void createAndSendTransaction(NyzoStringPrivateSeed signerSeed,
                                                 NyzoStringPublicIdentifier receiverIdentifier, byte[] senderData,
-                                                long amount, byte[] receiverIpAddress, int receiverPort) {
+                                                long amount, byte[] receiverIpAddress, int receiverPort,
+                                                CommandOutput output) {
 
         Transaction transaction = createTransaction(signerSeed, receiverIdentifier, senderData, amount);
 
         if (receiverIpAddress == null || ByteUtil.isAllZeros(receiverIpAddress) || receiverPort <= 0) {
-            sendTransactionToLikelyBlockVerifiers(transaction, true);
+            sendTransactionToLikelyBlockVerifiers(transaction, true, output);
         } else {
-            sendTransactionToReceiver(transaction, receiverIpAddress, receiverPort);
+            sendTransactionToReceiver(transaction, receiverIpAddress, receiverPort, output);
         }
     }
 
-    private static void sendTransactionToReceiver(Transaction transaction, byte[] ipAddressBytes, int port) {
+    private static void sendTransactionToReceiver(Transaction transaction, byte[] ipAddressBytes, int port,
+                                                  CommandOutput output) {
 
         // Attempt to send the transaction to the receiver up to 3 times, stopping when a transaction response is
         // received.
@@ -79,11 +81,11 @@ public class ClientTransactionUtil {
                     if (message != null && (message.getContent() instanceof TransactionResponse)) {
                         TransactionResponse response = (TransactionResponse) message.getContent();
                         if (response.isAccepted()) {
-                            System.out.println("transaction accepted by " +
+                            output.println("transaction accepted by " +
                                     NicknameManager.get(message.getSourceNodeIdentifier()));
                             transactionAccepted.set(true);
                         } else {
-                            System.out.println(ConsoleColor.Red + "transaction not accepted by " +
+                            output.println(ConsoleColor.Red + "transaction not accepted by " +
                                     NicknameManager.get(message.getSourceNodeIdentifier()) +
                                     ConsoleColor.reset);
                         }
@@ -99,11 +101,12 @@ public class ClientTransactionUtil {
 
         // If the transaction was not accepted, print an error.
         if (!transactionAccepted.get()) {
-            System.out.println(ConsoleColor.Red + "unable to send transaction to " + ipAddress + ConsoleColor.reset);
+            output.println(ConsoleColor.Red + "unable to send transaction to " + ipAddress + ConsoleColor.reset);
         }
     }
 
-    public static void sendTransactionToLikelyBlockVerifiers(Transaction transaction, boolean waitForBlock) {
+    public static void sendTransactionToLikelyBlockVerifiers(Transaction transaction, boolean waitForBlock,
+                                                             CommandOutput output) {
 
         // Determine the height at which the transaction will be included.
         long transactionHeight = BlockManager.heightForTimestamp(transaction.getTimestamp());
@@ -133,22 +136,21 @@ public class ClientTransactionUtil {
 
                         // Print the transaction response.
                         if (message == null) {
-                            System.out.println(ConsoleColor.Red + "transaction response: null" +
+                            output.println(ConsoleColor.Red + "transaction response: null" +
                                     ConsoleColor.reset);
                         } else {
                             if (message.getContent() instanceof TransactionResponse) {
                                 TransactionResponse response = (TransactionResponse) message.getContent();
                                 if (response.isAccepted()) {
-                                    System.out.println("transaction accepted by " +
+                                    output.println("transaction accepted by " +
                                             NicknameManager.get(message.getSourceNodeIdentifier()));
                                 } else {
-                                    System.out.println(ConsoleColor.Yellow + "transaction not accepted by " +
+                                    output.println(ConsoleColor.Yellow + "transaction not accepted by " +
                                             NicknameManager.get(message.getSourceNodeIdentifier()) + ": " +
                                             response.getMessage() + ConsoleColor.reset);
                                 }
                             } else {
-                                System.out.println(ConsoleColor.Red + "transaction response: invalid" +
-                                        ConsoleColor.reset);
+                                output.println(ConsoleColor.Red + "transaction response: invalid" + ConsoleColor.reset);
                             }
                         }
                     }
@@ -180,17 +182,17 @@ public class ClientTransactionUtil {
                 }
 
                 if (transactionIsInChain) {
-                    System.out.println(ConsoleColor.Green + "transaction processed in block " +
+                    output.println(ConsoleColor.Green + "transaction processed in block " +
                             transactionBlock.getBlockHeight() + " with transaction signature " +
                             PrintUtil.compactPrintByteArray(transaction.getSignature()) + ConsoleColor.reset);
                 } else {
-                    System.out.println(ConsoleColor.Red + "transaction not processed" + ConsoleColor.reset);
+                    output.println(ConsoleColor.Red + "transaction not processed" + ConsoleColor.reset);
                 }
             }
         }
     }
 
-    public static void sendCycleTransaction(Transaction transaction) {
+    public static void sendCycleTransaction(Transaction transaction, CommandOutput output) {
 
         // Cycle transactions are sent to all verifiers in the cycle, retrying once for failures.
         Set<Node> nodesReceived = ConcurrentHashMap.newKeySet();
@@ -199,20 +201,20 @@ public class ClientTransactionUtil {
             for (Node node : ClientNodeManager.getMesh()) {
                 if (!nodesReceived.contains(node) && cycleVerifiers.contains(ByteBuffer.wrap(node.getIdentifier()))) {
                     if (i == 0) {
-                        System.out.println("sending transaction to " + NicknameManager.get(node.getIdentifier()));
+                        output.println("sending transaction to " + NicknameManager.get(node.getIdentifier()));
                     } else {
-                        System.out.println("resending transaction to " + NicknameManager.get(node.getIdentifier()));
+                        output.println("resending transaction to " + NicknameManager.get(node.getIdentifier()));
                     }
                     Message message = new Message(MessageType.Transaction5, transaction);
                     Message.fetch(node, message, new MessageCallback() {
                         @Override
                         public void responseReceived(Message message) {
-                            System.out.println("response: " + message);
+                            output.println("response: " + message);
                             if (message != null && message.getType() == MessageType.TransactionResponse6) {
                                 nodesReceived.add(node);
                                 if (message.getContent() instanceof TransactionResponse) {
                                     TransactionResponse response = (TransactionResponse) message.getContent();
-                                    System.out.println("response: " + response);
+                                    output.println("response: " + response);
                                 }
                             }
                         }
@@ -223,7 +225,7 @@ public class ClientTransactionUtil {
         }
     }
 
-    public static void sendCycleTransactionSignature(CycleTransactionSignature signature) {
+    public static void sendCycleTransactionSignature(CycleTransactionSignature signature, CommandOutput output) {
 
         // Cycle transaction signatures are sent to all verifiers in the cycle, retrying once for failures.
         Set<Node> nodesReceived = ConcurrentHashMap.newKeySet();
@@ -232,21 +234,21 @@ public class ClientTransactionUtil {
             for (Node node : ClientNodeManager.getMesh()) {
                 if (!nodesReceived.contains(node) && cycleVerifiers.contains(ByteBuffer.wrap(node.getIdentifier()))) {
                     if (i == 0) {
-                        System.out.println("sending signature to " + NicknameManager.get(node.getIdentifier()));
+                        output.println("sending signature to " + NicknameManager.get(node.getIdentifier()));
                     } else {
-                        System.out.println("resending signature to " + NicknameManager.get(node.getIdentifier()));
+                        output.println("resending signature to " + NicknameManager.get(node.getIdentifier()));
                     }
                     Message message = new Message(MessageType.CycleTransactionSignature47, signature);
                     Message.fetch(node, message, new MessageCallback() {
                         @Override
                         public void responseReceived(Message message) {
-                            System.out.println("response: " + message);
+                            output.println("response: " + message);
                             if (message != null &&
                                     message.getType() == MessageType.CycleTransactionSignatureResponse48) {
                                 nodesReceived.add(node);
                                 if (message.getContent() instanceof CycleTransactionSignatureResponse) {
                                     TransactionResponse response = (TransactionResponse) message.getContent();
-                                    System.out.println("response: " + response);
+                                    output.println("response: " + response);
                                 }
                             }
                         }

@@ -47,7 +47,7 @@ public class TransactionSendCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
 
         ValidationResult result = null;
         try {
@@ -64,7 +64,7 @@ public class TransactionSendCommand implements Command {
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(0), message));
 
                 if (argumentValues.get(0).length() >= 64) {
-                    PrivateNyzoStringCommand.printHexWarning();
+                    PrivateNyzoStringCommand.printHexWarning(output);
                 }
             }
 
@@ -90,14 +90,14 @@ public class TransactionSendCommand implements Command {
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(1), message));
 
                 if (argumentValues.get(1).length() >= 64) {
-                    PublicNyzoStringCommand.printHexWarning();
+                    PublicNyzoStringCommand.printHexWarning(output);
                 }
             }
 
             // Process the sender data.
             byte[] senderDataBytes = argumentValues.get(2).getBytes(StandardCharsets.UTF_8);
             if (senderDataBytes.length > FieldByteSize.maximumSenderDataLength) {
-                System.out.println(ConsoleColor.Yellow + "sender data too long; truncating" + ConsoleColor.reset);
+                output.println(ConsoleColor.Yellow + "sender data too long; truncating" + ConsoleColor.reset);
                 senderDataBytes = Arrays.copyOf(senderDataBytes, FieldByteSize.maximumSenderDataLength);
             }
             String senderData = new String(senderDataBytes, StandardCharsets.UTF_8);
@@ -131,7 +131,7 @@ public class TransactionSendCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         try {
             // Get the arguments.
@@ -142,10 +142,10 @@ public class TransactionSendCommand implements Command {
             long amount = (long) (Double.parseDouble(argumentValues.get(3)) * Transaction.micronyzoMultiplierRatio);
 
             // Send the transaction to the cycle.
-            ClientTransactionUtil.createAndSendTransaction(signerSeed, receiverIdentifier, senderData, amount);
+            ClientTransactionUtil.createAndSendTransaction(signerSeed, receiverIdentifier, senderData, amount, output);
         } catch (Exception e) {
-            System.out.println(ConsoleColor.Red + "unexpected issue creating transaction: " +
-                    PrintUtil.printException(e) + ConsoleColor.reset);
+            output.println(ConsoleColor.Red + "unexpected issue creating transaction: " + PrintUtil.printException(e) +
+                    ConsoleColor.reset);
         }
     }
 }

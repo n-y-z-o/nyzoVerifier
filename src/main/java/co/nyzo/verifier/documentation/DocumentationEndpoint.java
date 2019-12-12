@@ -1,8 +1,10 @@
 package co.nyzo.verifier.documentation;
 
 import co.nyzo.verifier.Version;
-import co.nyzo.verifier.web.EndpointMethod;
+import co.nyzo.verifier.web.EndpointRequest;
+import co.nyzo.verifier.web.EndpointResponseProvider;
 import co.nyzo.verifier.web.EndpointResponse;
+import co.nyzo.verifier.web.WebUtil;
 import co.nyzo.verifier.web.elements.*;
 
 import java.io.File;
@@ -13,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class DocumentationEndpoint implements EndpointMethod {
+public class DocumentationEndpoint implements EndpointResponseProvider {
 
     private String path;
     private File file;
@@ -158,19 +160,19 @@ public class DocumentationEndpoint implements EndpointMethod {
     }
 
     @Override
-    public EndpointResponse renderByteArray(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public EndpointResponse getResponse(EndpointRequest request) {
 
         EndpointResponse result;
         if (type == DocumentationEndpointType.Html) {
-            result = renderByteArrayForHtml(queryParameters, sourceIpAddress);
+            result = getResponseForHtml();
         } else {
-            result = renderByteArrayForRaw(queryParameters, sourceIpAddress);
+            result = getResponseForRaw();
         }
 
         return result;
     }
 
-    public EndpointResponse renderByteArrayForHtml(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public EndpointResponse getResponseForHtml() {
 
         // Make the HTML page.
         Html html = (Html) new Html().attr("lang", "en");
@@ -187,12 +189,8 @@ public class DocumentationEndpoint implements EndpointMethod {
             lines = new ArrayList<>();
         }
 
-        // Add the button styles to the head.
-        head.add(new Style(".simple-hover-button { color: black; text-decoration: none; margin: 0.1rem; " +
-                "padding: 0.5rem; border: 1px solid black; cursor: default; border-radius: 0.5rem; " +
-                "display: inline-block; } " +
-                ".simple-hover-button-selected { background-color: rgba(0,0,0,0.3); cursor: default; } " +
-                ".simple-hover-button:hover { background-color: rgba(0,0,0,0.3); }"));
+        // Add the hover button styles to the head.
+        head.add(WebUtil.hoverButtonStyles);
 
         // Add the styles from the page.
         for (String line : lines) {
@@ -238,7 +236,7 @@ public class DocumentationEndpoint implements EndpointMethod {
         // Add buttons for all HTML children.
         for (DocumentationEndpoint child : children) {
             if (child.getType() == DocumentationEndpointType.Html) {
-                A button = (A) body.add(new A().attr("class", "simple-hover-button").attr("href", child.getPath())
+                body.add(new A().attr("class", "simple-hover-button").attr("href", child.getPath())
                         .addRaw(child.getTitle()));
             }
         }
@@ -253,7 +251,7 @@ public class DocumentationEndpoint implements EndpointMethod {
         return new EndpointResponse(html.renderByteArray(), type.getContentType());
     }
 
-    public EndpointResponse renderByteArrayForRaw(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public EndpointResponse getResponseForRaw() {
 
         byte[] result = new byte[0];
         if (file.exists()) {

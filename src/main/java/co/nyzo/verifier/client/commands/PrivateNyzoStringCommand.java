@@ -3,6 +3,7 @@ package co.nyzo.verifier.client.commands;
 import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.KeyUtil;
+import co.nyzo.verifier.client.CommandOutput;
 import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.client.ConsoleUtil;
 import co.nyzo.verifier.client.ValidationResult;
@@ -47,12 +48,12 @@ public class PrivateNyzoStringCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
         return null;
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         byte[] privateSeed = ByteUtil.byteArrayFromHexString(argumentValues.get(0), FieldByteSize.seed);
         NyzoStringPrivateSeed privateSeedString = new NyzoStringPrivateSeed(privateSeed);
@@ -66,12 +67,12 @@ public class PrivateNyzoStringCommand implements Command {
                 NyzoStringEncoder.encode(privateSeedString), ByteUtil.arrayAsStringWithDashes(publicIdentifier),
                 NyzoStringEncoder.encode(publicIdentifierString));
 
-        ConsoleUtil.printTable(Arrays.asList(labels, values));
+        ConsoleUtil.printTable(Arrays.asList(labels, values), output);
     }
 
-    public static void printHexWarning() {
+    public static void printHexWarning(CommandOutput output) {
         PrivateNyzoStringCommand command = new PrivateNyzoStringCommand();
-        System.out.println(ConsoleColor.Yellow.background() + "You appear to be using a raw hexadecimal " +
+        output.println(ConsoleColor.Yellow.background() + "You appear to be using a raw hexadecimal " +
                 "private key. Please convert this to a Nyzo string with the \"" + command.getLongCommand() +
                 "\" (" + command.getShortCommand() + ") command." + ConsoleColor.reset);
     }

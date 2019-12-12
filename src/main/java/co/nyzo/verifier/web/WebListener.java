@@ -2,6 +2,7 @@ package co.nyzo.verifier.web;
 
 import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.client.Client;
+import co.nyzo.verifier.client.ClientController;
 import co.nyzo.verifier.documentation.DocumentationController;
 import co.nyzo.verifier.micropay.MicropayController;
 import co.nyzo.verifier.util.PreferencesUtil;
@@ -11,8 +12,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
@@ -26,7 +26,7 @@ public class WebListener implements HttpHandler {
 
     public static final String startWebListenerKey = "start_web_listener";
 
-    private static Map<String, EndpointMethod> endpointMap = new ConcurrentHashMap<>();
+    private static Map<Endpoint, EndpointResponseProvider> endpointMap = new ConcurrentHashMap<>();
 
     public static final String contentType = "text/html;charset=UTF-8";
 
@@ -51,21 +51,23 @@ public class WebListener implements HttpHandler {
     public void handle(HttpExchange httpExchange) throws IOException {
 
         // Get the endpoint method and the parameters.
-        EndpointMethod endpoint = endpointMap.get(path(httpExchange));
-        Map<String, String> parameters = parameters(httpExchange);
-
-        System.out.println("path: " + path(httpExchange));
-        System.out.println("parameters: " + parameters(httpExchange));
-
+        EndpointResponseProvider responseProvider = endpointMap.get(endpoint(httpExchange));
 
         // Render the page.
         EndpointResponse response;
         int statusCode;
-        if (endpoint == null) {
-            response = new EndpointResponse("page not found".getBytes(StandardCharsets.UTF_8));
+        if (responseProvider == null) {
+            Endpoint requestedEndpoint = endpoint(httpExchange);
+            String responseString = "page not found: path=" + requestedEndpoint.getPath() + ", method=" +
+                    requestedEndpoint.getMethod();
+            response = new EndpointResponse(responseString.getBytes(StandardCharsets.UTF_8));
             statusCode = 404;
         } else {
-            response = endpoint.renderByteArray(parameters, httpExchange.getRemoteAddress().getAddress().getAddress());
+            Map<String, String> queryParameters = queryParameters(httpExchange);
+            Map<String, String> postParameters = postParameters(httpExchange);
+            byte[] ipAddress = httpExchange.getRemoteAddress().getAddress().getAddress();
+            EndpointRequest request = new EndpointRequest(queryParameters, postParameters, ipAddress);
+            response = responseProvider.getResponse(request);
             statusCode = 200;
         }
 
@@ -84,7 +86,7 @@ public class WebListener implements HttpHandler {
         responseBody.close();
     }
 
-    private static String path(HttpExchange httpExchange) {
+    private static Endpoint endpoint(HttpExchange httpExchange) {
 
         // Clean the path. We do not map paths with trailing slashes except for the root.
         String path;
@@ -100,59 +102,88 @@ public class WebListener implements HttpHandler {
             path = "/";
         }
 
-        return path;
+        // Get the method.
+        HttpMethod method = HttpMethod.forString(httpExchange.getRequestMethod());
+
+        return new Endpoint(path, method);
     }
 
-    private static Map<String, String> parameters(HttpExchange httpExchange) {
+    private static Map<String, String> queryParameters(HttpExchange httpExchange) {
+        return mapForString(httpExchange.getRequestURI().getQuery());
+    }
+
+    private static Map<String, String> postParameters(HttpExchange httpExchange) {
+        return mapForString(readStream(httpExchange.getRequestBody()));
+    }
+
+    private static Map<String, String> mapForString(String string) {
 
         // Note that this *does not* work properly for an ampersand (&) is encoded in a parameter. To do this properly,
         // the raw query must be used, and the individual parameters must be decoded.
-        Map<String, String> parameters = new HashMap<>();
-        try {
-            String query = httpExchange.getRequestURI().getQuery();
-            if (query != null) {
-                String[] querySplit = query.split("&");
-                for (int i = 0; i < querySplit.length; i++) {
-                    String[] keyValue = querySplit[i].split("=");
-                    if (keyValue.length == 2) {
-                        String key = keyValue[0].trim();
-                        String value = keyValue[1].trim();
-                        if (!key.isEmpty() && !value.isEmpty()) {
-                            parameters.put(key, value);
-                        }
+        Map<String, String> map = new HashMap<>();
+        if (string != null) {
+            String[] querySplit = string.split("&");
+            for (int i = 0; i < querySplit.length; i++) {
+                String[] keyValue = querySplit[i].split("=");
+                if (keyValue.length == 2) {
+                    String key = keyValue[0].trim();
+                    String value = WebUtil.removePercentEncoding(keyValue[1].trim());
+                    if (!key.isEmpty() && !value.isEmpty()) {
+                        map.put(key, value);
                     }
                 }
             }
-        } catch (Exception ignored) {
-            System.out.println(PrintUtil.printException(ignored));
         }
 
-        return parameters;
+        return map;
+    }
+
+    private static String readStream(InputStream inputStream) {
+
+        StringBuilder result = new StringBuilder();
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            int character;
+            while ((character = reader.read()) >= 0) {
+                result.appendCodePoint(character);
+            }
+        } catch (Exception ignored) { }
+
+        return result.toString();
     }
 
     private static void buildEndpointMap() {
 
         // Build the map.
-        Map<String, EndpointMethod> map = new ConcurrentHashMap<>();
+        Map<Endpoint, EndpointResponseProvider> map = new ConcurrentHashMap<>();
         RunMode runMode = RunMode.getRunMode();
-        if (runMode == RunMode.Sentinel) {
-            map.put(SentinelController.pageEndpoint, SentinelController::page);
-            map.put(SentinelController.updateEndpoint, SentinelController::update);
-        } else if (runMode == RunMode.MicropayServer) {
-            // Add the ping endpoint. Add this before the dynamic pages to allow dynamic override.
-            map.put(MicropayController.serverPingEndpoint, MicropayController::serverPingPage);
+        switch (runMode) {
+            case Client:
+                map.putAll(ClientController.buildEndpointMap());
+                break;
+            case DocumentationServer:
+                map.putAll(DocumentationController.buildEndpointMap());
+                break;
+            case MicropayClient:
+                map.put(MicropayController.clientPingEndpoint, MicropayController::clientPingPage);
+                map.put(MicropayController.clientAuthorizationEndpoint, MicropayController::clientAuthorizationPage);
+                break;
+            case MicropayServer:
+                // Add the ping endpoint. Add this before the dynamic pages to allow dynamic override.
+                map.put(MicropayController.serverPingEndpoint, MicropayController::serverPingPage);
 
-            // The Micropay controller builds its map dynamically based on the contents of a directory.
-            map.putAll(MicropayController.buildEndpointMap());
-        } else if (runMode == RunMode.MicropayClient) {
-            map.put(MicropayController.clientPingEndpoint, MicropayController::clientPingPage);
-            map.put(MicropayController.clientAuthorizationEndpoint, MicropayController::clientAuthorizationPage);
-        } else if (runMode == RunMode.Client || runMode == RunMode.Verifier) {
-            map.put("/", CycleController::page);  // will be removed in a later version
-            map.put(CycleController.pageEndpoint, CycleController::page);
-            map.put(CycleController.updateEndpoint, CycleController::update);
-        } else {  // runMode == DocumentationServer
-            map.putAll(DocumentationController.buildEndpointMap());
+                // The Micropay controller builds its map dynamically based on the contents of a directory.
+                map.putAll(MicropayController.buildEndpointMap());
+                break;
+            case Sentinel:
+                map.put(SentinelController.pageEndpoint, SentinelController::page);
+                map.put(SentinelController.updateEndpoint, SentinelController::update);
+                break;
+            case Verifier:
+                map.put(new Endpoint("/"), CycleController::page);  // will be removed in a later version
+                map.put(CycleController.pageEndpoint, CycleController::page);
+                map.put(CycleController.updateEndpoint, CycleController::update);
+                break;
         }
 
         // Assign the map to the static variable. Building and swapping results in an atomic update of the endpoints.
@@ -166,23 +197,9 @@ public class WebListener implements HttpHandler {
         // override the generic setting. This is especially helpful for development, as both a Micropay server and
         // client can be run on the same host.
         RunMode runMode = RunMode.getRunMode();
-        String overrideSuffix;
-        if (runMode == RunMode.Verifier) {
-            overrideSuffix = "verifier";
-        } else if (runMode == RunMode.Sentinel) {
-            overrideSuffix = "sentinel";
-        } else if (runMode == RunMode.Client) {
-            overrideSuffix = "client";
-        } else if (runMode == RunMode.MicropayClient) {
-            overrideSuffix = "micropay_client";
-        } else if (runMode == RunMode.MicropayServer) {
-            overrideSuffix = "micropay_server";
-        } else {  // runMode == DocumentationServer
-            overrideSuffix = "documentation_server";
-        }
 
         // Return the web port.
         int genericPort = PreferencesUtil.getInt("web_port", 80);
-        return PreferencesUtil.getInt("web_port_" + overrideSuffix, genericPort);
+        return PreferencesUtil.getInt("web_port_" + runMode.getOverrideSuffix(), genericPort);
     }
 }

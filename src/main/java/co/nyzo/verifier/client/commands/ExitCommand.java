@@ -1,5 +1,6 @@
 package co.nyzo.verifier.client.commands;
 
+import co.nyzo.verifier.client.CommandOutput;
 import co.nyzo.verifier.client.ValidationResult;
 import co.nyzo.verifier.client.ConsoleUtil;
 import co.nyzo.verifier.util.UpdateUtil;
@@ -40,15 +41,15 @@ public class ExitCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
         return null;
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         String message = "Thank you for using the Nyzo client!";
-        ConsoleUtil.printTable(Collections.singletonList(Collections.singletonList(message)));
+        ConsoleUtil.printTable(Collections.singletonList(Collections.singletonList(message)), output);
         UpdateUtil.terminate();
     }
 }

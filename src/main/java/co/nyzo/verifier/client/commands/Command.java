@@ -1,5 +1,6 @@
 package co.nyzo.verifier.client.commands;
 
+import co.nyzo.verifier.client.CommandOutput;
 import co.nyzo.verifier.client.ValidationResult;
 
 import java.util.List;
@@ -12,6 +13,6 @@ public interface Command {
     String[] getArgumentNames();
     boolean requiresValidation();
     boolean requiresConfirmation();
-    ValidationResult validate(List<String> argumentValues);
-    void run(List<String> argumentValues);
+    ValidationResult validate(List<String> argumentValues, CommandOutput output);
+    void run(List<String> argumentValues, CommandOutput output);
 }

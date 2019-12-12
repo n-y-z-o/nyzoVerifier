@@ -11,13 +11,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class CycleController {
 
-    public static final String pageEndpoint = "/cycle";
-    public static final String updateEndpoint = "/cycleUpdate";
+    public static final Endpoint pageEndpoint = new Endpoint("/cycle");
+    public static final Endpoint updateEndpoint = new Endpoint("/cycleUpdate");
 
     private static RawHtml cycleElement = null;
     private static final AtomicLong cycleElementHeight = new AtomicLong(-1L);
 
-    public static EndpointResponse page(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public static EndpointResponse page(EndpointRequest request) {
 
         // Make the HTML page.
         Html html = (Html) new Html().attr("lang", "en");
@@ -31,7 +31,7 @@ public class CycleController {
         cycleDiv.add(divContent());
 
         // Add the Ajax update for the cycle div to the head of the document.
-        head.add(cycleDiv.ajaxUpdate(updateEndpoint, 5000));
+        head.add(cycleDiv.ajaxUpdate(updateEndpoint.getPath(), 5000));
 
         return new EndpointResponse(html.renderByteArray());
     }
@@ -76,7 +76,7 @@ public class CycleController {
         return new RawHtml(result.toString());
     }
 
-    public static EndpointResponse update(Map<String, String> queryParameters, byte[] sourceIpAddress) {
+    public static EndpointResponse update(EndpointRequest request) {
 
         return new EndpointResponse(divContent().render().getBytes(StandardCharsets.UTF_8));
     }

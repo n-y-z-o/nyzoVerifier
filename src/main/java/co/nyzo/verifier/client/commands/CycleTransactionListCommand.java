@@ -46,7 +46,7 @@ public class CycleTransactionListCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
 
         ValidationResult result = null;
         try {
@@ -64,7 +64,7 @@ public class CycleTransactionListCommand implements Command {
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(0), message));
 
                 if (argumentValues.get(0).length() >= 64) {
-                    PrivateNyzoStringCommand.printHexWarning();
+                    PrivateNyzoStringCommand.printHexWarning(output);
                 }
             }
 
@@ -83,7 +83,7 @@ public class CycleTransactionListCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         try {
             // If a key was provided, query the corresponding verifier.
@@ -94,7 +94,7 @@ public class CycleTransactionListCommand implements Command {
 
                 // Print a warning if the verifier does not appear to be in the cycle.
                 if (!BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(identifier))) {
-                    System.out.println(ConsoleColor.Yellow.background() + "warning: the verifier you specified does " +
+                    output.println(ConsoleColor.Yellow.background() + "warning: the verifier you specified does " +
                             "not appear to be in the cycle" + ConsoleColor.reset);
                 }
 
@@ -104,7 +104,7 @@ public class CycleTransactionListCommand implements Command {
                 AtomicInteger numberWaiting = new AtomicInteger(0);
                 for (Node node : ClientNodeManager.getMesh()) {
                     if (ByteUtil.arraysAreEqual(node.getIdentifier(), identifier)) {
-                        System.out.println("querying node " + NicknameManager.get(identifier));
+                        output.println("querying node " + NicknameManager.get(identifier));
                         numberQueried++;
                         numberWaiting.incrementAndGet();
                         Message message = new Message(MessageType.CycleTransactionListRequest49, null);
@@ -133,7 +133,7 @@ public class CycleTransactionListCommand implements Command {
             // Show the transactions.
             List<Transaction> transactions = getTransactionList();
             if (transactions.isEmpty()) {
-                ConsoleUtil.printTable("no cycle transactions available");
+                ConsoleUtil.printTable("no cycle transactions available", output);
             } else {
                 List<String> indexColumn = new ArrayList<>(Collections.singletonList("index"));
                 List<String> initiatorColumn = new ArrayList<>(Collections.singletonList("initiator"));
@@ -158,11 +158,11 @@ public class CycleTransactionListCommand implements Command {
                     numberOfSignaturesColumn.add((transaction.getCycleSignatures().size() + 1) + "");
                 }
                 ConsoleUtil.printTable(Arrays.asList(indexColumn, initiatorColumn, receiverColumn, amountColumn,
-                        blockColumn, numberOfSignaturesColumn), new HashSet<>(Collections.singletonList(0)));
+                        blockColumn, numberOfSignaturesColumn), new HashSet<>(Collections.singletonList(0)), output);
             }
 
         } catch (Exception e) {
-            System.out.println(ConsoleColor.Red + "unexpected issue listing cycle transactions: " +
+            output.println(ConsoleColor.Red + "unexpected issue listing cycle transactions: " +
                     PrintUtil.printException(e) + ConsoleColor.reset);
         }
     }

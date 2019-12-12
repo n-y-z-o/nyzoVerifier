@@ -1,10 +1,7 @@
 package co.nyzo.verifier.client.commands;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.client.ArgumentResult;
-import co.nyzo.verifier.client.ConsoleColor;
-import co.nyzo.verifier.client.ConsoleUtil;
-import co.nyzo.verifier.client.ValidationResult;
+import co.nyzo.verifier.client.*;
 import co.nyzo.verifier.nyzoString.*;
 
 import java.nio.charset.StandardCharsets;
@@ -42,7 +39,7 @@ public class PrefilledDataCreateCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
 
         ValidationResult result = null;
         try {
@@ -59,14 +56,14 @@ public class PrefilledDataCreateCommand implements Command {
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(0), message));
 
                 if (argumentValues.get(0).length() >= 64) {
-                    PublicNyzoStringCommand.printHexWarning();
+                    PublicNyzoStringCommand.printHexWarning(output);
                 }
             }
 
             // Process the sender data.
             byte[] senderDataBytes = argumentValues.get(1).getBytes(StandardCharsets.UTF_8);
             if (senderDataBytes.length > FieldByteSize.maximumSenderDataLength) {
-                System.out.println(ConsoleColor.Yellow + "sender data too long; truncating" + ConsoleColor.reset);
+                output.println(ConsoleColor.Yellow + "sender data too long; truncating" + ConsoleColor.reset);
                 senderDataBytes = Arrays.copyOf(senderDataBytes, FieldByteSize.maximumSenderDataLength);
             }
             String senderData = new String(senderDataBytes, StandardCharsets.UTF_8);
@@ -89,7 +86,7 @@ public class PrefilledDataCreateCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         // Get the arguments.
         NyzoStringPublicIdentifier receiverIdentifier =
@@ -107,7 +104,7 @@ public class PrefilledDataCreateCommand implements Command {
                 new String(prefilledDataString.getSenderData(), StandardCharsets.UTF_8),
                 NyzoStringEncoder.encode(prefilledDataString));
 
-        ConsoleUtil.printTable(Arrays.asList(labels, values), new HashSet<>(Collections.singleton(1)));
+        ConsoleUtil.printTable(Arrays.asList(labels, values), new HashSet<>(Collections.singleton(1)), output);
 
         // If this is not a known identifier in the latest balance list, display a warning.
         BalanceList frozenEdgeList = BalanceListManager.getFrozenEdgeList();
@@ -127,7 +124,7 @@ public class PrefilledDataCreateCommand implements Command {
                     color + "those coins will likely be unrecoverable. Please ensure that this" + reset,
                     color + "address is valid before sending coins." + reset
             );
-            ConsoleUtil.printTable(Collections.singletonList(warning));
+            ConsoleUtil.printTable(Collections.singletonList(warning), output);
         }
     }
 }

@@ -1,6 +1,7 @@
 package co.nyzo.verifier.client.commands;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.client.CommandOutput;
 import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.client.ConsoleUtil;
 import co.nyzo.verifier.client.ValidationResult;
@@ -45,12 +46,12 @@ public class PublicNyzoStringCommand implements Command {
     }
 
     @Override
-    public ValidationResult validate(List<String> argumentValues) {
+    public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
         return null;
     }
 
     @Override
-    public void run(List<String> argumentValues) {
+    public void run(List<String> argumentValues, CommandOutput output) {
 
         byte[] publicIdentifier = ByteUtil.byteArrayFromHexString(argumentValues.get(0), FieldByteSize.identifier);
         NyzoStringPublicIdentifier publicIdentifierString = new NyzoStringPublicIdentifier(publicIdentifier);
@@ -59,7 +60,7 @@ public class PublicNyzoStringCommand implements Command {
         List<String> values = Arrays.asList(ByteUtil.arrayAsStringWithDashes(publicIdentifier),
                 NyzoStringEncoder.encode(publicIdentifierString));
 
-        ConsoleUtil.printTable(Arrays.asList(labels, values));
+        ConsoleUtil.printTable(Arrays.asList(labels, values), output);
 
         // If this is not a known identifier in the latest balance list, display a warning.
         BalanceList frozenEdgeList = BalanceListManager.getFrozenEdgeList();
@@ -78,13 +79,13 @@ public class PublicNyzoStringCommand implements Command {
                     color + "those coins will likely be unrecoverable. Please ensure that this" + reset,
                     color + "address is valid before sending coins." + reset
             );
-            ConsoleUtil.printTable(Collections.singletonList(warning));
+            ConsoleUtil.printTable(Collections.singletonList(warning), output);
         }
     }
 
-    public static void printHexWarning() {
+    public static void printHexWarning(CommandOutput output) {
         PublicNyzoStringCommand command = new PublicNyzoStringCommand();
-        System.out.println(ConsoleColor.Yellow.background() + "You appear to be using a raw hexadecimal " +
+        output.println(ConsoleColor.Yellow.background() + "You appear to be using a raw hexadecimal " +
                 "public ID. Please convert this to a Nyzo string with the \"" + command.getLongCommand() +
                 "\" (" + command.getShortCommand() + ") command." + ConsoleColor.reset);
     }

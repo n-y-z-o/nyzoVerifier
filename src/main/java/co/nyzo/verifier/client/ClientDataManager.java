@@ -177,7 +177,7 @@ public class ClientDataManager {
 
     private static void updateMesh() {
 
-        Message message = new Message(MessageType.FullMeshRequest41, null);
+        Message message = new Message(MessageType.MeshRequest15, null);
         Node node = ClientNodeManager.randomNode();
         if (node != null) {
             Message.fetch(node, message, new MessageCallback() {
