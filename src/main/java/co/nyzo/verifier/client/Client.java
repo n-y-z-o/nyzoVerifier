@@ -23,8 +23,7 @@ public class Client {
         RunMode.setRunMode(RunMode.Client);
 
         CommandOutput output = new CommandOutputConsole();
-        ConsoleUtil.printTable(Collections.singletonList(Collections.singletonList("Nyzo client, version " +
-                Version.getVersion())), output);
+        ConsoleUtil.printTable(output, "Nyzo client, version " + Version.getVersion());
 
         // Start the data manager. This collects the data necessary for the client to run properly.
         boolean startedDataManager = ClientDataManager.start();

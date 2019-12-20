@@ -31,6 +31,11 @@ public class InvalidCommand implements Command {
     }
 
     @Override
+    public String[] getArgumentIdentifiers() {
+        return new String[0];
+    }
+
+    @Override
     public boolean requiresValidation() {
         return false;
     }

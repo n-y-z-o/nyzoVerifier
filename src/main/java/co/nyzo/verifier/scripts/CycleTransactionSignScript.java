@@ -1,6 +1,7 @@
 package co.nyzo.verifier.scripts;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.client.CommandOutputConsole;
 import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.messages.CycleTransactionSignature;
 import co.nyzo.verifier.messages.MeshResponse;
@@ -174,6 +175,6 @@ public class CycleTransactionSignScript {
         }
 
         // Send the messages.
-        ScriptUtil.sendMessages(messages);
+        ScriptUtil.sendMessages(messages, new CommandOutputConsole());
     }
 }

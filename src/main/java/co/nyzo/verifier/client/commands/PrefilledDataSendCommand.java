@@ -37,6 +37,11 @@ public class PrefilledDataSendCommand implements Command {
     }
 
     @Override
+    public String[] getArgumentIdentifiers() {
+        return new String[] { "senderKey", "prefilledDataString", "amountNyzos" };
+    }
+
+    @Override
     public boolean requiresValidation() {
         return true;
     }

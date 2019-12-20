@@ -5,6 +5,8 @@ import co.nyzo.verifier.messages.CycleTransactionSignature;
 import co.nyzo.verifier.messages.CycleTransactionSignatureResponse;
 import co.nyzo.verifier.messages.TransactionResponse;
 import co.nyzo.verifier.nyzoString.*;
+import co.nyzo.verifier.scripts.PendingMessage;
+import co.nyzo.verifier.scripts.ScriptUtil;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.ThreadUtil;
@@ -194,35 +196,18 @@ public class ClientTransactionUtil {
 
     public static void sendCycleTransaction(Transaction transaction, CommandOutput output) {
 
-        // Cycle transactions are sent to all verifiers in the cycle, retrying once for failures.
-        Set<Node> nodesReceived = ConcurrentHashMap.newKeySet();
+        // Build the set of messages. Cycle transactions are sent to all verifiers in the cycle.
         Set<ByteBuffer> cycleVerifiers = BlockManager.verifiersInCurrentCycleSet();
-        for (int i = 0; i < 2; i++) {
-            for (Node node : ClientNodeManager.getMesh()) {
-                if (!nodesReceived.contains(node) && cycleVerifiers.contains(ByteBuffer.wrap(node.getIdentifier()))) {
-                    if (i == 0) {
-                        output.println("sending transaction to " + NicknameManager.get(node.getIdentifier()));
-                    } else {
-                        output.println("resending transaction to " + NicknameManager.get(node.getIdentifier()));
-                    }
-                    Message message = new Message(MessageType.Transaction5, transaction);
-                    Message.fetch(node, message, new MessageCallback() {
-                        @Override
-                        public void responseReceived(Message message) {
-                            output.println("response: " + message);
-                            if (message != null && message.getType() == MessageType.TransactionResponse6) {
-                                nodesReceived.add(node);
-                                if (message.getContent() instanceof TransactionResponse) {
-                                    TransactionResponse response = (TransactionResponse) message.getContent();
-                                    output.println("response: " + response);
-                                }
-                            }
-                        }
-                    });
-                    ThreadUtil.sleep(500L);  // sleep 0.5 seconds after each send to limit traffic to a reasonable rate
-                }
+        Set<PendingMessage> messages = ConcurrentHashMap.newKeySet();
+        for (Node node : ClientNodeManager.getMesh()) {
+            if (cycleVerifiers.contains(ByteBuffer.wrap(node.getIdentifier()))) {
+                Message message = new Message(MessageType.Transaction5, transaction);
+                messages.add(new PendingMessage(node, MessageType.Transaction5, transaction));
             }
         }
+
+        // Send the messages.
+        ScriptUtil.sendMessages(messages, output);
     }
 
     public static void sendCycleTransactionSignature(CycleTransactionSignature signature, CommandOutput output) {
@@ -259,7 +244,7 @@ public class ClientTransactionUtil {
         }
     }
 
-    public static String senderDataString(byte[] senderData) {
+    public static String senderDataForDisplay(byte[] senderData) {
 
         // Sender data is stored and handled as a raw array of bytes. Often, this byte array represents a character
         // string. If encoding to a UTF-8 character string and back to a byte array produces the original byte array,
@@ -267,6 +252,75 @@ public class ClientTransactionUtil {
         String result = new String(senderData, StandardCharsets.UTF_8);
         if (!ByteUtil.arraysAreEqual(senderData, result.getBytes(StandardCharsets.UTF_8))) {
             result = ByteUtil.arrayAsStringWithDashes(senderData);
+        }
+
+        return result;
+    }
+
+    public static boolean isNormalizedSenderDataString(String string) {
+
+        // Start by trimming leading and trailing whitespace. Unlike UTF-8 strings, padding with whitespace is always a
+        // mistake and need not be respected.
+        string = string.trim();
+
+        // The string is decoded to a byte array and re-encoded to a new normalized sender-data string. This is
+        // inefficient computationally, but the inefficiency is not a concern, and it improves locality of logic.
+        String encoded = normalizedSenderDataString(bytesFromNormalizedSenderDataString(string.trim()));
+        return encoded != null && encoded.toLowerCase().equals(string.toLowerCase());
+    }
+
+    public static byte[] bytesFromNormalizedSenderDataString(String string) {
+
+        // Initially, the sender data is null. This will be replaced with the decoded data if the string is correct.
+        byte[] senderData = null;
+
+        // Get the characters.
+        char[] characters = string.toLowerCase().toCharArray();
+        if (characters.length == 67 && characters[0] == 'x' && characters[1] == '(' && characters[66] == ')') {
+            // Get the underscore index to determine the length of the data.
+            int underscoreIndex = string.indexOf('_');
+            int dataLength = underscoreIndex < 0 ? FieldByteSize.maximumSenderDataLength : underscoreIndex / 2 - 1;
+
+            // Ensure that all characters in the data field are correct. The left section must be all alphanumeric, and
+            // the right section must be underscores. The string was converted to lowercase.
+            boolean allAreCorrect = true;
+            for (int i = 2; i < 66 && allAreCorrect; i++) {
+                // This could be written more succinctly, but it would be more difficult to read.
+                if (i < underscoreIndex) {
+                    allAreCorrect = (characters[i] >= '0' && characters[i] <= '9') ||
+                            (characters[i] >= 'a' && characters[i] <= 'f');
+                } else {
+                    allAreCorrect = characters[i] == '_';
+                }
+            }
+
+            // If all characters are correct, decode the data. Otherwise, leave the result null to indicate that the
+            // input is not a valid sender-data string.
+            if (allAreCorrect) {
+                senderData = ByteUtil.byteArrayFromHexString(string.substring(2), dataLength);
+            }
+        }
+
+        return senderData;
+    }
+
+    public static String normalizedSenderDataString(byte[] senderData) {
+
+        // This is a special format to allow input of raw hex sender data in various tools. The sender data field is
+        // a maximum of 32 bytes, so a text string would typically be limited to 32 characters. This is always produced
+        // as a fixed 67-character string to eliminate any ambiguity for shorter sender data fields.
+        String result;
+        if (senderData == null || senderData.length > FieldByteSize.maximumSenderDataLength) {
+            result = null;
+        } else {
+            StringBuilder resultBuilder = new StringBuilder("X(");
+            resultBuilder.append(ByteUtil.arrayAsStringNoDashes(senderData));
+            int numberOfPaddingCharacters = (FieldByteSize.maximumSenderDataLength - senderData.length) * 2;
+            for (int i = 0; i < numberOfPaddingCharacters; i++) {
+                resultBuilder.append("_");
+            }
+            resultBuilder.append(")");
+            result = resultBuilder.toString();
         }
 
         return result;

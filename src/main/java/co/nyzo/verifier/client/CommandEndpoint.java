@@ -4,11 +4,9 @@ import co.nyzo.verifier.client.commands.Command;
 import co.nyzo.verifier.web.*;
 import co.nyzo.verifier.web.elements.*;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class CommandEndpoint implements EndpointResponseProvider {
 
@@ -32,14 +30,13 @@ public class CommandEndpoint implements EndpointResponseProvider {
         if (method == HttpMethod.Post) {
             response = processForm(request);
         } else {
-            response = getFormPage(null, null, false);
+            response = getFormPage(null, false);
         }
 
         return response;
     }
 
-    private EndpointResponse getFormPage(ValidationResult validationResult, List<String> argumentValues,
-                                         boolean isConfirmation) {
+    private EndpointResponse getFormPage(ValidationResult validationResult, boolean isConfirmation) {
 
         // Make the HTML page.
         Html html = (Html) new Html().attr("lang", "en");
@@ -56,7 +53,9 @@ public class CommandEndpoint implements EndpointResponseProvider {
                 ".form-label { width: 99%; }" +
                 ".form-input { width: 99%; margin-top: 0.3rem; }" +
                 ".form-input-disabled { border: none; padding: 3px; background-color: lightgray; }" +
-                ".validation-message { color: red; font-style: italic; font-size: 0.7rem; border: 1px solid red; " +
+                ".validation-error { color: red; font-style: italic; font-size: 0.7rem; border: 1px solid red; " +
+                "border-radius: 0.5rem; padding: 0.2rem; white-space: nowrap; }" +
+                ".validation-message { color: #080; font-style: italic; font-size: 0.7rem; border: 1px solid #080; " +
                 "border-radius: 0.5rem; padding: 0.2rem; white-space: nowrap; }"));
         head.add(WebUtil.hoverButtonStyles);
 
@@ -70,12 +69,12 @@ public class CommandEndpoint implements EndpointResponseProvider {
         container.add(new H1(title));
 
         // Add the form.
-        container.add(formElement(validationResult, argumentValues, isConfirmation));
+        container.add(formElement(validationResult, isConfirmation));
 
         return new EndpointResponse(html.renderByteArray());
     }
 
-    private Form formElement(ValidationResult validationResult, List<String> argumentValues, boolean isConfirmation) {
+    private Form formElement(ValidationResult validationResult, boolean isConfirmation) {
 
         Form form = (Form) new Form().attr("class", "form").attr("method", "post");
         String[] argumentNames = command.getArgumentNames();
@@ -92,14 +91,12 @@ public class CommandEndpoint implements EndpointResponseProvider {
                 argumentValueInvalid = !argumentResult.isValid();
                 validationMessage = argumentResult.getValidationMessage();
                 argumentValue = argumentResult.getValue();
-            } else if (argumentValues != null && i < argumentValues.size()) {
-                argumentValue = argumentValues.get(i);
             }
 
             // Add the label. If the argument was invalid, add a validation message.
             String argumentName = argumentNames[i];
-            String argumentSuffix = argumentValueInvalid && validationMessage != null &&
-                    !validationMessage.isEmpty() ? " <span class=\"validation-message\">" + validationMessage +
+            String argumentSuffix = validationMessage != null && !validationMessage.isEmpty() ? " <span class=\"" +
+                    (argumentValueInvalid ? "validation-error" : "validation-message") + "\">" + validationMessage +
                     "</span>" : "";
             argumentContainer.add(new Label(argumentName + argumentSuffix).attr("class", "form-label"));
 
@@ -136,32 +133,30 @@ public class CommandEndpoint implements EndpointResponseProvider {
             argumentValues.add(postParameters.getOrDefault(normalizedArgumentName(argumentName), "").trim());
         }
 
-        // If the command requires validation, validate it now. If the validation fails, return the form. Otherwise,
-        // continue.
+        // If the command requires validation, validate it now. Otherwise, create an auto-approve validation.
         EndpointResponse response = null;
+        ValidationResult validationResult;
         if (command.requiresValidation()) {
             CommandOutput output = new CommandOutputWeb();
-            ValidationResult validationResult = command.validate(argumentValues, output);
-            if (validationResult == null || validationResult.numberOfInvalidArguments() > 0) {
-                response = getFormPage(validationResult, null, false);
+            validationResult = command.validate(argumentValues, output);
+        } else {
+            List<ArgumentResult> argumentResults = new ArrayList<>();
+            for (String argumentValue : argumentValues) {
+                argumentResults.add(new ArgumentResult(true, argumentValue));
             }
+            validationResult = new ValidationResult(argumentResults);
         }
 
-        // If the action is "back", return to the form. Default to "back" for the action to return to the form if there
-        // are any issues.
+        // If the action is "back" or "review", or if the validation failed, return to the form. Otherwise, run the
+        // command.
         String action = postParameters.getOrDefault("action", "back");
-        if (action.equals(actionValueBack)) {
-            response = getFormPage(null, argumentValues, false);
-        }
-
-        // Now handle commands that need confirmation. If the action is "review", present the confirmation page. If the
-        // action is "run command", then run the command.
-        if (response == null) {
-            if (action.equals(actionValueReview)) {
-                response = getFormPage(null, argumentValues, true);
-            } else {  // action.equals(actionValueRun)
-                response = getProgressPage(argumentValues);
-            }
+        if (action.equals(actionValueBack) || action.equals(actionValueReview) ||
+                validationResult.numberOfInvalidArguments() > 0) {
+            boolean isConfirmation = action.equals(actionValueReview) &&
+                    validationResult.numberOfInvalidArguments() == 0;
+            response = getFormPage(validationResult, isConfirmation);
+        } else {
+            response = getProgressPage(argumentValues);
         }
 
         return response;

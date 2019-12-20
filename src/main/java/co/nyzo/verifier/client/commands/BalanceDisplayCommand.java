@@ -39,6 +39,11 @@ public class BalanceDisplayCommand implements Command {
     }
 
     @Override
+    public String[] getArgumentIdentifiers() {
+        return new String[] { "walletId" };
+    }
+
+    @Override
     public boolean requiresValidation() {
         return false;
     }
@@ -90,8 +95,8 @@ public class BalanceDisplayCommand implements Command {
                 }
 
                 if (numberFound == 0) {
-                    ConsoleUtil.printTable("unable to find any accounts matching ID/prefix " + walletIdOrPrefix,
-                            output);
+                    ConsoleUtil.printTable(output, "unable to find any accounts matching ID/prefix " +
+                            walletIdOrPrefix);
                 } else {
                     ConsoleUtil.printTable(columns, new HashSet<>(Collections.singleton(1)), output);
                 }

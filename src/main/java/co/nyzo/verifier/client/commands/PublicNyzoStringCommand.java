@@ -36,6 +36,11 @@ public class PublicNyzoStringCommand implements Command {
     }
 
     @Override
+    public String[] getArgumentIdentifiers() {
+        return new String[] { "publicId" };
+    }
+
+    @Override
     public boolean requiresValidation() {
         return false;
     }

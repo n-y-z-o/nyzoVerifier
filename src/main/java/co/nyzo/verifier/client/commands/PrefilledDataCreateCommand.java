@@ -29,6 +29,11 @@ public class PrefilledDataCreateCommand implements Command {
     }
 
     @Override
+    public String[] getArgumentIdentifiers() {
+        return new String[] { "receiverId", "senderData" };
+    }
+
+    @Override
     public boolean requiresValidation() {
         return true;
     }

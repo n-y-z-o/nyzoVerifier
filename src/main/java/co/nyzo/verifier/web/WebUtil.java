@@ -78,8 +78,8 @@ public class WebUtil {
         return nickname;
     }
 
-    public static String sanitizedSenderDataString(byte[] senderData) {
-        return sanitizeString(ClientTransactionUtil.senderDataString(senderData));
+    public static String sanitizedSenderDataForDisplay(byte[] senderData) {
+        return sanitizeString(ClientTransactionUtil.senderDataForDisplay(senderData));
     }
 
     public static String removeNumeralStrings(String string) {

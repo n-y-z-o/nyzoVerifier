@@ -155,7 +155,7 @@ public class ConsensusTracker {
                         }
                         if (verifierTransaction != null) {
                             blockLine += ",transaction data=" +
-                                    ClientTransactionUtil.senderDataString(verifierTransaction.getSenderData());
+                                    ClientTransactionUtil.senderDataForDisplay(verifierTransaction.getSenderData());
                         }
 
                         // Add the line to the list.

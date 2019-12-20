@@ -1,15 +1,17 @@
 package co.nyzo.verifier.client;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class ConsoleUtil {
 
-    public static void printTable(String message, CommandOutput output) {
+    public static void printTable(CommandOutput output, String... values) {
 
-        printTable(Collections.singletonList(Collections.singletonList(message)), output);
+        List<List<String>> columns = new ArrayList<>();
+        for (String value : values) {
+            columns.add(Collections.singletonList(value));
+        }
+
+        printTable(columns, output);
     }
 
     public static void printTable(List<List<String>> columns, CommandOutput output) {

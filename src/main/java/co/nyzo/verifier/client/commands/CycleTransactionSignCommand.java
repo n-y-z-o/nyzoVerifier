@@ -44,6 +44,11 @@ public class CycleTransactionSignCommand implements Command {
     }
 
     @Override
+    public String[] getArgumentIdentifiers() {
+        return new String[] { "transactionIndex", "signerKey" };
+    }
+
+    @Override
     public boolean requiresValidation() {
         return true;
     }
@@ -112,7 +117,7 @@ public class CycleTransactionSignCommand implements Command {
                             PrintUtil.printAmount(transaction.getAmount()),
                             BlockManager.heightForTimestamp(transaction.getTimestamp()) + "",
                             (transaction.getCycleSignatures().size() + 1) + "")
-            ), new CommandOutputConsole());
+            ), output);
 
         } catch (Exception ignored) { }
 

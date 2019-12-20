@@ -37,6 +37,11 @@ public class TransactionSendCommand implements Command {
     }
 
     @Override
+    public String[] getArgumentIdentifiers() {
+        return new String[] { "senderKey", "receiverId", "senderData", "amountNyzos" };
+    }
+
+    @Override
     public boolean requiresValidation() {
         return true;
     }

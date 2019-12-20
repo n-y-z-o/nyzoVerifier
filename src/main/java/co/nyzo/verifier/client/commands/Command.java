@@ -11,6 +11,7 @@ public interface Command {
     String getLongCommand();
     String getDescription();
     String[] getArgumentNames();
+    String[] getArgumentIdentifiers();
     boolean requiresValidation();
     boolean requiresConfirmation();
     ValidationResult validate(List<String> argumentValues, CommandOutput output);

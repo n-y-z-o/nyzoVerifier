@@ -16,6 +16,10 @@ public class PendingMessage {
     private AtomicInteger numberOfSuccesses;
     private AtomicInteger numberOfFailures;
 
+    public PendingMessage(Node recipient, MessageType messageType, MessageObject messageObject) {
+        this(recipient, messageType, messageObject, null);
+    }
+
     public PendingMessage(Node recipient, MessageType messageType, MessageObject messageObject, byte[] signerSeed) {
         this.recipient = recipient;
         this.messageType = messageType;

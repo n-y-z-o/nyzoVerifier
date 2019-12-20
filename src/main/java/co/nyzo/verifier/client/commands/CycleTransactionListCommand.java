@@ -36,6 +36,11 @@ public class CycleTransactionListCommand implements Command {
     }
 
     @Override
+    public String[] getArgumentIdentifiers() {
+        return new String[] { "verifierKey" };
+    }
+
+    @Override
     public boolean requiresValidation() {
         return true;
     }
@@ -133,7 +138,7 @@ public class CycleTransactionListCommand implements Command {
             // Show the transactions.
             List<Transaction> transactions = getTransactionList();
             if (transactions.isEmpty()) {
-                ConsoleUtil.printTable("no cycle transactions available", output);
+                ConsoleUtil.printTable(output, "no cycle transactions available");
             } else {
                 List<String> indexColumn = new ArrayList<>(Collections.singletonList("index"));
                 List<String> initiatorColumn = new ArrayList<>(Collections.singletonList("initiator"));

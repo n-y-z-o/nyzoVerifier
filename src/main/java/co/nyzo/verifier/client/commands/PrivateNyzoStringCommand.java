@@ -38,6 +38,11 @@ public class PrivateNyzoStringCommand implements Command {
     }
 
     @Override
+    public String[] getArgumentIdentifiers() {
+        return new String[] { "privateKey" };
+    }
+
+    @Override
     public boolean requiresValidation() {
         return false;
     }

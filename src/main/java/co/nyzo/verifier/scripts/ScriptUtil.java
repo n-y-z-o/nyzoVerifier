@@ -1,6 +1,7 @@
 package co.nyzo.verifier.scripts;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.client.CommandOutput;
 import co.nyzo.verifier.messages.MeshResponse;
 import co.nyzo.verifier.messages.MultilineTextResponse;
 import co.nyzo.verifier.util.*;
@@ -123,18 +124,32 @@ public class ScriptUtil {
         Message.fetchTcp("127.0.0.1", MeshListener.getPortTcp(), new Message(MessageType.Ping200, null), null);
     }
 
-    public static void sendMessages(Set<PendingMessage> messages) {
+    public static void sendMessages(Set<PendingMessage> messages, CommandOutput output) {
 
-        LogUtil.println("need to send " + messages.size() + " messages");
+        output.println("need to send " + messages.size() + " messages");
         boolean done = false;
         AtomicInteger numberOfInFlightRequests = new AtomicInteger(0);
         int iteration = 0;
         AtomicInteger numberOfSuccessfulMessages = new AtomicInteger(0);
         AtomicInteger numberOfFailedMessages = new AtomicInteger(0);
+        int totalMessageCount = messages.size();
+        int progressIndex = 0;
         while (!messages.isEmpty()) {
             // While the number of messages in flight is at the maximum, wait for messages to return.
             while (numberOfInFlightRequests.get() >= maximumInFlightRequests) {
                 ThreadUtil.sleep(100L);
+            }
+
+            // Display progress every 5%.
+            int progressThreshold = (progressIndex + 1) * totalMessageCount / 20;
+            int progressCount = totalMessageCount - messages.size();
+            if (progressCount >= progressThreshold) {
+                // Calculate the percentage and
+                double percentage = progressCount * 100.0 / totalMessageCount;
+                output.println(String.format("%d/%d sent (%.1f%%)", progressCount, totalMessageCount, percentage));
+
+                // Update the progress index.
+                progressIndex = (progressCount * 20 / totalMessageCount) + 1;
             }
 
             // Find a message that needs to be sent.
@@ -153,10 +168,21 @@ public class ScriptUtil {
             if (messageToSend == null) {
                 ThreadUtil.sleep(100L);
             } else {
+                // Store a reference that can be accessed from the callback. Increment the number of attempts.
                 final PendingMessage messageToSendFinal = messageToSend;
                 messageToSendFinal.incrementAndGetNumberOfAttempts();
-                Message.fetch(messageToSendFinal.getRecipient(), new Message(messageToSendFinal.getMessageType(),
-                        messageToSendFinal.getMessageObject(), messageToSend.getSignerSeed()), new MessageCallback() {
+
+                // Build the message. If no signer seed is provided, sign with the default verifier seed.
+                Message message;
+                if (messageToSend.getSignerSeed() == null) {
+                    message = new Message(messageToSendFinal.getMessageType(), messageToSendFinal.getMessageObject());
+                } else {
+                    message = new Message(messageToSendFinal.getMessageType(), messageToSendFinal.getMessageObject(),
+                            messageToSend.getSignerSeed());
+                }
+
+                // Send the message. Increment the appropriate counters in the callback.
+                Message.fetch(messageToSendFinal.getRecipient(), message, new MessageCallback() {
                     @Override
                     public void responseReceived(Message message) {
                         if (message == null) {
