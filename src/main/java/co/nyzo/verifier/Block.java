@@ -729,6 +729,11 @@ public class Block implements MessageObject {
 
                         // Penalize for each balance-list spam transaction.
                         score += block.spamTransactionCount() * 5L;
+
+                        // Penalize a smaller amount for each excess transaction. Excess transactions have no lingering
+                        // negative effects, but including them in the scoring does provide an assurance of an upper
+                        // limit.
+                        score += block.excessTransactionCount() / 10L;
                     }
                 } else {
                     Block previousBlock = getPreviousBlock();
@@ -747,6 +752,11 @@ public class Block implements MessageObject {
 
                         // Penalize for each balance-list spam transaction.
                         score += block.spamTransactionCount() * 5L;
+
+                        // Penalize a smaller amount for each excess transaction. Excess transactions have no lingering
+                        // negative effects, but including them in the scoring does provide an assurance of an upper
+                        // limit.
+                        score += block.excessTransactionCount() / 10L;
 
                         // Account for the blockchain version. If this is a version downgrade, a skip in versions, or
                         // higher than the maximum allowed version, the block is invalid.
@@ -810,6 +820,14 @@ public class Block implements MessageObject {
         }
 
         return count;
+    }
+
+    private int excessTransactionCount() {
+
+        // The excess transaction count is the number of transactions beyond the maximum number that would have been
+        // included if this verifier assembled the block. If the block has fewer transactions than this maximum, a value
+        // of zero is returned.
+        return Math.max(0, getTransactions().size() - BlockchainMetricsManager.maximumTransactionsForBlockAssembly());
     }
 
     @Override
