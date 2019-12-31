@@ -1,17 +1,11 @@
 package co.nyzo.verifier.client.commands;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.client.CommandOutput;
-import co.nyzo.verifier.client.ConsoleColor;
-import co.nyzo.verifier.client.ConsoleUtil;
-import co.nyzo.verifier.client.ValidationResult;
+import co.nyzo.verifier.client.*;
 import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
-import co.nyzo.verifier.nyzoString.NyzoStringPrivateSeed;
 import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class PublicNyzoStringCommand implements Command {
 
@@ -27,7 +21,7 @@ public class PublicNyzoStringCommand implements Command {
 
     @Override
     public String getDescription() {
-        return "create Nyzo strings for a public ID";
+        return "create Nyzo string for a public ID";
     }
 
     @Override
@@ -51,41 +45,48 @@ public class PublicNyzoStringCommand implements Command {
     }
 
     @Override
+    public boolean isLongRunning() {
+        return false;
+    }
+
+    @Override
     public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
         return null;
     }
 
     @Override
-    public void run(List<String> argumentValues, CommandOutput output) {
+    public ExecutionResult run(List<String> argumentValues, CommandOutput output) {
 
+        // Get the identifier from the arguments.
         byte[] publicIdentifier = ByteUtil.byteArrayFromHexString(argumentValues.get(0), FieldByteSize.identifier);
-        NyzoStringPublicIdentifier publicIdentifierString = new NyzoStringPublicIdentifier(publicIdentifier);
 
-        List<String> labels = Arrays.asList("public ID (raw)", "public ID (Nyzo string)");
-        List<String> values = Arrays.asList(ByteUtil.arrayAsStringWithDashes(publicIdentifier),
+        // If this is not a known identifier in the latest balance list, add a notice.
+        List<String> notices = new ArrayList<>();
+        BalanceList frozenEdgeList = BalanceListManager.getFrozenEdgeList();
+        if (frozenEdgeList != null) {
+            List<BalanceListItem> balanceListItems = frozenEdgeList.getItems();
+            boolean foundInBalanceList = false;
+            for (int i = 0; i < balanceListItems.size() && !foundInBalanceList; i++) {
+                foundInBalanceList = ByteUtil.arraysAreEqual(balanceListItems.get(i).getIdentifier(), publicIdentifier);
+            }
+            if (!foundInBalanceList) {
+                notices.add("This account was not found in the balance list at height " +
+                        frozenEdgeList.getBlockHeight() + ". If the ID you provided is incorrect, and you send coins " +
+                        "to it, those coins will likely be unrecoverable. Please ensure that this address is valid " +
+                        "before sending coins.");
+            }
+        }
+
+        // Build the output table.
+        NyzoStringPublicIdentifier publicIdentifierString = new NyzoStringPublicIdentifier(publicIdentifier);
+        CommandTable table = new CommandTable(new CommandTableHeader("public ID (raw)", "publicIdBytes"),
+                new CommandTableHeader("public ID (Nyzo string)", "publicIdNyzoString"));
+        table.setInvertedRowsColumns(true);
+        table.addRow(ByteUtil.arrayAsStringWithDashes(publicIdentifier),
                 NyzoStringEncoder.encode(publicIdentifierString));
 
-        ConsoleUtil.printTable(Arrays.asList(labels, values), output);
-
-        // If this is not a known identifier in the latest balance list, display a warning.
-        BalanceList frozenEdgeList = BalanceListManager.getFrozenEdgeList();
-        List<BalanceListItem> balanceListItems = frozenEdgeList.getItems();
-        boolean foundInBalanceList = false;
-        for (int i = 0; i < balanceListItems.size() && !foundInBalanceList; i++) {
-            foundInBalanceList = ByteUtil.arraysAreEqual(balanceListItems.get(i).getIdentifier(), publicIdentifier);
-        }
-        if (!foundInBalanceList) {
-            String color = ConsoleColor.Red.toString();
-            String reset = ConsoleColor.reset;
-            List<String> warning = Arrays.asList(
-                    color + "This account was not found in the balance list at height " +
-                            frozenEdgeList.getBlockHeight() + "." + reset,
-                    color + "If the ID you provided is incorrect, and you send coins to it," + reset,
-                    color + "those coins will likely be unrecoverable. Please ensure that this" + reset,
-                    color + "address is valid before sending coins." + reset
-            );
-            ConsoleUtil.printTable(Collections.singletonList(warning), output);
-        }
+        // Produce the execution result.
+        return new SimpleExecutionResult(table, notices, null);
     }
 
     public static void printHexWarning(CommandOutput output) {

@@ -3,6 +3,7 @@ package co.nyzo.verifier.client;
 import co.nyzo.verifier.Version;
 import co.nyzo.verifier.client.commands.Command;
 import co.nyzo.verifier.client.commands.ExitCommand;
+import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.web.*;
 import co.nyzo.verifier.web.elements.*;
 
@@ -20,18 +21,37 @@ public class ClientController {
 
         Map<Endpoint, EndpointResponseProvider> map = new ConcurrentHashMap<>();
 
-        // Add the root for listing all commands.
-        map.put(new Endpoint("/"), ClientController::page);
+        // If the preference is set, add the web endpoints.
+        if (PreferencesUtil.getBoolean(WebListener.addWebEndpointsKey, true)) {
+            // Add the root for listing all commands.
+            map.put(new Endpoint("/"), ClientController::page);
 
-        // Add the command output endpoint. This is used to provide the console output of commands.
-        map.put(new Endpoint(commandOutputEndpoint), ClientController::commandOutput);
+            // Add the command output endpoint. This is used to provide the console output of commands.
+            map.put(new Endpoint(commandOutputEndpoint), ClientController::commandOutput);
 
-        // Add the command pages for both GET and POST methods. GET displays a form for the command, and the POST
-        // accepts the form for the command.
-        for (Command command : CommandManager.getCommands()) {
-            map.put(new Endpoint("/" + command.getLongCommand()), new CommandEndpoint(command, HttpMethod.Get));
-            map.put(new Endpoint("/" + command.getLongCommand(), HttpMethod.Post),
-                    new CommandEndpoint(command, HttpMethod.Post));
+            // Add the command pages for both GET and POST methods. GET displays a form for the command, and the POST
+            // accepts the form for the command.
+            for (Command command : CommandManager.getCommands()) {
+                if (!(command instanceof ExitCommand)) {
+                    map.put(new Endpoint("/" + command.getLongCommand()), new CommandEndpointWeb(command,
+                            HttpMethod.Get));
+                    map.put(new Endpoint("/" + command.getLongCommand(), HttpMethod.Post),
+                            new CommandEndpointWeb(command, HttpMethod.Post));
+                }
+            }
+        }
+
+        // If the preference is set, add the API endpoints.
+        if (PreferencesUtil.getBoolean(WebListener.addApiEndpointsKey, true)) {
+            // TODO: Add an endpoint for asynchronous status updates.
+
+            // Add an endpoint for each command that is not long-running. When asynchronous status updates are
+            // implemented, long-running commands will be added.
+            for (Command command : CommandManager.getCommands()) {
+                if (!(command instanceof ExitCommand) && !command.isLongRunning()) {
+                    map.put(new Endpoint("/api/" + command.getLongCommand()), new CommandEndpointApi(command));
+                }
+            }
         }
 
         return map;

@@ -44,6 +44,11 @@ public class PrefilledDataCreateCommand implements Command {
     }
 
     @Override
+    public boolean isLongRunning() {
+        return false;
+    }
+
+    @Override
     public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
 
         ValidationResult result = null;
@@ -91,45 +96,46 @@ public class PrefilledDataCreateCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues, CommandOutput output) {
+    public ExecutionResult run(List<String> argumentValues, CommandOutput output) {
 
         // Get the arguments.
         NyzoStringPublicIdentifier receiverIdentifier =
                 (NyzoStringPublicIdentifier) NyzoStringEncoder.decode(argumentValues.get(0));
         byte[] senderData = argumentValues.get(1).getBytes(StandardCharsets.UTF_8);
 
+        // If this is not a known identifier in the latest balance list, add a notice.
+        List<String> notices = new ArrayList<>();
+        BalanceList frozenEdgeList = BalanceListManager.getFrozenEdgeList();
+        if (frozenEdgeList != null) {
+            List<BalanceListItem> balanceListItems = frozenEdgeList.getItems();
+            boolean foundInBalanceList = false;
+            for (int i = 0; i < balanceListItems.size() && !foundInBalanceList; i++) {
+                foundInBalanceList = ByteUtil.arraysAreEqual(balanceListItems.get(i).getIdentifier(),
+                        receiverIdentifier.getBytes());
+            }
+            if (!foundInBalanceList) {
+                notices.add("This account was not found in the balance list at height " +
+                        frozenEdgeList.getBlockHeight() + ". If the ID you provided is incorrect, and you send coins " +
+                        "to it, those coins will likely be unrecoverable. Please ensure that this address is valid " +
+                        "before sending coins.");
+            }
+        }
+
         // Make the prefilled-data string.
         NyzoStringPrefilledData prefilledDataString = new NyzoStringPrefilledData(receiverIdentifier.getBytes(),
                 senderData);
 
-        // Print the table. Note that the individual fields are retrieved from the prefilled-data string.
-        List<String> labels = Arrays.asList("receiver ID", "sender data", "prefilled-data string");
-        List<String> values = Arrays.asList(
+        // Build the output table. Note that the individual fields are retrieved from the prefilled-data string.
+        CommandTable table = new CommandTable(new CommandTableHeader("receiver ID", "receiverId"),
+                new CommandTableHeader("sender data", "senderData"), new CommandTableHeader("prefilled-data string",
+                "prefilledDataString"));
+        table.setInvertedRowsColumns(true);
+        table.addRow(
                 NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(prefilledDataString.getReceiverIdentifier())),
                 new String(prefilledDataString.getSenderData(), StandardCharsets.UTF_8),
                 NyzoStringEncoder.encode(prefilledDataString));
 
-        ConsoleUtil.printTable(Arrays.asList(labels, values), new HashSet<>(Collections.singleton(1)), output);
-
-        // If this is not a known identifier in the latest balance list, display a warning.
-        BalanceList frozenEdgeList = BalanceListManager.getFrozenEdgeList();
-        List<BalanceListItem> balanceListItems = frozenEdgeList.getItems();
-        boolean foundInBalanceList = false;
-        for (int i = 0; i < balanceListItems.size() && !foundInBalanceList; i++) {
-            foundInBalanceList = ByteUtil.arraysAreEqual(balanceListItems.get(i).getIdentifier(),
-                    receiverIdentifier.getBytes());
-        }
-        if (!foundInBalanceList) {
-            String color = ConsoleColor.Red.toString();
-            String reset = ConsoleColor.reset;
-            List<String> warning = Arrays.asList(
-                    color + "This account was not found in the balance list at height " +
-                            frozenEdgeList.getBlockHeight() + "." + reset,
-                    color + "If the ID you provided is incorrect, and you send coins to it," + reset,
-                    color + "those coins will likely be unrecoverable. Please ensure that this" + reset,
-                    color + "address is valid before sending coins." + reset
-            );
-            ConsoleUtil.printTable(Collections.singletonList(warning), output);
-        }
+        // Produce the execution result.
+        return new SimpleExecutionResult(table, notices, null);
     }
 }

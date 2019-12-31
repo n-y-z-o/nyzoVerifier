@@ -1,9 +1,6 @@
 package co.nyzo.verifier.client.commands;
 
-import co.nyzo.verifier.client.CommandManager;
-import co.nyzo.verifier.client.CommandOutput;
-import co.nyzo.verifier.client.ValidationResult;
-import co.nyzo.verifier.client.ConsoleColor;
+import co.nyzo.verifier.client.*;
 
 import java.util.*;
 
@@ -46,12 +43,17 @@ public class InvalidCommand implements Command {
     }
 
     @Override
+    public boolean isLongRunning() {
+        return false;
+    }
+
+    @Override
     public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
         return null;
     }
 
     @Override
-    public void run(List<String> argumentValues, CommandOutput output) {
+    public ExecutionResult run(List<String> argumentValues, CommandOutput output) {
 
         CommandManager.printCommands(output);
 
@@ -59,5 +61,7 @@ public class InvalidCommand implements Command {
         output.println(ConsoleColor.Red + "Please choose an option from the above commands." + ConsoleColor.reset);
         output.println(ConsoleColor.Red + "You may type either the short command or the full command." +
                 ConsoleColor.reset);
+
+        return null;
     }
 }

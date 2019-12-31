@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class CommandEndpoint implements EndpointResponseProvider {
+public class CommandEndpointWeb implements EndpointResponseProvider {
 
     private static final String actionKey = "action";
     private static final String actionValueBack = "back";
@@ -18,7 +18,7 @@ public class CommandEndpoint implements EndpointResponseProvider {
     private Command command;
     private HttpMethod method;
 
-    public CommandEndpoint(Command command, HttpMethod method) {
+    public CommandEndpointWeb(Command command, HttpMethod method) {
         this.command = command;
         this.method = method;
     }
@@ -78,6 +78,7 @@ public class CommandEndpoint implements EndpointResponseProvider {
 
         Form form = (Form) new Form().attr("class", "form").attr("method", "post");
         String[] argumentNames = command.getArgumentNames();
+        String[] argumentIdentifiers = command.getArgumentIdentifiers();
         for (int i = 0; i < argumentNames.length; i++) {
             // Add the container.
             Div argumentContainer = (Div) form.add(new Div().attr("class", "form-input-container"));
@@ -103,7 +104,7 @@ public class CommandEndpoint implements EndpointResponseProvider {
             // Add the input.
             Input input = (Input) argumentContainer.add(new Input()
                     .attr("class", "form-input" + (isConfirmation ? " form-input-disabled" : ""))
-                    .attr("name", normalizedArgumentName(argumentName))
+                    .attr("name", argumentIdentifiers[i])
                     .attr("value", argumentValue == null ? "" : argumentValue));
             if (isConfirmation) {
                 input.attr("readonly", "readonly");
@@ -129,8 +130,8 @@ public class CommandEndpoint implements EndpointResponseProvider {
         // Get the argument values in an ordered list.
         List<String> argumentValues = new ArrayList<>();
         Map<String, String> postParameters = request.getPostParameters();
-        for (String argumentName : command.getArgumentNames()) {
-            argumentValues.add(postParameters.getOrDefault(normalizedArgumentName(argumentName), "").trim());
+        for (String argumentIdentifier : command.getArgumentIdentifiers()) {
+            argumentValues.add(postParameters.getOrDefault(argumentIdentifier, "").trim());
         }
 
         // If the command requires validation, validate it now. Otherwise, create an auto-approve validation.
@@ -197,28 +198,15 @@ public class CommandEndpoint implements EndpointResponseProvider {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                command.run(argumentValues, commandOutput);
+                ExecutionResult result = command.run(argumentValues, commandOutput);
+                if (result != null) {
+                    result.toConsole(commandOutput);
+                }
                 commandOutput.setComplete();
             }
         }).start();
 
         return new EndpointResponse(html.renderByteArray());
-    }
-
-    private static String normalizedArgumentName(String argumentName) {
-        // Convert to lower case. Allow alphabetic characters in all positions and numerical characters in all positions
-        // except the first. Replace all disallowed characters with underscores.
-        StringBuilder result = new StringBuilder();
-        for (char character : argumentName.toLowerCase().toCharArray()) {
-            if ((character >= 'a' && character <= 'z') ||
-                    (result.length() > 0 && character >= '0' && character <= '9')) {
-                result.append(character);
-            } else {
-                result.append('_');
-            }
-        }
-
-        return result.toString();
     }
 
     private static Script progressUpdateScript(String elementIdentifier, String outputIdentifier) {
@@ -272,6 +260,6 @@ public class CommandEndpoint implements EndpointResponseProvider {
 
     @Override
     public String toString() {
-        return "[CommandEndpoint:" + (command == null ? "(null)" : command.getLongCommand()) + "]";
+        return "[CommandEndpointWeb:" + (command == null ? "(null)" : command.getLongCommand()) + "]";
     }
 }

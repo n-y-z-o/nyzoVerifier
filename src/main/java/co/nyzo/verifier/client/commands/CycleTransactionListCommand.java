@@ -51,6 +51,11 @@ public class CycleTransactionListCommand implements Command {
     }
 
     @Override
+    public boolean isLongRunning() {
+        return true;
+    }
+
+    @Override
     public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
 
         ValidationResult result = null;
@@ -88,7 +93,7 @@ public class CycleTransactionListCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues, CommandOutput output) {
+    public ExecutionResult run(List<String> argumentValues, CommandOutput output) {
 
         try {
             // If a key was provided, query the corresponding verifier.
@@ -170,6 +175,8 @@ public class CycleTransactionListCommand implements Command {
             output.println(ConsoleColor.Red + "unexpected issue listing cycle transactions: " +
                     PrintUtil.printException(e) + ConsoleColor.reset);
         }
+
+        return null;
     }
 
     private static void processResponse(Message message) {

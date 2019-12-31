@@ -193,7 +193,13 @@ public class Client {
                     // command.
                     if (runCommand) {
                         try {
-                            command.run(argumentValues, output);
+                            // Run the command.
+                            ExecutionResult result = command.run(argumentValues, output);
+
+                            // Display the output.
+                            if (result != null) {
+                                result.toConsole(output);
+                            }
                         } catch (Exception e) {
                             System.out.println(ConsoleColor.Red + "exception running command: " +
                                     PrintUtil.printException(e) + ConsoleColor.reset);

@@ -25,6 +25,8 @@ import java.util.concurrent.*;
 public class WebListener implements HttpHandler {
 
     public static final String startWebListenerKey = "start_web_listener";
+    public static final String addWebEndpointsKey = "add_web_endpoints";
+    public static final String addApiEndpointsKey = "add_api_endpoints";
 
     private static Map<Endpoint, EndpointResponseProvider> endpointMap = new ConcurrentHashMap<>();
 

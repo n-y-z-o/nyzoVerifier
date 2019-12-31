@@ -1,12 +1,10 @@
 package co.nyzo.verifier.client.commands;
 
 import co.nyzo.verifier.ByteUtil;
-import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.KeyUtil;
 import co.nyzo.verifier.Transaction;
 import co.nyzo.verifier.client.*;
 import co.nyzo.verifier.nyzoString.*;
-import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.charset.StandardCharsets;
@@ -48,6 +46,11 @@ public class PrefilledDataSendCommand implements Command {
 
     @Override
     public boolean requiresConfirmation() {
+        return true;
+    }
+
+    @Override
+    public boolean isLongRunning() {
         return true;
     }
 
@@ -127,7 +130,7 @@ public class PrefilledDataSendCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues, CommandOutput output) {
+    public ExecutionResult run(List<String> argumentValues, CommandOutput output) {
 
         try {
             // Get the arguments.
@@ -144,5 +147,8 @@ public class PrefilledDataSendCommand implements Command {
             output.println(ConsoleColor.Red + "unexpected issue creating transaction: " + PrintUtil.printException(e) +
                     ConsoleColor.reset);
         }
+
+        // ExecutionResult objects are not yet implemented for long-running commands.
+        return null;
     }
 }

@@ -4,15 +4,11 @@ import co.nyzo.verifier.BalanceList;
 import co.nyzo.verifier.BalanceListItem;
 import co.nyzo.verifier.BalanceListManager;
 import co.nyzo.verifier.ByteUtil;
-import co.nyzo.verifier.client.CommandOutput;
-import co.nyzo.verifier.client.ValidationResult;
-import co.nyzo.verifier.client.ConsoleColor;
-import co.nyzo.verifier.client.ConsoleUtil;
+import co.nyzo.verifier.client.*;
 import co.nyzo.verifier.nyzoString.NyzoString;
 import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
 import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
 import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.ThreadUtil;
 
 import java.util.*;
 
@@ -54,53 +50,61 @@ public class BalanceDisplayCommand implements Command {
     }
 
     @Override
+    public boolean isLongRunning() {
+        return false;
+    }
+
+    @Override
     public ValidationResult validate(List<String> argumentValues, CommandOutput output) {
         return null;
     }
 
     @Override
-    public void run(List<String> argumentValues, CommandOutput output) {
+    public ExecutionResult run(List<String> argumentValues, CommandOutput output) {
 
         String walletIdOrPrefix = argumentValues.size() < 1 ? "" : argumentValues.get(0);
         walletIdOrPrefix = walletIdOrPrefix == null ? "" : walletIdOrPrefix.trim().toLowerCase();
         walletIdOrPrefix = walletIdOrPrefix.replaceAll("[^a-f0-9]", "");
 
-        output.println("wallet ID or prefix after normalization: " + walletIdOrPrefix);
+        // Make the lists for the notices and errors. Make the result table.
+        List<String> notices = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        CommandTable table = new CommandTable(new CommandTableHeader("block height", "blockHeight"),
+                new CommandTableHeader("wallet ID", "walletId"),
+                new CommandTableHeader("ID string", "walletIdNyzoString"),
+                new CommandTableHeader("balance", "balance"));
 
+        // Add a notice showing the prefix after normalization.
+        notices.add("Wallet ID or prefix after normalization: " + walletIdOrPrefix);
+
+        // Produce the results.
         if (walletIdOrPrefix.isEmpty()) {
-            output.println(ConsoleColor.Red + "please provide a wallet ID or prefix" + ConsoleColor.reset);
+            errors.add("You must provide a wallet ID or prefix");
         } else {
 
             BalanceList balanceList = BalanceListManager.getFrozenEdgeList();
             if (balanceList == null) {
-                output.println(ConsoleColor.Red + "unable to get balance list" + ConsoleColor.reset);
+                errors.add("Unable to get balance list");
             } else {
-                List<List<String>> columns = new ArrayList<>();
-                columns.add(new ArrayList<>(Arrays.asList("block", "height")));
-                columns.add(new ArrayList<>(Arrays.asList("", "wallet ID")));
-                columns.add(new ArrayList<>(Arrays.asList("", "ID string")));
-                columns.add(new ArrayList<>(Arrays.asList("", "balance")));
-
                 int numberFound = 0;
                 for (BalanceListItem item : balanceList.getItems()) {
                     String identifier = ByteUtil.arrayAsStringNoDashes(item.getIdentifier());
                     if (identifier.startsWith(walletIdOrPrefix)) {
                         numberFound++;
                         NyzoString identifierString = new NyzoStringPublicIdentifier(item.getIdentifier());
-                        columns.get(0).add(balanceList.getBlockHeight() + "");
-                        columns.get(1).add(ByteUtil.arrayAsStringWithDashes(item.getIdentifier()));
-                        columns.get(2).add(NyzoStringEncoder.encode(identifierString));
-                        columns.get(3).add(PrintUtil.printAmount(item.getBalance()));
+                        table.addRow(balanceList.getBlockHeight() + "",
+                                ByteUtil.arrayAsStringWithDashes(item.getIdentifier()),
+                                NyzoStringEncoder.encode(identifierString),
+                                PrintUtil.printAmount(item.getBalance()));
                     }
                 }
 
                 if (numberFound == 0) {
-                    ConsoleUtil.printTable(output, "unable to find any accounts matching ID/prefix " +
-                            walletIdOrPrefix);
-                } else {
-                    ConsoleUtil.printTable(columns, new HashSet<>(Collections.singleton(1)), output);
+                    notices.add("Unable to find any accounts matching ID/prefix " + walletIdOrPrefix);
                 }
             }
         }
+
+        return new SimpleExecutionResult(table, notices, errors);
     }
 }

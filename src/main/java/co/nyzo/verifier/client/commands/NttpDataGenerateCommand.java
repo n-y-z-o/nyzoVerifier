@@ -1,21 +1,10 @@
 package co.nyzo.verifier.client.commands;
 
-import co.nyzo.verifier.BlockManager;
 import co.nyzo.verifier.ByteUtil;
-import co.nyzo.verifier.KeyUtil;
-import co.nyzo.verifier.Transaction;
 import co.nyzo.verifier.client.*;
-import co.nyzo.verifier.messages.CycleTransactionSignature;
-import co.nyzo.verifier.nyzoString.NyzoString;
-import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
-import co.nyzo.verifier.nyzoString.NyzoStringPrivateSeed;
-import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
-import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.SignatureUtil;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class NttpDataGenerateCommand implements Command {
@@ -52,6 +41,11 @@ public class NttpDataGenerateCommand implements Command {
 
     @Override
     public boolean requiresConfirmation() {
+        return false;
+    }
+
+    @Override
+    public boolean isLongRunning() {
         return false;
     }
 
@@ -112,8 +106,12 @@ public class NttpDataGenerateCommand implements Command {
     }
 
     @Override
-    public void run(List<String> argumentValues, CommandOutput output) {
+    public ExecutionResult run(List<String> argumentValues, CommandOutput output) {
 
+        CommandTable table = new CommandTable(new CommandTableHeader("NTTP number", "nttpNumber"),
+                new CommandTableHeader("Git hash", "gitHash"), new CommandTableHeader("sender data", "senderData"));;
+        List<String> notices = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
         try {
             // Get the arguments.
             int nttpNumber = Integer.parseInt(argumentValues.get(0));
@@ -125,17 +123,19 @@ public class NttpDataGenerateCommand implements Command {
             System.arraycopy(labelBytes, 0, result, 0, labelBytes.length);
             System.arraycopy(hashBytes, 0, result, labelBytes.length, hashBytes.length);
 
-            System.out.println("label data: " + ByteUtil.arrayAsStringNoDashes(labelBytes));
-            System.out.println("hash data: " + ByteUtil.arrayAsStringNoDashes(hashBytes));
-
-            // Display the results.
-            ConsoleUtil.printTable(output, "sender data", ClientTransactionUtil.normalizedSenderDataString(result));
+            // Produce the output.
+            table.addRow(nttpNumber + "", ByteUtil.arrayAsStringNoDashes(hashBytes),
+                    ClientTransactionUtil.normalizedSenderDataString(result));
 
             CycleTransactionSendCommand sendCommand = new CycleTransactionSendCommand();
             output.println("Please use this in the sender-data field of the cycle-transaction send command (" +
                     sendCommand.getShortCommand() + "/" + sendCommand.getLongCommand() +
                     ") to initiate a vote for NTTP-" + nttpNumber + " at commit " +
                     ByteUtil.arrayAsStringNoDashes(hashBytes) + ".");
-        } catch (Exception ignored) { }
+        } catch (Exception e) {
+            errors.add("An unexpected error occurred while running this command.");
+        }
+
+        return new SimpleExecutionResult(table, notices, errors);
     }
 }
