@@ -1,5 +1,7 @@
 package co.nyzo.verifier.client;
 
+import co.nyzo.verifier.BlockManager;
+import co.nyzo.verifier.Verifier;
 import co.nyzo.verifier.Version;
 import co.nyzo.verifier.client.commands.Command;
 import co.nyzo.verifier.client.commands.ExitCommand;
@@ -7,7 +9,10 @@ import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.web.*;
 import co.nyzo.verifier.web.elements.*;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,6 +21,8 @@ public class ClientController {
 
     public static final String commandOutputEndpoint = "/commandOutput";
     public static final String commandCompleteString = "***** command complete *****";
+
+    private static final File noteFile = new File(Verifier.dataRootDirectory, "client-note.html");
 
     public static Map<Endpoint, EndpointResponseProvider> buildEndpointMap() {
 
@@ -73,6 +80,21 @@ public class ClientController {
         // Add the title.
         body.add(new H1(title));
 
+        // Add the client note, if available.
+        List<String> noteFileContents = null;
+        try {
+            noteFileContents = Files.readAllLines(Paths.get(noteFile.getAbsolutePath()));
+        } catch (Exception ignored) { }
+        if (noteFileContents != null) {
+            StringBuilder noteFileMerged = new StringBuilder();
+            String separator = "";
+            for (String line : noteFileContents) {
+                noteFileMerged.append(separator).append(line);
+                separator = " ";
+            }
+            body.addRaw(noteFileMerged.toString());
+        }
+
         // Add buttons for all commands except exit.
         for (Command command : CommandManager.getCommands()) {
             if (!(command instanceof ExitCommand)) {
@@ -83,8 +105,12 @@ public class ClientController {
 
         // Add the footer.
         body.add(new Hr().attr("style", "margin-top: 2rem;"));
-        body.add(new P("Nyzo client, version " + Version.getVersion()).attr("style",
-                "font-style: italic;"));
+        body.add(new P("Nyzo client, version " + Version.getVersion()).attr("style", "font-style: italic;"));
+
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        long distanceBehindOpen = BlockManager.openEdgeHeight(false) - frozenEdgeHeight;
+        body.add(new P("frozen edge: " + frozenEdgeHeight + " (" + distanceBehindOpen + " behind open)")
+                .attr("style", "font-style: italic;"));
 
         return new EndpointResponse(html.renderByteArray());
     }
