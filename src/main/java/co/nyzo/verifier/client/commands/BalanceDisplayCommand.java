@@ -70,8 +70,8 @@ public class BalanceDisplayCommand implements Command {
         List<String> notices = new ArrayList<>();
         List<String> errors = new ArrayList<>();
         CommandTable table = new CommandTable(new CommandTableHeader("block height", "blockHeight"),
-                new CommandTableHeader("wallet ID", "walletId"),
-                new CommandTableHeader("ID string", "walletIdNyzoString"),
+                new CommandTableHeader("wallet ID", "walletId", true),
+                new CommandTableHeader("ID string", "walletIdNyzoString", true),
                 new CommandTableHeader("balance", "balance"));
 
         // Add a notice showing the prefix after normalization.

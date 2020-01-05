@@ -67,10 +67,10 @@ public class PrivateNyzoStringCommand implements Command {
         NyzoStringPublicIdentifier publicIdentifierString = new NyzoStringPublicIdentifier(publicIdentifier);
 
         // Build the output table.
-        CommandTable table = new CommandTable(new CommandTableHeader("private seed (raw)", "privateSeedBytes"),
-                new CommandTableHeader("private seed (Nyzo string)", "privateSeedNyzoString"),
-                new CommandTableHeader("public ID (raw)", "publicIdBytes"),
-                new CommandTableHeader("public ID (Nyzo string)", "publicIdNyzoString"));
+        CommandTable table = new CommandTable(new CommandTableHeader("private seed (raw)", "privateSeedBytes", true),
+                new CommandTableHeader("private seed (Nyzo string)", "privateSeedNyzoString", true),
+                new CommandTableHeader("public ID (raw)", "publicIdBytes", true),
+                new CommandTableHeader("public ID (Nyzo string)", "publicIdNyzoString", true));
         table.setInvertedRowsColumns(true);
         table.addRow(ByteUtil.arrayAsStringWithDashes(privateSeed), NyzoStringEncoder.encode(privateSeedString),
                 ByteUtil.arrayAsStringWithDashes(publicIdentifier), NyzoStringEncoder.encode(publicIdentifierString));

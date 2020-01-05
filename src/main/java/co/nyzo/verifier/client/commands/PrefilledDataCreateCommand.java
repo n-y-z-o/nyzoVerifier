@@ -126,9 +126,9 @@ public class PrefilledDataCreateCommand implements Command {
                 senderData);
 
         // Build the output table. Note that the individual fields are retrieved from the prefilled-data string.
-        CommandTable table = new CommandTable(new CommandTableHeader("receiver ID", "receiverId"),
-                new CommandTableHeader("sender data", "senderData"), new CommandTableHeader("prefilled-data string",
-                "prefilledDataString"));
+        CommandTable table = new CommandTable(new CommandTableHeader("receiver ID", "receiverId", true),
+                new CommandTableHeader("sender data", "senderData", true),
+                new CommandTableHeader("prefilled-data string", "prefilledDataString", true));
         table.setInvertedRowsColumns(true);
         table.addRow(
                 NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(prefilledDataString.getReceiverIdentifier())),

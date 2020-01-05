@@ -212,7 +212,7 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
                 if (i > 0) {
                     body.add(new RawHtml("&rarr;"));
                 }
-                body.add(new A().attr("class", "simple-hover-button").attr("href", endpointPath.get(i).getPath())
+                body.add(new A().attr("class", "hover-button").attr("href", endpointPath.get(i).getPath())
                         .addRaw(endpointPath.get(i).getTitle()));
             }
             body.add(new Hr());
@@ -236,8 +236,7 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
         // Add buttons for all HTML children.
         for (DocumentationEndpoint child : children) {
             if (child.getType() == DocumentationEndpointType.Html) {
-                body.add(new A().attr("class", "simple-hover-button").attr("href", child.getPath())
-                        .addRaw(child.getTitle()));
+                body.add(new A().attr("class", "hover-button").attr("href", child.getPath()).addRaw(child.getTitle()));
             }
         }
 

@@ -19,12 +19,12 @@ public class WebUtil {
     public static final String acceptButtonStyle = buttonStyle + " border-color: #080; background-color: #484;";
     public static final String cancelButtonStyle = buttonStyle + "border-color: #f00; background-color: #f44;";
 
-    public static final Style hoverButtonStyles = new Style(".simple-hover-button { " +
+    public static final Style hoverButtonStyles = new Style(".hover-button { " +
             "color: black; text-decoration: none; margin: 0.1rem; " +
             "padding: 0.5rem; border: 1px solid black; cursor: default; border-radius: 0.5rem; " +
             "display: inline-block; } " +
-            ".simple-hover-button-selected { background-color: rgba(0,0,0,0.3); cursor: default; } " +
-            ".simple-hover-button:hover { background-color: rgba(0,0,0,0.3); }");
+            ".hover-button-selected { background-color: rgba(0,0,0,0.3); cursor: default; } " +
+            ".hover-button:hover { background-color: rgba(0,0,0,0.3); }");
 
     private static final Map<Character, String> characterToPercentEncodingMap = new HashMap<>();
     private static final Map<String, Character> percentEncodingToCharacterMap = new HashMap<>();

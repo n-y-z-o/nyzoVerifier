@@ -98,7 +98,7 @@ public class ClientController {
         // Add buttons for all commands except exit.
         for (Command command : CommandManager.getCommands()) {
             if (!(command instanceof ExitCommand)) {
-                body.add(new A().attr("class", "simple-hover-button").attr("href", "/" + command.getLongCommand())
+                body.add(new A().attr("class", "hover-button").attr("href", "/" + command.getLongCommand())
                         .addRaw(command.getDescription()));
             }
         }

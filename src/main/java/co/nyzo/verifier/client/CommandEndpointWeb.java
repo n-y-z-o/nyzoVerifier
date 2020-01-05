@@ -63,7 +63,7 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
         Div container = (Div) body.add(new Div().attr("class", "content-container"));
 
         // Add a button to return to the menu.
-        container.add(new A().attr("href", "/").attr("class", "simple-hover-button").addRaw("&larr;"));
+        container.add(new A().attr("href", "/").attr("class", "hover-button").addRaw("&larr;"));
 
         // Add the title.
         container.add(new H1(title));
@@ -183,28 +183,39 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
         head.add(WebUtil.hoverButtonStyles);
 
         // Add a button to return to the menu.
-        body.add(new A().attr("href", "/").attr("class", "simple-hover-button").addRaw("&larr;"));
+        body.add(new A().attr("href", "/").attr("class", "hover-button").addRaw("&larr;"));
 
         // Add the title.
         body.add(new H1(title));
 
-        // Make the command-output handler and make the progress box.
-        CommandOutputWeb commandOutput = new CommandOutputWeb();
-        CommandOutputWebManager.register(commandOutput);
-        Div progress = (Div) body.add(new Div().attr("class", "progress-box").attr("id", "progress-box"));
-        body.add(progressUpdateScript(progress.getAttr("id"), commandOutput.getIdentifier()));
+        if (command.isLongRunning()) {
+            // Make the command-output handler and make the progress box.
+            CommandOutputWeb commandOutput = new CommandOutputWeb();
+            CommandOutputWebManager.register(commandOutput);
+            Div progress = (Div) body.add(new Div().attr("class", "progress-box").attr("id", "progress-box"));
+            body.add(progressUpdateScript(progress.getAttr("id"), commandOutput.getIdentifier()));
 
-        // Run the command.
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                ExecutionResult result = command.run(argumentValues, commandOutput);
-                if (result != null) {
-                    result.toConsole(commandOutput);
+            // Run the command asynchronously.
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    ExecutionResult result = command.run(argumentValues, commandOutput);
+                    if (result != null) {
+                        result.toConsole(commandOutput);
+                    }
+                    commandOutput.setComplete();
                 }
-                commandOutput.setComplete();
+            }).start();
+        } else {
+            // For commands that complete immediately, run the command synchronously and render the results.
+            CommandOutputWeb commandOutput = new CommandOutputWeb();
+            ExecutionResult result = command.run(argumentValues, commandOutput);
+
+            // If a result is available, render it.
+            if (result != null) {
+                body.add(result.toHtml());
             }
-        }).start();
+        }
 
         return new EndpointResponse(html.renderByteArray());
     }

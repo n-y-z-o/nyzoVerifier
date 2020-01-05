@@ -109,7 +109,9 @@ public class NttpDataGenerateCommand implements Command {
     public ExecutionResult run(List<String> argumentValues, CommandOutput output) {
 
         CommandTable table = new CommandTable(new CommandTableHeader("NTTP number", "nttpNumber"),
-                new CommandTableHeader("Git hash", "gitHash"), new CommandTableHeader("sender data", "senderData"));;
+                new CommandTableHeader("Git hash", "gitHash", true),
+                new CommandTableHeader("sender data", "senderData", true));
+        table.setInvertedRowsColumns(true);
         List<String> notices = new ArrayList<>();
         List<String> errors = new ArrayList<>();
         try {

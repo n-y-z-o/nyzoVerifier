@@ -79,8 +79,8 @@ public class PublicNyzoStringCommand implements Command {
 
         // Build the output table.
         NyzoStringPublicIdentifier publicIdentifierString = new NyzoStringPublicIdentifier(publicIdentifier);
-        CommandTable table = new CommandTable(new CommandTableHeader("public ID (raw)", "publicIdBytes"),
-                new CommandTableHeader("public ID (Nyzo string)", "publicIdNyzoString"));
+        CommandTable table = new CommandTable(new CommandTableHeader("public ID (raw)", "publicIdBytes", true),
+                new CommandTableHeader("public ID (Nyzo string)", "publicIdNyzoString", true));
         table.setInvertedRowsColumns(true);
         table.addRow(ByteUtil.arrayAsStringWithDashes(publicIdentifier),
                 NyzoStringEncoder.encode(publicIdentifierString));

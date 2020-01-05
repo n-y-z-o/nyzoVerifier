@@ -2,8 +2,7 @@ package co.nyzo.verifier.client;
 
 import co.nyzo.verifier.client.commands.PublicNyzoStringCommand;
 import co.nyzo.verifier.util.UpdateUtil;
-import co.nyzo.verifier.web.elements.HtmlElement;
-import co.nyzo.verifier.web.elements.HtmlElementList;
+import co.nyzo.verifier.web.elements.*;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
@@ -44,7 +43,89 @@ public class SimpleExecutionResult implements ExecutionResult {
 
     @Override
     public HtmlElement toHtml() {
-        return null;
+
+        // Create the div and add the styles that will be used.
+        HtmlElementList resultList = new HtmlElementList();
+        resultList.add(new Style(".error { background-color: #f88; padding: 0.3rem; border: 1px solid #c00; " +
+                "border-radius: 0.5rem; max-inline-size: fit-content; margin: 0.5rem 0 0.5rem 0; }" +
+                ".notice { background-color: #ff8; padding: 0.3rem; border: 1px solid #cc0; border-radius: 0.5rem; " +
+                "max-inline-size: fit-content; margin: 0.5rem 0 0.5rem 0; }" +
+                ".table { display: table; border: 1px solid gray; border-radius: 0.5rem; margin: 0.5rem 0 0.5rem 0; }" +
+                ".table div { padding: 0.1rem; }" +
+                ".header-row > div { background-color: #ddd; }" +
+                ".header-row > div:first-child { border-top-left-radius: 0.5rem; }" +
+                ".header-row > div:last-child { border-top-right-radius: 0.5rem; }" +
+                ".header-row { display: table-row; }" +
+                ".header-row > div { display: table-cell; }" +
+                ".header-row > div:not(:first-child) { border-left: 1px solid gray; }" +
+                ".data-row { display: table-row; }" +
+                ".data-row > div { display: table-cell; border-top: 1px solid gray; }" +
+                ".data-row > div:not(:first-child) { border-left: 1px solid gray; }" +
+                ".row-inverted { display: table-row; }" +
+                ".row-inverted > div { display: table-cell; }" +
+                ".row-inverted:not(:first-child) > div { border-top: 1px solid gray; }" +
+                ".row-inverted > div:first-child { background-color: #ddd; }" +
+                ".row-inverted:first-child > div:first-child { border-top-left-radius: 0.5rem; }" +
+                ".row-inverted:last-child > div:first-child { border-bottom-left-radius: 0.5rem; }" +
+                ".row-inverted > div:not(:first-child) { border-left: 1px solid gray; }" +
+                ".extra-wrap { word-break: break-all; }"));
+
+        // Add the errors.
+        if (result != null) {
+            for (String error : errors) {
+                resultList.add(new P(error).attr("class", "error"));
+            }
+        }
+
+        // Add the notices.
+        if (notices != null) {
+            for (String notice : notices) {
+                resultList.add(new P(notice).attr("class", "notice"));
+            }
+        }
+
+        // Add the result.
+        if (result != null) {
+            // Create the table.
+            Div tableDiv = (Div) resultList.add(new Div().attr("class", "table"));
+
+            if (result.isInvertedRowsColumns()) {
+                // This is the inverted rows/columns case. Render the header to the left.
+                int numberOfColumns = 1 + result.getRows().size();
+                for (int i = 0; i < result.getHeaders().length; i++) {
+                    Div row = (Div) tableDiv.add(new Div().attr("class", "row-inverted"));
+                    row.add(new Div().addRaw(result.getHeaders()[i].getLabel()));
+                    for (String[] dataRow : result.getRows()) {
+                        Div cell = (Div) row.add(new Div().addRaw(dataRow[i]));
+                        if (result.getHeaders()[i].isExtraWrapColumn()) {
+                            cell.attr("class", "extra-wrap");
+                        }
+                    }
+                }
+            } else {
+                // This is the non-inverted case. Add the header row.
+                Div headerRowDiv = (Div) tableDiv.add(new Div().attr("class", "header-row"));
+                CommandTableHeader[] headers = result.getHeaders();
+                for (CommandTableHeader header : result.getHeaders()) {
+                    headerRowDiv.add(new Div().addRaw(header.getLabel()));
+                }
+
+                // Add the data rows.
+                for (String[] row : result.getRows()) {
+                    Div dataRowDiv = (Div) tableDiv.add(new Div().attr("class", "data-row"));
+                    int numberOfColumns = Math.min(headers.length, row.length);
+                    for (int i = 0; i < numberOfColumns; i++) {
+                        String value = row[i];
+                        Div cell = (Div) dataRowDiv.add(new Div().addRaw(value));
+                        if (headers[i].isExtraWrapColumn()) {
+                            cell.attr("class", "extra-wrap");
+                        }
+                    }
+                }
+            }
+        }
+
+        return resultList;
     }
 
     public void toConsole(CommandOutput output) {
