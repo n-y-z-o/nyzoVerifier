@@ -249,9 +249,14 @@ public class ClientTransactionUtil {
         // Sender data is stored and handled as a raw array of bytes. Often, this byte array represents a character
         // string. If encoding to a UTF-8 character string and back to a byte array produces the original byte array,
         // display as a string. Otherwise, display the hex values of the bytes.
-        String result = new String(senderData, StandardCharsets.UTF_8);
-        if (!ByteUtil.arraysAreEqual(senderData, result.getBytes(StandardCharsets.UTF_8))) {
-            result = ByteUtil.arrayAsStringWithDashes(senderData);
+        String result;
+        if (senderData == null) {
+            result = "";
+        } else {
+            result = new String(senderData, StandardCharsets.UTF_8);
+            if (!ByteUtil.arraysAreEqual(senderData, result.getBytes(StandardCharsets.UTF_8))) {
+                result = ByteUtil.arrayAsStringWithDashes(senderData);
+            }
         }
 
         return result;

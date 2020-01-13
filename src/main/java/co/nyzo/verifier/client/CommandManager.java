@@ -17,6 +17,7 @@ public class CommandManager {
             new CycleTransactionListCommand(),
             new CycleTransactionSignCommand(),
             new NttpDataGenerateCommand(),
+            new TransactionSearchCommand(),
             new ExitCommand()
     };
 

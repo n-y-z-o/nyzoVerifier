@@ -2,6 +2,7 @@ package co.nyzo.verifier.client;
 
 import co.nyzo.verifier.client.commands.PublicNyzoStringCommand;
 import co.nyzo.verifier.util.UpdateUtil;
+import co.nyzo.verifier.web.WebUtil;
 import co.nyzo.verifier.web.elements.*;
 
 import java.lang.reflect.Array;
@@ -50,7 +51,8 @@ public class SimpleExecutionResult implements ExecutionResult {
                 "border-radius: 0.5rem; max-inline-size: fit-content; margin: 0.5rem 0 0.5rem 0; }" +
                 ".notice { background-color: #ff8; padding: 0.3rem; border: 1px solid #cc0; border-radius: 0.5rem; " +
                 "max-inline-size: fit-content; margin: 0.5rem 0 0.5rem 0; }" +
-                ".table { display: table; border: 1px solid gray; border-radius: 0.5rem; margin: 0.5rem 0 0.5rem 0; }" +
+                ".table { display: table; border: 1px solid gray; border-radius: 0.5rem; margin: 0.5rem 0 0.5rem 0; " +
+                "font-size: 0.8rem; }" +
                 ".table div { padding: 0.1rem; }" +
                 ".header-row > div { background-color: #ddd; }" +
                 ".header-row > div:first-child { border-top-left-radius: 0.5rem; }" +
@@ -85,7 +87,7 @@ public class SimpleExecutionResult implements ExecutionResult {
         }
 
         // Add the result.
-        if (result != null) {
+        if (result != null && result.getRows().size() > 0) {
             // Create the table.
             Div tableDiv = (Div) resultList.add(new Div().attr("class", "table"));
 
@@ -107,7 +109,7 @@ public class SimpleExecutionResult implements ExecutionResult {
                 Div headerRowDiv = (Div) tableDiv.add(new Div().attr("class", "header-row"));
                 CommandTableHeader[] headers = result.getHeaders();
                 for (CommandTableHeader header : result.getHeaders()) {
-                    headerRowDiv.add(new Div().addRaw(header.getLabel()));
+                    headerRowDiv.add(new Div().addRaw(WebUtil.sanitizeString(header.getLabel())));
                 }
 
                 // Add the data rows.
@@ -115,7 +117,7 @@ public class SimpleExecutionResult implements ExecutionResult {
                     Div dataRowDiv = (Div) tableDiv.add(new Div().attr("class", "data-row"));
                     int numberOfColumns = Math.min(headers.length, row.length);
                     for (int i = 0; i < numberOfColumns; i++) {
-                        String value = row[i];
+                        String value = WebUtil.sanitizeString(row[i]);
                         Div cell = (Div) dataRowDiv.add(new Div().addRaw(value));
                         if (headers[i].isExtraWrapColumn()) {
                             cell.attr("class", "extra-wrap");
@@ -139,7 +141,7 @@ public class SimpleExecutionResult implements ExecutionResult {
         if (object == null) {
             result = "null";
         } else if (object instanceof String) {
-            result = "\"" + object + "\"";
+            result = "\"" + escapeStringForJson((String) object) + "\"";
         } else if (object instanceof Integer || object instanceof Long || object instanceof Float ||
                 object instanceof Double) {
             result = object.toString();
@@ -212,11 +214,46 @@ public class SimpleExecutionResult implements ExecutionResult {
             int length = Math.min(row.length, headers.length);
             for (int i = 0; i < length; i++) {
                 result.append(i == 0 ? "" : ",").append("\"").append(headers[i].getIdentifier()).append("\":\"")
-                        .append(row[i]).append("\"");
+                        .append(escapeStringForJson(row[i])).append("\"");
             }
             result.append("}");
         }
         result.append("]");
+
+        return result.toString();
+    }
+
+    private static String escapeStringForJson(String value) {
+
+        // According the the JSON spec (https://www.json.org/json-en.html), few characters need to be escaped in JSON
+        // strings. They are handled below.
+        StringBuilder result = new StringBuilder();
+        for (char character : value.toCharArray()) {
+            switch (character) {
+                case '"':
+                case '\\':
+                case '/':
+                    result.append('\\').append(character);
+                    break;
+                case '\b':
+                    result.append("\\b");
+                    break;
+                case '\f':
+                    result.append("\\f");
+                    break;
+                case '\n':
+                    result.append("\\n");
+                    break;
+                case '\r':
+                    result.append("\\r");
+                    break;
+                case '\t':
+                    result.append("\\t");
+                    break;
+                default:
+                    result.append(character);
+            }
+        }
 
         return result.toString();
     }

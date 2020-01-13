@@ -46,17 +46,21 @@ public class ByteUtil {
 
     public static String arrayAsStringNoDashes(byte[] array) {
 
-        return arrayAsStringNoDashes(array, 0, array.length);
+        return arrayAsStringNoDashes(array, 0, array == null ? 0 : array.length);
     }
 
     public static String arrayAsStringNoDashes(byte[] array, int offset, int length) {
 
         StringBuilder result = new StringBuilder();
-        try {
-            for (int i = offset; i < offset + length; i++) {
-                result.append(String.format("%02x", array[i]));
-            }
-        } catch (Exception ignored) { }
+        if (array == null) {
+            result.append("(null)");
+        } else {
+            try {
+                for (int i = offset; i < offset + length; i++) {
+                    result.append(String.format("%02x", array[i]));
+                }
+            } catch (Exception ignored) { }
+        }
 
         return result.toString();
     }

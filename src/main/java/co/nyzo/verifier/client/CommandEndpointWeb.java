@@ -4,9 +4,7 @@ import co.nyzo.verifier.client.commands.Command;
 import co.nyzo.verifier.web.*;
 import co.nyzo.verifier.web.elements.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class CommandEndpointWeb implements EndpointResponseProvider {
 
@@ -209,12 +207,19 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
         } else {
             // For commands that complete immediately, run the command synchronously and render the results.
             CommandOutputWeb commandOutput = new CommandOutputWeb();
-            ExecutionResult result = command.run(argumentValues, commandOutput);
+            ExecutionResult result = null;
+            try {
+                result = command.run(argumentValues, commandOutput);
+            } catch (Exception ignored) { }
 
-            // If a result is available, render it.
-            if (result != null) {
-                body.add(result.toHtml());
+            // If the result is null, create an error result.
+            if (result == null) {
+                result = new SimpleExecutionResult(null, null,
+                        Collections.singletonList("The command did not produce a result."));
             }
+
+            // Render the result.
+            body.add(result.toHtml());
         }
 
         return new EndpointResponse(html.renderByteArray());
