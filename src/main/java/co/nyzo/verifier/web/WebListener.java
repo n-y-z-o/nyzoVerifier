@@ -30,22 +30,26 @@ public class WebListener implements HttpHandler {
 
     private static Map<Endpoint, EndpointResponseProvider> endpointMap = new ConcurrentHashMap<>();
 
-    public static final String contentType = "text/html;charset=UTF-8";
-
     public static void start() {
 
-        try {
-            buildEndpointMap();
+        // Start the listener if the preference indicates starting. The default is true for the documentation server and
+        // Micropay modes, false otherwise.
+        RunMode runMode = RunMode.getRunMode();
+        if (PreferencesUtil.getBoolean(startWebListenerKey, runMode == RunMode.MicropayServer ||
+                runMode == RunMode.MicropayClient || runMode == RunMode.DocumentationServer)) {
+            try {
+                buildEndpointMap();
 
-            int backlog = 0;
-            HttpServer server = HttpServer.create(new InetSocketAddress(getPort()), backlog);
-            server.createContext("/", new WebListener());
-            server.setExecutor(new ThreadPoolExecutor(2, 4, 20, TimeUnit.SECONDS, new ArrayBlockingQueue<>(20)));
-            server.start();
+                int backlog = 0;
+                HttpServer server = HttpServer.create(new InetSocketAddress(getPort()), backlog);
+                server.createContext("/", new WebListener());
+                server.setExecutor(new ThreadPoolExecutor(2, 4, 20, TimeUnit.SECONDS, new ArrayBlockingQueue<>(20)));
+                server.start();
 
-            System.out.println("opened listener on port " + server.getAddress().getPort());
-        } catch (Exception e) {
-            System.out.println("exception starting web listener: " + PrintUtil.printException(e));
+                System.out.println("opened listener on port " + server.getAddress().getPort());
+            } catch (Exception e) {
+                System.out.println("exception starting web listener: " + PrintUtil.printException(e));
+            }
         }
     }
 

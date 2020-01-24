@@ -237,10 +237,8 @@ public class Verifier {
                 NodeManager.updateActiveVerifiersAndRemoveOldNodes();
             }
 
-            // If the preference is set, start the web listener.
-            if (PreferencesUtil.getBoolean(WebListener.startWebListenerKey, false)) {
-                WebListener.start();
-            }
+            // Start the web listener.
+            WebListener.start();
 
             initializationTime = System.currentTimeMillis() - startTimestamp;
             System.out.println("ready to start thread for main verifier loop, initialization time=" +

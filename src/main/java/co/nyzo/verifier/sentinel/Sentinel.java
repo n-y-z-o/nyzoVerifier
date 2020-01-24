@@ -66,12 +66,11 @@ public class Sentinel {
 
         RunMode.setRunMode(RunMode.Sentinel);
 
-        // If the preference is set, start the web listener.
-        if (PreferencesUtil.getBoolean(WebListener.startWebListenerKey, false)) {
-            WebListener.start();
-        }
-
+        // Start the web listener and the seed transaction manager.
+        WebListener.start();
         SeedTransactionManager.start();
+
+        // Start the main sentinel loop.
         start();
     }
 

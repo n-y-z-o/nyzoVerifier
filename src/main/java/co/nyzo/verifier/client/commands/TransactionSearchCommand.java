@@ -1,9 +1,6 @@
 package co.nyzo.verifier.client.commands;
 
-import co.nyzo.verifier.Block;
-import co.nyzo.verifier.BlockManager;
-import co.nyzo.verifier.ByteUtil;
-import co.nyzo.verifier.Transaction;
+import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.*;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -110,6 +107,9 @@ public class TransactionSearchCommand implements Command {
         if (minimumTimestamp > 0) {
             long height = BlockManager.heightForTimestamp(minimumTimestamp);
             Block block = BlockManager.frozenBlockForHeight(height);
+            if (block == null) {
+                block = HistoricalBlockManager.blockForHeight(height);
+            }
             long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
             long retentionEdgeHeight = BlockManager.getRetentionEdgeHeight();
             List<Transaction> transactions = new ArrayList<>();

@@ -1,8 +1,6 @@
 package co.nyzo.verifier.client;
 
-import co.nyzo.verifier.BlockManager;
-import co.nyzo.verifier.RunMode;
-import co.nyzo.verifier.Version;
+import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.commands.Command;
 import co.nyzo.verifier.client.commands.EmptyCommand;
 import co.nyzo.verifier.client.commands.InvalidCommand;
@@ -30,16 +28,18 @@ public class Client {
 
         // If the data manager started properly, continue. Otherwise, display an error message.
         if (startedDataManager) {
-            // If the preference is set, start the web listener.
-            if (PreferencesUtil.getBoolean(WebListener.startWebListenerKey, false)) {
-                WebListener.start();
-            }
+            // Start the block file consolidator, historical block manager, and web listener.
+            BlockFileConsolidator.start();
+            HistoricalBlockManager.start();
+            WebListener.start();
 
+            // Run the client command loop. This is synchronous on this thread.
             runCommandLoop(output);
         } else {
             System.out.println(ConsoleColor.Red + "data manager did not start; exiting" + ConsoleColor.reset);
-            UpdateUtil.terminate();
         }
+
+        UpdateUtil.terminate();
     }
 
     private static void runCommandLoop(CommandOutput output) {
@@ -210,7 +210,7 @@ public class Client {
             }
         }
 
-        // Close the input stream reader and terminate.
+        // Close the input stream reader.
         try {
             reader.close();
         } catch (Exception ignored) { }

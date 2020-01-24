@@ -60,10 +60,18 @@ public class BlockFileConsolidator {
         // Get all files in the individual directory.
         File[] individualFiles = BlockManager.individualBlockDirectory.listFiles();
 
-        // Build a map of all files that need to be consolidated. Before, files were consolidated as soon as the frozen
-        // edge passed them. Now, files are consolidated when the retention edge passes them.
+        // Files behind the retention edge are consolidated. If the retention edge is not available, step back 5 cycles.
+        // This will prevent accumulation of excessive individual files due to discontinuities.
+        long consolidationThreshold;
+        if (BlockManager.getRetentionEdgeHeight() >= 0) {
+            consolidationThreshold = BlockManager.getRetentionEdgeHeight();
+        } else {
+            consolidationThreshold = BlockManager.getFrozenEdgeHeight() - BlockManager.currentCycleLength() * 5;
+        }
+        long currentFileIndex = consolidationThreshold / BlockManager.blocksPerFile;
+
+        // Build a map of all files that need to be consolidated.
         Map<Long, List<File>> fileMap = new HashMap<>();
-        long currentFileIndex = BlockManager.getRetentionEdgeHeight() / BlockManager.blocksPerFile;
         if (individualFiles != null) {
             for (File file : individualFiles) {
                 long blockHeight = blockHeightForFile(file);
@@ -133,6 +141,10 @@ public class BlockFileConsolidator {
                 }
             }
         }
+
+        // Delete the offset file. If needed, this file will be rebuilt by HistoricalBlockManager to reflect the
+        // contents of the new consolidated file.
+        HistoricalBlockManager.offsetFileForHeight(fileIndex * BlockManager.blocksPerFile).delete();
 
         // Write the combined file.
         BlockManager.writeBlocksToFile(blocks, balanceLists, consolidatedFile);

@@ -11,7 +11,7 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
     private static final String actionKey = "action";
     private static final String actionValueBack = "back";
     private static final String actionValueReview = "review";
-    private static final String actionValueRun = "run command";
+    private static final String actionValueRun = "run";
 
     private Command command;
     private HttpMethod method;
@@ -25,13 +25,27 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
     public EndpointResponse getResponse(EndpointRequest request) {
 
         EndpointResponse response;
-        if (method == HttpMethod.Post) {
+        if (method == HttpMethod.Post || providesQueryParameterArgumentValues(request)) {
             response = processForm(request);
         } else {
             response = getFormPage(null, false);
         }
 
         return response;
+    }
+
+    private boolean providesQueryParameterArgumentValues(EndpointRequest request) {
+
+        // Determine if the query parameters provide any of the argument values of the command.
+        boolean providesQueryParameterArgumentValues = false;
+        for (String argumentName : command.getArgumentIdentifiers()) {
+            String argumentValue = request.getQueryParameters().get(argumentName);
+            if (argumentValue != null && !argumentValue.trim().isEmpty()) {
+                providesQueryParameterArgumentValues = true;
+            }
+        }
+
+        return providesQueryParameterArgumentValues;
     }
 
     private EndpointResponse getFormPage(ValidationResult validationResult, boolean isConfirmation) {
@@ -127,9 +141,10 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
 
         // Get the argument values in an ordered list.
         List<String> argumentValues = new ArrayList<>();
-        Map<String, String> postParameters = request.getPostParameters();
+        Map<String, String> parameters = method == HttpMethod.Post ? request.getPostParameters() :
+                request.getQueryParameters();
         for (String argumentIdentifier : command.getArgumentIdentifiers()) {
-            argumentValues.add(postParameters.getOrDefault(argumentIdentifier, "").trim());
+            argumentValues.add(parameters.getOrDefault(argumentIdentifier, "").trim());
         }
 
         // If the command requires validation, validate it now. Otherwise, create an auto-approve validation.
@@ -148,7 +163,7 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
 
         // If the action is "back" or "review", or if the validation failed, return to the form. Otherwise, run the
         // command.
-        String action = postParameters.getOrDefault("action", "back");
+        String action = parameters.getOrDefault("action", "back");
         if (action.equals(actionValueBack) || action.equals(actionValueReview) ||
                 validationResult.numberOfInvalidArguments() > 0) {
             boolean isConfirmation = action.equals(actionValueReview) &&
