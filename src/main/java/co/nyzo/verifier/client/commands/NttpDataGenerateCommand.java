@@ -57,21 +57,46 @@ public class NttpDataGenerateCommand implements Command {
             // Make a list for the argument result items.
             List<ArgumentResult> argumentResults = new ArrayList<>();
 
-            // Check the NTTP number. It must be greater than zero.
-            int nttpNumber = 0;
-            try {
-                nttpNumber = Integer.parseInt(argumentValues.get(0).trim());
-            } catch (Exception ignored) { }
+            // Get the NTTP argument. The cases for simple and compound NTTP numbers are handled separately.
+            String nttpArgument = argumentValues.get(0).trim();
+            if (nttpArgument.contains("/")) {
+                // This is the case for a compound NTTP number. Check both portions.
+                String[] split = nttpArgument.split("/");
+                int primaryNumber = 0;
+                int secondaryNumber = 0;
+                if (split.length == 2) {
+                    try {
+                        primaryNumber = Integer.parseInt(split[0]);
+                        secondaryNumber = Integer.parseInt(split[1]);
+                    } catch (Exception ignored) { }
+                }
 
-            // Ensure that a valid number was provided, limiting the maximum to a reasonable range.
-            if (nttpNumber < 1 || nttpNumber > 1_000_000) {
-                if (argumentValues.get(0).trim().isEmpty()) {
-                    argumentResults.add(new ArgumentResult(false, "", "please provide a number"));
+                // Limit the primary and secondary numbers to ranges that ensure the compound NTTP number, including the
+                // slash, does not exceed 5 characters. NTTP number values less than 1 are not valid.
+                if (primaryNumber > 0 && primaryNumber < 1000 && secondaryNumber > 0  && secondaryNumber < 10 &&
+                        nttpArgument.equals(primaryNumber + "/" + secondaryNumber)) {
+                    argumentResults.add(new ArgumentResult(true, nttpArgument));
                 } else {
-                    argumentResults.add(new ArgumentResult(false, argumentValues.get(0).trim(), "invalid number"));
+                    argumentResults.add(new ArgumentResult(false, nttpArgument, "invalid compound NTTP number"));
                 }
             } else {
-                argumentResults.add(new ArgumentResult(true, nttpNumber + ""));
+                // This is the case for a simple NTTP number. Check the number. It must be greater than zero.
+                int nttpNumber = 0;
+                try {
+                    nttpNumber = Integer.parseInt(argumentValues.get(0).trim());
+                } catch (Exception ignored) { }
+
+                // Limit the NTTP number to a range that occupies no more than 5 characters. NTTP number values less
+                // than 1 are not valid.
+                if (nttpNumber > 0 && nttpNumber < 100_000) {
+                    argumentResults.add(new ArgumentResult(true, nttpNumber + ""));
+                } else {
+                    if (argumentValues.get(0).trim().isEmpty()) {
+                        argumentResults.add(new ArgumentResult(false, "", "please provide a number"));
+                    } else {
+                        argumentResults.add(new ArgumentResult(false, nttpArgument, "invalid number"));
+                    }
+                }
             }
 
             // Check the hash. It must be a 40-digit (20-byte) string, containing only hexadecimal digits (0-9, a-f).
@@ -116,7 +141,7 @@ public class NttpDataGenerateCommand implements Command {
         List<String> errors = new ArrayList<>();
         try {
             // Get the arguments.
-            int nttpNumber = Integer.parseInt(argumentValues.get(0));
+            String nttpNumber = argumentValues.get(0).trim();
             byte[] hashBytes = ByteUtil.byteArrayFromHexString(argumentValues.get(1), 20);
 
             // Assemble the byte array.
