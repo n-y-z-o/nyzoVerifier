@@ -22,6 +22,9 @@ public class NewVerifierVoteManager {
     private static final Map<ByteBuffer, ByteBuffer> voteMap = new ConcurrentHashMap<>();
     private static ByteBuffer topVerifier = null;
 
+    // This stores the verifier that is currently marked as top-voted based on blockchain metadata.
+    private static byte[] onChainTopVerifier = new byte[FieldByteSize.identifier];
+
     private static byte[] override = new byte[FieldByteSize.identifier];
 
     public static void setOverride(byte[] override) {
@@ -115,7 +118,15 @@ public class NewVerifierVoteManager {
     }
 
     public static NewVerifierVote getLocalVote() {
-
         return localVote;
+    }
+
+    public static byte[] getOnChainTopVerifier() {
+        return onChainTopVerifier;
+    }
+
+    public static void setOnChainTopVerifier(byte[] onChainTopVerifier) {
+        NewVerifierVoteManager.onChainTopVerifier = onChainTopVerifier == null ? new byte[FieldByteSize.identifier] :
+                onChainTopVerifier;
     }
 }

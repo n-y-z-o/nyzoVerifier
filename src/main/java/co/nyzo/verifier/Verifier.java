@@ -664,6 +664,9 @@ public class Verifier {
                 transactions.add(seedTransaction);
             }
 
+            // Add the metadata transactions.
+            transactions.addAll(MetadataManager.metadataTransactions(previousBlock));
+
             // Add any valid cycle transactions that are available. Filter the signatures on these transactions to
             // ensure that invalid or out-of-cycle signatures do not cause the transaction to be rejected.
             List<Transaction> cycleTransactions = CycleTransactionManager.transactionsForHeight(blockHeight);
@@ -772,6 +775,10 @@ public class Verifier {
             nickname = PrintUtil.compactPrintByteArray(getIdentifier());
         }
         NicknameManager.put(getIdentifier(), nickname);
+
+        // Also set the local nickname with the nickname manager. This is a special value, separate from the lookup
+        // table, that represents the nickname stored in the local nickname file.
+        NicknameManager.setLocalNickname(nickname);
     }
 
     public static String getNickname() {
@@ -858,4 +865,7 @@ public class Verifier {
         }
     }
 
+    public static byte[] getPrivateSeed() {
+        return privateSeed;
+    }
 }

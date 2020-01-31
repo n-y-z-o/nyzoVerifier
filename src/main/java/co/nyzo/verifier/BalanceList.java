@@ -10,6 +10,26 @@ import java.util.List;
 
 public class BalanceList implements MessageObject {
 
+    private static final Comparator<BalanceListItem> balanceListItemComparator = new Comparator<BalanceListItem>() {
+        @Override
+        public int compare(BalanceListItem pair1, BalanceListItem pair2) {
+            int result = 0;
+            byte[] identifier1 = pair1.getIdentifier();
+            byte[] identifier2 = pair2.getIdentifier();
+            for (int i = 0; i < FieldByteSize.identifier && result == 0; i++) {
+                int byte1 = identifier1[i] & 0xff;
+                int byte2 = identifier2[i] & 0xff;
+                if (byte1 < byte2) {
+                    result = -1;
+                } else if (byte2 < byte1) {
+                    result = 1;
+                }
+            }
+
+            return result;
+        }
+    };
+
     private int blockchainVersion;
     private long blockHeight;
     private byte rolloverFees;
@@ -34,25 +54,7 @@ public class BalanceList implements MessageObject {
 
         // Sort first to make removal of duplicates easier.
         List<BalanceListItem> sorted = new ArrayList<>(balanceItems);
-        Collections.sort(sorted, new Comparator<BalanceListItem>() {
-            @Override
-            public int compare(BalanceListItem pair1, BalanceListItem pair2) {
-                int result = 0;
-                byte[] identifier1 = pair1.getIdentifier();
-                byte[] identifier2 = pair2.getIdentifier();
-                for (int i = 0; i < FieldByteSize.identifier && result == 0; i++) {
-                    int byte1 = identifier1[i] & 0xff;
-                    int byte2 = identifier2[i] & 0xff;
-                    if (byte1 < byte2) {
-                        result = -1;
-                    } else if (byte2 < byte1) {
-                        result = 1;
-                    }
-                }
-
-                return result;
-            }
-        });
+        Collections.sort(sorted, balanceListItemComparator);
 
         // Remove any entries with balances of zero or less. This is actually a protection against overdrafts, because
         // it will ensure that the signature does not match to a balance list that contains overdrafts.
@@ -176,6 +178,34 @@ public class BalanceList implements MessageObject {
     public byte[] getHash() {
 
         return HashUtil.doubleSHA256(getBytes());
+    }
+
+    public long balanceForIdentifier(byte[] identifier) {
+
+        // This method performs a binary search on the identifier to efficiently find the balance.
+        long balance = 0L;
+        int lowIndex = 0;
+        int highIndex = items.size() - 1;
+        BalanceListItem identifierItem = new BalanceListItem(identifier, 0L);
+        while (lowIndex < highIndex && balance == 0L) {
+            int midIndex = (lowIndex + highIndex) / 2;
+            if (ByteUtil.arraysAreEqual(identifier, items.get(lowIndex).getIdentifier())) {
+                balance = items.get(lowIndex).getBalance();
+            } else if (ByteUtil.arraysAreEqual(identifier, items.get(highIndex).getIdentifier())) {
+                balance = items.get(highIndex).getBalance();
+            } else {
+                int midComparison = balanceListItemComparator.compare(identifierItem, items.get(midIndex));
+                if (midComparison > 0) {
+                    lowIndex = midIndex + 1;
+                } else if (midComparison < 0) {
+                    highIndex = midIndex - 1;
+                } else {
+                    balance = items.get(midIndex).getBalance();
+                }
+            }
+        }
+
+        return balance;
     }
 
     @Override

@@ -16,8 +16,12 @@ public class NicknameManager {
         System.out.println("NicknameManager.mapLimitingThreshold=" + mapLimitingThreshold);
     }
 
-    private static final int maximumNicknameLength = 32;
+    // The local nickname and the on-chain metadata nickname are stored separately to allow for efficient determination
+    // of whether a metadata transaction needs to be added to update the on-chain nickname.
+    private static String localNickname = null;
+    private static String onChainNickname = null;
 
+    private static final int maximumNicknameLength = 32;
     private static final Map<ByteBuffer, String> nicknameMap = new ConcurrentHashMap<>();
 
     public static void put(byte[] identifier, String nickname) {
@@ -49,5 +53,21 @@ public class NicknameManager {
         }
 
         return nickname;
+    }
+
+    public static String getLocalNickname() {
+        return localNickname;
+    }
+
+    public static void setLocalNickname(String localNickname) {
+        NicknameManager.localNickname = localNickname;
+    }
+
+    public static String getOnChainNickname() {
+        return onChainNickname;
+    }
+
+    public static void setOnChainNickname(String onChainNickname) {
+        NicknameManager.onChainNickname = onChainNickname;
     }
 }
