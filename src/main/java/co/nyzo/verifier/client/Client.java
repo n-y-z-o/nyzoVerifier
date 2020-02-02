@@ -23,6 +23,9 @@ public class Client {
         CommandOutput output = new CommandOutputConsole();
         ConsoleUtil.printTable(output, "Nyzo client, version " + Version.getVersion());
 
+        // Check the command strings.
+        CommandManager.checkCommandStrings();
+
         // Start the data manager. This collects the data necessary for the client to run properly.
         boolean startedDataManager = ClientDataManager.start();
 

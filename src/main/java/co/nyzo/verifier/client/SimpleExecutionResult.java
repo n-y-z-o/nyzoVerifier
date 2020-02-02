@@ -2,11 +2,13 @@ package co.nyzo.verifier.client;
 
 import co.nyzo.verifier.client.commands.PublicNyzoStringCommand;
 import co.nyzo.verifier.util.UpdateUtil;
+import co.nyzo.verifier.web.EndpointResponse;
 import co.nyzo.verifier.web.WebUtil;
 import co.nyzo.verifier.web.elements.*;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -38,8 +40,8 @@ public class SimpleExecutionResult implements ExecutionResult {
     }
 
     @Override
-    public String toJson() {
-        return toJson(this);
+    public EndpointResponse toEndpointResponse() {
+        return new EndpointResponse(toJson(this).getBytes(StandardCharsets.UTF_8), EndpointResponse.contentTypeJson);
     }
 
     @Override

@@ -34,8 +34,7 @@ public class CommandEndpointApi implements EndpointResponseProvider {
             ExecutionResult result = command.run(argumentValues, output);
 
             // Build the response.
-            response = new EndpointResponse(result.toJson().getBytes(StandardCharsets.UTF_8),
-                    EndpointResponse.contentTypeJson);
+            response = result.toEndpointResponse();
         }
 
         return response;

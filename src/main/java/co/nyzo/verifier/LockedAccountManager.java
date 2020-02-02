@@ -573,6 +573,10 @@ public class LockedAccountManager {
                 !ByteUtil.arraysAreEqual(transaction.getReceiverIdentifier(), BalanceListItem.cycleAccountIdentifier);
     }
 
+    public static boolean accountIsLocked(ByteBuffer identifier) {
+        return lockedAccounts.contains(identifier);
+    }
+
     private static ByteBuffer id(String identifierString) {
         return ByteBuffer.wrap(ByteUtil.byteArrayFromHexString(identifierString, FieldByteSize.identifier));
     }

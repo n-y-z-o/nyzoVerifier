@@ -25,7 +25,9 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
     public EndpointResponse getResponse(EndpointRequest request) {
 
         EndpointResponse response;
-        if (method == HttpMethod.Post || providesQueryParameterArgumentValues(request)) {
+        if (command.getArgumentIdentifiers().length == 0) {
+            response = getProgressPage(Collections.emptyList());
+        } else if (method == HttpMethod.Post || providesQueryParameterArgumentValues(request)) {
             response = processForm(request);
         } else {
             response = getFormPage(null, false);
