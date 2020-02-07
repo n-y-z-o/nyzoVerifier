@@ -4,15 +4,21 @@ import java.util.Map;
 
 public class EndpointRequest {
 
+    private Endpoint endpoint;
     private Map<String, String> queryParameters;
     private Map<String, String> postParameters;
     private byte[] sourceIpAddress;
 
-    public EndpointRequest(Map<String, String> queryParameters, Map<String, String> postParameters,
+    public EndpointRequest(Endpoint endpoint, Map<String, String> queryParameters, Map<String, String> postParameters,
                            byte[] sourceIpAddress) {
+        this.endpoint = endpoint;
         this.queryParameters = queryParameters;
         this.postParameters = postParameters;
         this.sourceIpAddress = sourceIpAddress;
+    }
+
+    public Endpoint getEndpoint() {
+        return endpoint;
     }
 
     public Map<String, String> getQueryParameters() {
