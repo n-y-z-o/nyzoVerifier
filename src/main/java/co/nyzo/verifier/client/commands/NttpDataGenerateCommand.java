@@ -151,7 +151,7 @@ public class NttpDataGenerateCommand implements Command {
             System.arraycopy(hashBytes, 0, result, labelBytes.length, hashBytes.length);
 
             // Produce the output.
-            table.addRow(nttpNumber + "", ByteUtil.arrayAsStringNoDashes(hashBytes),
+            table.addRow(nttpNumber, ByteUtil.arrayAsStringNoDashes(hashBytes),
                     ClientTransactionUtil.normalizedSenderDataString(result));
 
             CycleTransactionSendCommand sendCommand = new CycleTransactionSendCommand();

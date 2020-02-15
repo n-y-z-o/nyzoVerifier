@@ -114,7 +114,7 @@ public class CoinsInCirculationCommand implements Command {
             table.addRow("", "+", "-", "+", "-", "-", "-", "-", "=");
 
             // Add the data to the table.
-            table.addRow(balanceList.getBlockHeight() + "",
+            table.addRow(balanceList.getBlockHeight(),
                     PrintUtil.printAmountWithCommas(Transaction.micronyzosInSystem),
                     PrintUtil.printAmountWithCommas(sumInLockedAccounts),
                     PrintUtil.printAmountWithCommas(balanceList.getUnlockThreshold()),

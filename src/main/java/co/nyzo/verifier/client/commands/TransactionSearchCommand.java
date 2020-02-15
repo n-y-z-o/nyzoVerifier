@@ -2,6 +2,9 @@ package co.nyzo.verifier.client.commands;
 
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.*;
+import co.nyzo.verifier.nyzoString.NyzoString;
+import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
+import co.nyzo.verifier.nyzoString.NyzoStringTransaction;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.util.ArrayList;
@@ -26,12 +29,12 @@ public class TransactionSearchCommand implements Command {
 
     @Override
     public String[] getArgumentNames() {
-        return new String[] { "timestamp (optional)", "block height (optional)" };
+        return new String[] { "timestamp (optional)", "block height (optional)", "Nyzo string (optional)" };
     }
 
     @Override
     public String[] getArgumentIdentifiers() {
-        return new String[] { "timestamp", "blockHeight" };
+        return new String[] { "timestamp", "blockHeight", "string" };
     }
 
     @Override
@@ -80,11 +83,24 @@ public class TransactionSearchCommand implements Command {
             blockHeight = Long.parseLong(argumentValues.get(1));
         } catch (Exception ignored) { }
 
+        // Get the transaction string, if available. Use this to set the timestamp.
+        NyzoString transactionStringObject = NyzoStringEncoder.decode(argumentValues.get(2));
+        NyzoStringTransaction transactionString = null;
+        if (transactionStringObject instanceof NyzoStringTransaction) {
+            transactionString = (NyzoStringTransaction) transactionStringObject;
+            timestamp = transactionString.getTransaction().getTimestamp();
+        }
+
         // Set the search timestamp range from either the timestamp or block height.
         long minimumTimestamp = -1L;
         long maximumTimestamp = -1L;
         if (timestamp >= 0) {
-            notices.add("Using timestamp of " + PrintUtil.printTimestamp(timestamp) + " for search");
+            if (transactionString == null) {
+                notices.add("Using timestamp of " + PrintUtil.printTimestamp(timestamp) + " for search");
+            } else {
+                notices.add("Using transaction Nyzo string of " + NyzoStringEncoder.encode(transactionString) +
+                        " for search");
+            }
             minimumTimestamp = timestamp;
             maximumTimestamp = timestamp;
         } else if (blockHeight >= 0) {
@@ -103,7 +119,8 @@ public class TransactionSearchCommand implements Command {
                 new CommandTableHeader("sender ID", "senderIdentifier", true),
                 new CommandTableHeader("previous hash height", "previousHashHeight"),
                 new CommandTableHeader("sender data", "senderData"),
-                new CommandTableHeader("sender data bytes", "senderDataBytes", true));
+                new CommandTableHeader("sender data bytes", "senderDataBytes", true),
+                new CommandTableHeader("transaction (Nyzo string)", "transactionNyzoString", true));
         if (minimumTimestamp > 0) {
             long height = BlockManager.heightForTimestamp(minimumTimestamp);
             Block block = BlockManager.frozenBlockForHeight(height);
@@ -124,12 +141,20 @@ public class TransactionSearchCommand implements Command {
                 for (Transaction transaction : block.getTransactions()) {
                     if (transaction.getTimestamp() >= minimumTimestamp && transaction.getTimestamp() <=
                             maximumTimestamp) {
-                        transactions.add(transaction);
+                        // If the transaction string is null, add the transaction without further checks. Otherwise,
+                        // also match the signature.
+                        if (transactionString == null ||
+                                ByteUtil.arraysAreEqual(transactionString.getTransaction().getSignature(),
+                                        transaction.getSignature())) {
+                            transactions.add(transaction);
+                        }
                     }
                 }
 
                 if (transactions.isEmpty()) {
-                    if (minimumTimestamp == maximumTimestamp) {
+                    if (transactionString != null) {
+                        notices.add("Transaction " + transactionString + " was not found in block " + height);
+                    } else if (minimumTimestamp == maximumTimestamp) {
                         notices.add("No transactions found for timestamp " +
                                 PrintUtil.printTimestamp(minimumTimestamp));
                     } else {
@@ -140,14 +165,15 @@ public class TransactionSearchCommand implements Command {
                 }
 
                 for (Transaction transaction : transactions) {
-                    table.addRow(BlockManager.heightForTimestamp(transaction.getTimestamp()) + "",
-                            transaction.getTimestamp() + "", transaction.getType() + "",
+                    table.addRow(BlockManager.heightForTimestamp(transaction.getTimestamp()),
+                            transaction.getTimestamp(), transaction.getType(),
                             typeString(transaction.getType()), PrintUtil.printAmount(transaction.getAmount()),
                             ByteUtil.arrayAsStringWithDashes(transaction.getReceiverIdentifier()),
                             ByteUtil.arrayAsStringWithDashes(transaction.getSenderIdentifier()),
-                            transaction.getPreviousHashHeight() + "",
-                            ClientTransactionUtil.senderDataForDisplay(transaction.getSenderData()) + "",
-                            ByteUtil.arrayAsStringNoDashes(transaction.getSenderData()) + "");
+                            transaction.getPreviousHashHeight(),
+                            ClientTransactionUtil.senderDataForDisplay(transaction.getSenderData()),
+                            ByteUtil.arrayAsStringNoDashes(transaction.getSenderData()),
+                            NyzoStringEncoder.encode(new NyzoStringTransaction(transaction)));
                 }
             }
         } else {

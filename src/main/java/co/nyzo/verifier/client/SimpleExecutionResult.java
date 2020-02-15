@@ -1,7 +1,5 @@
 package co.nyzo.verifier.client;
 
-import co.nyzo.verifier.client.commands.PublicNyzoStringCommand;
-import co.nyzo.verifier.util.UpdateUtil;
 import co.nyzo.verifier.web.EndpointResponse;
 import co.nyzo.verifier.web.WebUtil;
 import co.nyzo.verifier.web.elements.*;
@@ -99,8 +97,9 @@ public class SimpleExecutionResult implements ExecutionResult {
                 for (int i = 0; i < result.getHeaders().length; i++) {
                     Div row = (Div) tableDiv.add(new Div().attr("class", "row-inverted"));
                     row.add(new Div().addRaw(result.getHeaders()[i].getLabel()));
-                    for (String[] dataRow : result.getRows()) {
-                        Div cell = (Div) row.add(new Div().addRaw(dataRow[i]));
+                    for (Object[] dataRow : result.getRows()) {
+                        String value = WebUtil.sanitizeString(dataRow[i] + "");
+                        Div cell = (Div) row.add(new Div().addRaw(value));
                         if (result.getHeaders()[i].isExtraWrapColumn()) {
                             cell.attr("class", "extra-wrap");
                         }
@@ -115,11 +114,11 @@ public class SimpleExecutionResult implements ExecutionResult {
                 }
 
                 // Add the data rows.
-                for (String[] row : result.getRows()) {
+                for (Object[] row : result.getRows()) {
                     Div dataRowDiv = (Div) tableDiv.add(new Div().attr("class", "data-row"));
                     int numberOfColumns = Math.min(headers.length, row.length);
                     for (int i = 0; i < numberOfColumns; i++) {
-                        String value = WebUtil.sanitizeString(row[i]);
+                        String value = WebUtil.sanitizeString(row[i] + "");
                         Div cell = (Div) dataRowDiv.add(new Div().addRaw(value));
                         if (headers[i].isExtraWrapColumn()) {
                             cell.attr("class", "extra-wrap");
@@ -139,13 +138,14 @@ public class SimpleExecutionResult implements ExecutionResult {
     }
 
     private static String toJson(Object object) {
+
         String result;
         if (object == null) {
             result = "null";
         } else if (object instanceof String) {
             result = "\"" + escapeStringForJson((String) object) + "\"";
         } else if (object instanceof Integer || object instanceof Long || object instanceof Float ||
-                object instanceof Double) {
+                object instanceof Double || object instanceof Boolean) {
             result = object.toString();
         } else if (object instanceof Collection) {
             result = jsonForCollection((Collection) object);
@@ -210,13 +210,13 @@ public class SimpleExecutionResult implements ExecutionResult {
         StringBuilder result = new StringBuilder("[");
         String rowSeparator = "";
         CommandTableHeader[] headers = table.getHeaders();
-        for (String[] row : table.getRows()) {
+        for (Object[] row : table.getRows()) {
             result.append(rowSeparator).append("{");
             rowSeparator = ",";
             int length = Math.min(row.length, headers.length);
             for (int i = 0; i < length; i++) {
-                result.append(i == 0 ? "" : ",").append("\"").append(headers[i].getIdentifier()).append("\":\"")
-                        .append(escapeStringForJson(row[i])).append("\"");
+                result.append(i == 0 ? "" : ",").append("\"").append(headers[i].getIdentifier()).append("\":")
+                        .append(toJson(row[i]));
             }
             result.append("}");
         }

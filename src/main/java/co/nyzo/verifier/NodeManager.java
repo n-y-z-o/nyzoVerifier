@@ -5,18 +5,19 @@ import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.LogUtil;
 
-import java.io.File;
+import java.io.*;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class NodeManager {
 
-    private static Set<ByteBuffer> activeIdentifiers = ConcurrentHashMap.newKeySet();
     private static Set<ByteBuffer> activeCycleIdentifiers = ConcurrentHashMap.newKeySet();
     private static Set<ByteBuffer> activeCycleIpAddresses = ConcurrentHashMap.newKeySet();
     private static String missingInCycleVerifiers = "";
@@ -181,8 +182,8 @@ public class NodeManager {
         return identifiers.size();
     }
 
-    public static int getNumberOfActiveIdentifiers() {
-        return activeIdentifiers.size();
+    public static int getNumberOfNodesInMap() {
+        return ipAddressToNodeMap.size();
     }
 
     public static int getNumberOfActiveCycleIdentifiers() {
@@ -271,17 +272,10 @@ public class NodeManager {
         }
     }
 
-    public static boolean isActive(byte[] verifierIdentifier) {
-
-        return ByteUtil.arraysAreEqual(verifierIdentifier, Verifier.getIdentifier()) ||
-                activeIdentifiers.contains(ByteBuffer.wrap(verifierIdentifier));
-    }
-
     public static synchronized void updateActiveVerifiersAndRemoveOldNodes() {
 
         Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
 
-        Set<ByteBuffer> activeIdentifiers = ConcurrentHashMap.newKeySet();
         Set<ByteBuffer> activeCycleIdentifiers = ConcurrentHashMap.newKeySet();
         Set<ByteBuffer> activeCycleIpAddresses = ConcurrentHashMap.newKeySet();
         long thresholdTimestamp = System.currentTimeMillis() - Block.blockDuration *
@@ -290,7 +284,6 @@ public class NodeManager {
             Node node = ipAddressToNodeMap.get(ipAddress);
             if (node.isActive()) {
                 ByteBuffer identifierBuffer = ByteBuffer.wrap(node.getIdentifier());
-                activeIdentifiers.add(identifierBuffer);
                 if (currentCycle.contains(identifierBuffer)) {
                     activeCycleIdentifiers.add(identifierBuffer);
                     activeCycleIpAddresses.add(ByteBuffer.wrap(node.getIpAddress()));
@@ -316,7 +309,6 @@ public class NodeManager {
             }
         }
 
-        NodeManager.activeIdentifiers = activeIdentifiers;
         NodeManager.activeCycleIdentifiers = activeCycleIdentifiers;
         NodeManager.activeCycleIpAddresses = activeCycleIpAddresses;
         NodeManager.missingInCycleVerifiers = missingInCycleVerifiers.toString();
@@ -436,21 +428,37 @@ public class NodeManager {
 
     public static void persistNodes() {
 
-        // Build the lines for the file.
-        List<String> lines = new ArrayList<>();
-        for (Node node : getMesh()) {
-            lines.add(ByteUtil.arrayAsStringWithDashes(node.getIdentifier()) + ":" +
-                    IpUtil.addressAsString(node.getIpAddress()) + ":" +
-                    node.getPortTcp() + ":" +
-                    node.getPortUdp() + ":" +
-                    node.getQueueTimestamp() + ":" +
-                    node.getIdentifierChangeTimestamp() + ":" +
-                    node.getInactiveTimestamp());
+        // Write the file to a temporary location.
+        File temporaryFile = new File(nodeFile.getAbsolutePath() + "_temp");
+        temporaryFile.delete();
+        BufferedWriter writer = null;
+        try {
+            writer = new BufferedWriter(new FileWriter(temporaryFile));
+            String separator = "";
+            for (Node node : getMesh()) {
+                writer.write(separator + ByteUtil.arrayAsStringWithDashes(node.getIdentifier()) + ":" +
+                        IpUtil.addressAsString(node.getIpAddress()) + ":" +
+                        node.getPortTcp() + ":" +
+                        node.getPortUdp() + ":" +
+                        node.getQueueTimestamp() + ":" +
+                        node.getIdentifierChangeTimestamp() + ":" +
+                        node.getInactiveTimestamp());
+                separator = "\n";
+            }
+        } catch (Exception ignored) { }
+
+        // Close the temporary file.
+        if (writer != null) {
+            try {
+                writer.close();
+            } catch (Exception ignored) { }
         }
 
-        // Write the file.
-        Path path = Paths.get(nodeFile.getAbsolutePath());
-        FileUtil.writeFile(path, lines);
+        // Move the temporary file to the new location.
+        try {
+            Files.move(Paths.get(temporaryFile.getAbsolutePath()), Paths.get(nodeFile.getAbsolutePath()),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (Exception ignored) { }
     }
 
     private static void loadPersistedNodes() {
@@ -458,8 +466,9 @@ public class NodeManager {
         // This method is called in the class's static block. We load the persisted nodes into the mesh map.
         Path path = Paths.get(nodeFile.getAbsolutePath());
         try {
-            List<String> lines = Files.readAllLines(path);
-            for (String line : lines) {
+            BufferedReader reader = new BufferedReader(new FileReader(nodeFile));
+            String line;
+            while ((line = reader.readLine()) != null) {
                 try {
                     String[] split = line.split(":");
                     byte[] identifier = ByteUtil.byteArrayFromHexString(split[0], FieldByteSize.identifier);
@@ -476,11 +485,11 @@ public class NodeManager {
                     node.setInactiveTimestamp(inactiveTimestamp);
 
                     ipAddressToNodeMap.put(ByteBuffer.wrap(ipAddress), node);
-
                 } catch (Exception ignored) { }
             }
+            reader.close();
         } catch (Exception ignored) { }
 
-        System.out.println("NodeManager initialization: loaded " + ipAddressToNodeMap.size() + " nodes into map");
+        LogUtil.println("NodeManager initialization: loaded " + ipAddressToNodeMap.size() + " nodes into map");
     }
 }

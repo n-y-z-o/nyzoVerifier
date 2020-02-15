@@ -92,7 +92,7 @@ public class BalanceDisplayCommand implements Command {
                     if (identifier.startsWith(walletIdOrPrefix)) {
                         numberFound++;
                         NyzoString identifierString = new NyzoStringPublicIdentifier(item.getIdentifier());
-                        table.addRow(balanceList.getBlockHeight() + "",
+                        table.addRow(balanceList.getBlockHeight(),
                                 ByteUtil.arrayAsStringWithDashes(item.getIdentifier()),
                                 NyzoStringEncoder.encode(identifierString),
                                 PrintUtil.printAmount(item.getBalance()));

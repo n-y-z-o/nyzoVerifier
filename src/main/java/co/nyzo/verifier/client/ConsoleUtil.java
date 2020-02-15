@@ -28,8 +28,12 @@ public class ConsoleUtil {
                 }
 
                 // Add another column for every other row.
-                for (String[] row : table.getRows()) {
-                    columns.add(Arrays.asList(row));
+                for (Object[] row : table.getRows()) {
+                    List<String> column = new ArrayList<>();
+                    for (Object object : row) {
+                        column.add(object + "");
+                    }
+                    columns.add(column);
                 }
 
                 // Print the table.
@@ -46,9 +50,9 @@ public class ConsoleUtil {
                 }
 
                 // Add cells for each value.
-                for (String[] row : table.getRows()) {
+                for (Object[] row : table.getRows()) {
                     for (int i = 0; i < Math.min(row.length, columns.size()); i++) {
-                        columns.get(i).add(row[i]);
+                        columns.get(i).add(row[i] + "");
                     }
                 }
 

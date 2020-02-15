@@ -29,7 +29,7 @@ public class StatusResponse implements MessageObject {
         }
         lines.add("version: " + Version.getVersion());
         lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
-        lines.add("mesh: " + NodeManager.getNumberOfActiveIdentifiers() + " total, " +
+        lines.add("mesh: " + NodeManager.getNumberOfNodesInMap() + " total, " +
                 NodeManager.getNumberOfActiveCycleIdentifiers() + " in cycle");
         lines.add("cycle length: " + BlockManager.currentCycleLength() + (BlockManager.inGenesisCycle() ? "(G)" : ""));
         lines.add("transactions: " + TransactionPool.transactionPoolSize());

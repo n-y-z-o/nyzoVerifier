@@ -19,6 +19,8 @@ public class CommandManager {
             new NttpDataGenerateCommand(),
             new TransactionSearchCommand(),
             new CoinsInCirculationCommand(),
+            new FrozenEdgeCommand(),
+            new TransactionForwardCommand(),
             new ExitCommand()
     };
 

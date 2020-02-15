@@ -6,7 +6,7 @@ import java.util.List;
 public class CommandTable {
 
     private CommandTableHeader[] headers;
-    private List<String[]> rows;
+    private List<Object[]> rows;
     private boolean invertedRowsColumns;
 
     public CommandTable(CommandTableHeader... headers) {
@@ -15,7 +15,7 @@ public class CommandTable {
         this.invertedRowsColumns = false;
     }
 
-    public void addRow(String... values) {
+    public void addRow(Object... values) {
         rows.add(values);
     }
 
@@ -23,7 +23,7 @@ public class CommandTable {
         return headers;
     }
 
-    public List<String[]> getRows() {
+    public List<Object[]> getRows() {
         return rows;
     }
 

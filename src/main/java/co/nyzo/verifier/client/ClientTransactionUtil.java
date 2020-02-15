@@ -107,8 +107,13 @@ public class ClientTransactionUtil {
         }
     }
 
-    public static void sendTransactionToLikelyBlockVerifiers(Transaction transaction, boolean waitForBlock,
-                                                             CommandOutput output) {
+    public static ByteBuffer[] sendTransactionToLikelyBlockVerifiers(Transaction transaction, boolean waitForBlock,
+                                                                     CommandOutput output) {
+
+        // This is an array of size 3. The first position is the verifier one ahead of the expected verifier (block
+        // height = n - 1). The second position is the expected verifier (block height = n). The third position is one
+        // behind the expected verifier (block height = n + 1).
+        ByteBuffer[] verifiers = new ByteBuffer[3];
 
         // Determine the height at which the transaction will be included.
         long transactionHeight = BlockManager.heightForTimestamp(transaction.getTimestamp());
@@ -125,7 +130,9 @@ public class ClientTransactionUtil {
             int indexOfVerifier = (int) ((transactionHeight - frozenEdge.getBlockHeight() +
                     frozenEdgeVerifierIndex + i) % currentCycle.size());
             if (indexOfVerifier >= 0 && indexOfVerifier < currentCycle.size()) {
-                likelyVerifiers.add(ByteBuffer.wrap(currentCycle.get(indexOfVerifier).array()));
+                ByteBuffer identifier = currentCycle.get(indexOfVerifier);
+                likelyVerifiers.add(identifier);
+                verifiers[i + 1] = identifier;
             }
         }
 
@@ -192,6 +199,8 @@ public class ClientTransactionUtil {
                 }
             }
         }
+
+        return verifiers;
     }
 
     public static void sendCycleTransaction(Transaction transaction, CommandOutput output) {
