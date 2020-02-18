@@ -1,21 +1,22 @@
 package co.nyzo.verifier.web;
 
-import co.nyzo.verifier.BlacklistManager;
-import co.nyzo.verifier.ConnectionManager;
-import co.nyzo.verifier.Message;
-import co.nyzo.verifier.RunMode;
+import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.Client;
 import co.nyzo.verifier.client.ClientController;
 import co.nyzo.verifier.documentation.DocumentationController;
 import co.nyzo.verifier.micropay.MicropayController;
 import co.nyzo.verifier.util.*;
 
+import javax.net.ssl.*;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.KeyStore;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -29,6 +30,8 @@ import java.util.function.BiFunction;
 public class WebListener {
 
     private static final String startWebListenerKey = "start_web_listener";
+    private static final String keystorePathKey = "web_listener_keystore_path";
+    private static final String keystorePasswordKey = "web_listener_keystore_password";
 
     public static final String addWebEndpointsKey = "add_web_endpoints";
     public static final String addApiEndpointsKey = "add_api_endpoints";
@@ -41,6 +44,8 @@ public class WebListener {
 
     private static final int maximumConcurrentConnectionsForIp =
             PreferencesUtil.getInt("web_maximum_concurrent_connections_per_ip", 40);
+
+    private static final File temporaryForwardingWebDirectory = new File(Verifier.dataRootDirectory, "webTemp");
 
     private static final BiFunction<Integer, Integer, Integer> mergeFunction =
             new BiFunction<Integer, Integer, Integer>() {
@@ -61,25 +66,76 @@ public class WebListener {
         RunMode runMode = RunMode.getRunMode();
         if (PreferencesUtil.getBoolean(startWebListenerKey, runMode == RunMode.MicropayServer ||
                 runMode == RunMode.MicropayClient || runMode == RunMode.DocumentationServer)) {
-            try {
-                buildEndpointMap();
+            buildEndpointMap();
+            openHttpListener();
+            openHttpsListener();
+        }
+    }
 
-                ServerSocket serverSocket = new ServerSocket(getPort());
+    private static void openHttpListener() {
+        try {
+            ServerSocket serverSocket = new ServerSocket(getPort());
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    while (!UpdateUtil.shouldTerminate()) {
+                        try {
+                            Socket clientSocket = serverSocket.accept();
+                            processSocket(clientSocket);
+                        } catch (Exception ignored) { }
+                    }
+                }
+            }).start();
+
+            LogUtil.println("opened HTTP listener on port " + serverSocket.getLocalPort());
+        } catch (Exception e) {
+            LogUtil.println("exception starting HTTP web listener: " + PrintUtil.printException(e));
+        }
+    }
+
+    private static void openHttpsListener() {
+        String keystorePath = PreferencesUtil.get(keystorePathKey);
+        String keystorePassword = PreferencesUtil.get(keystorePasswordKey);
+        if (keystorePath != null && !keystorePath.isEmpty() && keystorePassword != null &&
+                !keystorePassword.isEmpty()) {
+            try {
+                // Load the keystore.
+                KeyStore keyStore = KeyStore.getInstance("PKCS12");
+                InputStream inputStream = new FileInputStream(keystorePath);
+                keyStore.load(inputStream, keystorePassword.toCharArray());
+
+                // Initialize the trust manager factory and key manager factory with the keystore.
+                TrustManagerFactory trustManagerFactory =
+                        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+                trustManagerFactory.init(keyStore);
+
+                KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
+                keyManagerFactory.init(keyStore, keystorePassword.toCharArray());
+
+                // Initialize the SSL context with the key manager and trust manager.
+                SSLContext context = SSLContext.getInstance("TLSv1.2");
+                context.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
+
+                // Get the SSL server socket factory from the SSL context.
+                SSLServerSocketFactory factory = context.getServerSocketFactory();
+
+                // Create the SSL server socket and start the read loop.
+                SSLServerSocket sslServerSocket = (SSLServerSocket) factory.createServerSocket(443);
+                sslServerSocket.setEnabledProtocols(new String[] { "TLSv1.2" });
+                sslServerSocket.setEnabledCipherSuites(WebListenerCipherSuites.strongCipherSuites);
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
                         while (!UpdateUtil.shouldTerminate()) {
                             try {
-                                Socket clientSocket = serverSocket.accept();
+                                Socket clientSocket = sslServerSocket.accept();
                                 processSocket(clientSocket);
                             } catch (Exception ignored) { }
                         }
                     }
                 }).start();
-
-                System.out.println("opened listener on port " + serverSocket.getLocalPort());
             } catch (Exception e) {
-                System.out.println("exception starting web listener: " + PrintUtil.printException(e));
+                LogUtil.println("exception starting HTTPS web listener: " + PrintUtil.printException(e));
             }
         }
     }
@@ -114,8 +170,13 @@ public class WebListener {
                     public void run() {
 
                         try {
-                            clientSocket.setSoTimeout(300);
-                            readMessageAndRespond(clientSocket);  // socket is closed in this method
+                            clientSocket.setSoTimeout(2000);
+                            boolean socketAlive = true;
+                            while (socketAlive) {
+                                socketAlive = readMessageAndRespond(clientSocket);
+                            }
+
+                            ConnectionManager.slowCloseSocket(clientSocket);
                         } catch (Exception ignored) { }
 
                         // Decrement the counter for this IP.
@@ -134,8 +195,9 @@ public class WebListener {
         }
     }
 
-    private static void readMessageAndRespond(Socket clientSocket) {
+    private static boolean readMessageAndRespond(Socket clientSocket) {
 
+        boolean socketAlive = false;
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             String[] requestParameters = reader.readLine().split("\\s+");
@@ -153,6 +215,9 @@ public class WebListener {
                     path = pathParameter;
                     queryString = "";
                 }
+
+                // Remove all double dots from the path to avoid attempts at escaping from the web directory.
+                path = path.replace("..", "");
 
                 // If POST, get the body.
                 String postBody = "";
@@ -209,12 +274,13 @@ public class WebListener {
 
                 outputStream.write(("\r\n").getBytes(charset));
                 outputStream.write(responseBytes);
-                outputStream.close();
+                outputStream.flush();
             }
 
+            socketAlive = true;
         } catch (Exception ignored) { }
 
-        ConnectionManager.slowCloseSocket(clientSocket);
+        return socketAlive;
     }
 
     public static EndpointResponse getResponse(EndpointRequest request) {
@@ -226,17 +292,42 @@ public class WebListener {
         EndpointResponse response;
         int statusCode;
         if (responseProvider == null) {
-            Endpoint requestedEndpoint = request.getEndpoint();
-            String responseString = "page not found: path=" + requestedEndpoint.getPath() + ", method=" +
-                    requestedEndpoint.getMethod();
-            response = new EndpointResponse(responseString.getBytes(StandardCharsets.UTF_8),
-                    EndpointResponse.contentTypeText, HttpStatusCode.NotFound404);
+            if (temporaryForwardingWebDirectory.exists()) {
+                response = getTemporaryForwardingResponse(request);
+            } else {
+                Endpoint requestedEndpoint = request.getEndpoint();
+                String responseString = "page not found: path=" + requestedEndpoint.getPath() + ", method=" +
+                        requestedEndpoint.getMethod();
+                response = new EndpointResponse(responseString.getBytes(StandardCharsets.UTF_8),
+                        EndpointResponse.contentTypeText, HttpStatusCode.NotFound404);
+            }
         } else {
             response = responseProvider.getResponse(request);
         }
 
         // Return the result.
         return response;
+    }
+
+    private static EndpointResponse getTemporaryForwardingResponse(EndpointRequest request) {
+
+        // This is a special response to allow creation or renewal of a Let's Encrypt certificate.
+        File file = new File(temporaryForwardingWebDirectory, request.getEndpoint().getPath());
+        byte[] responseBytes = null;
+        if (file.exists()) {
+            try {
+                responseBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath()));
+            } catch (Exception ignored) { }
+        }
+
+        HttpStatusCode statusCode;
+        if (responseBytes == null || responseBytes.length == 0) {
+            responseBytes = ("file not found: " + request.getEndpoint().getPath()).getBytes(StandardCharsets.UTF_8);
+            statusCode = HttpStatusCode.NotFound404;
+        } else {
+            statusCode = HttpStatusCode.Ok200;
+        }
+        return new EndpointResponse(responseBytes, EndpointResponse.contentTypeText, statusCode);
     }
 
     private static Map<String, String> mapForString(String string) {
@@ -310,5 +401,14 @@ public class WebListener {
         // Return the web port.
         int genericPort = PreferencesUtil.getInt("web_port", 80);
         return PreferencesUtil.getInt("web_port_" + runMode.getOverrideSuffix(), genericPort);
+    }
+
+    private static int getPortHttps() {
+
+        RunMode runMode = RunMode.getRunMode();
+
+        // Return the HTTPS web port.
+        int genericPort = PreferencesUtil.getInt("web_port_https", 443);
+        return PreferencesUtil.getInt("web_port_https_" + runMode.getOverrideSuffix(), genericPort);
     }
 }
