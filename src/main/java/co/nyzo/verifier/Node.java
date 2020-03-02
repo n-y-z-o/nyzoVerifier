@@ -7,6 +7,8 @@ import java.util.*;
 
 public class Node implements MessageObject {
 
+    private static final int communicationFailureInactiveThreshold = 6;
+
     private byte[] identifier;                    // wallet public key (32 bytes)
     private byte[] ipAddress;                     // IPv4 address, stored as bytes to keep memory predictable (4 bytes)
     private int portTcp;                          // TCP port number
@@ -14,8 +16,8 @@ public class Node implements MessageObject {
     private long queueTimestamp;                  // this is the timestamp that determines queue placement -- it is
                                                   // when the verifier joined the mesh or when the verifier was last
                                                   // updated
-    private long identifierChangeTimestamp;       // when the identifier at this IP was last changed
     private long inactiveTimestamp;               // when the verifier was marked as inactive; -1 for active verifiers
+    private long communicationFailureCount;       // consecutive communication failures before marking inactive
 
     public Node(byte[] identifier, byte[] ipAddress, int portTcp, int portUdp) {
 
@@ -24,8 +26,8 @@ public class Node implements MessageObject {
         this.portTcp = portTcp;
         this.portUdp = portUdp;
         this.queueTimestamp = System.currentTimeMillis();
-        this.identifierChangeTimestamp = System.currentTimeMillis();
         this.inactiveTimestamp = -1L;
+        this.communicationFailureCount = 0;
     }
 
     public byte[] getIdentifier() {
@@ -64,14 +66,6 @@ public class Node implements MessageObject {
         this.queueTimestamp = queueTimestamp;
     }
 
-    public long getIdentifierChangeTimestamp() {
-        return identifierChangeTimestamp;
-    }
-
-    public void setIdentifierChangeTimestamp(long identifierChangeTimestamp) {
-        this.identifierChangeTimestamp = identifierChangeTimestamp;
-    }
-
     public long getInactiveTimestamp() {
         return inactiveTimestamp;
     }
@@ -80,18 +74,27 @@ public class Node implements MessageObject {
         this.inactiveTimestamp = inactiveTimestamp;
     }
 
-     public boolean isActive() {
-         return inactiveTimestamp < 0;
-     }
+    public boolean isActive() {
+        return inactiveTimestamp < 0;
+    }
+
+    public void markSuccessfulConnection() {
+        communicationFailureCount = 0;
+        inactiveTimestamp = -1L;
+    }
+
+    public void markFailedConnection() {
+        if (++communicationFailureCount >= communicationFailureInactiveThreshold && inactiveTimestamp < 0) {
+            inactiveTimestamp = System.currentTimeMillis();
+        }
+    }
 
     public static int getByteSizeStatic() {
-
         return FieldByteSize.identifier + FieldByteSize.ipAddress + FieldByteSize.port + FieldByteSize.timestamp;
     }
 
     @Override
     public int getByteSize() {
-
         return getByteSizeStatic();
     }
 

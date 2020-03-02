@@ -285,7 +285,7 @@ public class Verifier {
 
         System.out.println("sending node-join messages to trusted entry point: " + trustedEntryPoint);
 
-        Message message = new Message(MessageType.NodeJoin3, new NodeJoinMessage());
+        Message message = new Message(MessageType.NodeJoinV2_43, new NodeJoinMessageV2());
         Message.fetchTcp(trustedEntryPoint.getHost(), trustedEntryPoint.getPort(), message,
                 new MessageCallback() {
                     @Override
@@ -496,13 +496,14 @@ public class Verifier {
 
                     // These are mesh-maintenance operations. These were previously performed when a block was frozen,
                     // but they have been moved to a separate condition, based on block interval, to ensure that they
-                    // still happen regularly when the cycle is experiencing problems.
+                    // still happen regularly when the cycle is experiencing problems or for an out-of-cycle verifier
+                    // that is not always tracking the blockchain.
                     if (lastMeshMaintenanceTimestamp < System.currentTimeMillis() - Block.blockDuration) {
                         lastMeshMaintenanceTimestamp = System.currentTimeMillis();
 
-                        // Request the mesh. The node manager maintains a counter to ensure it is only performed once
-                        // per cycle equivalent.
-                        NodeManager.requestMesh();
+                        // Reload the node-join queue. The node manager maintains a counter to ensure it is only
+                        // performed once per cycle equivalent.
+                        NodeManager.reloadNodeJoinQueue();
 
                         // Send up to 10 node-join requests. Previously, these were all sent when the mesh was
                         // requested. Now, they are enqueued and sent a few at a time to reduce the spike in network

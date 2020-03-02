@@ -1,13 +1,11 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.*;
-import co.nyzo.verifier.util.FileUtil;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.LogUtil;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -21,14 +19,16 @@ public class NodeManager {
     private static Set<ByteBuffer> activeCycleIdentifiers = ConcurrentHashMap.newKeySet();
     private static Set<ByteBuffer> activeCycleIpAddresses = ConcurrentHashMap.newKeySet();
     private static String missingInCycleVerifiers = "";
+
+    private static final int maximumNodesPerInCycleVerifier = 6;
+    private static final int maximumNewNodeMapSize = 1000;
+    private static Map<ByteBuffer, Integer> newNodeIpToPortMap = new ConcurrentHashMap<>();
+
     private static final Map<ByteBuffer, Node> ipAddressToNodeMap = new ConcurrentHashMap<>();
 
-    private static final int consecutiveFailuresBeforeRemoval = 6;
-    private static final Map<ByteBuffer, Integer> ipAddressToFailureCountMap = new ConcurrentHashMap<>();
-
     private static final int minimumMeshRequestInterval = 30;
-    private static int meshRequestWait = minimumMeshRequestInterval;
-    private static int meshRequestSuccessCount = 0;
+    private static AtomicInteger meshRequestWait = new AtomicInteger(minimumMeshRequestInterval);
+    private static AtomicInteger meshRequestSuccessCount = new AtomicInteger(0);
 
     private static final Map<ByteBuffer, Integer> nodeJoinRequestQueue = new ConcurrentHashMap<>();
     private static final AtomicInteger nodeJoinRequestsSent = new AtomicInteger(0);
@@ -60,18 +60,14 @@ public class NodeManager {
                 portUdp = ((PortMessageV2) message.getContent()).getPortUdp();
             }
 
-            boolean isNewNode = updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(), portTcp,
-                    portUdp);
-            if (isNewNode) {
-                // Send the same kind of node-join message that this node just sent.
-                if (message.getType() == MessageType.NodeJoin3) {
-                    Message.fetchTcp(IpUtil.addressAsString(message.getSourceIpAddress()), portTcp,
-                            new Message(MessageType.NodeJoin3, new NodeJoinMessage()), null);
-                } else {
-                    Message.fetchTcp(IpUtil.addressAsString(message.getSourceIpAddress()), portTcp,
-                            new Message(MessageType.NodeJoinV2_43, new NodeJoinMessageV2()), null);
-                }
-            }
+            // Determine whether this is a node-join response. This is one of the pieces of information used to
+            // determine whether a node is added to the map immediately or if it is deferred to the node-join queue.
+            boolean isNodeJoinResponse = message.getType() == MessageType.NodeJoinResponse4 ||
+                    message.getType() == MessageType.NodeJoinResponseV2_44;
+
+            // Update the node.
+            updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(), portTcp, portUdp,
+                    isNodeJoinResponse);
 
         } else if (message.getType() == MessageType.MissingBlockVoteRequest23 ||
                 message.getType() == MessageType.MissingBlockRequest25) {
@@ -81,7 +77,7 @@ public class NodeManager {
             // typically made when a node comes back online after a temporary network issue.
             Node node = ipAddressToNodeMap.get(ByteBuffer.wrap(message.getSourceIpAddress()));
             if (node != null) {
-                node.setInactiveTimestamp(-1);
+                node.markSuccessfulConnection();
             }
         } else {
             LogUtil.println("unrecognized message type in updateNode(): " + message.getType());
@@ -89,13 +85,12 @@ public class NodeManager {
     }
 
     public static void addTemporaryLocalVerifierEntry() {
-
-        updateNode(Verifier.getIdentifier(), new byte[4], 0, 0);
+        updateNode(Verifier.getIdentifier(), new byte[4], 0, 0, true);
     }
 
-    private static synchronized boolean updateNode(byte[] identifier, byte[] ipAddress, int portTcp, int portUdp) {
+    private static void updateNode(byte[] identifier, byte[] ipAddress, int portTcp, int portUdp,
+                                   boolean isNodeJoinResponse) {
 
-        boolean isNewNode = false;
         if (identifier != null && identifier.length == FieldByteSize.identifier && ipAddress != null &&
                 ipAddress.length == FieldByteSize.ipAddress && !IpUtil.isPrivate(ipAddress)) {
 
@@ -103,50 +98,65 @@ public class NodeManager {
             ByteBuffer ipAddressBuffer = ByteBuffer.wrap(ipAddress);
             Node existingNode = ipAddressToNodeMap.get(ipAddressBuffer);
 
-            if (existingNode == null) {
-                // This is the case when no other node is at the IP. We create a new node and add it to the map.
-                Node node = new Node(identifier, ipAddress, portTcp, portUdp);
-
-                // If we do not yet have sufficient node history, set the timestamp of this node so that it is
-                // immediately eligible for the lottery.
-                if (!haveNodeHistory) {
-                    node.setQueueTimestamp(System.currentTimeMillis() - NewVerifierQueueManager.lotteryWaitTime);
-                }
-
-                // Store the node in the map and indicate that this is a new node.
-                ipAddressToNodeMap.put(ipAddressBuffer, node);
-                isNewNode = true;
-
-                // If the node that was just added is the local verifier and not the temporary entry, remove the
-                // temporary entry.
-                if (!ByteUtil.isAllZeros(ipAddress) && ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
-                    ipAddressToNodeMap.remove(ByteBuffer.wrap(new byte[4]));
-                }
-
-            } else {
-                // This is the case when there is already a node at the IP. We always update the ports and mark the node
-                // as active. Then, if the verifier has changed and a verifier change is allowed, we update the
-                // verifier.
-
+            if (existingNode != null && ByteUtil.arraysAreEqual(existingNode.getIdentifier(), identifier)) {
+                // This is the case when there is already a node at the IP with the same identifier. Update the ports
+                // and mark a successful connection.
                 existingNode.setPortTcp(portTcp);
                 if (portUdp > 0) {
                     existingNode.setPortUdp(portUdp);
                 }
-                existingNode.setInactiveTimestamp(-1L);
+                existingNode.markSuccessfulConnection();
+            } else {
+                // If the existing node is not null, remove it.
+                if (existingNode != null) {
+                    ipAddressToNodeMap.remove(ipAddressBuffer);
+                }
 
-                if (!ByteUtil.arraysAreEqual(existingNode.getIdentifier(), identifier)) {
-                    existingNode.setIdentifier(identifier);
-                    existingNode.setQueueTimestamp(System.currentTimeMillis());
-                    existingNode.setIdentifierChangeTimestamp(System.currentTimeMillis());
-                    isNewNode = true;
+                // Now, determine what to do with the new node.
+                ByteBuffer identifierBuffer = ByteBuffer.wrap(identifier);
+                if (BlockManager.verifierInCurrentCycle(identifierBuffer) || isNodeJoinResponse) {
+                    // All in-cycle nodes, in addition to out-of-cycle nodes due to node-join responses, are added now,
+                    // subject to a limit per verifier. Set the timestamp of the node so that it is immediately eligible
+                    // for the lottery if sufficient history is not present.
+                    int instanceCount = 0;
+                    for (Node mapNode : ipAddressToNodeMap.values()) {
+                        if (ByteUtil.arraysAreEqual(mapNode.getIdentifier(), identifier)) {
+                            instanceCount++;
+                        }
+                    }
+                    if (instanceCount < maximumNodesPerInCycleVerifier) {
+                        Node node = new Node(identifier, ipAddress, portTcp, portUdp);
+                        if (!haveNodeHistory) {
+                            node.setQueueTimestamp(System.currentTimeMillis() -
+                                    NewVerifierQueueManager.lotteryWaitTime);
+                        }
+                        ipAddressToNodeMap.put(ipAddressBuffer, node);
+                        if (!BlockManager.verifierInCurrentCycle(identifierBuffer)) {
+                            LogUtil.println("added new out-of-cycle node to NodeManager: " +
+                                    NicknameManager.get(identifier));
+                        }
+                    }
+                } else {
+                    // Out-of-cycle nodes due to node joins are added to a map for later querying.
+                    newNodeIpToPortMap.put(ipAddressBuffer, portTcp);
+                    LogUtil.println("added new out-of-cycle node to queue: " + NicknameManager.get(identifier));
+                    if (newNodeIpToPortMap.size() > maximumNewNodeMapSize) {
+                        newNodeIpToPortMap.remove(newNodeIpToPortMap.keySet().iterator().next());
+                        LogUtil.println("removed node from new out-of-cycle queue due to size");
+                    }
+                }
+
+                // If the node that was just processed is the local verifier and not the temporary entry, remove the
+                // temporary entry.
+                if (!ByteUtil.isAllZeros(ipAddress) &&
+                        ByteUtil.arraysAreEqual(identifier, Verifier.getIdentifier())) {
+                    ipAddressToNodeMap.remove(ByteBuffer.wrap(new byte[4]));
                 }
             }
         }
-
-        return isNewNode;
     }
 
-    public static synchronized void demoteIdentifier(byte[] identifier) {
+    public static void demoteIdentifier(byte[] identifier) {
 
         System.out.println("demoting verifier " + NicknameManager.get(identifier));
 
@@ -231,22 +241,11 @@ public class NodeManager {
     public static void markFailedConnection(String addressString) {
 
         byte[] address = IpUtil.addressFromString(addressString);
-        if (address != null) {
+        if (address != null && !ByteUtil.isAllZeros(address)) {
             ByteBuffer addressBuffer = ByteBuffer.wrap(address);
-            Integer count = ipAddressToFailureCountMap.get(addressBuffer);
-            if (count == null) {
-                count = 1;
-            } else {
-                count++;
-            }
-
-            // Only mark a node inactive if the consecutive failure count has been exceeded.
             Node node = ipAddressToNodeMap.get(addressBuffer);
-            if (node == null || count < consecutiveFailuresBeforeRemoval) {
-                ipAddressToFailureCountMap.put(addressBuffer, count);
-            } else {
-                ipAddressToFailureCountMap.remove(addressBuffer);
-                markNodeAsInactive(addressBuffer);
+            if (node != null) {
+                node.markFailedConnection();
             }
         }
     }
@@ -256,23 +255,14 @@ public class NodeManager {
         byte[] address = IpUtil.addressFromString(addressString);
         if (address != null) {
             ByteBuffer addressBuffer = ByteBuffer.wrap(address);
-            ipAddressToFailureCountMap.remove(addressBuffer);
             Node node = ipAddressToNodeMap.get(addressBuffer);
             if (node != null) {
-                node.setInactiveTimestamp(-1L);
+                node.markSuccessfulConnection();
             }
         }
     }
 
-    private static void markNodeAsInactive(ByteBuffer addressBuffer) {
-
-        Node node = ipAddressToNodeMap.get(addressBuffer);
-        if (node != null && node.isActive()) {
-            node.setInactiveTimestamp(System.currentTimeMillis());
-        }
-    }
-
-    public static synchronized void updateActiveVerifiersAndRemoveOldNodes() {
+    public static void updateActiveVerifiersAndRemoveOldNodes() {
 
         Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
 
@@ -361,23 +351,19 @@ public class NodeManager {
         } catch (Exception ignored) { }
     }
 
-    public static synchronized void requestMesh() {
+    public static void reloadNodeJoinQueue() {
 
         // Once per cycle, but no more frequently than every 30 iterations, and only when the queue of node-join
         // requests is empty, request the mesh from an arbitrary node and enqueue a node-join request to every node
-        // in that node's response. This helps to ensure a tightly integrated mesh, with all nodes being aware of all
-        // other nodes. This also periodically checks to ensure that waiting nodes are still online, eventually
-        // removing them if they disappear for too long.
-        if (meshRequestWait-- <= 0 && nodeJoinRequestQueue.isEmpty()) {
+        // in that node's response, along with a request to every node currently in the map. This helps to ensure a
+        // tightly integrated mesh, with all nodes being aware of all other nodes. This also periodically checks to
+        // ensure that waiting nodes are still online, eventually removing them if they disappear for too long.
+        if (meshRequestWait.decrementAndGet() <= 0 && nodeJoinRequestQueue.isEmpty()) {
 
-            meshRequestWait = Math.max(BlockManager.currentCycleLength(), minimumMeshRequestInterval);
+            meshRequestWait.set(Math.max(BlockManager.currentCycleLength(), minimumMeshRequestInterval));
 
-            // To promote connectedness when this verifier has recently restarted, query only the cycle for the first
-            // two iterations of this process.
-            MessageType requestType = meshRequestSuccessCount < 2 ? MessageType.MeshRequest15 :
-                    MessageType.FullMeshRequest41;
-
-            Message meshRequest = new Message(requestType, null);
+            // The request should only be made for in-cycle nodes (MeshRequest15).
+            Message meshRequest = new Message(MessageType.MeshRequest15, null);
             Message.fetchFromRandomNode(meshRequest, new MessageCallback() {
                 @Override
                 public void responseReceived(Message message) {
@@ -385,7 +371,7 @@ public class NodeManager {
                     if (message == null) {
                         // For a null response, set the mesh request wait to zero so that another attempt will be made
                         // on the next iteration.
-                        meshRequestWait = 0;
+                        meshRequestWait.set(0);
                     } else {
                         // Enqueue node-join requests to all nodes in the response.
                         MeshResponse response = (MeshResponse) message.getContent();
@@ -393,20 +379,28 @@ public class NodeManager {
                             enqueueNodeJoinMessage(node.getIpAddress(), node.getPortTcp());
                         }
 
-                        // Also enqueue node-join requests to all nodes in the current map. This ensures that dead
-                        // nodes are eventually removed. For the first two, only add in-cycle nodes to promote in-cycle
-                        // connectedness.
-                        List<Node> existingNodes = meshRequestSuccessCount < 2 ? getCycle() : getMesh();
+                        // Enqueue node-join requests to all nodes in the current map. This ensures that dead nodes are
+                        // eventually removed. For the first two reloads, only request in-cycle nodes to promote
+                        // in-cycle connectedness.
+                        List<Node> existingNodes = meshRequestSuccessCount.get() < 2 ? getCycle() : getMesh();
                         for (Node node : existingNodes) {
                             enqueueNodeJoinMessage(node.getIpAddress(), node.getPortTcp());
                         }
 
-                        System.out.println("reloaded node-join request queue with request type " + requestType +
-                                ", size is now " + nodeJoinRequestQueue.size());
+                        // Enqueue node-join requests to all new verifiers waiting to be added. These nodes will be
+                        // added to the map if they respond successfully to these requests.
+                        for (ByteBuffer ipAddress : newNodeIpToPortMap.keySet()) {
+                            enqueueNodeJoinMessage(ipAddress.array(), newNodeIpToPortMap.getOrDefault(ipAddress,
+                                    MeshListener.standardPortTcp));
+                        }
+                        LogUtil.println("added " + newNodeIpToPortMap.size() + " new nodes to request queue");
+                        newNodeIpToPortMap.clear();
+
+                        LogUtil.println("reloaded node-join request queue; size is now " + nodeJoinRequestQueue.size());
 
                         // Increment the meshRequestSuccessCount value and set the haveNodeHistory flag if we have
                         // enough queries and the flag is not yet set.
-                        if (meshRequestSuccessCount++ > 4 && !haveNodeHistory) {
+                        if (meshRequestSuccessCount.getAndIncrement() > 4 && !haveNodeHistory) {
                             haveNodeHistory = true;
                             PersistentData.put(haveNodeHistoryKey, haveNodeHistory);
                         }
@@ -416,7 +410,7 @@ public class NodeManager {
         }
     }
 
-    public static synchronized void demoteInCycleNodes() {
+    public static void demoteInCycleNodes() {
 
         for (Node node : ipAddressToNodeMap.values()) {
 
@@ -441,7 +435,7 @@ public class NodeManager {
                         node.getPortTcp() + ":" +
                         node.getPortUdp() + ":" +
                         node.getQueueTimestamp() + ":" +
-                        node.getIdentifierChangeTimestamp() + ":" +
+                        "0:" +  // identifier-change timestamp; no longer used
                         node.getInactiveTimestamp());
                 separator = "\n";
             }
@@ -476,12 +470,11 @@ public class NodeManager {
                     int portTcp = Integer.parseInt(split[2]);
                     int portUdp = Integer.parseInt(split[3]);
                     long queueTimestamp = Long.parseLong(split[4]);
-                    long identifierChangeTimestamp = Long.parseLong(split[5]);
+                    // long identifierChangeTimestamp = Long.parseLong(split[5]);  no longer used
                     long inactiveTimestamp = Long.parseLong(split[6]);
 
                     Node node = new Node(identifier, ipAddress, portTcp, portUdp);
                     node.setQueueTimestamp(queueTimestamp);
-                    node.setIdentifierChangeTimestamp(identifierChangeTimestamp);
                     node.setInactiveTimestamp(inactiveTimestamp);
 
                     ipAddressToNodeMap.put(ByteBuffer.wrap(ipAddress), node);
