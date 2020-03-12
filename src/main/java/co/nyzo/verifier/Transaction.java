@@ -31,9 +31,13 @@ public class Transaction implements MessageObject {
     public static final byte typeSeed = 1;
     public static final byte typeStandard = 2;
     public static final byte typeCycle = 3;
+    public static final byte typeCycleSignature = 4;
+
+    public static final byte voteYes = (byte) 1;
+    public static final byte voteNo = (byte) 0;
 
     // Included in all transactions.
-    private byte type;                   // 1 byte; 0=coin generation, 1=sender verification
+    private byte type;                   // 1 byte; types enumerated above
     private long timestamp;              // 8 bytes; 64-bit Unix timestamp of the transaction initiation, in milliseconds
     private long amount;                 // 8 bytes; 64-bit amount in micronyzos
     private byte[] receiverIdentifier;   // 32 bytes (256-bit public key of the recipient)
@@ -44,13 +48,40 @@ public class Transaction implements MessageObject {
     private byte[] senderIdentifier;     // 32 bytes (256-bit public key of the sender)
     private byte[] senderData;           // up to 32 bytes
 
-    // Only included in type-1 and type-2 transactions
+    // Included in all types except type-0 (coin generation)
     private byte[] signature;            // 64 bytes (512-bit signature)
 
-    // Only included in type-3 transactions
+    // Only included in type-3 transactions for the v1 blockchain.
     private Map<ByteBuffer, byte[]> cycleSignatures;
 
+    // Only included in type-3 transactions for the balance list for the v2 blockchain.
+    private Map<ByteBuffer, Transaction> cycleSignatureTransactions;
+
+    // Only included in type-4 (cycle signature) transactions.
+    private byte[] cycleTransactionSignature;
+    private byte cycleTransactionVote = voteNo;
+
     private SignatureState signatureState = SignatureState.Undetermined;
+
+    public static final Comparator<ByteBuffer> identifierComparator = new Comparator<ByteBuffer>() {
+        @Override
+        public int compare(ByteBuffer buffer1, ByteBuffer buffer2) {
+            int result = 0;
+            byte[] identifier1 = buffer1.array();
+            byte[] identifier2 = buffer2.array();
+            for (int i = 0; i < FieldByteSize.identifier && result == 0; i++) {
+                int byte1 = identifier1[i] & 0xff;
+                int byte2 = identifier2[i] & 0xff;
+                if (byte1 < byte2) {
+                    result = -1;
+                } else if (byte2 < byte1) {
+                    result = 1;
+                }
+            }
+
+            return result;
+        }
+    };
 
     private Transaction() {
     }
@@ -101,6 +132,30 @@ public class Transaction implements MessageObject {
 
     public byte[] getSignature() {
         return signature;
+    }
+
+    public void addSignatureTransaction(Transaction transaction) {
+        cycleSignatureTransactions.put(ByteBuffer.wrap(transaction.getSenderIdentifier()), transaction);
+    }
+
+    public void removeOutOfCycleSignatureTransactions() {
+        for (ByteBuffer identifier : new HashSet<>(cycleSignatureTransactions.keySet())) {
+            if (!BlockManager.verifierInCurrentCycle(identifier)) {
+                cycleSignatureTransactions.remove(identifier);
+            }
+        }
+    }
+
+    public byte[] getCycleTransactionSignature() {
+        return cycleTransactionSignature;
+    }
+
+    public byte getCycleTransactionVote() {
+        return cycleTransactionVote;
+    }
+
+    public Map<ByteBuffer, Transaction> getCycleSignatureTransactions() {
+        return cycleSignatureTransactions;
     }
 
     private void assignPreviousBlockHash() {
@@ -192,10 +247,29 @@ public class Transaction implements MessageObject {
         return transaction;
     }
 
+    public static Transaction cycleTransaction(Transaction cycleTransaction) {
+
+        Transaction transaction = new Transaction();
+        transaction.type = typeCycle;
+        transaction.timestamp = cycleTransaction.timestamp;
+        transaction.amount = cycleTransaction.amount;
+        transaction.receiverIdentifier = cycleTransaction.receiverIdentifier;
+        transaction.previousHashHeight = cycleTransaction.previousHashHeight;
+        transaction.previousBlockHash = cycleTransaction.previousBlockHash;
+        transaction.senderIdentifier = cycleTransaction.senderIdentifier;
+        transaction.senderData = cycleTransaction.senderData;
+        transaction.signature = cycleTransaction.signature;
+        transaction.cycleSignatures = new ConcurrentHashMap<>(cycleTransaction.cycleSignatures);
+        transaction.cycleSignatureTransactions = new ConcurrentHashMap<>(cycleTransaction.cycleSignatureTransactions);
+
+        return transaction;
+    }
+
     public static Transaction cycleTransaction(long timestamp, long amount, byte[] receiverIdentifier,
                                                long previousHashHeight, byte[] previousBlockHash,
                                                byte[] senderIdentifier, byte[] senderData, byte[] signature,
-                                               Map<ByteBuffer, byte[]> cycleSignatures) {
+                                               Map<ByteBuffer, byte[]> cycleSignatures,
+                                               Map<ByteBuffer, Transaction> cycleSignatureTransactions) {
 
         Transaction transaction = new Transaction();
         transaction.type = typeCycle;
@@ -208,6 +282,7 @@ public class Transaction implements MessageObject {
         transaction.senderData = senderData;
         transaction.signature = signature;
         transaction.cycleSignatures = cycleSignatures;
+        transaction.cycleSignatureTransactions = cycleSignatureTransactions;
 
         return transaction;
     }
@@ -226,13 +301,42 @@ public class Transaction implements MessageObject {
         transaction.senderData = senderData;
         transaction.signature = SignatureUtil.signBytes(transaction.getBytes(true), signerSeed);
         transaction.cycleSignatures = new ConcurrentHashMap<>();
+        transaction.cycleSignatureTransactions = new ConcurrentHashMap<>();
+
+        return transaction;
+    }
+
+    public static Transaction cycleSignatureTransaction(long timestamp, byte[] senderIdentifier,
+                                                        byte cycleTransactionVote, byte[] cycleTransactionSignature,
+                                                        byte[] signature) {
+
+        Transaction transaction = new Transaction();
+        transaction.type = typeCycleSignature;
+        transaction.timestamp = timestamp;
+        transaction.senderIdentifier = senderIdentifier;
+        transaction.cycleTransactionVote = cycleTransactionVote;
+        transaction.cycleTransactionSignature = cycleTransactionSignature;
+        transaction.signature = signature;
+
+        return transaction;
+    }
+
+    public static Transaction cycleSignatureTransaction(long timestamp, byte cycleTransactionVote,
+                                                        byte[] cycleTransactionSignature, byte[] signerSeed) {
+
+        Transaction transaction = new Transaction();
+        transaction.type = typeCycleSignature;
+        transaction.timestamp = timestamp;
+        transaction.senderIdentifier = KeyUtil.identifierForSeed(signerSeed);
+        transaction.cycleTransactionVote = cycleTransactionVote;
+        transaction.cycleTransactionSignature = cycleTransactionSignature;
+        transaction.signature = SignatureUtil.signBytes(transaction.getBytes(true), signerSeed);
 
         return transaction;
     }
 
     public long getFee() {
-
-        return type == typeCycle ? 0 : (getAmount() + 399L) / 400L;
+        return type == typeCycle || type == typeCycleSignature ? 0 : (getAmount() + 399L) / 400L;
     }
 
     @Override
@@ -242,10 +346,23 @@ public class Transaction implements MessageObject {
 
     public int getByteSize(boolean forSigning) {
 
-        int size = FieldByteSize.transactionType +    // type
-                FieldByteSize.timestamp +             // timestamp
-                FieldByteSize.transactionAmount +     // amount
-                FieldByteSize.identifier;             // receiver identifier
+        // All transactions begin with a type and timestamp.
+        int size = FieldByteSize.transactionType +      // type
+                FieldByteSize.timestamp;                // timestamp
+
+        if (type == typeCycleSignature) {
+            size += FieldByteSize.identifier +          // verifier (signer) identifier
+                    FieldByteSize.booleanField +        // yes/no
+                    FieldByteSize.signature;            // cycle transaction signature
+            if (!forSigning) {
+                size += FieldByteSize.signature;        // signature
+            }
+        } else {
+            size = FieldByteSize.transactionType +      // type
+                    FieldByteSize.timestamp +           // timestamp
+                    FieldByteSize.transactionAmount +   // amount
+                    FieldByteSize.identifier;           // receiver identifier
+        }
 
         if (type == typeSeed || type == typeStandard || type == typeCycle) {
 
@@ -263,9 +380,19 @@ public class Transaction implements MessageObject {
                         FieldByteSize.signature;      // transaction signature
 
                 if (type == typeCycle) {
-                    // number of signatures (integer), identifiers, and signatures
-                    size += FieldByteSize.unnamedInteger +
-                            cycleSignatures.size() * (FieldByteSize.identifier + FieldByteSize.signature);
+                    // These are stored differently in the v1 and v2 blockchains. The cycleSignatures field is used for
+                    // the v1 blockchain, and the cycleSignatureTransactions field is used for the v2 blockchain.
+                    if (cycleSignatures != null && !cycleSignatures.isEmpty()) {
+                        // The v1 blockchain stores identifier and signature for each.
+                        size += FieldByteSize.unnamedInteger + cycleSignatures.size() * (FieldByteSize.identifier +
+                                FieldByteSize.signature);
+                    } else {
+                        // The v2 blockchain stores timestamp, identifier, vote, and signature for each.
+                        size += FieldByteSize.unnamedInteger + cycleSignatureTransactions.size() *
+                                (FieldByteSize.timestamp + FieldByteSize.identifier + FieldByteSize.booleanField +
+                                        FieldByteSize.signature);
+
+                    }
                 }
             }
         }
@@ -286,8 +413,18 @@ public class Transaction implements MessageObject {
         ByteBuffer buffer = ByteBuffer.wrap(array);
         buffer.put(type);
         buffer.putLong(timestamp);
-        buffer.putLong(amount);
-        buffer.put(receiverIdentifier);
+
+        if (type == typeCoinGeneration || type == typeSeed || type == typeStandard || type == typeCycle) {
+            buffer.putLong(amount);
+            buffer.put(receiverIdentifier);
+        } else if (type == typeCycleSignature) {
+            buffer.put(senderIdentifier);
+            buffer.put(cycleTransactionVote);
+            buffer.put(cycleTransactionSignature);
+            if (!forSigning) {
+                buffer.put(signature);
+            }
+        }
 
         if (type == typeSeed || type == typeStandard || type == typeCycle) {
 
@@ -312,33 +449,30 @@ public class Transaction implements MessageObject {
             if (!forSigning) {
                 buffer.put(signature);
 
-                // For cycle transactions, order the signatures by verifier identifier.
+                // For cycle transactions, order the signatures by verifier identifier. In the v1 blockchain, the
+                // cycleSignatures field is used. In the v2 blockchain, the cycleSignatureTransactions field is used.
                 if (type == typeCycle) {
-                    List<ByteBuffer> signatureIdentifiers = new ArrayList<>(cycleSignatures.keySet());
-                    signatureIdentifiers.sort(new Comparator<ByteBuffer>() {
-                        @Override
-                        public int compare(ByteBuffer buffer1, ByteBuffer buffer2) {
-                            int result = 0;
-                            byte[] identifier1 = buffer1.array();
-                            byte[] identifier2 = buffer2.array();
-                            for (int i = 0; i < FieldByteSize.identifier && result == 0; i++) {
-                                int byte1 = identifier1[i] & 0xff;
-                                int byte2 = identifier2[i] & 0xff;
-                                if (byte1 < byte2) {
-                                    result = -1;
-                                } else if (byte2 < byte1) {
-                                    result = 1;
-                                }
-                            }
+                    if (cycleSignatures != null && !cycleSignatures.isEmpty()) {
+                        List<ByteBuffer> signatureIdentifiers = new ArrayList<>(cycleSignatures.keySet());
+                        signatureIdentifiers.sort(identifierComparator);
 
-                            return result;
+                        buffer.putInt(cycleSignatures.size());
+                        for (ByteBuffer identifier : signatureIdentifiers) {
+                            buffer.put(identifier.array());
+                            buffer.put(cycleSignatures.get(identifier));
                         }
-                    });
+                    } else {
+                        List<ByteBuffer> signatureIdentifiers = new ArrayList<>(cycleSignatureTransactions.keySet());
+                        signatureIdentifiers.sort(identifierComparator);
 
-                    buffer.putInt(cycleSignatures.size());
-                    for (ByteBuffer identifier : signatureIdentifiers) {
-                        buffer.put(identifier.array());
-                        buffer.put(cycleSignatures.get(identifier));
+                        buffer.putInt(cycleSignatureTransactions.size());
+                        for (ByteBuffer identifier : signatureIdentifiers) {
+                            Transaction signatureTransaction = cycleSignatureTransactions.get(identifier);
+                            buffer.putLong(signatureTransaction.timestamp);
+                            buffer.put(signatureTransaction.senderIdentifier);
+                            buffer.put(signatureTransaction.cycleTransactionVote);
+                            buffer.put(signatureTransaction.signature);
+                        }
                     }
                 }
             }
@@ -349,22 +483,25 @@ public class Transaction implements MessageObject {
 
     public static Transaction fromByteBuffer(ByteBuffer buffer) {
 
-        return fromByteBuffer(buffer, 0, new byte[FieldByteSize.hash]);
+        return fromByteBuffer(buffer, 0, new byte[FieldByteSize.hash], false);
     }
 
-    public static Transaction fromByteBuffer(ByteBuffer buffer, long transactionHeight, byte[] previousHashInChain) {
+    public static Transaction fromByteBuffer(ByteBuffer buffer, long transactionHeight, byte[] previousHashInChain,
+                                             boolean balanceListCycleTransaction) {
 
-        // These are the fields contained in all transactions.
+        // All transactions start with type and timestamp.
         byte type = buffer.get();
         long timestamp = buffer.getLong();
-        long amount = buffer.getLong();
-        byte[] recipientIdentifier = Message.getByteArray(buffer, FieldByteSize.identifier);
 
-        // Build the transaction object, getting additional fields for type-1 and type-2 transactions.
+        // Build the transaction object, getting the appropriate fields for each type.
         Transaction transaction = null;
         if (type == typeCoinGeneration) {
-            transaction = coinGenerationTransaction(timestamp, amount, recipientIdentifier);
+            long amount = buffer.getLong();
+            byte[] receiverIdentifier = Message.getByteArray(buffer, FieldByteSize.identifier);
+            transaction = coinGenerationTransaction(timestamp, amount, receiverIdentifier);
         } else if (type == typeSeed || type == typeStandard || type == typeCycle) {
+            long amount = buffer.getLong();
+            byte[] receiverIdentifier = Message.getByteArray(buffer, FieldByteSize.identifier);
             long previousHashHeight = buffer.getLong();
             Block previousHashBlock = previousHashBlockForHeight(previousHashHeight, transactionHeight,
                     previousHashInChain);
@@ -377,25 +514,51 @@ public class Transaction implements MessageObject {
 
             byte[] signature = Message.getByteArray(buffer, FieldByteSize.signature);
             if (type == typeSeed) {
-                transaction = seedTransaction(timestamp, amount, recipientIdentifier, previousHashHeight,
+                transaction = seedTransaction(timestamp, amount, receiverIdentifier, previousHashHeight,
                         previousBlockHash, senderIdentifier, senderData, signature);
             } else if (type == typeStandard) {
-                transaction = standardTransaction(timestamp, amount, recipientIdentifier, previousHashHeight,
+                transaction = standardTransaction(timestamp, amount, receiverIdentifier, previousHashHeight,
                         previousBlockHash, senderIdentifier, senderData, signature);
             } else {  // type == typeCycle
 
-                int numberOfCycleSignatures = buffer.getInt();
                 Map<ByteBuffer, byte[]> cycleSignatures = new HashMap<>();
-                for (int i = 0; i < numberOfCycleSignatures; i++) {
-                    ByteBuffer identifier = ByteBuffer.wrap(Message.getByteArray(buffer, FieldByteSize.identifier));
-                    byte[] cycleSignature = Message.getByteArray(buffer, FieldByteSize.signature);
-                    if (!ByteUtil.arraysAreEqual(identifier.array(), senderIdentifier)) {
-                        cycleSignatures.put(identifier, cycleSignature);
+                Map<ByteBuffer, Transaction> cycleSignatureTransactions = new HashMap<>();
+                int numberOfCycleSignatures = buffer.getInt();
+
+                if (!balanceListCycleTransaction) {
+                    // If not explicitly marked as a balance list cycle transaction, read the signatures as simple
+                    // identifier/signature pairs.
+                    for (int i = 0; i < numberOfCycleSignatures; i++) {
+                        ByteBuffer identifier = ByteBuffer.wrap(Message.getByteArray(buffer, FieldByteSize.identifier));
+                        byte[] cycleSignature = Message.getByteArray(buffer, FieldByteSize.signature);
+                        if (!ByteUtil.arraysAreEqual(identifier.array(), senderIdentifier)) {
+                            cycleSignatures.put(identifier, cycleSignature);
+                        }
+                    }
+                } else {
+                    // When the explicitly marked as a balance list cycle transaction, read the additional fields for
+                    // cycle transaction signatures.
+                    for (int i = 0; i < numberOfCycleSignatures; i++) {
+                        long childTimestamp = buffer.getLong();
+                        byte[] childSenderIdentifier = Message.getByteArray(buffer, FieldByteSize.identifier);
+                        byte childCycleTransactionVote = buffer.get() == 1 ? voteYes : voteNo;
+                        byte[] childSignature = Message.getByteArray(buffer, FieldByteSize.signature);
+                        cycleSignatureTransactions.put(ByteBuffer.wrap(childSenderIdentifier),
+                                cycleSignatureTransaction(childTimestamp, childSenderIdentifier,
+                                        childCycleTransactionVote, signature, childSignature));
                     }
                 }
-                transaction = cycleTransaction(timestamp, amount, recipientIdentifier, previousHashHeight,
-                        previousBlockHash, senderIdentifier, senderData, signature, cycleSignatures);
+                transaction = cycleTransaction(timestamp, amount, receiverIdentifier, previousHashHeight,
+                        previousBlockHash, senderIdentifier, senderData, signature, cycleSignatures,
+                        cycleSignatureTransactions);
             }
+        } else if (type == typeCycleSignature) {
+            byte[] senderIdentifier = Message.getByteArray(buffer, FieldByteSize.identifier);
+            byte cycleTransactionVote = buffer.get() == 1 ? voteYes : voteNo;
+            byte[] cycleTransactionSignature = Message.getByteArray(buffer, FieldByteSize.signature);
+            byte[] signature = Message.getByteArray(buffer, FieldByteSize.signature);
+            transaction = cycleSignatureTransaction(timestamp, senderIdentifier, cycleTransactionVote,
+                    cycleTransactionSignature, signature);
         } else {
             System.err.println("Unknown type: " + type);
         }
@@ -438,22 +601,21 @@ public class Transaction implements MessageObject {
 
         try {
 
-            // Check the type (we only validate transactions past block zero, so 1, 2, and 3 are the only valid types
+            // Check the type (we only validate transactions past block zero, so 1, 2, 3, and 4 are the only valid types
             // right now).
-            if (type != typeSeed && type != typeStandard && type != typeCycle) {
+            if (type != typeSeed && type != typeStandard && type != typeCycle && type != typeCycleSignature) {
                 valid = false;
-                validationError.append("Only seed (type-1), standard (type-2), and cycle (type-3) transactions are ")
-                        .append("valid after block 0. ");
+                validationError.append("Only seed (type 1), standard (type 2), cycle (type 3), and cycle-signature ")
+                        .append("(type 4) transactions are valid after block 0. ");
             }
 
-            // Check that the previous-block hash is contained in the chain.
+            // For all types except cycle signature, check that the previous-block hash is contained in the chain.
             Block previousHashBlock = BlockManager.frozenBlockForHeight(previousHashHeight);
-            if (valid && (previousHashBlock == null ||
+            if (type != typeCycleSignature && valid && (previousHashBlock == null ||
                     !ByteUtil.arraysAreEqual(previousHashBlock.getHash(), previousBlockHash))) {
                 valid = false;
                 validationError.append("The previous-block hash is invalid. ");
             }
-
 
             // Check the signature.
             if (valid) {
@@ -464,7 +626,7 @@ public class Transaction implements MessageObject {
             }
 
             // Check that the amount is at least µ1.
-            if (valid && amount < 1) {
+            if (valid && amount < 1 && type != typeCycleSignature) {
                 valid = false;
                 validationError.append("The transaction must be at least µ1. ");
             }
@@ -542,8 +704,8 @@ public class Transaction implements MessageObject {
 
     public boolean signatureIsValid() {
 
-        if (signatureState == SignatureState.Undetermined && (type == Transaction.typeSeed ||
-                type == Transaction.typeStandard || type == Transaction.typeCycle)) {
+        if (signatureState == SignatureState.Undetermined && (type == typeSeed || type == typeStandard ||
+                type == typeCycle || type == typeCycleSignature)) {
             signatureState = SignatureUtil.signatureIsValid(signature, getBytes(true), senderIdentifier) ?
                     SignatureState.Valid : SignatureState.Invalid;
         }

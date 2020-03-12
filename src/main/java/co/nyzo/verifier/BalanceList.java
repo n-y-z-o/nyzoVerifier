@@ -3,10 +3,8 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BalanceList implements MessageObject {
 
@@ -37,9 +35,13 @@ public class BalanceList implements MessageObject {
     private List<BalanceListItem> items;
     private long unlockThreshold;
     private long unlockTransferSum;
+    private Map<ByteBuffer, Transaction> pendingCycleTransactions;
+    private List<ApprovedCycleTransaction> recentlyApprovedCycleTransactions;
 
     public BalanceList(int blockchainVersion, long blockHeight, byte rolloverFees, List<byte[]> previousVerifiers,
-                       List<BalanceListItem> items, long unlockThreshold, long unlockTransferSum) {
+                       List<BalanceListItem> items, long unlockThreshold, long unlockTransferSum,
+                       Map<ByteBuffer, Transaction> pendingCycleTransactions,
+                       List<ApprovedCycleTransaction> recentlyApprovedCycleTransactions) {
 
         this.blockchainVersion = Block.limitBlockchainVersion(blockchainVersion);
         this.blockHeight = blockHeight;
@@ -48,6 +50,10 @@ public class BalanceList implements MessageObject {
         this.items = normalize(items);
         this.unlockThreshold = this.blockchainVersion == 0 ? 0 : unlockThreshold;      // implicitly 0 for version 0
         this.unlockTransferSum = this.blockchainVersion == 0 ? 0 : unlockTransferSum;  // implicitly 0 for version 0
+        this.pendingCycleTransactions = this.blockchainVersion < 2 ? new ConcurrentHashMap<>() :
+                pendingCycleTransactions;
+        this.recentlyApprovedCycleTransactions = this.blockchainVersion < 2 ? new ArrayList<>() :
+                recentlyApprovedCycleTransactions;
     }
 
     private static List<BalanceListItem> normalize(List<BalanceListItem> balanceItems) {
@@ -87,7 +93,7 @@ public class BalanceList implements MessageObject {
     }
 
     public List<byte[]> getPreviousVerifiers() {
-        return new ArrayList<>(previousVerifiers);
+        return previousVerifiers;
     }
 
     public List<BalanceListItem> getItems() {
@@ -100,6 +106,14 @@ public class BalanceList implements MessageObject {
 
     public long getUnlockTransferSum() {
         return unlockTransferSum;
+    }
+
+    public Map<ByteBuffer, Transaction> getPendingCycleTransactions() {
+        return pendingCycleTransactions;
+    }
+
+    public List<ApprovedCycleTransaction> getRecentlyApprovedCycleTransactions() {
+        return recentlyApprovedCycleTransactions;
     }
 
     public static BalanceList fromByteBuffer(ByteBuffer buffer) {
@@ -134,8 +148,25 @@ public class BalanceList implements MessageObject {
             unlockTransferSum = buffer.getLong();
         }
 
+        Map<ByteBuffer, Transaction> pendingCycleTransactions = new ConcurrentHashMap<>();
+        if (blockchainVersion > 1) {
+            int numberOfTransactions = buffer.getInt();
+            for (int i = 0; i < numberOfTransactions; i++) {
+                Transaction transaction = Transaction.fromByteBuffer(buffer, 0, new byte[FieldByteSize.hash], true);
+                pendingCycleTransactions.put(ByteBuffer.wrap(transaction.getSenderIdentifier()), transaction);
+            }
+        }
+
+        List<ApprovedCycleTransaction> recentlyApprovedCycleTransactions = new ArrayList<>();
+        if (blockchainVersion > 1) {
+            int numberOfTransactions = buffer.getInt();
+            for (int i = 0; i < numberOfTransactions; i++) {
+                recentlyApprovedCycleTransactions.add(ApprovedCycleTransaction.fromByteBuffer(buffer));
+            }
+        }
+
         return new BalanceList(blockchainVersion, blockHeight, rolloverFees, previousVerifiers, items, unlockThreshold,
-                unlockTransferSum);
+                unlockTransferSum, pendingCycleTransactions, recentlyApprovedCycleTransactions);
     }
 
     @Override
@@ -143,12 +174,27 @@ public class BalanceList implements MessageObject {
         int numberOfPreviousVerifiers = (int) Math.min(blockHeight, 9);
         int bytesPerItem = FieldByteSize.identifier + FieldByteSize.transactionAmount + FieldByteSize.blocksUntilFee;
 
-        return FieldByteSize.blockHeight +
+        int size = FieldByteSize.blockHeight +
                 FieldByteSize.rolloverTransactionFees +
                 FieldByteSize.identifier * numberOfPreviousVerifiers +
                 FieldByteSize.balanceListLength +
                 bytesPerItem * items.size() +
                 (blockchainVersion > 0 ? FieldByteSize.transactionAmount * 2 : 0);
+
+        // For blockchain version 2 and above, add the pending cycle transactions and approved cycle transactions.
+        if (blockchainVersion > 1) {
+            size += FieldByteSize.unnamedInteger;
+            for (Transaction transaction : pendingCycleTransactions.values()) {
+                size += transaction.getByteSize();
+            }
+
+            size += FieldByteSize.unnamedInteger;
+            for (ApprovedCycleTransaction transaction : recentlyApprovedCycleTransactions) {
+                size += transaction.getByteSize();
+            }
+        }
+
+        return size;
     }
 
     @Override
@@ -170,6 +216,22 @@ public class BalanceList implements MessageObject {
         if (blockchainVersion > 0) {
             buffer.putLong(unlockThreshold);
             buffer.putLong(unlockTransferSum);
+        }
+        if (blockchainVersion > 1) {
+            // Add the pending cycle transactions, sorted on identifier.
+            List<ByteBuffer> cycleTransactionIdentifiers = new ArrayList<>(pendingCycleTransactions.keySet());
+            cycleTransactionIdentifiers.sort(Transaction.identifierComparator);
+            buffer.putInt(pendingCycleTransactions.size());
+            for (ByteBuffer cycleTransactionIdentifier : cycleTransactionIdentifiers) {
+                Transaction transaction = pendingCycleTransactions.get(cycleTransactionIdentifier);
+                buffer.put(transaction.getBytes());
+            }
+
+            // Add the recently approved cycle transactions. These are naturally ordered on block height.
+            buffer.putInt(recentlyApprovedCycleTransactions.size());
+            for (ApprovedCycleTransaction transaction : recentlyApprovedCycleTransactions) {
+                buffer.put(transaction.getBytes());
+            }
         }
 
         return result;

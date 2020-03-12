@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.messages.CycleTransactionSignature;
 import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
@@ -47,9 +48,12 @@ public class BalanceManager {
                     Transaction.typeStandard));
         } else if (previousBlock.getBlockchainVersion() == 0) {
             validTypes = new HashSet<>(Arrays.asList(Transaction.typeSeed, Transaction.typeStandard));
-        } else {
+        } else if (previousBlock.getBlockchainVersion() == 1) {
             validTypes = new HashSet<>(Arrays.asList(Transaction.typeSeed, Transaction.typeStandard,
                     Transaction.typeCycle));
+        } else {
+            validTypes = new HashSet<>(Arrays.asList(Transaction.typeSeed, Transaction.typeStandard,
+                    Transaction.typeCycle, Transaction.typeCycleSignature));
         }
         for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
             if (!validTypes.contains(dedupedTransactions.get(i).getType())) {
@@ -58,9 +62,10 @@ public class BalanceManager {
             }
         }
 
-        // Remove all transactions less than 1 micronyzo.
+        // Remove all transactions other than cycle-signature transactions less than 1 micronyzo.
         for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
-            if (dedupedTransactions.get(i).getAmount() < 1L) {
+            if (dedupedTransactions.get(i).getType() != Transaction.typeCycleSignature &&
+                    dedupedTransactions.get(i).getAmount() < 1L) {
                 dedupedTransactions.remove(i);
                 LogUtil.println("removed transaction at index " + i + " due to amount less than 1 micronyzo");
             }
@@ -130,11 +135,16 @@ public class BalanceManager {
         int maximumListSize = BlockchainMetricsManager.maximumTransactionsForBlockAssembly();
         if (approvedTransactions.size() > maximumListSize && forBlockAssembly) {
 
-            // Sort the transactions on amount descending.
+            // Sort the transactions on amount descending, promoting cycle-signature transactions to the top of the
+            // list.
             approvedTransactions.sort(new Comparator<Transaction>() {
                 @Override
                 public int compare(Transaction transaction1, Transaction transaction2) {
-                    return Long.compare(transaction2.getAmount(), transaction1.getAmount());
+                    long transaction1CompareAmount = transaction1.getType() == Transaction.typeCycleSignature ?
+                            Long.MAX_VALUE : transaction1.getAmount();
+                    long transaction2CompareAmount = transaction2.getType() == Transaction.typeCycleSignature ?
+                            Long.MAX_VALUE : transaction2.getAmount();
+                    return Long.compare(transaction2CompareAmount, transaction1CompareAmount);
                 }
             });
 
@@ -367,6 +377,37 @@ public class BalanceManager {
                     LogUtil.println("removed cycle transaction due to blockchain version less than 1");
                 }
             }
+        } else {
+            // For blockchain version 1 and later, only allow cycle transactions from in-cycle verifiers.
+            for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+                Transaction transaction = dedupedTransactions.get(i);
+                if (transaction.getType() == Transaction.typeCycle &&
+                        !BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(transaction.getSenderIdentifier()))) {
+                    dedupedTransactions.remove(i);
+                    LogUtil.println("removed cycle transaction from out-of-cycle verifier");
+                }
+            }
+        }
+
+        // If the blockchain is earlier than version 2, remove all cycle-signature transactions.
+        if (blockchainVersion < 2) {
+            for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+                int type = dedupedTransactions.get(i).getType();
+                if (type == Transaction.typeCycleSignature) {
+                    dedupedTransactions.remove(i);
+                    LogUtil.println("removed cycle-signature transaction due to blockchain version less than 2");
+                }
+            }
+        } else {
+            // For blockchain version 2 and later, only allow cycle-signature transactions from in-cycle verifiers.
+            for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+                Transaction transaction = dedupedTransactions.get(i);
+                if (transaction.getType() == Transaction.typeCycleSignature &&
+                        !BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(transaction.getSenderIdentifier()))) {
+                    dedupedTransactions.remove(i);
+                    LogUtil.println("removed cycle-signature transaction from out-of-cycle verifier");
+                }
+            }
         }
 
         // Remove any cycle transactions over ∩100,000.
@@ -380,52 +421,64 @@ public class BalanceManager {
             }
         }
 
-        // Remove any cycle transactions with insufficient signatures, duplicate signatures, out-of-cycle signatures,
-        // or invalid signatures.
-        for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
-            Transaction transaction = dedupedTransactions.get(i);
-            if (transaction.getType() == Transaction.typeCycle) {
-                // To make this calculation invulnerable to manipulations from a single verifier attempting to submit
-                // multiple signatures, we count the number of verifiers in the current cycle for which a valid
-                // signature is not present.
-                Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
-                int cycleLength = currentCycle.size();
-                int missingThreshold = cycleLength / 4;
+        // For version 1, remove any cycle transactions with insufficient signatures, duplicate signatures, out-of-cycle
+        // signatures, or invalid signatures.
+        if (blockchainVersion == 1) {
+            for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+                Transaction transaction = dedupedTransactions.get(i);
+                if (transaction.getType() == Transaction.typeCycle) {
+                    // To make this calculation invulnerable to manipulations from a single verifier attempting to
+                    // submit multiple signatures, we count the number of verifiers in the current cycle for which a
+                    // valid signature is not present.
+                    Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
+                    int cycleLength = currentCycle.size();
+                    int missingThreshold = cycleLength / 4;
 
-                // Make a new set of all verifier identifiers in the current cycle. Then, remove all identifiers for
-                // which a valid signature is found.
-                Set<ByteBuffer> signaturesMissing = new HashSet<>(currentCycle);
-                boolean transactionIsValid = true;
-                if (currentCycle.contains(ByteBuffer.wrap((transaction.getSenderIdentifier())))) {
-                    signaturesMissing.remove(ByteBuffer.wrap(transaction.getSenderIdentifier()));
-                    Map<ByteBuffer, byte[]> cycleSignatures = transaction.getCycleSignatures();
-                    for (ByteBuffer identifier : cycleSignatures.keySet()) {
-                        if (signaturesMissing.contains(identifier)) {
-                            if (transaction.signatureIsValid(identifier.array(), cycleSignatures.get(identifier))) {
-                                signaturesMissing.remove(identifier);
+                    // Make a new set of all verifier identifiers in the current cycle. Then, remove all identifiers for
+                    // which a valid signature is found.
+                    Set<ByteBuffer> signaturesMissing = new HashSet<>(currentCycle);
+                    boolean transactionIsValid = true;
+                    if (currentCycle.contains(ByteBuffer.wrap((transaction.getSenderIdentifier())))) {
+                        signaturesMissing.remove(ByteBuffer.wrap(transaction.getSenderIdentifier()));
+                        Map<ByteBuffer, byte[]> cycleSignatures = transaction.getCycleSignatures();
+                        for (ByteBuffer identifier : cycleSignatures.keySet()) {
+                            if (signaturesMissing.contains(identifier)) {
+                                if (transaction.signatureIsValid(identifier.array(), cycleSignatures.get(identifier))) {
+                                    signaturesMissing.remove(identifier);
+                                } else {
+                                    // A signature is invalid. This makes the entire transaction invalid.
+                                    transactionIsValid = false;
+                                }
                             } else {
-                                // A signature is invalid. This makes the entire transaction invalid.
+                                // A verifier was included twice in the signature list, the initiator was included in
+                                // the signature list, or an out-of-cycle verifier was included in the signature list.
+                                // This makes the entire transaction invalid.
                                 transactionIsValid = false;
                             }
-                        } else {
-                            // A verifier was included twice in the signature list, the initiator was included in the
-                            // signature list, or an out-of-cycle verifier was included in the signature list. This
-                            // makes the entire transaction invalid.
-                            transactionIsValid = false;
                         }
+                    } else {
+                        // The initiator of the transaction is not in the cycle. This makes the transaction invalid.
+                        transactionIsValid = false;
                     }
-                } else {
-                    // The initiator of the transaction is not in the cycle. This makes the transaction invalid.
-                    transactionIsValid = false;
-                }
 
-                // If the transaction is invalid or the number of signatures missing exceeds the threshold, remove the
-                // transaction.
-                if (!transactionIsValid || signaturesMissing.size() > missingThreshold) {
+                    // If the transaction is invalid or the number of signatures missing exceeds the threshold, remove the
+                    // transaction.
+                    if (!transactionIsValid || signaturesMissing.size() > missingThreshold) {
+                        dedupedTransactions.remove(i);
+                        LogUtil.println("removed cycle transaction because " + signaturesMissing.size() +
+                                " signatures were missing with a threshold of " + missingThreshold + ", cycle length=" +
+                                cycleLength + ", or because transaction was invalid (valid=" + transactionIsValid + ")");
+                    }
+                }
+            }
+        } else {
+            // For versions other than 1, remove all cycle transactions with bundled signatures.
+            for (int i = dedupedTransactions.size() - 1; i >= 0; i--) {
+                int type = dedupedTransactions.get(i).getType();
+                if (type == Transaction.typeCycle && dedupedTransactions.get(i).getCycleSignatures().size() > 0) {
                     dedupedTransactions.remove(i);
-                    LogUtil.println("removed cycle transaction because " + signaturesMissing.size() +
-                            " signatures were missing with a threshold of " + missingThreshold + ", cycle length=" +
-                            cycleLength + ", or because transaction was invalid (valid=" + transactionIsValid + ")");
+                    LogUtil.println("removed cycle transaction with bundled signatures due to blockchain version not " +
+                            "equal to 1");
                 }
             }
         }

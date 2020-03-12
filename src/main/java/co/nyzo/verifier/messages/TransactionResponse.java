@@ -20,7 +20,12 @@ public class TransactionResponse implements MessageObject {
 
         accepted = false;
         if (transactionValid) {
-            if (transaction.getType() == Transaction.typeStandard) {
+            Block frozenEdge = BlockManager.getFrozenEdge();
+            int blockchainVersion = frozenEdge == null ? Block.maximumBlockchainVersion :
+                    frozenEdge.getBlockchainVersion();
+            if (transaction.getType() == Transaction.typeStandard || (blockchainVersion >= 2 &&
+                    (transaction.getType() == Transaction.typeCycle ||
+                            transaction.getType() == Transaction.typeCycleSignature))) {
                 boolean addedToPool = TransactionPool.addTransaction(transaction, error, warning);
                 if (addedToPool) {
                     String warningString = "";

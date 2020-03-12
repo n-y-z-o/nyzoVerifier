@@ -75,7 +75,7 @@ public class CycleTransactionManager {
                         transaction.getAmount(), transaction.getReceiverIdentifier(),
                         transaction.getPreviousHashHeight(), transaction.getPreviousBlockHash(),
                         transaction.getSenderIdentifier(), transaction.getSenderData(), transaction.getSignature(),
-                        new ConcurrentHashMap<>());
+                        new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
 
                 // Despite the previous checks, this is still handled as a fully asynchronous process, accounting for
                 // collisions, to improve thread safety.

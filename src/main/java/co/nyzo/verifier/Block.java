@@ -1,9 +1,11 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.util.*;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Block implements MessageObject {
 
@@ -31,11 +33,14 @@ public class Block implements MessageObject {
     public static final long blockDuration = 7000L;
     public static final long minimumVerificationInterval = 1500L;
 
+    private static final long approvedCycleTransactionRetentionInterval = 10_000L;
+    private static final long maximumCycleTransactionSumPerInterval = 100_000L * Transaction.micronyzoMultiplierRatio;
+
     // These are the minimum and maximum blockchain versions that this software knows how to process. The version is
     // strictly enforced. Attempting to process an unknown version would seldom lead to correct results and would open
     // possibilities for manipulation.
     private static final int minimumBlockchainVersion = 0;
-    public static final int maximumBlockchainVersion = 1;
+    public static final int maximumBlockchainVersion = 2;
 
     private int blockchainVersion;                 // 2 bytes; 16-bit integer of the blockchain version
     private long height;                           // 6 bytes; 48-bit integer block height from the Genesis block,
@@ -495,7 +500,7 @@ public class Block implements MessageObject {
         int numberOfTransactions = buffer.getInt();
         List<Transaction> transactions = new ArrayList<>();
         for (int i = 0; i < numberOfTransactions; i++) {
-            transactions.add(Transaction.fromByteBuffer(buffer, blockHeight, previousBlockHash));
+            transactions.add(Transaction.fromByteBuffer(buffer, blockHeight, previousBlockHash, false));
         }
 
         byte[] balanceListHash = new byte[FieldByteSize.hash];
@@ -530,6 +535,8 @@ public class Block implements MessageObject {
                 long previousRolloverFees;
                 long previousUnlockThreshold;
                 long previousUnlockTransferSum;
+                Map<ByteBuffer, Transaction> pendingCycleTransactions;
+                List<ApprovedCycleTransaction> recentlyApprovedCycleTransactions;
                 if (previousBlock == null) {
                     previousBalanceItems = new ArrayList<>();
                     previousVerifiers = new ArrayList<>();
@@ -537,6 +544,8 @@ public class Block implements MessageObject {
                     previousRolloverFees = 0;
                     previousUnlockThreshold = 0L;
                     previousUnlockTransferSum = 0L;
+                    pendingCycleTransactions = new ConcurrentHashMap<>();
+                    recentlyApprovedCycleTransactions = new ArrayList<>();
                 } else {
                     blockHeight = previousBlock.getBlockHeight() + 1L;
                     previousBalanceItems = previousBalanceList.getItems();
@@ -549,8 +558,21 @@ public class Block implements MessageObject {
                         previousVerifiers.remove(0);
                     }
 
+                    // Get the unlock threshold and transfer sum.
                     previousUnlockThreshold = previousBalanceList.getUnlockThreshold();
                     previousUnlockTransferSum = previousBalanceList.getUnlockTransferSum();
+
+                    // Get the pending cycle transactions from the previous block. Use the static copy method to create
+                    // a copy of each. These transactions may be mutated, so we want to be operating on copies.
+                    pendingCycleTransactions = new ConcurrentHashMap<>();
+                    for (Transaction transaction : previousBalanceList.getPendingCycleTransactions().values()) {
+                        pendingCycleTransactions.put(ByteBuffer.wrap(transaction.getSenderIdentifier()),
+                                Transaction.cycleTransaction(transaction));
+                    }
+
+                    // Get the recently approved cycle transactions from the previous block.
+                    recentlyApprovedCycleTransactions =
+                            new ArrayList<>(previousBalanceList.getRecentlyApprovedCycleTransactions());
                 }
 
                 // Make a map of the identifiers to balance list items.
@@ -573,25 +595,36 @@ public class Block implements MessageObject {
                 long transactionSumFromLockedAccounts = 0L;
                 for (Transaction transaction : transactions) {
 
-                    feesThisBlock += transaction.getFee();
-                    byte[] senderIdentifier = transaction.getType() == Transaction.typeCycle ?
-                            BalanceListItem.cycleAccountIdentifier : transaction.getSenderIdentifier();
-                    if (transaction.getType() != Transaction.typeCoinGeneration) {
-                        adjustBalance(senderIdentifier, -transaction.getAmount(), identifierToItemMap);
-                    }
+                    // In blockchain version 1, cycle transactions are processed here. In later versions, cycle
+                    // transactions are incorporated in the blockchain before being approved for transfer, so they are
+                    // handled separately.
+                    if (transaction.getType() != Transaction.typeCycle || blockchainVersion == 1) {
+                        feesThisBlock += transaction.getFee();
+                        byte[] senderIdentifier = transaction.getType() == Transaction.typeCycle ?
+                                BalanceListItem.cycleAccountIdentifier : transaction.getSenderIdentifier();
+                        if (transaction.getType() != Transaction.typeCoinGeneration) {
+                            adjustBalance(senderIdentifier, -transaction.getAmount(), identifierToItemMap);
+                        }
 
-                    long amountAfterFee = transaction.getAmount() - transaction.getFee();
-                    if (amountAfterFee > 0) {
-                        adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToItemMap);
-                    }
+                        long amountAfterFee = transaction.getAmount() - transaction.getFee();
+                        if (amountAfterFee > 0) {
+                            adjustBalance(transaction.getReceiverIdentifier(), amountAfterFee, identifierToItemMap);
+                        }
 
-                    if (transaction.getType() == Transaction.typeStandard) {
-                        organicTransactionFees += transaction.getFee();
-                    }
+                        if (transaction.getType() == Transaction.typeStandard) {
+                            organicTransactionFees += transaction.getFee();
+                        }
 
-                    if (LockedAccountManager.isSubjectToLock(transaction)) {
-                        transactionSumFromLockedAccounts += transaction.getAmount();
+                        if (LockedAccountManager.isSubjectToLock(transaction)) {
+                            transactionSumFromLockedAccounts += transaction.getAmount();
+                        }
                     }
+                }
+
+                // Process cycle and cycle-signature transactions in version 2 or later.
+                if (blockchainVersion >= 2) {
+                   processV2CycleTransactions(pendingCycleTransactions, recentlyApprovedCycleTransactions, transactions,
+                           blockHeight, identifierToItemMap);
                 }
 
                 // For a blockchain versions greater than 0, move 1% of the organic transaction fees to the cycle
@@ -660,7 +693,8 @@ public class Block implements MessageObject {
                             transactionSumFromLockedAccounts;
 
                     result = new BalanceList(blockchainVersion, blockHeight, rolloverFees, previousVerifiers,
-                            balanceItems, unlockThreshold, unlockTransferSum);
+                            balanceItems, unlockThreshold, unlockTransferSum, pendingCycleTransactions,
+                            recentlyApprovedCycleTransactions);
                 }
             }
         } catch (Exception e) {
@@ -681,7 +715,116 @@ public class Block implements MessageObject {
         item = item.adjustByAmount(amount);
         identifierToItemMap.put(identifierBuffer, item);
     }
-    
+
+    private static void processV2CycleTransactions(Map<ByteBuffer, Transaction> pendingCycleTransactions,
+                                                   List<ApprovedCycleTransaction> recentlyApprovedCycleTransactions,
+                                                   List<Transaction> transactions, long blockHeight,
+                                                   Map<ByteBuffer, BalanceListItem> identifierToItemMap) {
+
+        // Add all cycle transactions to the pending map.
+        for (Transaction transaction : transactions) {
+            if (transaction.getType() == Transaction.typeCycle) {
+                pendingCycleTransactions.put(ByteBuffer.wrap(transaction.getSenderIdentifier()),
+                        transaction);
+            }
+        }
+
+        // Remove any out-of-cycle transactions from the map.
+        for (ByteBuffer identifier : new HashSet<>(pendingCycleTransactions.keySet())) {
+            if (!BlockManager.verifierInCurrentCycle(identifier)) {
+                pendingCycleTransactions.remove(identifier);
+            }
+        }
+
+        // Add all cycle-signature transactions from this block to their parent transactions.
+        Map<ByteBuffer, Transaction> signatureToTransactionMap = new HashMap<>();
+        for (Transaction transaction : pendingCycleTransactions.values()) {
+            signatureToTransactionMap.put(ByteBuffer.wrap(transaction.getSignature()), transaction);
+        }
+        for (Transaction transaction : transactions) {
+            if (transaction.getType() == Transaction.typeCycleSignature) {
+                ByteBuffer cycleTransactionSignature = ByteBuffer.wrap(transaction.getCycleTransactionSignature());
+                Transaction cycleTransaction = signatureToTransactionMap.get(cycleTransactionSignature);
+                if (cycleTransaction != null) {
+                    cycleTransaction.addSignatureTransaction(transaction);
+                }
+            }
+        }
+
+        // Remove all out-of-cycle signatures from pending cycle transactions.
+        for (Transaction transaction : pendingCycleTransactions.values()) {
+            transaction.removeOutOfCycleSignatureTransactions();
+        }
+
+        // Remove recently approved transactions that have surpassed the retention threshold.
+        while (recentlyApprovedCycleTransactions.size() > 0 &&
+                recentlyApprovedCycleTransactions.get(0).getApprovalHeight() < blockHeight -
+                        approvedCycleTransactionRetentionInterval) {
+            recentlyApprovedCycleTransactions.remove(0);
+        }
+
+        // Sum the recently approved transactions and calculate the maximum allowable cycle transaction
+        // amount for this block.
+        long recentCycleTransactionSum = 0L;
+        for (ApprovedCycleTransaction transaction : recentlyApprovedCycleTransactions) {
+            recentCycleTransactionSum += transaction.getAmount();
+        }
+        ByteBuffer cycleAccountIdentifier = ByteBuffer.wrap(BalanceListItem.cycleAccountIdentifier);
+        BalanceListItem cycleBalanceItem = identifierToItemMap.get(cycleAccountIdentifier);
+        long cycleAccountBalance = cycleBalanceItem.getBalance();
+        long maximumCycleTransactionAmount = Math.min(maximumCycleTransactionSumPerInterval -
+                recentCycleTransactionSum, cycleAccountBalance);
+        LogUtil.println("maximum cycle transaction amount=" + PrintUtil.printAmount(maximumCycleTransactionAmount) +
+                ", balance=" + PrintUtil.printAmount(cycleAccountBalance));
+
+        // Get up to one approved cycle transaction in this block. Cycle transaction approval is such a big
+        // event that allowing more than one per block is not necessary. For consistency, these are
+        // examined in identifier order, and the first transaction with enough votes and a suitable amount
+        // is selected.
+        Transaction approvedCycleTransaction = null;
+        List<ByteBuffer> pendingTransactionIdentifiers = new ArrayList<>(pendingCycleTransactions.keySet());
+        pendingTransactionIdentifiers.sort(Transaction.identifierComparator);
+        int voteThreshold = BlockManager.currentCycleLength() / 2 + 1;
+        for (int i = 0; i < pendingTransactionIdentifiers.size() && approvedCycleTransaction == null; i++) {
+            ByteBuffer identifier = pendingTransactionIdentifiers.get(i);
+            Transaction transaction = pendingCycleTransactions.get(identifier);
+            Map<ByteBuffer, Transaction> signatures = transaction.getCycleSignatureTransactions();
+            if (signatures.size() >= voteThreshold && transaction.getAmount() <= maximumCycleTransactionAmount) {
+                int yesVoteCount = 0;
+                for (Transaction signature : signatures.values()) {
+                    if (signature.getCycleTransactionVote() == Transaction.voteYes) {
+                        yesVoteCount++;
+                    }
+                }
+                if (yesVoteCount >= voteThreshold) {
+                    approvedCycleTransaction = transaction;
+                }
+            }
+        }
+
+        if (approvedCycleTransaction != null) {
+            LogUtil.println(ConsoleColor.Green.backgroundBright() + "approved cycle transaction: " +
+                    approvedCycleTransaction + ConsoleColor.reset);
+
+            // Remove the transaction from the pending list.
+            ByteBuffer senderIdentifier = ByteBuffer.wrap(approvedCycleTransaction.getSenderIdentifier());
+            pendingCycleTransactions.remove(senderIdentifier);
+
+            // Add an entry to the recently approved list.
+            ApprovedCycleTransaction approvedListEntry =
+                    new ApprovedCycleTransaction(approvedCycleTransaction.getSenderIdentifier(),
+                            approvedCycleTransaction.getReceiverIdentifier(), blockHeight,
+                            approvedCycleTransaction.getAmount());
+            recentlyApprovedCycleTransactions.add(approvedListEntry);
+
+            // Adjust the balance of the cycle account and the receiver account.
+            adjustBalance(BalanceListItem.cycleAccountIdentifier, -approvedCycleTransaction.getAmount(),
+                    identifierToItemMap);
+            adjustBalance(approvedCycleTransaction.getReceiverIdentifier(), approvedCycleTransaction.getAmount(),
+                    identifierToItemMap);
+        }
+    }
+
     public long chainScore(long zeroBlockHeight) {
 
         // This score is always relative to a provided block height. The zero block height has a score of zero, and

@@ -2,7 +2,7 @@ package co.nyzo.verifier;
 
 public class Version {
 
-    private static final int version = 572;
+    private static final int version = 573;
 
     public static int getVersion() {
 
