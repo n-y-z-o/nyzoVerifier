@@ -172,7 +172,6 @@ public class Sentinel {
                         }
                     }
 
-
                     // Ensure a minimum interval between iterations. This includes processing time, so the actual sleep
                     // time may be zero.
                     while (System.currentTimeMillis() < loopStartTimestamp + minimumLoopInterval) {
@@ -386,17 +385,31 @@ public class Sentinel {
     private static void updateMesh(ManagedVerifier verifier) {
 
         // Get the mesh.
-        Message message = new Message(MessageType.MeshRequest15, null);
+        Message message = new Message(MessageType.MeshRequest15, null, verifier.getSeed());
         Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
             @Override
             public void responseReceived(Message message) {
 
                 try {
                     if (message != null) {
-                        MeshResponse response = (MeshResponse) message.getContent();
-                        if (!response.getMesh().isEmpty()) {
-                            verifierIdentifierToMeshMap.put(ByteBuffer.wrap(message.getSourceNodeIdentifier()),
-                                    response.getMesh());
+                        // Set the response identifier. This is displayed in the interface if mismatched.
+                        verifier.setResponseIdentifier(message.getSourceNodeIdentifier());
+
+                        // Log if the identifier is mismatched, in case the operator does not use the web interface.
+                        if (!ByteUtil.arraysAreEqual(verifier.getIdentifier(), message.getSourceNodeIdentifier())) {
+                            LogUtil.println(NicknameManager.get(verifier.getIdentifier()) + " identifier mismatch: " +
+                                    ByteUtil.arrayAsStringWithDashes(verifier.getIdentifier()) + ", response identifier: " +
+                                    ByteUtil.arrayAsStringWithDashes(verifier.getResponseIdentifier()));
+                        }
+
+                        // If the response identifier is correct and the content type is correct, process the response.
+                        if (ByteUtil.arraysAreEqual(verifier.getIdentifier(), message.getSourceNodeIdentifier()) &&
+                                (message.getContent() instanceof MeshResponse)) {
+                            MeshResponse response = (MeshResponse) message.getContent();
+                            if (!response.getMesh().isEmpty()) {
+                                verifierIdentifierToMeshMap.put(ByteBuffer.wrap(message.getSourceNodeIdentifier()),
+                                        response.getMesh());
+                            }
                         }
                     }
                 } catch (Exception ignored) { }
@@ -413,7 +426,7 @@ public class Sentinel {
         long endHeightToFetch = startHeightToFetch + (inFastFetchMode.getOrDefault(identifier, false) ? 9 : 0);
         List<Block> blockList = new ArrayList<>();
         Message message = new Message(MessageType.BlockRequest11, new BlockRequest(startHeightToFetch, endHeightToFetch,
-                false));
+                false), verifier.getSeed());
 
         AtomicBoolean processedResponse = new AtomicBoolean(false);
         Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
@@ -425,14 +438,23 @@ public class Sentinel {
                     result = ManagedVerifier.queryResultErrorValue;
                 } else {
                     try {
-                        BlockResponse blockResponse = (BlockResponse) message.getContent();
-                        List<Block> blocks = blockResponse.getBlocks();
-                        if (blocks.size() == 0) {
-                            result = 0;
-                        } else if (blocks.get(0).getBlockHeight() == startHeightToFetch &&
-                                blocks.get(blocks.size() - 1).getBlockHeight() == endHeightToFetch) {
-                            blockList.addAll(blocks);
-                            result = blockList.size();
+                        // Set the response identifier. This is displayed in the interface if mismatched.
+                        verifier.setResponseIdentifier(message.getSourceNodeIdentifier());
+
+                        // If the response identifier is correct and the content type is correct, process the response.
+                        if (ByteUtil.arraysAreEqual(verifier.getIdentifier(), message.getSourceNodeIdentifier()) &&
+                                (message.getContent() instanceof BlockResponse)) {
+                            BlockResponse blockResponse = (BlockResponse) message.getContent();
+                            List<Block> blocks = blockResponse.getBlocks();
+                            if (blocks.size() == 0) {
+                                result = 0;
+                            } else if (blocks.get(0).getBlockHeight() == startHeightToFetch &&
+                                    blocks.get(blocks.size() - 1).getBlockHeight() == endHeightToFetch) {
+                                blockList.addAll(blocks);
+                                result = blockList.size();
+                            } else {
+                                result = ManagedVerifier.queryResultErrorValue;
+                            }
                         } else {
                             result = ManagedVerifier.queryResultErrorValue;
                         }
@@ -553,10 +575,10 @@ public class Sentinel {
 
                         // Make the message and resign with the appropriate verifier seed. The message must be signed
                         // by an in-cycle verifier to make it past the blacklist mechanism.
-                        Message message = new Message(MessageType.NewBlock9, new NewBlockMessage(lowestScoredBlock));
                         ManagedVerifier verifier =
                                 verifierMap.get(ByteBuffer.wrap(lowestScoredBlock.getVerifierIdentifier()));
-                        message.sign(verifier.getSeed());
+                        Message message = new Message(MessageType.NewBlock9, new NewBlockMessage(lowestScoredBlock),
+                                verifier.getSeed());
 
                         Set<Node> combinedCycle = combinedCycle();
                         AtomicInteger responsesReceived = new AtomicInteger(0);

@@ -2,6 +2,7 @@ package co.nyzo.verifier.web;
 
 import co.nyzo.verifier.Block;
 import co.nyzo.verifier.BlockManager;
+import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.Version;
 import co.nyzo.verifier.sentinel.ManagedVerifier;
 import co.nyzo.verifier.sentinel.Sentinel;
@@ -9,7 +10,6 @@ import co.nyzo.verifier.web.elements.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.Map;
 
 public class SentinelController {
 
@@ -43,6 +43,7 @@ public class SentinelController {
         HtmlElementList content = new HtmlElementList();
         content.add(header());
         content.add(verifierTable());
+        content.add(incorrectVerifierNotices());
         content.add(new P("Nyzo sentinel, version " + Version.getVersion()).attr("style", "font-style: italic;"));
         return content;
     }
@@ -106,12 +107,14 @@ public class SentinelController {
                 ".verifier-label { display: table-cell; padding: 0.5rem 1.0rem 0 1.0rem; vertical-align: top; " +
                 "white-space: nowrap; height: 1.6rem; }" +
                 ".verifier-label-active { background-color: #999; }" +
+                ".verifier-label-incorrect-identifier { background-color: #f80; }" +
                 ".verifier-tile { display: table-cell; width: 1.3rem; height: 2.1rem; }" +
                 ".verifier-tile-line { position: relative; left: 0; width: 1.3rem; height: 0.2rem; " +
                 "background-color: rgba(0,0,0,0.3); }" +
                 ".verifier-tile-label { color: white; width: 1.3rem; position: relative; display: table-cell; " +
                 "padding-top: 0.3rem; font-weight: bold; }" +
-                ".separator-row { height: 1px; }"));
+                ".separator-row { height: 1px; }" +
+                ".incorrect-verifier-notice { color: #f80; font-style: italic; }"));
 
         // Build the table.
         Collection<ManagedVerifier> managedVerifiers = Sentinel.getManagedVerifiers();
@@ -126,7 +129,13 @@ public class SentinelController {
 
             Div row = (Div) div.add(new Div().attr("class", "verifier-row"));
             String nickname = WebUtil.sanitizedNickname(verifier.getIdentifier());
-            String className = "verifier-label" + (verifier.isQueriedLastInterval() ? " verifier-label-active" : "");
+            String className = "verifier-label";
+            if (!ByteUtil.isAllZeros(verifier.getResponseIdentifier()) &&
+                    !ByteUtil.arraysAreEqual(verifier.getIdentifier(), verifier.getResponseIdentifier())) {
+                className += " verifier-label-incorrect-identifier";
+            } else if (verifier.isQueriedLastInterval()) {
+                className += " verifier-label-active";
+            }
             row.add(new Div().attr("class", className).addRaw(nickname));
 
             // Build the div of color-coded tiles for the recent results, counting the results in the process.
@@ -170,5 +179,21 @@ public class SentinelController {
         }
 
         return div;
+    }
+
+    private static HtmlElement incorrectVerifierNotices() {
+        HtmlElementList notices = new HtmlElementList();
+        Collection<ManagedVerifier> managedVerifiers = Sentinel.getManagedVerifiers();
+        for (ManagedVerifier verifier : managedVerifiers) {
+            if (!ByteUtil.isAllZeros(verifier.getResponseIdentifier()) &&
+                    !ByteUtil.arraysAreEqual(verifier.getIdentifier(), verifier.getResponseIdentifier())) {
+                String nickname = WebUtil.sanitizedNickname(verifier.getIdentifier());
+                notices.add(new P().attr("class", "incorrect-verifier-notice").addRaw(nickname + " identifer: " +
+                        ByteUtil.arrayAsStringWithDashes(verifier.getIdentifier()) + ", response identifier: " +
+                        ByteUtil.arrayAsStringWithDashes(verifier.getResponseIdentifier())));
+            }
+        }
+
+        return notices;
     }
 }

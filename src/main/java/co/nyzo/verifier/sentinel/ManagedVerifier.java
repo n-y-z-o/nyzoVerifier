@@ -14,6 +14,7 @@ public class ManagedVerifier {
     private byte[] seed;
     private byte[] identifier;
     private boolean sentinelTransactionEnabled;
+    private byte[] responseIdentifier;
 
     // These are used to track the health of the verifier.
     private int[] queryResults;
@@ -56,6 +57,14 @@ public class ManagedVerifier {
 
     public boolean isSentinelTransactionEnabled() {
         return sentinelTransactionEnabled;
+    }
+
+    public byte[] getResponseIdentifier() {
+        return responseIdentifier;
+    }
+
+    public void setResponseIdentifier(byte[] responseIdentifier) {
+        this.responseIdentifier = responseIdentifier;
     }
 
     public static ManagedVerifier fromString(String value) {
