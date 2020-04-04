@@ -188,7 +188,7 @@ public class SentinelController {
             if (!ByteUtil.isAllZeros(verifier.getResponseIdentifier()) &&
                     !ByteUtil.arraysAreEqual(verifier.getIdentifier(), verifier.getResponseIdentifier())) {
                 String nickname = WebUtil.sanitizedNickname(verifier.getIdentifier());
-                notices.add(new P().attr("class", "incorrect-verifier-notice").addRaw(nickname + " identifer: " +
+                notices.add(new P().attr("class", "incorrect-verifier-notice").addRaw(nickname + " identifier: " +
                         ByteUtil.arrayAsStringWithDashes(verifier.getIdentifier()) + ", response identifier: " +
                         ByteUtil.arrayAsStringWithDashes(verifier.getResponseIdentifier())));
             }

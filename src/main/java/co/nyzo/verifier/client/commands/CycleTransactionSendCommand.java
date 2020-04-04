@@ -32,13 +32,12 @@ public class CycleTransactionSendCommand implements Command {
 
     @Override
     public String[] getArgumentNames() {
-        return new String[] { "initiator key (in-cycle verifier)", "block height", "receiver ID", "sender data",
-                "amount, Nyzos" };
+        return new String[] { "initiator key (in-cycle verifier)", "receiver ID", "sender data", "amount, Nyzos" };
     }
 
     @Override
     public String[] getArgumentIdentifiers() {
-        return new String[] { "initiatorKey", "blockHeight", "receiverId", "senderData", "amount" };
+        return new String[] { "initiatorKey", "receiverId", "senderData", "amount" };
     }
 
     @Override
@@ -78,35 +77,22 @@ public class CycleTransactionSendCommand implements Command {
                 }
             }
 
-            // Check the block height. It must be past the open edge.
-            long blockHeight = -1L;
-            try {
-                blockHeight = Long.parseLong(argumentValues.get(1));
-            } catch (Exception ignored) { }
-            if (blockHeight > BlockManager.openEdgeHeight(false)) {
-                argumentResults.add(new ArgumentResult(true, blockHeight + "", ""));
-            } else if (blockHeight > 0) {
-                argumentResults.add(new ArgumentResult(false, blockHeight + "", "block height must be past open edge"));
-            } else {
-                argumentResults.add(new ArgumentResult(false, argumentValues.get(1), "invalid block height"));
-            }
-
             // Check the receiver ID.
-            NyzoString receiverIdentifier = NyzoStringEncoder.decode(argumentValues.get(2));
+            NyzoString receiverIdentifier = NyzoStringEncoder.decode(argumentValues.get(1));
             if (receiverIdentifier instanceof NyzoStringPublicIdentifier) {
                 argumentResults.add(new ArgumentResult(true, NyzoStringEncoder.encode(receiverIdentifier)));
             } else {
-                String message = argumentValues.get(2).trim().isEmpty() ? "missing Nyzo string public ID" :
+                String message = argumentValues.get(1).trim().isEmpty() ? "missing Nyzo string public ID" :
                         "not a valid Nyzo string public ID";
-                argumentResults.add(new ArgumentResult(false, argumentValues.get(2), message));
+                argumentResults.add(new ArgumentResult(false, argumentValues.get(1), message));
 
-                if (argumentValues.get(2).length() >= 64) {
+                if (argumentValues.get(1).length() >= 64) {
                     PublicNyzoStringCommand.printHexWarning(output);
                 }
             }
 
             // Process the sender data.
-            String senderDataInputString = argumentValues.get(3);
+            String senderDataInputString = argumentValues.get(2);
             byte[] senderDataBytes;
             String senderDataMessage = "";
             String senderData;
@@ -129,14 +115,14 @@ public class CycleTransactionSendCommand implements Command {
             // Check the amount.
             long amountMicronyzos = -1L;
             try {
-                amountMicronyzos = (long) (Double.parseDouble(argumentValues.get(4)) *
+                amountMicronyzos = (long) (Double.parseDouble(argumentValues.get(3)) *
                         Transaction.micronyzoMultiplierRatio);
             } catch (Exception ignored) { }
             if (amountMicronyzos > 0) {
                 double amountNyzos = amountMicronyzos / (double) Transaction.micronyzoMultiplierRatio;
                 argumentResults.add(new ArgumentResult(true, String.format("%.6f", amountNyzos), ""));
             } else {
-                argumentResults.add(new ArgumentResult(false, argumentValues.get(4), "invalid amount"));
+                argumentResults.add(new ArgumentResult(false, argumentValues.get(3), "invalid amount"));
             }
 
             // Produce the result.
@@ -159,23 +145,22 @@ public class CycleTransactionSendCommand implements Command {
         try {
             // Get the arguments.
             NyzoStringPrivateSeed signerSeed = (NyzoStringPrivateSeed) NyzoStringEncoder.decode(argumentValues.get(0));
-            long blockHeight = Long.parseLong(argumentValues.get(1));
             NyzoStringPublicIdentifier receiverIdentifier =
-                    (NyzoStringPublicIdentifier) NyzoStringEncoder.decode(argumentValues.get(2));
-            String senderDataString = argumentValues.get(3);
+                    (NyzoStringPublicIdentifier) NyzoStringEncoder.decode(argumentValues.get(1));
+            String senderDataString = argumentValues.get(2);
             byte[] senderData;
             if (ClientTransactionUtil.isNormalizedSenderDataString(senderDataString)) {
                 senderData = ClientTransactionUtil.bytesFromNormalizedSenderDataString(senderDataString);
             } else {
                 senderData = senderDataString.getBytes(StandardCharsets.UTF_8);
             }
-            long amount = (long) (Double.parseDouble(argumentValues.get(4)) * Transaction.micronyzoMultiplierRatio);
+            long amount = (long) (Double.parseDouble(argumentValues.get(3)) * Transaction.micronyzoMultiplierRatio);
 
-            // Create the transaction and send to the cycle.
-            long timestamp = BlockManager.startTimestampForHeight(blockHeight) + 1000L;
+            // Create the transaction and send to likely verifiers.
+            long timestamp = ClientTransactionUtil.suggestedTransactionTimestamp();
             Transaction transaction = Transaction.cycleTransaction(timestamp, amount,
                     receiverIdentifier.getIdentifier(), senderData, signerSeed.getSeed());
-            ClientTransactionUtil.sendCycleTransaction(transaction, output);
+            ClientTransactionUtil.sendTransactionToLikelyBlockVerifiers(transaction, true, output);
         } catch (Exception e) {
             output.println(ConsoleColor.Red + "unexpected issue creating cycle transaction: " +
                     PrintUtil.printException(e) + ConsoleColor.reset);

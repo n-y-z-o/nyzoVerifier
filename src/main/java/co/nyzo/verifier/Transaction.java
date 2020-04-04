@@ -358,9 +358,7 @@ public class Transaction implements MessageObject {
                 size += FieldByteSize.signature;        // signature
             }
         } else {
-            size = FieldByteSize.transactionType +      // type
-                    FieldByteSize.timestamp +           // timestamp
-                    FieldByteSize.transactionAmount +   // amount
+            size += FieldByteSize.transactionAmount +   // amount
                     FieldByteSize.identifier;           // receiver identifier
         }
 

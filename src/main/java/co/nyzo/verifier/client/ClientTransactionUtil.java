@@ -145,8 +145,9 @@ public class ClientTransactionUtil {
 
                         // Print the transaction response.
                         if (message == null) {
-                            output.println(ConsoleColor.Red + "transaction response: null" +
-                                    ConsoleColor.reset);
+                            output.println(ConsoleColor.Red + "transaction response null from " +
+                                    NicknameManager.get(node.getIdentifier()) + ", " +
+                                    IpUtil.addressAsString(node.getIpAddress()) + ConsoleColor.reset);
                         } else {
                             if (message.getContent() instanceof TransactionResponse) {
                                 TransactionResponse response = (TransactionResponse) message.getContent();
@@ -170,9 +171,16 @@ public class ClientTransactionUtil {
         // If indicated, wait for the block that should incorporate the transaction to be received.
         if (waitForBlock) {
 
-            // Wait for the transaction's block to be received.
-            while (BlockManager.getFrozenEdgeHeight() < transactionHeight) {
+            // Wait for the transaction's block to be received, up to 30 seconds.
+            int waitCount = 0;
+            while (BlockManager.getFrozenEdgeHeight() < transactionHeight && waitCount++ < 30) {
                 ThreadUtil.sleep(1000L);
+
+                // Periodically display a "waiting for block" message.
+                if (waitCount % 5 == 1) {
+                    output.println(ConsoleColor.Yellow.backgroundBright() + "waiting for block..." +
+                            ConsoleColor.reset);
+                }
             }
             ThreadUtil.sleep(200L);
 

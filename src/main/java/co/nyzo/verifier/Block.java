@@ -623,8 +623,8 @@ public class Block implements MessageObject {
 
                 // Process cycle and cycle-signature transactions in version 2 or later.
                 if (blockchainVersion >= 2) {
-                   processV2CycleTransactions(pendingCycleTransactions, recentlyApprovedCycleTransactions, transactions,
-                           blockHeight, identifierToItemMap);
+                    processV2CycleTransactions(pendingCycleTransactions, recentlyApprovedCycleTransactions,
+                            transactions, blockHeight, identifierToItemMap);
                 }
 
                 // For a blockchain versions greater than 0, move 1% of the organic transaction fees to the cycle
@@ -784,6 +784,7 @@ public class Block implements MessageObject {
         Transaction approvedCycleTransaction = null;
         List<ByteBuffer> pendingTransactionIdentifiers = new ArrayList<>(pendingCycleTransactions.keySet());
         pendingTransactionIdentifiers.sort(Transaction.identifierComparator);
+
         int voteThreshold = BlockManager.currentCycleLength() / 2 + 1;
         for (int i = 0; i < pendingTransactionIdentifiers.size() && approvedCycleTransaction == null; i++) {
             ByteBuffer identifier = pendingTransactionIdentifiers.get(i);
@@ -803,8 +804,8 @@ public class Block implements MessageObject {
         }
 
         if (approvedCycleTransaction != null) {
-            LogUtil.println(ConsoleColor.Green.backgroundBright() + "approved cycle transaction: " +
-                    approvedCycleTransaction + ConsoleColor.reset);
+            LogUtil.println(ConsoleColor.Green.backgroundBright() + "approved cycle transaction at height " +
+                    blockHeight + ": " + approvedCycleTransaction + ConsoleColor.reset);
 
             // Remove the transaction from the pending list.
             ByteBuffer senderIdentifier = ByteBuffer.wrap(approvedCycleTransaction.getSenderIdentifier());

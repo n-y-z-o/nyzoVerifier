@@ -321,6 +321,7 @@ public class MeshListener {
                     blockVoteTcpCount++;
                 }
 
+                // Produce and send the response.
                 Message response = response(message);
                 if (response != null) {
                     clientSocket.getOutputStream().write(response.getBytesForTransmission());
