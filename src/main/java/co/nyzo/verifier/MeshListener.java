@@ -512,16 +512,6 @@ public class MeshListener {
                     response = new Message(MessageType.FrozenEdgeBalanceListResponse46,
                             new BalanceListResponse(message.getSourceIpAddress()));
 
-                } else if (messageType == MessageType.CycleTransactionSignature47) {
-
-                    response = new Message(MessageType.CycleTransactionSignatureResponse48,
-                            new CycleTransactionSignatureResponse(message));
-
-                } else if (messageType == MessageType.CycleTransactionListRequest49) {
-
-                    response = new Message(MessageType.CycleTransactionListResponse50,
-                            new TransactionListResponse(message));
-
                 } else if (messageType == MessageType.Ping200) {
 
                     StatusResponse.incrementPingCount();

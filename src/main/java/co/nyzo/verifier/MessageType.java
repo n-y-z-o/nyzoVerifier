@@ -54,10 +54,10 @@ public enum MessageType {
     NodeJoinResponseV2_44(44),
     FrozenEdgeBalanceListRequest45(45),
     FrozenEdgeBalanceListResponse46(46),
-    CycleTransactionSignature47(47),
-    CycleTransactionSignatureResponse48(48),
-    CycleTransactionListRequest49(49),
-    CycleTransactionListResponse50(50),
+    // CycleTransactionSignature47(47),  // not used after blockchain v1
+    // CycleTransactionSignatureResponse48(48),  // not used after blockchain v1
+    // CycleTransactionListRequest49(49),  // not used after blockchain v1
+    // CycleTransactionListResponse50(50),  // not used after blockchain v1
     MinimalBlock51(51),
     MinimalBlockResponse52(52),   // currently unused -- UDP-only message
 

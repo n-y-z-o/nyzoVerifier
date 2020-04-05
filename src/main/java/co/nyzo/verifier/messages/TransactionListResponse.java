@@ -16,8 +16,6 @@ public class TransactionListResponse implements MessageObject {
         if (ByteUtil.arraysAreEqual(request.getSourceNodeIdentifier(), Verifier.getIdentifier())) {
             if (request.getType() == MessageType.TransactionPoolResponse14) {
                 transactions = TransactionPool.allTransactions();
-            } else if (request.getType() == MessageType.CycleTransactionListRequest49) {
-                transactions = new ArrayList<>(CycleTransactionManager.getTransactions());
             } else {
                 transactions = new ArrayList<>();
             }

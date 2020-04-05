@@ -1,16 +1,11 @@
 package co.nyzo.verifier.client.commands;
 
-import co.nyzo.verifier.BlockManager;
-import co.nyzo.verifier.KeyUtil;
 import co.nyzo.verifier.Transaction;
 import co.nyzo.verifier.client.*;
-import co.nyzo.verifier.messages.CycleTransactionSignature;
 import co.nyzo.verifier.nyzoString.*;
 import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.SignatureUtil;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class CycleTransactionSignCommand implements Command {

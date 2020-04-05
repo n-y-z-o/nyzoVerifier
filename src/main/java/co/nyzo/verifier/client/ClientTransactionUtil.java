@@ -1,12 +1,8 @@
 package co.nyzo.verifier.client;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.messages.CycleTransactionSignature;
-import co.nyzo.verifier.messages.CycleTransactionSignatureResponse;
 import co.nyzo.verifier.messages.TransactionResponse;
 import co.nyzo.verifier.nyzoString.*;
-import co.nyzo.verifier.scripts.PendingMessage;
-import co.nyzo.verifier.scripts.ScriptUtil;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.ThreadUtil;
@@ -209,56 +205,6 @@ public class ClientTransactionUtil {
         }
 
         return verifiers;
-    }
-
-    public static void sendCycleTransaction(Transaction transaction, CommandOutput output) {
-
-        // Build the set of messages. Cycle transactions are sent to all verifiers in the cycle.
-        Set<ByteBuffer> cycleVerifiers = BlockManager.verifiersInCurrentCycleSet();
-        Set<PendingMessage> messages = ConcurrentHashMap.newKeySet();
-        for (Node node : ClientNodeManager.getMesh()) {
-            if (cycleVerifiers.contains(ByteBuffer.wrap(node.getIdentifier()))) {
-                Message message = new Message(MessageType.Transaction5, transaction);
-                messages.add(new PendingMessage(node, MessageType.Transaction5, transaction));
-            }
-        }
-
-        // Send the messages.
-        ScriptUtil.sendMessages(messages, output);
-    }
-
-    public static void sendCycleTransactionSignature(CycleTransactionSignature signature, CommandOutput output) {
-
-        // Cycle transaction signatures are sent to all verifiers in the cycle, retrying once for failures.
-        Set<Node> nodesReceived = ConcurrentHashMap.newKeySet();
-        Set<ByteBuffer> cycleVerifiers = BlockManager.verifiersInCurrentCycleSet();
-        for (int i = 0; i < 2; i++) {
-            for (Node node : ClientNodeManager.getMesh()) {
-                if (!nodesReceived.contains(node) && cycleVerifiers.contains(ByteBuffer.wrap(node.getIdentifier()))) {
-                    if (i == 0) {
-                        output.println("sending signature to " + NicknameManager.get(node.getIdentifier()));
-                    } else {
-                        output.println("resending signature to " + NicknameManager.get(node.getIdentifier()));
-                    }
-                    Message message = new Message(MessageType.CycleTransactionSignature47, signature);
-                    Message.fetch(node, message, new MessageCallback() {
-                        @Override
-                        public void responseReceived(Message message) {
-                            output.println("response: " + message);
-                            if (message != null &&
-                                    message.getType() == MessageType.CycleTransactionSignatureResponse48) {
-                                nodesReceived.add(node);
-                                if (message.getContent() instanceof CycleTransactionSignatureResponse) {
-                                    TransactionResponse response = (TransactionResponse) message.getContent();
-                                    output.println("response: " + response);
-                                }
-                            }
-                        }
-                    });
-                    ThreadUtil.sleep(500L);  // sleep 0.5 seconds after each send to limit traffic to a reasonable rate
-                }
-            }
-        }
     }
 
     public static String senderDataForDisplay(byte[] senderData) {

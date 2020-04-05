@@ -20,44 +20,21 @@ public class TransactionResponse implements MessageObject {
 
         accepted = false;
         if (transactionValid) {
-            Block frozenEdge = BlockManager.getFrozenEdge();
-            int blockchainVersion = frozenEdge == null ? Block.maximumBlockchainVersion :
-                    frozenEdge.getBlockchainVersion();
-            if (transaction.getType() == Transaction.typeStandard || (blockchainVersion >= 2 &&
-                    (transaction.getType() == Transaction.typeCycle ||
-                            transaction.getType() == Transaction.typeCycleSignature))) {
-                boolean addedToPool = TransactionPool.addTransaction(transaction, error, warning);
-                if (addedToPool) {
-                    String warningString = "";
-                    if (warning.length() > 0) {
-                        warningString = " (warning=\"" + warning.toString().trim() + "\")";
-                    }
-
-                    long height = BlockManager.heightForTimestamp(transaction.getTimestamp());
-                    accepted = true;
-                    message = "Your transaction from wallet " +
-                            PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + " to " +
-                            PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
-                            " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
-                            " has been accepted by the system and is scheduled for incorporation into block " +
-                            height + "." + warningString;
+            boolean addedToPool = TransactionPool.addTransaction(transaction, error, warning);
+            if (addedToPool) {
+                String warningString = "";
+                if (warning.length() > 0) {
+                    warningString = " (warning=\"" + warning.toString().trim() + "\")";
                 }
-            } else if (transaction.getType() == Transaction.typeCycle) {
-                boolean addedToManager = CycleTransactionManager.registerTransaction(transaction, error, warning);
-                if (addedToManager) {
-                    String warningString = "";
-                    if (warning.length() > 0) {
-                        warningString = " (warning=\"" + warning.toString().trim() + "\")";
-                    }
 
-                    long height = BlockManager.heightForTimestamp(transaction.getTimestamp());
-                    accepted = true;
-                    message = "Your cycle transaction to wallet " +
-                            PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
-                            " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
-                            " has been accepted by the system and is scheduled for incorporation into block " +
-                            height + "." + warningString;
-                }
+                long height = BlockManager.heightForTimestamp(transaction.getTimestamp());
+                accepted = true;
+                message = "Your transaction from wallet " +
+                        PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + " to " +
+                        PrintUtil.compactPrintByteArray(transaction.getReceiverIdentifier()) +
+                        " in the amount of " + PrintUtil.printAmount(transaction.getAmount()) +
+                        " has been accepted by the system and is scheduled for incorporation into block " +
+                        height + "." + warningString;
             }
         }
 

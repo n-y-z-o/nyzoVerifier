@@ -560,10 +560,9 @@ public class Verifier {
                         // Update vote counts for verifier removal.
                         VerifierRemovalManager.updateVoteCounts();
 
-                        // Perform blacklist, unfrozen block, cycle-transaction, and consensus-tracker maintenance.
+                        // Perform blacklist, unfrozen block, and consensus-tracker maintenance.
                         BlacklistManager.performMaintenance();
                         UnfrozenBlockManager.performMaintenance();
-                        CycleTransactionManager.performMaintenance();
                         ConsensusTracker.performMaintenance();
 
                         // Update the new-verifier vote. This is necessary if the previous choice is now in the
@@ -667,30 +666,6 @@ public class Verifier {
 
             // Add the metadata transactions.
             transactions.addAll(MetadataManager.metadataTransactions(previousBlock));
-
-            // Add any valid cycle transactions that are available. Filter the signatures on these transactions to
-            // ensure that invalid or out-of-cycle signatures do not cause the transaction to be rejected.
-            List<Transaction> cycleTransactions = CycleTransactionManager.transactionsForHeight(blockHeight);
-            for (Transaction transaction : cycleTransactions) {
-                transaction.filterCycleSignatures();
-                int numberOfSignatures = transaction.getCycleSignatures().size() + 1;
-                Set<ByteBuffer> currentCycle = BlockManager.verifiersInCurrentCycleSet();
-                int signatureThreshold = (currentCycle.size() + 1) * 3 / 4;  // ceiling of 75%
-                if (!currentCycle.contains(ByteBuffer.wrap(transaction.getSenderIdentifier()))) {
-                    LogUtil.println("omitting cycle transaction because initiator, " +
-                            PrintUtil.compactPrintByteArray(transaction.getSenderIdentifier()) + ", is not in cycle: " +
-                            transaction);
-                } else if (!transaction.signatureIsValid()) {
-                    LogUtil.println("omitting cycle transaction due to invalid initiator signature: " + transaction);
-                } else if (numberOfSignatures < signatureThreshold) {
-                    LogUtil.println("omitting cycle transaction due to inadequate signature count (count=" +
-                            numberOfSignatures + ", threshold=" + signatureThreshold + ", cycle length=" +
-                            currentCycle.size() + "): " + transaction);
-                } else {
-                    LogUtil.println("including cycle transaction in block " + blockHeight + ": " + transaction);
-                    transactions.add(transaction);
-                }
-            }
 
             // Check the transactions list, keeping only approved transactions.
             List<Transaction> approvedTransactions = BalanceManager.approvedTransactionsForBlock(transactions,

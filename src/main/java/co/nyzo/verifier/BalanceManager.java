@@ -1,6 +1,5 @@
 package co.nyzo.verifier;
 
-import co.nyzo.verifier.messages.CycleTransactionSignature;
 import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
