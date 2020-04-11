@@ -92,6 +92,8 @@ public enum MessageType {
     PerformanceScoreStatusResponse419(419),
     VerifierRemovalTallyStatusRequest420(420),
     VerifierRemovalTallyStatusResponse421(421),
+    BlockDelayRequest422(422),
+    BlockDelayResponse423(423),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain

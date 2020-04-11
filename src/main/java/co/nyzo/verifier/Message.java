@@ -506,6 +506,8 @@ public class Message {
                 return PerformanceScoreStatusResponse.fromByteBuffer(buffer);
             case VerifierRemovalTallyStatusResponse421:
                 return VerifierRemovalTallyStatusResponse.fromByteBuffer(buffer);
+            case BlockDelayResponse423:
+                return BlockDelayResponse.fromByteBuffer(buffer);
             case ResetResponse501:
                 return BooleanMessageResponse.fromByteBuffer(buffer);
             case Error65534:

@@ -36,6 +36,9 @@ public class Block implements MessageObject {
     private static final long approvedCycleTransactionRetentionInterval = 10_000L;
     private static final long maximumCycleTransactionSumPerInterval = 100_000L * Transaction.micronyzoMultiplierRatio;
 
+    // This is used to test the sentinel by applying a timestamp offset to blocks produced by this verifier.
+    private static long blockDelayHeight = -1L;
+
     // These are the minimum and maximum blockchain versions that this software knows how to process. The version is
     // strictly enforced. Attempting to process an unknown version would seldom lead to correct results and would open
     // possibilities for manipulation.
@@ -472,6 +475,13 @@ public class Block implements MessageObject {
                     System.out.println("40-second wait for new verifier at height " + height);
                     timestamp += 40000L;
                 }
+            }
+
+            // This wait allows the sentinel to produce a block, but it is short enough to avoid removal from the cycle
+            // if the sentinel does not produce a block.
+            if (blockDelayHeight >= height &&
+                    ByteUtil.arraysAreEqual(Verifier.getIdentifier(), getVerifierIdentifier())) {
+                timestamp = Math.max(timestamp, Verifier.getLastBlockFrozenTimestamp() + 40000L);
             }
         }
 
@@ -972,6 +982,14 @@ public class Block implements MessageObject {
         // included if this verifier assembled the block. If the block has fewer transactions than this maximum, a value
         // of zero is returned.
         return Math.max(0, getTransactions().size() - BlockchainMetricsManager.maximumTransactionsForBlockAssembly());
+    }
+
+    public static long getBlockDelayHeight() {
+        return blockDelayHeight;
+    }
+
+    public static void setBlockDelayHeight() {
+        blockDelayHeight = BlockManager.getFrozenEdgeHeight() + BlockManager.currentCycleLength();
     }
 
     @Override

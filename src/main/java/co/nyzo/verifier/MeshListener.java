@@ -560,7 +560,8 @@ public class MeshListener {
 
                     response = new Message(MessageType.VerifierRemovalTallyStatusResponse421,
                             new VerifierRemovalTallyStatusResponse(message));
-
+                } else if (messageType == MessageType.BlockDelayRequest422) {
+                    response = new Message(MessageType.BlockDelayResponse423, BlockDelayResponse.forRequest(message));
                 } else if (messageType == MessageType.ResetRequest500) {
 
                     boolean success = ByteUtil.arraysAreEqual(message.getSourceNodeIdentifier(),

@@ -69,6 +69,7 @@ public class StatusResponse implements MessageObject {
             lines.add("node-joins sent: " + NodeManager.getNodeJoinRequestsSent());
             lines.add("memory (min/max/avg): " + MemoryMonitor.getMemoryStats());
             lines.add("initialization time: " + String.format("%.1f", Verifier.getInitializationTime() / 1000.0f));
+            lines.add("sentinel test height: " + Block.getBlockDelayHeight());
 
             Map<Long, Integer> thresholdOverrides = UnfrozenBlockManager.getThresholdOverrides();
             for (Long height : thresholdOverrides.keySet()) {
