@@ -227,7 +227,8 @@ public class Message {
                                 ((response.getTimestamp() >= System.currentTimeMillis() - replayProtectionInterval &&
                                         response.getTimestamp() <= System.currentTimeMillis() +
                                                 replayProtectionInterval) ||
-                                        response.getType() == MessageType.TimestampResponse28)) {
+                                        response.getType() == MessageType.TimestampResponse28 ||
+                                        response.getType() == MessageType.Error65534)) {
                             MessageQueue.add(messageCallback, response);
                         } else {
                             MessageQueue.add(messageCallback, null);
