@@ -31,6 +31,9 @@ public class Message {
             MessageType.NewVerifierVote21));
     public static final long replayProtectionInterval = 5000L;
 
+    private static final Map<ByteBuffer, Long> dynamicWhitelist = new ConcurrentHashMap<>();
+    public static final long dynamicWhitelistInterval = 1000L * 60L * 10L;  // 10 minutes
+
     private static DatagramSocket datagramSocket;
     static {
         try {
@@ -487,6 +490,8 @@ public class Message {
                 return BalanceListResponse.fromByteBuffer(buffer);
             case MinimalBlock51:
                 return MinimalBlock.fromByteBuffer(buffer);
+            case IpAddressResponse54:
+                return IpAddressMessageObject.fromByteBuffer(buffer);
             case PingResponse201:
                 return PingResponse.fromByteBuffer(buffer);
             case UpdateResponse301:
@@ -509,6 +514,10 @@ public class Message {
                 return VerifierRemovalTallyStatusResponse.fromByteBuffer(buffer);
             case BlockDelayResponse423:
                 return BlockDelayResponse.fromByteBuffer(buffer);
+            case WhitelistRequest424:
+                return IpAddressMessageObject.fromByteBuffer(buffer);
+            case WhitelistResponse425:
+                return WhitelistResponse.fromByteBuffer(buffer);
             case ResetResponse501:
                 return BooleanMessageResponse.fromByteBuffer(buffer);
             case Error65534:
@@ -596,8 +605,25 @@ public class Message {
     }
 
     public static boolean ipIsWhitelisted(byte[] ipAddress) {
+        ByteBuffer ipAddressBuffer = ByteBuffer.wrap(ipAddress);
+        return whitelist.contains(ipAddressBuffer) || dynamicWhitelist.keySet().contains(ipAddressBuffer);
+    }
 
-        return whitelist.contains(ByteBuffer.wrap(ipAddress));
+    public static void whitelistIpAddress(byte[] ipAddress) {
+        dynamicWhitelist.put(ByteBuffer.wrap(ipAddress), System.currentTimeMillis());
+        LogUtil.println("added " + IpUtil.addressAsString(ipAddress) + " to dynamic whitelist");
+    }
+
+    public static void performMaintenance() {
+        // Remove stale entries from the dynamic whitelist.
+        Set<ByteBuffer> ipAddresses = new HashSet<>(dynamicWhitelist.keySet());
+        long threshold = System.currentTimeMillis() - dynamicWhitelistInterval;
+        for (ByteBuffer ipAddress : ipAddresses) {
+            if (dynamicWhitelist.getOrDefault(ipAddress, 0L) < threshold) {
+                dynamicWhitelist.remove(ipAddress);
+                LogUtil.println("removed " + IpUtil.addressAsString(ipAddress.array()) + " from dynamic whitelist");
+            }
+        }
     }
 
     @Override

@@ -24,6 +24,7 @@ public class Sentinel {
     private static final AtomicBoolean loadedManagedVerifiers = new AtomicBoolean(false);
     public static final File managedVerifiersFile = new File(Verifier.dataRootDirectory, "managed_verifiers");
 
+    private static final long whitelistUpdateInterval = Message.dynamicWhitelistInterval / 2;
     private static final long meshUpdateInterval = 1000L * 60L * 5L;  // 5 minutes
     private static final long blockUpdateIntervalFast = 1000L;
     private static final long blockUpdateIntervalStandard = 2000L;
@@ -87,6 +88,14 @@ public class Sentinel {
             loadManagedVerifiers();
         }
 
+        // Send a whitelist request to each managed verifier.
+        for (ManagedVerifier verifier : verifierList) {
+            sendWhitelistRequest(verifier);
+        }
+
+        // Sleep for 1.5 seconds to give the whitelist requests time to process.
+        ThreadUtil.sleep(1500L);
+
         // Initialize the frozen edge. This process will repeat until it is successful.
         SentinelUtil.initializeFrozenEdge(verifierList);
 
@@ -139,6 +148,7 @@ public class Sentinel {
                 ByteBuffer identifier = ByteBuffer.wrap(verifier.getIdentifier());
                 long lastBlockRequestedTimestamp = 0L;
                 long lastMeshUpdateTimestamp = 0L;
+                long lastWhitelistTimestamp = 0L;
                 while (!UpdateUtil.shouldTerminate()) {
 
                     long loopStartTimestamp = System.currentTimeMillis();
@@ -147,6 +157,12 @@ public class Sentinel {
                     // threads sending messages simultaneously. As all the individual verifier loops are invoking this
                     // method, none will monopolize the queue.
                     MessageQueue.blockThisThreadUntilClear();
+
+                    // Send a whitelist request to the managed verifier.
+                    if (lastWhitelistTimestamp < System.currentTimeMillis() - whitelistUpdateInterval) {
+                        lastWhitelistTimestamp = System.currentTimeMillis();
+                        sendWhitelistRequest(verifier);
+                    }
 
                     // Update the mesh. We need to know who the in-cycle nodes are in order to send out a block if one
                     // needs to be created.
@@ -382,6 +398,46 @@ public class Sentinel {
         }
     }
 
+    private static boolean checkResponseIdentifier(Message message, ManagedVerifier verifier) {
+        if (message != null) {
+            // Set the response identifier. This is displayed in the interface if mismatched.
+            verifier.setResponseIdentifier(message.getSourceNodeIdentifier());
+
+            // Also log if the identifier is mismatched.
+            if (!ByteUtil.arraysAreEqual(verifier.getIdentifier(), message.getSourceNodeIdentifier())) {
+                LogUtil.println(NicknameManager.get(verifier.getIdentifier()) + " identifier mismatch: " +
+                        ByteUtil.arrayAsStringWithDashes(verifier.getIdentifier()) + ", response identifier: " +
+                        ByteUtil.arrayAsStringWithDashes(verifier.getResponseIdentifier()));
+            }
+        }
+
+        return message != null && ByteUtil.arraysAreEqual(verifier.getIdentifier(), message.getSourceNodeIdentifier());
+    }
+
+    private static void sendWhitelistRequest(ManagedVerifier verifier) {
+        // Get the IP address of this sentinel according to the managed verifier.
+        Message ipRequest = new Message(MessageType.IpAddressRequest53, null, verifier.getSeed());
+        Message.fetchTcp(verifier.getHost(), verifier.getPort(), ipRequest, new MessageCallback() {
+            @Override
+            public void responseReceived(Message message) {
+                // If the response identifier is correct and the content type is correct, send the whitelist request.
+                if (checkResponseIdentifier(message, verifier) &&
+                        (message.getContent() instanceof IpAddressMessageObject)) {
+                    IpAddressMessageObject ipAddress = (IpAddressMessageObject) message.getContent();
+                    Message whitelistRequest = new Message(MessageType.WhitelistRequest424, ipAddress,
+                            verifier.getSeed());
+                    Message.fetchTcp(verifier.getHost(), verifier.getPort(), whitelistRequest, new MessageCallback() {
+                        @Override
+                        public void responseReceived(Message message) {
+                            LogUtil.println("whitelist response from " + NicknameManager.get(verifier.getIdentifier()) +
+                                    ": " + message);
+                        }
+                    });
+                }
+            }
+        });
+    }
+
     private static void updateMesh(ManagedVerifier verifier) {
 
         // Get the mesh.
@@ -389,30 +445,14 @@ public class Sentinel {
         Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
             @Override
             public void responseReceived(Message message) {
-
-                try {
-                    if (message != null) {
-                        // Set the response identifier. This is displayed in the interface if mismatched.
-                        verifier.setResponseIdentifier(message.getSourceNodeIdentifier());
-
-                        // Log if the identifier is mismatched, in case the operator does not use the web interface.
-                        if (!ByteUtil.arraysAreEqual(verifier.getIdentifier(), message.getSourceNodeIdentifier())) {
-                            LogUtil.println(NicknameManager.get(verifier.getIdentifier()) + " identifier mismatch: " +
-                                    ByteUtil.arrayAsStringWithDashes(verifier.getIdentifier()) + ", response identifier: " +
-                                    ByteUtil.arrayAsStringWithDashes(verifier.getResponseIdentifier()));
-                        }
-
-                        // If the response identifier is correct and the content type is correct, process the response.
-                        if (ByteUtil.arraysAreEqual(verifier.getIdentifier(), message.getSourceNodeIdentifier()) &&
-                                (message.getContent() instanceof MeshResponse)) {
-                            MeshResponse response = (MeshResponse) message.getContent();
-                            if (!response.getMesh().isEmpty()) {
-                                verifierIdentifierToMeshMap.put(ByteBuffer.wrap(message.getSourceNodeIdentifier()),
-                                        response.getMesh());
-                            }
-                        }
+                // If the response identifier is correct and the content type is correct, process the response.
+                if (checkResponseIdentifier(message, verifier) && (message.getContent() instanceof MeshResponse)) {
+                    MeshResponse response = (MeshResponse) message.getContent();
+                    if (!response.getMesh().isEmpty()) {
+                        verifierIdentifierToMeshMap.put(ByteBuffer.wrap(message.getSourceNodeIdentifier()),
+                                response.getMesh());
                     }
-                } catch (Exception ignored) { }
+                }
             }
         });
     }
@@ -433,37 +473,26 @@ public class Sentinel {
             @Override
             public void responseReceived(Message message) {
 
+                // If the response identifier is correct and the content type is correct, process the response.
                 int result;
-                if (message == null) {
-                    result = ManagedVerifier.queryResultErrorValue;
-                } else {
-                    try {
-                        // Set the response identifier. This is displayed in the interface if mismatched.
-                        verifier.setResponseIdentifier(message.getSourceNodeIdentifier());
-
-                        // If the response identifier is correct and the content type is correct, process the response.
-                        if (ByteUtil.arraysAreEqual(verifier.getIdentifier(), message.getSourceNodeIdentifier()) &&
-                                (message.getContent() instanceof BlockResponse)) {
-                            BlockResponse blockResponse = (BlockResponse) message.getContent();
-                            List<Block> blocks = blockResponse.getBlocks();
-                            if (blocks.size() == 0) {
-                                result = 0;
-                            } else if (blocks.get(0).getBlockHeight() == startHeightToFetch &&
-                                    blocks.get(blocks.size() - 1).getBlockHeight() == endHeightToFetch) {
-                                blockList.addAll(blocks);
-                                result = blockList.size();
-                            } else {
-                                result = ManagedVerifier.queryResultErrorValue;
-                            }
-                        } else {
-                            result = ManagedVerifier.queryResultErrorValue;
-                        }
-                    } catch (Exception ignored) {
+                if (checkResponseIdentifier(message, verifier) && (message.getContent() instanceof BlockResponse)) {
+                    BlockResponse blockResponse = (BlockResponse) message.getContent();
+                    List<Block> blocks = blockResponse.getBlocks();
+                    if (blocks.size() == 0) {
+                        result = 0;
+                    } else if (blocks.get(0).getBlockHeight() == startHeightToFetch &&
+                            blocks.get(blocks.size() - 1).getBlockHeight() == endHeightToFetch) {
+                        blockList.addAll(blocks);
+                        result = blockList.size();
+                    } else {
                         result = ManagedVerifier.queryResultErrorValue;
                     }
+                } else {
+                    result = ManagedVerifier.queryResultErrorValue;
                 }
-                verifier.logResult(result);
 
+                // Log the result and mark the response as processed.
+                verifier.logResult(result);
                 processedResponse.set(true);
             }
         });

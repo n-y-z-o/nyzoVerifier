@@ -560,10 +560,12 @@ public class Verifier {
                         // Update vote counts for verifier removal.
                         VerifierRemovalManager.updateVoteCounts();
 
-                        // Perform blacklist, unfrozen block, and consensus-tracker maintenance.
+                        // Perform blacklist, unfrozen block, consensus-tracker, and message (dynamic whitelist)
+                        // maintenance.
                         BlacklistManager.performMaintenance();
                         UnfrozenBlockManager.performMaintenance();
                         ConsensusTracker.performMaintenance();
+                        Message.performMaintenance();
 
                         // Update the new-verifier vote. This is necessary if the previous choice is now in the
                         // cycle.

@@ -517,7 +517,9 @@ public class MeshListener {
 
                     response = new Message(MessageType.FrozenEdgeBalanceListResponse46,
                             new BalanceListResponse(message.getSourceIpAddress()));
-
+                } else if (messageType == MessageType.IpAddressRequest53) {
+                    response = new Message(MessageType.IpAddressResponse54,
+                            new IpAddressMessageObject(message.getSourceIpAddress()));
                 } else if (messageType == MessageType.Ping200) {
 
                     StatusResponse.incrementPingCount();
@@ -568,6 +570,8 @@ public class MeshListener {
                             new VerifierRemovalTallyStatusResponse(message));
                 } else if (messageType == MessageType.BlockDelayRequest422) {
                     response = new Message(MessageType.BlockDelayResponse423, BlockDelayResponse.forRequest(message));
+                } else if (messageType == MessageType.WhitelistRequest424) {
+                    response = new Message(MessageType.WhitelistResponse425, WhitelistResponse.forRequest(message));
                 } else if (messageType == MessageType.ResetRequest500) {
 
                     boolean success = ByteUtil.arraysAreEqual(message.getSourceNodeIdentifier(),

@@ -60,6 +60,8 @@ public enum MessageType {
     // CycleTransactionListResponse50(50),  // not used after blockchain v1
     MinimalBlock51(51),
     MinimalBlockResponse52(52),   // currently unused -- UDP-only message
+    IpAddressRequest53(53),
+    IpAddressResponse54(54),
 
     // test messages
     Ping200(200),
@@ -94,6 +96,8 @@ public enum MessageType {
     VerifierRemovalTallyStatusResponse421(421),
     BlockDelayRequest422(422),
     BlockDelayResponse423(423),
+    WhitelistRequest424(424),
+    WhitelistResponse425(425),
 
     // bootstrapping messages
     ResetRequest500(500),   // resets the blockchain
