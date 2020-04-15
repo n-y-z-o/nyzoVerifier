@@ -661,7 +661,8 @@ public class Block implements MessageObject {
                         if (blockchainVersion == 0 && item.getBalance() > 0L) {
                             item = item.adjustByAmount(-1L);
                             periodicAccountFees++;
-                        } else if (blockchainVersion == 1 && item.getBalance() < Transaction.micronyzoMultiplierRatio) {
+                        } else if ((blockchainVersion == 1 || blockchainVersion > 2) &&
+                                item.getBalance() < Transaction.micronyzoMultiplierRatio) {
                             long fee = Math.min(item.getBalance(), 100L);
                             item = item.adjustByAmount(-1L * fee);
                             periodicAccountFees += fee;
