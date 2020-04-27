@@ -13,6 +13,7 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -99,7 +100,7 @@ public class Verifier {
         dataRootDirectory.mkdirs();
 
         if (privateSeed == null) {
-            final Path seedFile = Paths.get(dataRootDirectory.getAbsolutePath() + "/verifier_private_seed");
+            final Path seedFile = Paths.get(dataRootDirectory.getAbsolutePath(), "/verifier_private_seed");
             try {
                 List<String> lines = Files.readAllLines(seedFile);
                 if (!lines.isEmpty()) {
@@ -351,10 +352,10 @@ public class Verifier {
 
     public static List<TrustedEntryPoint> getTrustedEntryPoints() {
 
-        Path path = Paths.get(dataRootDirectory.getAbsolutePath() + "/trusted_entry_points");
+        Path path = Paths.get(dataRootDirectory.getAbsolutePath(), "/trusted_entry_points");
         List<TrustedEntryPoint> entryPoints = new ArrayList<>();
         try {
-            List<String> contentsOfFile = Files.readAllLines(path);
+            List<String> contentsOfFile = Files.readAllLines(path, StandardCharsets.UTF_8);
             for (String line : contentsOfFile) {
                 line = line.trim();
                 int indexOfHash = line.indexOf("#");
