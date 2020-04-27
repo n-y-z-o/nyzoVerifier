@@ -5,6 +5,8 @@ import java.util.List;
 
 public class ByteUtil {
 
+    private static final byte [] EMPTY_BYTE_ARRAY = new byte [0];
+
     public static byte[] toArray(List<Byte> list) {
 
         byte[] array = new byte[list.size()];
@@ -21,7 +23,7 @@ public class ByteUtil {
         if (array.length > 64) {
             dataSegment = Arrays.copyOf(array, array.length - 64);
         } else {
-            dataSegment = new byte[0];
+            dataSegment = EMPTY_BYTE_ARRAY;
         }
 
         return dataSegment;
@@ -33,7 +35,7 @@ public class ByteUtil {
         if (array.length > 64) {
             signatureSegment = Arrays.copyOfRange(array, array.length - 64, array.length);
         } else {
-            signatureSegment = new byte[0];
+            signatureSegment = EMPTY_BYTE_ARRAY;
         }
 
         return signatureSegment;
@@ -112,6 +114,7 @@ public class ByteUtil {
             for (int i = 0; i < array1.length && arraysAreEqual; i++) {
                 if (array1[i] != array2[i]) {
                     arraysAreEqual = false;
+                    break;
                 }
             }
         }
@@ -147,9 +150,10 @@ public class ByteUtil {
     public static boolean isAllZeros(byte[] array) {
         boolean isAllZeros = true;
         if (array != null) {
-            for (int i = 0; i < array.length && isAllZeros; i++) {
-                if (array[i] != 0) {
+            for(final byte b : array) {
+                if(b != 0) {
                     isAllZeros = false;
+                    break;
                 }
             }
         }

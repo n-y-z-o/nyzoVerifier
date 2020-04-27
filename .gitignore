@@ -18,3 +18,8 @@
 classes/
 libs/
 tmp/
+
+###local###
+gradle/
+gradlew
+gradlew.bat
