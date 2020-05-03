@@ -5,6 +5,7 @@ import co.nyzo.verifier.client.Client;
 import co.nyzo.verifier.client.ClientController;
 import co.nyzo.verifier.documentation.DocumentationController;
 import co.nyzo.verifier.micropay.MicropayController;
+import co.nyzo.verifier.relay.RelayController;
 import co.nyzo.verifier.util.*;
 
 import javax.net.ssl.*;
@@ -32,6 +33,7 @@ public class WebListener {
     private static final String startWebListenerKey = "start_web_listener";
     private static final String keystorePathKey = "web_listener_keystore_path";
     private static final String keystorePasswordKey = "web_listener_keystore_password";
+    private static final String connectionTimeoutKey = "web_listener_connection_timeout";
 
     public static final String addWebEndpointsKey = "add_web_endpoints";
     public static final String addApiEndpointsKey = "add_api_endpoints";
@@ -44,6 +46,8 @@ public class WebListener {
 
     private static final int maximumConcurrentConnectionsForIp =
             PreferencesUtil.getInt("web_maximum_concurrent_connections_per_ip", 40);
+
+    private static final int connectionTimeout = PreferencesUtil.getInt(connectionTimeoutKey, 2000);
 
     private static final File temporaryForwardingWebDirectory = new File(Verifier.dataRootDirectory, "webTemp");
 
@@ -65,7 +69,8 @@ public class WebListener {
         // Micropay modes, false otherwise.
         RunMode runMode = RunMode.getRunMode();
         if (PreferencesUtil.getBoolean(startWebListenerKey, runMode == RunMode.MicropayServer ||
-                runMode == RunMode.MicropayClient || runMode == RunMode.DocumentationServer)) {
+                runMode == RunMode.MicropayClient || runMode == RunMode.DocumentationServer ||
+                runMode == RunMode.RelayServer)) {
             buildEndpointMap();
             openHttpListener();
             openHttpsListener();
@@ -170,7 +175,7 @@ public class WebListener {
                     public void run() {
 
                         try {
-                            clientSocket.setSoTimeout(2000);
+                            clientSocket.setSoTimeout(connectionTimeout);
                             boolean socketAlive = true;
                             while (socketAlive) {
                                 socketAlive = readMessageAndRespond(clientSocket);
@@ -374,6 +379,9 @@ public class WebListener {
 
                 // The Micropay controller builds its map dynamically based on the contents of a directory.
                 map.putAll(MicropayController.buildEndpointMap());
+                break;
+            case RelayServer:
+                map.putAll(RelayController.buildEndpointMap());
                 break;
             case Sentinel:
                 map.put(SentinelController.pageEndpoint, SentinelController::page);

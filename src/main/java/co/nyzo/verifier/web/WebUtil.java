@@ -5,8 +5,14 @@ import co.nyzo.verifier.client.ClientTransactionUtil;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.web.elements.Style;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class WebUtil {
@@ -56,6 +62,12 @@ public class WebUtil {
     }
 
     private static final AtomicInteger nextId = new AtomicInteger(0);
+
+    private static final SimpleDateFormat imfFixdateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z",
+            Locale.ENGLISH);
+    static {
+        imfFixdateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+    }
 
     public static String sanitizedNickname(byte[] identifier) {
 
@@ -187,5 +199,9 @@ public class WebUtil {
     public static String nextId() {
 
         return "id" + nextId.incrementAndGet();
+    }
+
+    public static String imfFixdateString(long timestamp) {
+        return imfFixdateFormat.format(timestamp);
     }
 }

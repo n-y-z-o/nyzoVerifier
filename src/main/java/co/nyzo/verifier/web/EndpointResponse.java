@@ -53,4 +53,28 @@ public class EndpointResponse {
     public HttpStatusCode getStatusCode() {
         return statusCode;
     }
+
+    public static String contentTypeForFile(String path) {
+        path = path == null ? "" : path.toLowerCase();
+        String contentType;
+        if (path.endsWith(".css")) {
+            contentType = contentTypeCss;
+        } else if (path.endsWith(".html") || path.endsWith(".htm")) {
+            contentType = contentTypeHtml;
+        } else if (path.endsWith(".ico")) {
+            contentType = contentTypeIco;
+        } else if (path.endsWith(".jpeg") || path.endsWith(".jpg") || path.endsWith(".jfif")) {
+            contentType = contentTypeJpeg;
+        } else if (path.endsWith(".json")) {
+            contentType = contentTypeJson;
+        } else if (path.endsWith(".png")) {
+            contentType = contentTypePng;
+        } else if (path.endsWith(".txt")) {
+            contentType = contentTypeText;
+        } else {
+            contentType = contentTypeDefault;
+        }
+
+        return contentType;
+    }
 }
