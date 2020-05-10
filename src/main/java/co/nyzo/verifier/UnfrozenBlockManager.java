@@ -25,7 +25,9 @@ public class UnfrozenBlockManager {
     private static final byte[] fallbackVoteSourceIdentifier =
             PreferencesUtil.getByteArray("fallback_vote_source_identifier", FieldByteSize.identifier, null);
 
-    private static Map<Long, Map<ByteBuffer, Block>> disconnectedBlocks = new ConcurrentHashMap<>();
+    private static final Map<Long, Map<ByteBuffer, Block>> disconnectedBlocks = new ConcurrentHashMap<>();
+    private static final int maximumDisconnectedBlocksPerHeight = 2;
+    private static final int maximumDisconnectedDistance = 300;
 
     private static long lastBlockVoteTimestamp = 0L;
 
@@ -85,10 +87,11 @@ public class UnfrozenBlockManager {
                 block.getBlockHeight() <= BlockManager.openEdgeHeight(true)) {
 
             // Get the map of blocks at this height.
-            Map<ByteBuffer, Block> blocksAtHeight = unfrozenBlocks.get(block.getBlockHeight());
+            long blockHeight = block.getBlockHeight();
+            Map<ByteBuffer, Block> blocksAtHeight = unfrozenBlocks.get(blockHeight);
             if (blocksAtHeight == null) {
                 blocksAtHeight = new ConcurrentHashMap<>();
-                unfrozenBlocks.put(block.getBlockHeight(), blocksAtHeight);
+                unfrozenBlocks.put(blockHeight, blocksAtHeight);
             }
 
             // Check if the block is a simple duplicate (same hash).
@@ -143,18 +146,22 @@ public class UnfrozenBlockManager {
 
                         blocksAtHeight.remove(ByteBuffer.wrap(highestScoredBlock.getHash()));
                     }
-                } else if (balanceList == null && block.getBlockHeight() > frozenEdgeHeight + 1) {
+                } else if (balanceList == null && blockHeight > frozenEdgeHeight + 1 &&
+                        blockHeight <= frozenEdgeHeight + maximumDisconnectedDistance &&
+                        BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(block.getVerifierIdentifier()))) {
 
                     // This is a special case when we have fallen behind the frozen edge. We may get a block for which
                     // the balance list is currently null, but it might not be null later. So, we should save it for now
-                    // to avoid having to request it later.
-                    Map<ByteBuffer, Block> disconnectedBlocksForHeight = disconnectedBlocks.get(block.getBlockHeight());
+                    // to avoid having to request it later. To be cautious about memory usage, we only do this for
+                    // in-cycle verifiers, and we limit both the size of the map and the distance past the frozen edge.
+                    Map<ByteBuffer, Block> disconnectedBlocksForHeight = disconnectedBlocks.get(blockHeight);
                     if (disconnectedBlocksForHeight == null) {
                         disconnectedBlocksForHeight = new ConcurrentHashMap<>();
-                        disconnectedBlocks.put(block.getBlockHeight(), disconnectedBlocksForHeight);
+                        disconnectedBlocks.put(blockHeight, disconnectedBlocksForHeight);
                     }
-
-                    disconnectedBlocksForHeight.put(ByteBuffer.wrap(block.getHash()), block);
+                    if (disconnectedBlocksForHeight.size() < maximumDisconnectedBlocksPerHeight) {
+                        disconnectedBlocksForHeight.put(ByteBuffer.wrap(block.getHash()), block);
+                    }
                 }
             }
         }
