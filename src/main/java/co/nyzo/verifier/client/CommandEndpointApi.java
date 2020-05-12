@@ -37,6 +37,9 @@ public class CommandEndpointApi implements EndpointResponseProvider {
             response = result.toEndpointResponse();
         }
 
+        // Set the header to allow cross-site access.
+        response.setHeader("Access-Control-Allow-Origin", "*");
+
         return response;
     }
 
