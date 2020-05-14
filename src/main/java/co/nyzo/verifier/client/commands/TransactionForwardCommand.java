@@ -133,8 +133,10 @@ public class TransactionForwardCommand implements Command {
             table.addRow(BlockManager.heightForTimestamp(transaction.getTimestamp()),
                     ByteUtil.arrayAsStringWithDashes(transaction.getSenderIdentifier()),
                     NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(transaction.getSenderIdentifier())),
-                    ByteUtil.arrayAsStringWithDashes(transaction.getReceiverIdentifier()),
-                    NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(transaction.getReceiverIdentifier())),
+                    transaction.getReceiverIdentifier() == null ? null :
+                            ByteUtil.arrayAsStringWithDashes(transaction.getReceiverIdentifier()),
+                    transaction.getReceiverIdentifier() == null ? null : NyzoStringEncoder.encode(
+                            new NyzoStringPublicIdentifier(transaction.getReceiverIdentifier())),
                     PrintUtil.printAmount(transaction.getAmount()),
                     verifiers[0] == null ? null : ByteUtil.arrayAsStringWithDashes(verifiers[0].array()),
                     verifiers[0] == null ? null :
