@@ -48,6 +48,8 @@ public class RelayEndpoint implements EndpointResponseProvider {
                     response.setHeader("Last-Modified", WebUtil.imfFixdateString(System.currentTimeMillis()));
                 } else {
                     URLConnection connection = new URL(sourceEndpoint).openConnection();
+                    connection.setConnectTimeout(2000);  // 2 seconds
+                    connection.setReadTimeout(10000);    // 10 seconds
                     if (connection.getContentLength() <= maximumSize) {
                         byte[] result = new byte[connection.getContentLength()];
                         ByteBuffer buffer = ByteBuffer.wrap(result);

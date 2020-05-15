@@ -1,6 +1,7 @@
 package co.nyzo.verifier.relay;
 
 import co.nyzo.verifier.util.LogUtil;
+import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.ThreadUtil;
 import co.nyzo.verifier.util.UpdateUtil;
 
@@ -34,7 +35,11 @@ public class RelayEndpointManager {
 
                         // Refresh all registered endpoints.
                         for (RelayEndpoint endpoint : endpoints) {
-                            endpoint.refresh();
+                            try {
+                                endpoint.refresh();
+                            } catch (Exception e) {
+                                LogUtil.println("exception in endpoint refresh: " + PrintUtil.printException(e));
+                            }
                         }
 
                         // Ensure that the loop is no tighter than 1 second per iteration.
