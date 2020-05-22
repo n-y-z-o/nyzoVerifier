@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.util.PrintUtil;
 
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 
 public class ShortLong {
@@ -43,6 +44,16 @@ public class ShortLong {
 
     public static ShortLong fromByteBuffer(ByteBuffer buffer) {
         long combinedValue = buffer.getLong();
+        int shortValue = (int) ((combinedValue >> 48) & 0xffff);
+        long longValue = combinedValue & 0xffffffffffffL;
+        return new ShortLong(shortValue, longValue);
+    }
+
+    public static ShortLong fromFile(RandomAccessFile file) {
+        long combinedValue = 0;
+        try {
+            combinedValue = file.readLong();
+        } catch (Exception ignored) { }
         int shortValue = (int) ((combinedValue >> 48) & 0xffff);
         long longValue = combinedValue & 0xffffffffffffL;
         return new ShortLong(shortValue, longValue);

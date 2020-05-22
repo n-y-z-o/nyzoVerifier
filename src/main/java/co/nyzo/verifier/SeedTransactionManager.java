@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.TestnetUtil;
 import co.nyzo.verifier.util.ThreadUtil;
 import co.nyzo.verifier.util.UpdateUtil;
@@ -28,6 +29,10 @@ public class SeedTransactionManager {
             transactionsPerYear * 6L;  // 40k testnet, six years production
     public static final long lowestSeedTransactionHeight = 2;  // start at block 2
     public static final long highestSeedTransactionHeight = lowestSeedTransactionHeight + totalSeedTransactions - 1;
+
+    private static final String transactionFileBaseUrlKey = "seed_transaction_base_url";
+    private static final String transactionFileBaseUrl = PreferencesUtil.get(transactionFileBaseUrlKey,
+            "https://seed.nyzo.co/seedTransactions/");
 
     private static final Map<Long, Transaction> transactionMap = new HashMap<>();
 
@@ -107,8 +112,7 @@ public class SeedTransactionManager {
 
     public static String urlForFile(String filename) {
 
-        return TestnetUtil.testnet ? "https://testnet.nyzo.co/seed/" + filename :
-                "https://nyzo-transactions.nyc3.digitaloceanspaces.com/" + filename;
+        return transactionFileBaseUrl + filename;
     }
 
     public static void fetchFile(File file) {

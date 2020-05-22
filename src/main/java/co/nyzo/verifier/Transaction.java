@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.SignatureUtil;
 
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -560,6 +561,89 @@ public class Transaction implements MessageObject {
         } else {
             System.err.println("Unknown type: " + type);
         }
+
+        return transaction;
+    }
+
+    public static Transaction fromFile(RandomAccessFile file, long transactionHeight, byte[] previousHashInChain,
+                                       boolean balanceListCycleTransaction) {
+
+        Transaction transaction = null;
+        try {
+            // All transactions start with type and timestamp.
+            byte type = file.readByte();
+            long timestamp = file.readLong();
+
+            // Build the transaction object, getting the appropriate fields for each type.
+            if (type == typeCoinGeneration) {
+                long amount = file.readLong();
+                byte[] receiverIdentifier = Message.getByteArray(file, FieldByteSize.identifier);
+                transaction = coinGenerationTransaction(timestamp, amount, receiverIdentifier);
+            } else if (type == typeSeed || type == typeStandard || type == typeCycle) {
+                long amount = file.readLong();
+                byte[] receiverIdentifier = Message.getByteArray(file, FieldByteSize.identifier);
+                long previousHashHeight = file.readLong();
+                Block previousHashBlock = previousHashBlockForHeight(previousHashHeight, transactionHeight,
+                        previousHashInChain);
+                byte[] previousBlockHash = previousHashBlock == null ? new byte[FieldByteSize.hash] :
+                        previousHashBlock.getHash();
+                byte[] senderIdentifier = Message.getByteArray(file, FieldByteSize.identifier);
+
+                int senderDataLength = Math.min(file.readByte(), 32);
+                byte[] senderData = Message.getByteArray(file, senderDataLength);
+
+                byte[] signature = Message.getByteArray(file, FieldByteSize.signature);
+                if (type == typeSeed) {
+                    transaction = seedTransaction(timestamp, amount, receiverIdentifier, previousHashHeight,
+                            previousBlockHash, senderIdentifier, senderData, signature);
+                } else if (type == typeStandard) {
+                    transaction = standardTransaction(timestamp, amount, receiverIdentifier, previousHashHeight,
+                            previousBlockHash, senderIdentifier, senderData, signature);
+                } else {  // type == typeCycle
+
+                    Map<ByteBuffer, byte[]> cycleSignatures = new HashMap<>();
+                    Map<ByteBuffer, Transaction> cycleSignatureTransactions = new HashMap<>();
+                    int numberOfCycleSignatures = file.readInt();
+
+                    if (!balanceListCycleTransaction) {
+                        // If not explicitly marked as a balance list cycle transaction, read the signatures as simple
+                        // identifier/signature pairs.
+                        for (int i = 0; i < numberOfCycleSignatures; i++) {
+                            ByteBuffer identifier = ByteBuffer.wrap(Message.getByteArray(file,
+                                    FieldByteSize.identifier));
+                            byte[] cycleSignature = Message.getByteArray(file, FieldByteSize.signature);
+                            if (!ByteUtil.arraysAreEqual(identifier.array(), senderIdentifier)) {
+                                cycleSignatures.put(identifier, cycleSignature);
+                            }
+                        }
+                    } else {
+                        // When the explicitly marked as a balance list cycle transaction, read the additional fields for
+                        // cycle transaction signatures.
+                        for (int i = 0; i < numberOfCycleSignatures; i++) {
+                            long childTimestamp = file.readLong();
+                            byte[] childSenderIdentifier = Message.getByteArray(file, FieldByteSize.identifier);
+                            byte childCycleTransactionVote = file.readByte() == 1 ? voteYes : voteNo;
+                            byte[] childSignature = Message.getByteArray(file, FieldByteSize.signature);
+                            cycleSignatureTransactions.put(ByteBuffer.wrap(childSenderIdentifier),
+                                    cycleSignatureTransaction(childTimestamp, childSenderIdentifier,
+                                            childCycleTransactionVote, signature, childSignature));
+                        }
+                    }
+                    transaction = cycleTransaction(timestamp, amount, receiverIdentifier, previousHashHeight,
+                            previousBlockHash, senderIdentifier, senderData, signature, cycleSignatures,
+                            cycleSignatureTransactions);
+                }
+            } else if (type == typeCycleSignature) {
+                byte[] senderIdentifier = Message.getByteArray(file, FieldByteSize.identifier);
+                byte cycleTransactionVote = file.readByte() == 1 ? voteYes : voteNo;
+                byte[] cycleTransactionSignature = Message.getByteArray(file, FieldByteSize.signature);
+                byte[] signature = Message.getByteArray(file, FieldByteSize.signature);
+                transaction = cycleSignatureTransaction(timestamp, senderIdentifier, cycleTransactionVote,
+                        cycleTransactionSignature, signature);
+            } else {
+                System.err.println("Unknown type: " + type);
+            }
+        } catch (Exception ignored) { }
 
         return transaction;
     }

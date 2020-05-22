@@ -1,9 +1,11 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.util.*;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -97,7 +99,7 @@ public class BlockManager {
     }
 
     public static Block frozenBlockForHeight(long blockHeight) {
-        
+
         Block block = null;
         if (blockHeight <= frozenEdgeHeight) {
 
@@ -111,6 +113,22 @@ public class BlockManager {
                     BlockManagerMap.addBlock(block);
                 }
             }
+        }
+
+        return block;
+    }
+
+    private static Block loadBlockFromIndividualFile(long blockHeight) {
+
+        Block block = null;
+        File file = individualFileForBlockHeight(blockHeight);
+        if (file.exists()) {
+            try {
+                RandomAccessFile blockFileReader = new RandomAccessFile(file, "r");
+                int numberOfBlocks = blockFileReader.readShort();
+                block = Block.fromFile(blockFileReader);
+                blockFileReader.close();
+            } catch (Exception ignored) { }
         }
 
         return block;
@@ -269,17 +287,10 @@ public class BlockManager {
         // Try to first load the block from the individual file. If the block is not there, extract the consolidated
         // file and try to load the block from there. In time, no consolidated files should need to be read, but this
         // provides a smooth transition from the old, more aggressive behavior of the file consolidator.
-        List<Block> blocks = loadBlocksInFile(individualFileForBlockHeight(blockHeight), blockHeight, blockHeight);
-        Block block = null;
-        if (!blocks.isEmpty() && blocks.get(0).getBlockHeight() == blockHeight) {
-            block = blocks.get(0);
-        } else {
+        Block block = loadBlockFromIndividualFile(blockHeight);
+        if (block == null) {
             extractConsolidatedFile(consolidatedFileForBlockHeight(blockHeight));
-
-            blocks = loadBlocksInFile(individualFileForBlockHeight(blockHeight), blockHeight, blockHeight);
-            if (!blocks.isEmpty() && blocks.get(0).getBlockHeight() == blockHeight) {
-                block = blocks.get(0);
-            }
+            block = loadBlockFromIndividualFile(blockHeight);
         }
         return block;
     }

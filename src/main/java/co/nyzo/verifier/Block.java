@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.util.*;
 
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -525,6 +526,37 @@ public class Block implements MessageObject {
 
         return new Block(blockchainVersion, blockHeight, previousBlockHash, startTimestamp, verificationTimestamp,
                 transactions, balanceListHash, verifierIdentifier, verifierSignature, validateTransactions);
+    }
+
+    public static Block fromFile(RandomAccessFile file) {
+
+        Block block = null;
+
+        try {
+            ShortLong versionAndHeight = ShortLong.fromFile(file);
+            int blockchainVersion = versionAndHeight.getShortValue();
+            long blockHeight = versionAndHeight.getLongValue();
+            byte[] previousBlockHash = Message.getByteArray(file, FieldByteSize.hash);
+            long startTimestamp = file.readLong();
+            long verificationTimestamp = file.readLong();
+            int numberOfTransactions = file.readInt();
+            List<Transaction> transactions = new ArrayList<>();
+            for (int i = 0; i < numberOfTransactions; i++) {
+                transactions.add(Transaction.fromFile(file, blockHeight, previousBlockHash, false));
+            }
+
+            byte[] balanceListHash = Message.getByteArray(file, FieldByteSize.hash);
+            byte[] verifierIdentifier = Message.getByteArray(file, FieldByteSize.identifier);
+            byte[] verifierSignature = Message.getByteArray(file, FieldByteSize.signature);
+
+            // Transaction validation only needs to occur on blocks past the frozen edge.
+            boolean validateTransactions = false;
+
+            block = new Block(blockchainVersion, blockHeight, previousBlockHash, startTimestamp, verificationTimestamp,
+                    transactions, balanceListHash, verifierIdentifier, verifierSignature, validateTransactions);
+        } catch (Exception ignored) { }
+
+        return block;
     }
 
     public static BalanceList balanceListForNextBlock(Block previousBlock, BalanceList previousBalanceList,

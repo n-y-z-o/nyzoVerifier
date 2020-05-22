@@ -12,6 +12,7 @@ import co.nyzo.verifier.util.SignatureUtil;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -574,6 +575,22 @@ public class Message {
 
         byte[] array = new byte[size];
         buffer.get(array);
+
+        return array;
+    }
+
+    public static byte[] getByteArray(RandomAccessFile file, int size) {
+        byte[] array = new byte[size];
+        try {
+            int totalBytesRead = 0;
+            int bytesRead = 0;
+            while (bytesRead >= 0 && totalBytesRead < size) {
+                bytesRead = file.read(array);
+                if (bytesRead > 0) {
+                    totalBytesRead += bytesRead;
+                }
+            }
+        } catch (Exception ignored) { }
 
         return array;
     }
