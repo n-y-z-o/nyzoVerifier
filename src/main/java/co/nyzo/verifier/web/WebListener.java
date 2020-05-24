@@ -290,8 +290,14 @@ public class WebListener {
 
     public static EndpointResponse getResponse(EndpointRequest request) {
 
-        // Get the endpoint method and the parameters.
+        // Get the response provider from the map.
         EndpointResponseProvider responseProvider = endpointMap.get(request.getEndpoint());
+
+        // If the response provider is null, try to get a response provider for the parent endpoint.
+        if (responseProvider == null) {
+            Endpoint parentEndpoint = request.getEndpoint().getParentEndpoint();
+            responseProvider = endpointMap.get(parentEndpoint);
+        }
 
         // Render the response.
         EndpointResponse response;

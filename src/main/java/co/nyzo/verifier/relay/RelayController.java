@@ -29,17 +29,26 @@ public class RelayController {
                     line = line.substring(0, indexOfHash).trim();
                 }
                 String[] split = line.split(",");
-                if (split.length == 3) {
+                if (split.length >= 2) {
                     String sourceEndpoint = split[0].trim();
                     String destinationEndpoint = split[1].trim();
-                    long updateInterval = 0;
-                    try {
-                        updateInterval = Long.parseLong(split[2].trim());
-                    } catch (Exception ignored) { }
-                    if (!sourceEndpoint.isEmpty() && !destinationEndpoint.isEmpty() && updateInterval > 0) {
-                        RelayEndpoint endpoint = new RelayEndpoint(sourceEndpoint, updateInterval);
+
+                    if (sourceEndpoint.startsWith("file:")) {
+                        // File sources do not contain an update interval. They read directly from the file for
+                        // delivery.
+                        File file = new File(sourceEndpoint.replace("file:", "").replaceAll("/+", "/"));
+                        RelayEndpoint endpoint = new RelayEndpoint(sourceEndpoint);
                         map.put(new Endpoint(destinationEndpoint), endpoint);
-                        RelayEndpointManager.register(endpoint);
+                    } else {
+                        long updateInterval = 0;
+                        try {
+                            updateInterval = Long.parseLong(split[2].trim());
+                        } catch (Exception ignored) { }
+                        if (!sourceEndpoint.isEmpty() && !destinationEndpoint.isEmpty() && updateInterval > 0) {
+                            RelayEndpoint endpoint = new RelayEndpoint(sourceEndpoint, updateInterval);
+                            map.put(new Endpoint(destinationEndpoint), endpoint);
+                            RelayEndpointManager.register(endpoint);
+                        }
                     }
                 }
             }

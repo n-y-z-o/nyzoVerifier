@@ -25,6 +25,12 @@ public class Endpoint {
         return method;
     }
 
+    public Endpoint getParentEndpoint() {
+        int lastPathSeparatorIndex = path.lastIndexOf("/");
+        String path = lastPathSeparatorIndex > 0 ? this.path.substring(0, lastPathSeparatorIndex) : "/";
+        return new Endpoint(path, method);
+    }
+
     @Override
     public int hashCode() {
         return Objects.hash(path, method);

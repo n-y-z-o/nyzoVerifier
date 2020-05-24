@@ -11,6 +11,8 @@ public class EndpointResponse {
     public static final String contentTypeIco = "image/x-icon";
     public static final String contentTypeJpeg = "image/jpeg";
     public static final String contentTypeJson = "application/json";
+    public static final String contentTypeOctetStream = "application/octet-stream";
+    public static final String contentTypePdf = "application/pdf";
     public static final String contentTypePng = "image/png";
     public static final String contentTypeText = "text/plain;charset=UTF-8";
 
@@ -67,12 +69,14 @@ public class EndpointResponse {
             contentType = contentTypeJpeg;
         } else if (path.endsWith(".json")) {
             contentType = contentTypeJson;
+        } else if (path.endsWith(".pdf")) {
+            contentType = contentTypePdf;
         } else if (path.endsWith(".png")) {
             contentType = contentTypePng;
         } else if (path.endsWith(".txt")) {
             contentType = contentTypeText;
         } else {
-            contentType = contentTypeDefault;
+            contentType = contentTypeOctetStream;
         }
 
         return contentType;
