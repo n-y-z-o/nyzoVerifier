@@ -19,10 +19,9 @@ public class NewVerifierQueueManager {
     private static final String previousReferenceHashHeightKey = "previous_reference_hash_height";
     private static final String winningIdentifierKey = "winning_identifier";
 
-    public static synchronized void updateVote() {
+    public static void updateVote() {
 
-        ByteBuffer vote = BlockManager.isInitialized() ? calculateVote() : null;
-
+        ByteBuffer vote = BlockManager.completedInitialization() ? calculateVote() : null;
         if (vote != null) {
 
             // If the vote has changed, register and broadcast, if necessary.

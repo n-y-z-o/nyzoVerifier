@@ -3,20 +3,21 @@ package co.nyzo.verifier;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BlockManagerMap {
 
     private static int iteration = 0;
-    private static Map<Long, Block> blockMap = new HashMap<>();
+    private static Map<Long, Block> blockMap = new ConcurrentHashMap<>();
 
-    public static synchronized void addBlock(Block block) {
+    public static void addBlock(Block block) {
 
         if (block != null) {
             // Add the block to the map.
             blockMap.put(block.getBlockHeight(), block);
 
             // Periodically remove old blocks.
-            if (iteration++ >= 10 && BlockManager.isInitialized()) {
+            if (iteration++ >= 10 && BlockManager.completedInitialization()) {
 
                 iteration = 0;
 

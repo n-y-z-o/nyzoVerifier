@@ -4,8 +4,6 @@ public enum RunMode {
 
     Client("client"),
     DocumentationServer("documentation_server"),
-    MicropayClient("micropay_client"),
-    MicropayServer("micropay_server"),
     RelayServer("relay_server"),
     Sentinel("sentinel"),
     Verifier("verifier");

@@ -10,8 +10,10 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BlockManager {
 
@@ -29,7 +31,8 @@ public class BlockManager {
     private static Set<ByteBuffer> currentAndNearCycleSet = ConcurrentHashMap.newKeySet();
     private static Set<Node> currentAndNearCycleNodes = ConcurrentHashMap.newKeySet();
     private static long genesisBlockStartTimestamp = -1L;
-    private static boolean initialized = false;
+    private static final AtomicBoolean startedInitialization = new AtomicBoolean(false);
+    private static final AtomicBoolean completedInitialization = new AtomicBoolean(false);
     private static boolean cycleComplete = false;
 
     private static final String lastVerifierJoinHeightKey = "last_verifier_join_height";
@@ -38,19 +41,15 @@ public class BlockManager {
     private static final String lastVerifierRemovalHeightKey = "last_verifier_removal_height";
     private static long lastVerifierRemovalHeight = PersistentData.getLong(lastVerifierRemovalHeightKey, -1L);
 
-    static {
-        initialize();
-    }
-
     public static void main(String[] args) {
 
         initialize();
         UpdateUtil.terminate();
     }
 
-    public static boolean isInitialized() {
+    public static boolean completedInitialization() {
 
-        return initialized;
+        return completedInitialization.get();
     }
 
     public static long getFrozenEdgeHeight() {
@@ -107,7 +106,7 @@ public class BlockManager {
             block = BlockManagerMap.blockForHeight(blockHeight);
 
             // If initialization has not completed, load the block into the standard map.
-            if (block == null && !initialized) {
+            if (block == null && !completedInitialization()) {
                 block = loadBlockFromFile(blockHeight);
                 if (block != null) {
                     BlockManagerMap.addBlock(block);
@@ -166,67 +165,62 @@ public class BlockManager {
 
     public static boolean writeBlocksToFile(List<Block> blocks, List<BalanceList> balanceLists, File file) {
 
-        Map<Long, BalanceList> balanceListMap = new HashMap<>();
-        for (BalanceList balanceList : balanceLists) {
-            balanceListMap.put(balanceList.getBlockHeight(), balanceList);
-        }
+        // Determine the temporary file and ensure the location is available.
+        File temporaryFile = new File(file.getAbsolutePath() + "_temp");
+        temporaryFile.delete();
 
+        // Attempt to write the file.
         boolean successful = true;
+        try {
+            // Open the file. The "rw" argument makes the file writable.
+            RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
 
-        // Sort the blocks on block height ascending.
-        Collections.sort(blocks, new Comparator<Block>() {
-            @Override
-            public int compare(Block block1, Block block2) {
-                return ((Long) block1.getBlockHeight()).compareTo(block2.getBlockHeight());
+            // Sort the blocks on block height ascending.
+            blocks.sort(new Comparator<Block>() {
+                @Override
+                public int compare(Block block1, Block block2) {
+                    return Long.compare(block1.getBlockHeight(), block2.getBlockHeight());
+                }
+            });
+
+            // Make a map of the balance lists for easy lookup.
+            Map<Long, BalanceList> balanceListMap = new HashMap<>();
+            for (BalanceList balanceList : balanceLists) {
+                balanceListMap.put(balanceList.getBlockHeight(), balanceList);
             }
-        });
 
-        int byteSize = 2;  // number of blocks is stored as a short
-        for (int i = 0; i < blocks.size(); i++) {
-            Block block = blocks.get(i);
-            byteSize += block.getByteSize();
+            randomAccessFile.writeShort((short) blocks.size());  // number of blocks
+            for (int i = 0; i < blocks.size(); i++) {
+                Block block = blocks.get(i);
+                randomAccessFile.write(block.getBytes());
+                if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (block.getBlockHeight() - 1))) {
 
-            // For the first block and all blocks with gaps, include the balance list.
-            if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (block.getBlockHeight() - 1))) {
-
-                BalanceList balanceList = balanceListMap.get(block.getBlockHeight());
-                if (balanceList == null) {
-                    successful = false;
-                } else {
-                    byteSize += balanceList.getByteSize();
+                    BalanceList balanceList = balanceListMap.get(block.getBlockHeight());
+                    if (balanceList == null) {
+                        successful = false;
+                    } else {
+                        randomAccessFile.write(balanceList.getBytes());
+                    }
                 }
             }
+
+            // Close the file.
+            randomAccessFile.close();
+        } catch (Exception ignored) {
+            successful = false;
         }
 
-        byte[] bytes = new byte[byteSize];
-        ByteBuffer buffer = ByteBuffer.wrap(bytes);
-        buffer.putShort((short) blocks.size());  // number of blocks
-        for (int i = 0; i < blocks.size(); i++) {
-            Block block = blocks.get(i);
-            buffer.put(block.getBytes());
-            if (i == 0 || (blocks.get(i - 1).getBlockHeight() != (block.getBlockHeight() - 1))) {
-
-                BalanceList balanceList = balanceListMap.get(block.getBlockHeight());
-                if (balanceList == null) {
-                    successful = false;
-                } else {
-                    buffer.put(balanceList.getBytes());
-                }
-            }
-        }
-
+        // If the write was successful, move the file to the permanent location. Otherwise, delete it.
         if (successful) {
+            Path temporaryPath = Paths.get(temporaryFile.getAbsolutePath());
+            Path path = Paths.get(file.getAbsolutePath());
             try {
-                file.getParentFile().mkdirs();
-                FileUtil.writeFile(Paths.get(file.getAbsolutePath()), bytes);
-                successful = true;
-            } catch (Exception reportOnly) {
-                System.err.println(PrintUtil.printException(reportOnly));
+                Files.move(temporaryPath, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception ignored) {
+                successful = false;
             }
-        }
-
-        if (!successful) {
-            LogUtil.println("unable to write block file " + file.getName() + " on " + Verifier.getNickname());
+        } else {
+            temporaryFile.delete();
         }
 
         return successful;
@@ -251,13 +245,13 @@ public class BlockManager {
                 setFrozenEdge(block, cycleVerifiers);
                 BalanceListManager.updateFrozenEdge(balanceList);
 
-                writeBlocksToFile(Arrays.asList(block), Arrays.asList(balanceList),
+                writeBlocksToFile(Collections.singletonList(block), Collections.singletonList(balanceList),
                         individualFileForBlockHeight(block.getBlockHeight()));
 
                 if (block.getBlockHeight() == 0L) {
 
                     genesisBlockStartTimestamp = block.getStartTimestamp();
-                    initialized = true;
+                    completedInitialization.set(true);
                 }
 
             } catch (Exception reportOnly) {
@@ -295,11 +289,14 @@ public class BlockManager {
         return block;
     }
 
-    private static synchronized void initialize() {
+    public static void initialize() {
 
-        if (!initialized) {
+        if (!startedInitialization.getAndSet(true)) {
 
             // This method only needs to load the locally stored blocks, and it can do so synchronously.
+
+            // Store the start timestamp so we can see how long initialization takes.
+            long initializationStartTimestamp = System.currentTimeMillis();
 
             // Ensure that both the block directory and the individual block directory exist. The individual block
             // directory is a subdirectory of the block directory, so a single call can ensure both.
@@ -343,9 +340,10 @@ public class BlockManager {
                 BalanceList frozenEdgeBalanceList = loadBalanceListFromFileForHeight(getFrozenEdgeHeight());
                 BalanceListManager.updateFrozenEdge(frozenEdgeBalanceList);
 
-                initialized = true;
-
-                System.out.println("completed BlockManager initialization");
+                // Mark that initialization has completed.
+                completedInitialization.set(true);
+                LogUtil.println(String.format("completed BlockManager initialization, elapsed %.2fs",
+                        (System.currentTimeMillis() - initializationStartTimestamp) / 1000.0));
             }
         }
     }

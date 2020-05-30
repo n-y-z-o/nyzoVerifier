@@ -3,6 +3,7 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.messages.BlockRequest;
 import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.util.ConsensusTracker;
+import co.nyzo.verifier.util.LogUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -12,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class BlockVoteManager {
 
     public static final long minimumVoteInterval = 5000L;
+    public static final long retentionNumberOfBlocks = 40L;
 
     private static final Map<Long, Map<ByteBuffer, BlockVote>> voteMap = new ConcurrentHashMap<>();
     private static final Map<Long, Map<ByteBuffer, BlockVote>> flipVoteMap = new ConcurrentHashMap<>();
@@ -96,12 +98,11 @@ public class BlockVoteManager {
 
         // This method used to remove all votes before the frozen edge. Now, to support off-cycle verifiers, votes are
         // retained for 40 blocks behind the frozen edge.
-        Set<Long> heights = new HashSet<>(voteMap.keySet());
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
-        for (long height : heights) {
-            if (height <= frozenEdgeHeight - 40) {
+        for (long height : new HashSet<>(voteMap.keySet())) {
+            if (height <= frozenEdgeHeight - retentionNumberOfBlocks) {
                 try {
-                    System.out.println("$$$$$ removing vote map of size " + voteMap.get(height).size() + "");
+                    LogUtil.println("BlockVoteManager: removing vote map of size " + voteMap.get(height).size());
                 } catch (Exception ignored) { }
                 voteMap.remove(height);
                 flipVoteMap.remove(height);

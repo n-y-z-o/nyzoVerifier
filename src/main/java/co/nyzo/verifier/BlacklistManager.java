@@ -13,7 +13,8 @@ public class BlacklistManager {
 
     public static void addToBlacklist(byte[] ipAddress) {
 
-        if (BlockManager.isInitialized() && BlockManager.isCycleComplete() && !BlockManager.inGenesisCycle()) {
+        if (BlockManager.completedInitialization() && BlockManager.isCycleComplete() &&
+                !BlockManager.inGenesisCycle()) {
 
             ByteBuffer addressBuffer = ByteBuffer.wrap(ipAddress);
             if (!blacklistedAddresses.containsKey(addressBuffer)) {

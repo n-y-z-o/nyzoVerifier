@@ -86,6 +86,7 @@ public class Verifier {
 
         } else {
             RunMode.setRunMode(RunMode.Verifier);
+            BlockManager.initialize();
             start();
         }
     }

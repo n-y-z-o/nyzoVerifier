@@ -140,7 +140,6 @@ public class Message {
         Node node;
         switch (RunMode.getRunMode()) {
             case Client:
-            case MicropayServer:
                 node = ClientNodeManager.randomNode();
                 break;
             case Sentinel:

@@ -4,7 +4,6 @@ import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.Client;
 import co.nyzo.verifier.client.ClientController;
 import co.nyzo.verifier.documentation.DocumentationController;
-import co.nyzo.verifier.micropay.MicropayController;
 import co.nyzo.verifier.relay.RelayController;
 import co.nyzo.verifier.util.*;
 
@@ -66,10 +65,9 @@ public class WebListener {
     public static void start() {
 
         // Start the listener if the preference indicates starting. The default is true for the documentation server and
-        // Micropay modes, false otherwise.
+        // relay server, false otherwise.
         RunMode runMode = RunMode.getRunMode();
-        if (PreferencesUtil.getBoolean(startWebListenerKey, runMode == RunMode.MicropayServer ||
-                runMode == RunMode.MicropayClient || runMode == RunMode.DocumentationServer ||
+        if (PreferencesUtil.getBoolean(startWebListenerKey, runMode == RunMode.DocumentationServer ||
                 runMode == RunMode.RelayServer)) {
             buildEndpointMap();
             openHttpListener();
@@ -374,17 +372,6 @@ public class WebListener {
                 break;
             case DocumentationServer:
                 map.putAll(DocumentationController.buildEndpointMap());
-                break;
-            case MicropayClient:
-                map.put(MicropayController.clientPingEndpoint, MicropayController::clientPingPage);
-                map.put(MicropayController.clientAuthorizationEndpoint, MicropayController::clientAuthorizationPage);
-                break;
-            case MicropayServer:
-                // Add the ping endpoint. Add this before the dynamic pages to allow dynamic override.
-                map.put(MicropayController.serverPingEndpoint, MicropayController::serverPingPage);
-
-                // The Micropay controller builds its map dynamically based on the contents of a directory.
-                map.putAll(MicropayController.buildEndpointMap());
                 break;
             case RelayServer:
                 map.putAll(RelayController.buildEndpointMap());

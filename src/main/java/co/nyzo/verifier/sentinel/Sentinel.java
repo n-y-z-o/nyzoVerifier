@@ -65,7 +65,9 @@ public class Sentinel {
 
     public static void main(String[] args) {
 
+        // Set the run mode and initialize the block manager.
         RunMode.setRunMode(RunMode.Sentinel);
+        BlockManager.initialize();
 
         // Start the web listener and the seed transaction manager.
         WebListener.start();

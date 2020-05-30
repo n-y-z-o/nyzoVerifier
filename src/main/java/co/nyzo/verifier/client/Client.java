@@ -19,6 +19,7 @@ public class Client {
     public static void main(String[] args) {
 
         RunMode.setRunMode(RunMode.Client);
+        BlockManager.initialize();
 
         CommandOutput output = new CommandOutputConsole();
         ConsoleUtil.printTable(output, "Nyzo client, version " + Version.getVersion());
