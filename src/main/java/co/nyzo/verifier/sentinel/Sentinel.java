@@ -672,9 +672,9 @@ public class Sentinel {
         if (previousBlock != null && !ByteUtil.arraysAreEqual(previousBlock.getVerifierIdentifier(),
                 verifier.getIdentifier())) {
 
-            // Get the transactions for the block. For now, this does
+            // Determine the block height and make the transaction list.
             long blockHeight = previousBlock.getBlockHeight() + 1L;
-            List<Transaction> transactions = TransactionPool.transactionsForHeight(blockHeight);
+            List<Transaction> transactions = new ArrayList<>();
 
             // Add the seed transaction, if one is available.
             Transaction seedTransaction = SeedTransactionManager.transactionForBlock(blockHeight);

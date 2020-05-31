@@ -249,6 +249,17 @@ public class MeshListener {
                             validateTransactions);
                     if (block.signatureIsValid()) {
                         UnfrozenBlockManager.registerBlock(block);
+                    } else if (!transactions.isEmpty()) {
+                        // If the initial transaction list was not empty, attempt to create the block with an empty
+                        // transaction list. This will allow blocks to be processed from sentinels that do not have
+                        // access to the seed transactions.
+                        Block alternateBlock = new Block(blockchainVersion, height, previousBlockHash, startTimestamp,
+                                verificationTimestamp, new ArrayList<>(), balanceListHash, verifierIdentifier,
+                                verifierSignature, validateTransactions);
+                        if (alternateBlock.signatureIsValid()) {
+                            LogUtil.println("Registering alternate minimal block: " + alternateBlock);
+                            UnfrozenBlockManager.registerBlock(alternateBlock);
+                        }
                     }
                 }
             }
