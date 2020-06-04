@@ -144,7 +144,18 @@ public class UnfrozenBlockManager {
                             }
                         }
 
-                        blocksAtHeight.remove(ByteBuffer.wrap(highestScoredBlock.getHash()));
+                        // There is a special circumstance that allows the block map to grow beyond the typical limit of
+                        // 10. Only remove the highest-scored block if it is not the front-runner in block voting. A
+                        // number have stalls have occurred due to the inability to register a block that is working
+                        // toward consensus.
+                        byte[] leadingHash = BlockVoteManager.leadingHashForHeight(highestScoredBlock.getBlockHeight(),
+                                new AtomicInteger());
+                        if (ByteUtil.arraysAreEqual(leadingHash, highestScoredBlock.getHash())) {
+                            LogUtil.println("allowing an additional block to remain in UnfrozenBlockManager avoid a " +
+                                    "stall: " + PrintUtil.compactPrintByteArray(highestScoredBlock.getHash()));
+                        } else {
+                            blocksAtHeight.remove(ByteBuffer.wrap(highestScoredBlock.getHash()));
+                        }
                     }
                 } else if (balanceList == null && blockHeight > frozenEdgeHeight + 1 &&
                         blockHeight <= frozenEdgeHeight + maximumDisconnectedDistance &&
