@@ -85,8 +85,9 @@ public class BlockManager {
     }
 
     public static boolean likelyAcceptingNewVerifiers() {
-        return frozenEdge != null && frozenEdge.getCycleInformation() != null && frozenEdge.getBlockHeight() >
-                getLastVerifierJoinHeight() + frozenEdge.getCycleInformation().getCycleLength() * 2;
+        return false;
+        // frozenEdge != null && frozenEdge.getCycleInformation() != null && frozenEdge.getBlockHeight() >
+        // getLastVerifierJoinHeight() + frozenEdge.getCycleInformation().getCycleLength() * 2;
     }
 
     public static long getLastVerifierJoinHeight() {
