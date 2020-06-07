@@ -25,7 +25,7 @@ public class NewVerifierVoteManager {
     // This stores the verifier that is currently marked as top-voted based on blockchain metadata.
     private static byte[] onChainTopVerifier = new byte[FieldByteSize.identifier];
 
-    private static byte[] override = ByteUtil.byteArrayFromHexString("10", FieldByteSize.identifier);
+    private static byte[] override = new byte[FieldByteSize.identifier];
 
     public static void setOverride(byte[] override) {
         NewVerifierVoteManager.override = override;

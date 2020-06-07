@@ -2,6 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NewVerifierVote;
 import co.nyzo.verifier.util.IpUtil;
+import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -13,6 +14,11 @@ public class NewVerifierQueueManager {
     // The wait time for the lottery is 30 days.
     public static final long lotteryWaitTime = 1000L * 60L * 60L * 24L * 30L;
 
+    // To help break stalls due to missing top-new-verifier votes, the votes are rebroadcast every 30 blocks in time,
+    // even if they do not change.
+    private static long lastBroadcastTimestamp = 0L;
+    private static final long broadcastInterval = 30 * Block.blockDuration;
+
     private static long previousReferenceHashHeight = -1;
     private static ByteBuffer currentVote = null;
 
@@ -22,37 +28,40 @@ public class NewVerifierQueueManager {
     public static void updateVote() {
 
         ByteBuffer vote = BlockManager.completedInitialization() ? calculateVote() : null;
-        if (vote != null) {
+        // If the vote has changed, or if the amount of time since the last vote has been greater than the interval,
+        // register and broadcast.
+        if (vote != null && (!vote.equals(currentVote) ||
+                lastBroadcastTimestamp < System.currentTimeMillis() - broadcastInterval)) {
 
-            // If the vote has changed, register and broadcast, if necessary.
-            if (!vote.equals(currentVote)) {
+            lastBroadcastTimestamp = System.currentTimeMillis();
+            LogUtil.println("broadcasting new-verifier vote for " + PrintUtil.compactPrintByteArray(vote.array()) +
+                    " at height " + BlockManager.getFrozenEdgeHeight());
 
-                // Wrap the vote and register it locally.
-                NewVerifierVote wrappedVote = new NewVerifierVote(vote.array());
-                NewVerifierVoteManager.registerVote(Verifier.getIdentifier(), wrappedVote, true);
+            // Wrap the vote and register it locally.
+            NewVerifierVote wrappedVote = new NewVerifierVote(vote.array());
+            NewVerifierVoteManager.registerVote(Verifier.getIdentifier(), wrappedVote, true);
 
-                // Store the new vote and the previous vote in arrays. These will be used if we transmit the vote.
-                byte[] newVote = vote.array();
-                byte[] previousVote = currentVote == null ? new byte[FieldByteSize.identifier] : currentVote.array();
+            // Store the new vote and the previous vote in arrays. These will be used if we transmit the vote.
+            byte[] newVote = vote.array();
+            byte[] previousVote = currentVote == null ? new byte[FieldByteSize.identifier] : currentVote.array();
 
-                // Store the current vote.
-                currentVote = vote;
+            // Store the current vote.
+            currentVote = vote;
 
-                // If this verifier has voting power, broadcast the vote.
-                if (Verifier.inCycle()) {
-                    Message message = new Message(MessageType.NewVerifierVote21, wrappedVote);
-                    Message.broadcast(message);
+            // If this verifier has voting power, broadcast the vote.
+            if (Verifier.inCycle()) {
+                Message message = new Message(MessageType.NewVerifierVote21, wrappedVote);
+                Message.broadcast(message);
 
-                    // Also send the message to the verifier for which we are voting and the verifier for which we were
-                    // previously voting. Most out-of-cycle verifiers do not need to know the vote tally, because they
-                    // do not have voting power. However, informing the out-of-cycle subjects of these votes changes is
-                    // helpful so they know when they should be producing and transmitting blocks.
-                    List<Node> mesh = NodeManager.getMesh();
-                    for (Node node : mesh) {
-                        if (ByteUtil.arraysAreEqual(node.getIdentifier(), newVote) ||
-                                ByteUtil.arraysAreEqual(node.getIdentifier(), previousVote)) {
-                            Message.fetch(node, message, null);
-                        }
+                // Also send the message to the verifier for which we are voting and the verifier for which we were
+                // previously voting. Most out-of-cycle verifiers do not need to know the vote tally, because they
+                // do not have voting power. However, informing the out-of-cycle subjects of these vote changes is
+                // helpful so they know when they should be producing and transmitting blocks.
+                List<Node> mesh = NodeManager.getMesh();
+                for (Node node : mesh) {
+                    if (ByteUtil.arraysAreEqual(node.getIdentifier(), newVote) ||
+                            ByteUtil.arraysAreEqual(node.getIdentifier(), previousVote)) {
+                        Message.fetch(node, message, null);
                     }
                 }
             }

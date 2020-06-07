@@ -514,6 +514,9 @@ public class Verifier {
                         // Update the top-voted verifier. This is done periodically to save frequent derivation from the
                         // vote map.
                         NewVerifierVoteManager.updateTopVerifier();
+
+                        // Update the new-verifier vote.
+                        NewVerifierQueueManager.updateVote();
                     }
 
                     // This is an additional recovery operation for when the cycle is in a bad state. To avoid a huge
@@ -531,6 +534,12 @@ public class Verifier {
                     // These are operations that only have to happen when a block is frozen.
                     long newFrozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
                     if (frozenEdgeHeight != newFrozenEdgeHeight) {
+
+                        // This is for testing. It does not cause performance issues for those who have not
+                        // activated it.
+                        if (PreferencesUtil.getBoolean("create_and_score_test_new_verifier_block", false)) {
+                            createAndScoreNewBlock();
+                        }
 
                         LogUtil.println("cleaning up because block " + newFrozenEdgeHeight + " was frozen");
                         ConsensusTracker.register(newFrozenEdgeHeight, "froze block");
@@ -568,10 +577,6 @@ public class Verifier {
                         ConsensusTracker.performMaintenance();
                         Message.performMaintenance();
 
-                        // Update the new-verifier vote. This is necessary if the previous choice is now in the
-                        // cycle.
-                        NewVerifierQueueManager.updateVote();
-
                         // Clean old transactions from the transaction pool.
                         TransactionPool.updateFrozenEdge();
 
@@ -606,6 +611,19 @@ public class Verifier {
                 }
             }
         }
+    }
+
+    private static void createAndScoreNewBlock() {
+
+        Block block = createNextBlock(BlockManager.getFrozenEdge(), false);
+        block.sign(System.currentTimeMillis(), ByteUtil.byteArrayFromHexString("0101", FieldByteSize.seed));
+
+        boolean isConsensusChoice = block.getBlockHeight() % 2 == 0;
+        long chainScore = block.chainScore(BlockManager.getFrozenEdgeHeight(), isConsensusChoice);
+        String chainScoreLabel = chainScore == Long.MAX_VALUE ? "MAX" : (chainScore == Long.MAX_VALUE - 1 ? "MAX-1" :
+                chainScore + "");
+        LogUtil.println("chain score for new verifier: " + chainScoreLabel + ", block: " + block +
+                ", consensus choice=" + isConsensusChoice);
     }
 
     private static void requestMissingVotes(long height) {

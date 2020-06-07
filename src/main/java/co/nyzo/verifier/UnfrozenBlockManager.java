@@ -245,13 +245,20 @@ public class UnfrozenBlockManager {
                     Block leadingHashBlock = unfrozenBlockAtHeight(height, leadingHash);
                     if (leadingHashBlock != null) {
                         int voteCount = voteCountWrapper.get();
-                        if ((voteCount > votingPoolSize / 2 && leadingHashBlock.getMinimumVoteTimestamp() <=
+                        boolean isConsensusChoice = voteCount > votingPoolSize / 2;
+                        if ((isConsensusChoice && leadingHashBlock.getMinimumVoteTimestamp(isConsensusChoice) <=
                                 System.currentTimeMillis()) ||
-                                leadingHashBlock.getMinimumVoteTimestamp() < System.currentTimeMillis() - 10000L) {
+                                leadingHashBlock.getMinimumVoteTimestamp(isConsensusChoice) <
+                                        System.currentTimeMillis() - 10000L) {
                             newVoteHash = leadingHashBlock.getHash();
                             voteDescription = "leading; ";
                         } else {
-                            voteDescription = "insufficient leading score; ";
+                            long score = leadingHashBlock.chainScore(BlockManager.getFrozenEdgeHeight(),
+                                    isConsensusChoice);
+                            String scoreLabel = score == Long.MAX_VALUE ? "MAX" : (score == Long.MAX_VALUE - 1L ?
+                                    "MAX-1" : score + "");
+                            voteDescription = "insufficient leading score, " + scoreLabel + ", " +
+                                    PrintUtil.compactPrintByteArray(leadingHash);
                         }
                     } else {
                         voteDescription = "missing leading; ";

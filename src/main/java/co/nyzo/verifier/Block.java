@@ -450,9 +450,13 @@ public class Block implements MessageObject {
     }
 
     public long getMinimumVoteTimestamp() {
+        return getMinimumVoteTimestamp(false);
+    }
+
+    public long getMinimumVoteTimestamp(boolean isConsensusChoice) {
 
         long timestamp = Long.MAX_VALUE;
-        long chainScore = chainScore(BlockManager.getFrozenEdgeHeight());
+        long chainScore = chainScore(BlockManager.getFrozenEdgeHeight(), isConsensusChoice);
         if (chainScore < 0) {
             // Allow voting immediately for a new verifier.
             timestamp = Verifier.getLastBlockFrozenTimestamp();
@@ -870,6 +874,10 @@ public class Block implements MessageObject {
     }
 
     public long chainScore(long zeroBlockHeight) {
+        return chainScore(zeroBlockHeight, false);
+    }
+
+    public long chainScore(long zeroBlockHeight, boolean isConsensusChoice) {
 
         // This score is always relative to a provided block height. The zero block height has a score of zero, and
         // each subsequent block affects the score as follows:
@@ -893,7 +901,11 @@ public class Block implements MessageObject {
                 // miscalculation does not weaken the system in any way.
                 score = -2L;
             } else if (cycleInformation == null || continuityState == ContinuityState.Undetermined) {
-                score = Long.MAX_VALUE - 1;  // unable to compute; might improve with more information
+                if (cycleInformation != null && cycleInformation.isNewVerifier() && isConsensusChoice) {
+                    score += 7L;
+                } else {
+                    score = Long.MAX_VALUE - 1;  // unable to compute; might improve with more information
+                }
             } else {
                 if (continuityState == ContinuityState.Discontinuous) {
                     score = Long.MAX_VALUE;  // invalid
@@ -914,6 +926,8 @@ public class Block implements MessageObject {
                         if (topNewVerifier != null &&
                                 ByteUtil.arraysAreEqual(topNewVerifier.array(), block.getVerifierIdentifier())) {
                             score -= 2L;
+                        } else if (isConsensusChoice) {
+                            score += 7L;
                         } else {
                             score += 9L;
                         }
