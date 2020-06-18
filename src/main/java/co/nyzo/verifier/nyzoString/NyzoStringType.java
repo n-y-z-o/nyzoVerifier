@@ -11,7 +11,6 @@ public enum NyzoStringType {
 
     private String prefix;
     private byte[] prefixBytes;
-    private NyzoString data;
 
     NyzoStringType(String prefix) {
         this.prefix = prefix;

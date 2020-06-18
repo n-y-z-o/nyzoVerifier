@@ -33,9 +33,7 @@ public class BlockVoteManager {
             vote.setMessageSignature(message.getSourceNodeSignature());
 
             // Register the vote with the consensus tracker.
-            if (vote != null) {
-                ConsensusTracker.register(vote.getHeight(), vote);
-            }
+            ConsensusTracker.register(vote.getHeight(), vote);
 
             // Register the vote. The map ensures that each identifier only gets one vote. Votes are only counted for
             // verifiers in the current cycle, except in the Genesis cycle, where all votes are counted. We accept votes
@@ -155,7 +153,7 @@ public class BlockVoteManager {
         return votesForHeight == null ? 0 : votesForHeight.size();
     }
 
-    public static synchronized List<Long> getHeights() {
+    public static List<Long> getHeights() {
 
         List<Long> heights = new ArrayList<>(voteMap.keySet());
         Collections.sort(heights);

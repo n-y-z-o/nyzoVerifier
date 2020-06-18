@@ -4,7 +4,6 @@ import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.util.*;
 
 import java.io.File;
-import java.io.FileFilter;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;

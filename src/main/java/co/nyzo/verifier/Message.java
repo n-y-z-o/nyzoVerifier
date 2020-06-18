@@ -35,6 +35,8 @@ public class Message {
     private static final Map<ByteBuffer, Long> dynamicWhitelist = new ConcurrentHashMap<>();
     public static final long dynamicWhitelistInterval = 1000L * 60L * 10L;  // 10 minutes
 
+    private static boolean allowUnsafeMessages = false;
+
     private static DatagramSocket datagramSocket;
     static {
         try {
@@ -187,8 +189,10 @@ public class Message {
 
     public static void fetchTcp(String hostNameOrIp, int port, Message message, MessageCallback messageCallback) {
 
-        // Do not send a message that will get this IP blacklisted.
-        if (BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(message.getSourceNodeIdentifier())) ||
+        // Unless the option to allow unsafe messages is activated, do not send a message that might get this IP
+        // blacklisted.
+        if (allowUnsafeMessages ||
+                BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(message.getSourceNodeIdentifier())) ||
                         BlockManager.inGenesisCycle() || !disallowedNonCycleTypes.contains(message.getType())) {
 
             new Thread(new Runnable() {
@@ -640,6 +644,10 @@ public class Message {
                 LogUtil.println("removed " + IpUtil.addressAsString(ipAddress.array()) + " from dynamic whitelist");
             }
         }
+    }
+
+    public static void setAllowUnsafeMessages(boolean allowUnsafeMessages) {
+        Message.allowUnsafeMessages = allowUnsafeMessages;
     }
 
     @Override
