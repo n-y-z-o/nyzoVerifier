@@ -36,8 +36,8 @@ public class MeshListener {
     // To promote forward compatibility with messages we might want to add, the verifier will accept all readable
     // messages except those explicitly disallowed. The response types should not be processed for incoming messages,
     // but adding them to this set adds another level of protection.
-    private static final Set<MessageType> disallowedUdpTypes = new HashSet<>(Arrays.asList(MessageType.NodeJoin3,
-            MessageType.NodeJoinResponse4, MessageType.NodeJoinV2_43, MessageType.NodeJoinResponseV2_44));
+    private static final Set<MessageType> disallowedUdpTypes = new HashSet<>(Arrays.asList(MessageType.NodeJoinV2_43,
+            MessageType.NodeJoinResponseV2_44));
 
     private static final int numberOfDatagramPackets = 50000;
     private static int datagramPacketWriteIndex = 0;
@@ -406,16 +406,7 @@ public class MeshListener {
 
                 MessageType messageType = message.getType();
 
-                if (messageType == MessageType.NodeJoin3) {
-
-                    NodeManager.updateNode(message);
-
-                    NodeJoinMessage nodeJoinMessage = (NodeJoinMessage) message.getContent();
-                    NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
-
-                    response = new Message(MessageType.NodeJoinResponse4, new NodeJoinResponse());
-
-                } else if (messageType == MessageType.Transaction5) {
+                if (messageType == MessageType.Transaction5) {
 
                     TransactionResponse responseContent = new TransactionResponse((Transaction) message.getContent());
                     response = new Message(MessageType.TransactionResponse6, responseContent);

@@ -46,24 +46,15 @@ public class NodeManager {
         // In previous versions, more types of requests were registered to increase mesh density. However, to make the
         // system more flexible, we have changed this to only update a node when explicitly requested to do so through
         // a node join.
-        if (message.getType() == MessageType.NodeJoin3 || message.getType() == MessageType.NodeJoinResponse4 ||
-                message.getType() == MessageType.NodeJoinV2_43 ||
-                message.getType() == MessageType.NodeJoinResponseV2_44) {
+        if (message.getType() == MessageType.NodeJoinV2_43 || message.getType() == MessageType.NodeJoinResponseV2_44) {
 
-            int portTcp;
-            int portUdp;
-            if (message.getType() == MessageType.NodeJoin3 || message.getType() == MessageType.NodeJoinResponse4) {
-                portTcp = ((PortMessage) message.getContent()).getPort();
-                portUdp = -1;
-            } else {  // NodeJoinV2_43 || NodeJoinResponseV2_44
-                portTcp = ((PortMessageV2) message.getContent()).getPortTcp();
-                portUdp = ((PortMessageV2) message.getContent()).getPortUdp();
-            }
+            PortMessageV2 portMessage = (PortMessageV2) message.getContent();
+            int portTcp = portMessage.getPortTcp();
+            int portUdp = portMessage.getPortUdp();
 
             // Determine whether this is a node-join response. This is one of the pieces of information used to
             // determine whether a node is added to the map immediately or if it is deferred to the node-join queue.
-            boolean isNodeJoinResponse = message.getType() == MessageType.NodeJoinResponse4 ||
-                    message.getType() == MessageType.NodeJoinResponseV2_44;
+            boolean isNodeJoinResponse = message.getType() == MessageType.NodeJoinResponseV2_44;
 
             // Update the node.
             updateNode(message.getSourceNodeIdentifier(), message.getSourceIpAddress(), portTcp, portUdp,

@@ -425,11 +425,7 @@ public class Message {
     private static MessageObject processContent(MessageType type, ByteBuffer buffer) {
 
         switch (type) {
-            // Messages 1 and 2 are no longer used.
-            case NodeJoin3:
-                return NodeJoinMessage.fromByteBuffer(buffer);
-            case NodeJoinResponse4:
-                return NodeJoinResponse.fromByteBuffer(buffer);
+            // Messages 1, 2, 3, and 4 are no longer used.
             case Transaction5:
                 return Transaction.fromByteBuffer(buffer);
             case TransactionResponse6:

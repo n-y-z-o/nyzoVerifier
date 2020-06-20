@@ -10,8 +10,8 @@ public enum MessageType {
     Invalid0(0),
     // BootstrapRequest1(1), replaced with BootstrapRequestV2_35
     // BootstrapResponse2(2), replaced with BootstrapResponseV2_36
-    NodeJoin3(3),
-    NodeJoinResponse4(4),
+    // NodeJoin3(3), replaced with NodeJoinV2_43
+    // NodeJoinResponse4(4), replaced with NodeJoinResponseV2_44
     Transaction5(5),
     TransactionResponse6(6),
     PreviousHashRequest7(7),
