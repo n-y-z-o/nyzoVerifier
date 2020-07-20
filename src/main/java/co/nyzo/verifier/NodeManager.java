@@ -68,7 +68,12 @@ public class NodeManager {
             // typically made when a node comes back online after a temporary network issue.
             Node node = ipAddressToNodeMap.get(ByteBuffer.wrap(message.getSourceIpAddress()));
             if (node != null) {
-                node.markSuccessfulConnection();
+                ByteBuffer identifierBuffer = ByteBuffer.wrap(node.getIdentifier());
+                if (BlockManager.verifierInCurrentCycle(identifierBuffer)) {
+                    node.markSuccessfulConnection();
+                } else {
+                    LogUtil.println("Missing block request from out of cycle in updateNode(): " + NicknameManager.get(node.getIdentifier()));
+                }
             }
         } else {
             LogUtil.println("unrecognized message type in updateNode(): " + message.getType());
@@ -96,7 +101,9 @@ public class NodeManager {
                 if (portUdp > 0) {
                     existingNode.setPortUdp(portUdp);
                 }
-                existingNode.markSuccessfulConnection();
+                if (isNodeJoinResponse) {
+                    existingNode.markSuccessfulConnection();
+                }
             } else {
                 // If the existing node is not null, remove it.
                 if (existingNode != null) {

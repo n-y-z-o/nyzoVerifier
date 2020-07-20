@@ -212,7 +212,6 @@ public class Message {
                     if (socket == null) {
                         NodeManager.markFailedConnection(hostNameOrIp);
                     } else {
-                        NodeManager.markSuccessfulConnection(hostNameOrIp);
 
                         try {
                             OutputStream outputStream = socket.getOutputStream();
@@ -221,6 +220,7 @@ public class Message {
                             socket.setSoTimeout(1000);
                             response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress(),
                                     message.getType());
+                            NodeManager.markSuccessfulConnection(hostNameOrIp);
                         } catch (Exception reportOnly) {
                             System.err.println("Exception sending message " + message.getType() + " to " +
                                     hostNameOrIp + ":" + port + ": " + PrintUtil.printException(reportOnly));
