@@ -10,12 +10,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Transaction implements MessageObject {
 
-    private enum SignatureState {
-        Undetermined,
-        Valid,
-        Invalid
-    }
-
     // We want this to be a functioning monetary system. The maximum number of coins is 100 million. The fraction used
     // for dividing coins is 1 million (all transactions must be a whole-number multiple of 1/1000000 coins).
 

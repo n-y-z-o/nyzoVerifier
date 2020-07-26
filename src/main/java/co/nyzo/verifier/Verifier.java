@@ -649,14 +649,14 @@ public class Verifier {
 
         CycleInformation cycleInformation = block.getCycleInformation();
         ByteBuffer blockHash = ByteBuffer.wrap(block.getHash());
-        if (((cycleInformation != null && block.getContinuityState() == Block.ContinuityState.Continuous) ||
+        if (((cycleInformation != null && block.getContinuityState() == ContinuityState.Continuous) ||
                 isTopNewVerifier()) &&
                 !ByteUtil.arraysAreEqual(block.getVerifierIdentifier(), Verifier.getIdentifier())) {
 
             // Create the block. If the block is not discontinuous, register it with UnfrozenBlockManager.
             Block nextBlock = createNextBlock(block, upgradeBlockchainVersion);
             numberOfBlocksCreated++;
-            if (nextBlock != null && nextBlock.getContinuityState() != Block.ContinuityState.Discontinuous) {
+            if (nextBlock != null && nextBlock.getContinuityState() != ContinuityState.Discontinuous) {
                 UnfrozenBlockManager.registerBlock(nextBlock);
             }
 

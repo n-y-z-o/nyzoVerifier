@@ -10,12 +10,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Block implements MessageObject {
 
-    public enum ContinuityState {
-        Undetermined,
-        Discontinuous,
-        Continuous
-    }
-
     private enum SignatureState {
         Undetermined,
         Valid,
@@ -253,7 +247,6 @@ public class Block implements MessageObject {
         boolean reachedGenesisBlock = false;
         Set<ByteBuffer> identifiers = new HashSet<>();
         List<ByteBuffer> orderedIdentifiers = new ArrayList<>();
-        int maximumCycleLength = 0;
         long cycleEndHeight = getBlockHeight();
         long primaryCycleEndHeight = cycleEndHeight;
         int primaryCycleIndex = 0;
@@ -284,11 +277,6 @@ public class Block implements MessageObject {
                     primaryCycleIndex++;
                 }
 
-                // If this was not the final cycle outside the area we want to analyze, consider the cycle length.
-                if (primaryCycleIndex < 4 && cycleEndHeight != getBlockHeight()) {
-                    maximumCycleLength = Math.max(maximumCycleLength, cycleLength);
-                }
-
                 // Step back to the previous block.
                 cycleEndHeight--;
                 ByteBuffer removedIdentifier = orderedIdentifiers.remove(orderedIdentifiers.size() - 1);
@@ -306,15 +294,11 @@ public class Block implements MessageObject {
                 // The cycle length of this cycle is from the Genesis block to the currently marked end.
                 int cycleLength = (int) primaryCycleEndHeight + 1;
                 primaryCycleLengths[primaryCycleIndex] = cycleLength;
-                maximumCycleLength = Math.max(maximumCycleLength, cycleLength - 1);
 
-                // If we have not yet found a cycle, mark as Genesis and a new verifier. Otherwise, consider the
-                // ordered identifiers list for a previous maximum, as it is a cycle that has not yet been processed.
+                // If we have not yet found a cycle, mark as Genesis and a new verifier.
                 if (primaryCycleIndex == 0) {
                     inGenesisCycle = true;
                     newVerifier = true;
-                } else if (primaryCycleIndex < 3 || cycleEndHeight != primaryCycleEndHeight) {
-                    maximumCycleLength = Math.max(maximumCycleLength, orderedIdentifiers.size());
                 }
             }
 
@@ -325,12 +309,8 @@ public class Block implements MessageObject {
         // cycle information.
         if (primaryCycleIndex == 4 || reachedGenesisBlock) {
 
-            // This considers the current cycle length as part of the maximum cycle length. This is inconsequential,
-            // but it does make the properties of the maximum cycle length cleaner. Precisely, it means that the
-            // maximum cycle length will not increase from one block to the next without an increase in the cycle
-            // length.
-            maximumCycleLength = Math.max(maximumCycleLength, primaryCycleLengths[0]);
-
+            int maximumCycleLength = Math.max(primaryCycleLengths[0], Math.max(primaryCycleLengths[1],
+                    primaryCycleLengths[2]));
             ByteBuffer verifierIdentifier = ByteBuffer.wrap(getVerifierIdentifier());
 
             cycleInformation = new CycleInformation(height, maximumCycleLength, primaryCycleLengths, newVerifier,
