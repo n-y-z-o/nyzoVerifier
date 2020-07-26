@@ -433,7 +433,8 @@ public class NodeManager {
                         node.getPortTcp() + ":" +
                         node.getPortUdp() + ":" +
                         node.getQueueTimestamp() + ":" +
-                        "0:" +  // identifier-change timestamp; no longer used
+                        //"0:" +  // identifier-change timestamp; no longer used
+                        node.getCommunicationFailureCount() + ":" + // slot is now used for communicationFailureCount instead.
                         node.getInactiveTimestamp());
                 separator = "\n";
             }
@@ -469,11 +470,19 @@ public class NodeManager {
                     int portUdp = Integer.parseInt(split[3]);
                     long queueTimestamp = Long.parseLong(split[4]);
                     // long identifierChangeTimestamp = Long.parseLong(split[5]);  no longer used
+                    long communicationFailureCount = Long.parseLong(split[5]);
+                    if (communicationFailureCount > 1000) {
+                        // Extra precaution only in case of someone using a very old nodes file.
+                        // old nodes files with a timestamp there will be considered as Zero failed attempt.
+                        // 1000 is low enough not to be a timestamp, and high enough not to be a real fail count.
+                        communicationFailureCount = 0;
+                    }
                     long inactiveTimestamp = Long.parseLong(split[6]);
 
                     Node node = new Node(identifier, ipAddress, portTcp, portUdp);
                     node.setQueueTimestamp(queueTimestamp);
                     node.setInactiveTimestamp(inactiveTimestamp);
+                    node.setCommunicationFailureCount(communicationFailureCount);
 
                     ipAddressToNodeMap.put(ByteBuffer.wrap(ipAddress), node);
                 } catch (Exception ignored) { }

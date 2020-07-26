@@ -508,6 +508,9 @@ public class MeshListener {
                     NodeJoinMessageV2 nodeJoinMessage = (NodeJoinMessageV2) message.getContent();
                     NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
 
+                    // Log nodejoins so we can filter out obvious spam - Include log_timestamps=true in /var/lib/nyzo/production/preferences
+                    LogUtil.println("nodejoin_from " + IpUtil.addressAsString(message.getSourceIpAddress()) + " " + PrintUtil.compactPrintByteArray(message.getSourceNodeIdentifier()) + " " + nodeJoinMessage.getNickname());
+
                     // Send a UDP ping to help the node ensure that it is receiving UDP messages
                     // properly.
                     Message.sendUdp(message.getSourceIpAddress(), nodeJoinMessage.getPortUdp(),
