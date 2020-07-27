@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CycleTransactionSignScript {
 
     public static void main(String[] args) {
+        BlockManager.initialize();
         signTransactions(args);
         UpdateUtil.terminate();
     }
