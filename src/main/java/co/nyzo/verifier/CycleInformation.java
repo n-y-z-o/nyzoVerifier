@@ -38,10 +38,6 @@ public class CycleInformation {
         return inGenesisCycle;
     }
 
-    public long getWindowStartHeight() {
-        return blockHeight - cycleLengths[0] - cycleLengths[1] - cycleLengths[2] + 1;
-    }
-
     public long getDeterminationHeight() {
 
         // This is the height of the lowest block that affects this cycle information. This will give us the last four
