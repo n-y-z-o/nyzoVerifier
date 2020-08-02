@@ -4,11 +4,13 @@ import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 public class CycleDigestTest {
 
-    // This test compares the new CycleDigest class against the CycleInformation class.
+    // This test compares the new CycleDigest class against the CycleInformation class. It also tests serialization and
+    // deserialization of the CycleDigest class.
 
     public static void main(String[] args) {
 
@@ -50,6 +52,15 @@ public class CycleDigestTest {
                             cycleDigest.isNewVerifier());
                     check("Genesis cycle, block " + block.getBlockHeight(), cycleInformation.isInGenesisCycle(),
                             cycleDigest.isInGenesisCycle());
+
+                    // Serialize the CycleDigest, deserialize into a new copy, and compare.
+                    byte[] serializedDigest = cycleDigest.getBytes();
+                    CycleDigest deserializedDigest = CycleDigest.fromByteBuffer(ByteBuffer.wrap(serializedDigest));
+                    if (!cycleDigest.equals(deserializedDigest)) {
+                        System.out.println("mismatch of original and deserialized CycleDigest at block height " +
+                                block.getBlockHeight());
+                        System.exit(1);
+                    }
 
                     System.out.println("PASSED: " + block);
                 }
