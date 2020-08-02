@@ -25,6 +25,25 @@ On a blank setup, just use that open nyzo git link `https://github.com/Open-Nyzo
 
 If you want a clone setup and compare the drops, then don't forget to also duplicate `/var/lib/nyzo/production/nodes` from old to new install so it does not start empty.
 
+**Update**  
+Since these mods are now a Pull Request vs the official repo, you can easily switch version via git, with official repo only:
+
+From your user dir (either /home/ubuntu or /root depending on your install):
+
+```
+cd nyzoVerifier
+git fetch origin pull/25/head:NCFP10
+git checkout NCFP10
+./gradlew build
+supervisorctl reload
+```
+
+You'll end up on 597001
+
+## 597001
+
+597001 is the same mod as 595001+595002 applied to base version 597.
+
 ## 595002
 
 v572 introduced communicationFailureCount for Node: https://tech.nyzo.co/releaseNotes/v572
