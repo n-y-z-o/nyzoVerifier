@@ -2,10 +2,7 @@ package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.BlockVote;
 import co.nyzo.verifier.messages.VerifierRemovalVote;
-import co.nyzo.verifier.util.FileUtil;
-import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.ThreadUtil;
+import co.nyzo.verifier.util.*;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -30,8 +27,7 @@ public class VerifierPerformanceManager {
 
     private static final Map<ByteBuffer, Integer> verifierScoreMap = new ConcurrentHashMap<>();
     private static AtomicInteger blocksSinceWritingFile = new AtomicInteger();
-
-    private static final int messagesPerIteration = 10;
+    
     private static final Map<ByteBuffer, Long> voteMessageIpToTimestampMap = new ConcurrentHashMap<>();
 
     public static final File scoreFile = new File(Verifier.dataRootDirectory, "performance_scores_v3");
@@ -204,29 +200,28 @@ public class VerifierPerformanceManager {
             }
         }
 
-        // Build the list of timestamps and determine the cutoff timestamp.
-        List<Long> timestampList = new ArrayList<>(voteMessageIpToTimestampMap.values());
-        Collections.sort(timestampList);
-        long cutoffTimestamp = timestampList.get(Math.min(timestampList.size() - 1, messagesPerIteration));
-        double secondsSinceCutoff = (System.currentTimeMillis() - cutoffTimestamp) / 1000.0;
-
         // Build the vote and register it locally.
         VerifierRemovalVote vote = new VerifierRemovalVote();
         VerifierRemovalManager.registerVote(Verifier.getIdentifier(), vote);
 
-        // Send the messages.
-        int numberOfMessages = 0;
-        Message message = new Message(MessageType.VerifierRemovalVote39, vote);
-        for (Node node : mesh) {
-            ByteBuffer ipAddress = ByteBuffer.wrap(node.getIpAddress());
-            if (numberOfMessages < messagesPerIteration &&
-                    BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(node.getIdentifier())) &&
-                    voteMessageIpToTimestampMap.getOrDefault(ipAddress, Long.MAX_VALUE) <= cutoffTimestamp) {
-
-                voteMessageIpToTimestampMap.put(ipAddress, System.currentTimeMillis());
-                numberOfMessages++;
-                Message.fetch(node, message, null);
+        // Send the vote to a verifier with the oldest timestamp in the map.
+        if (!mesh.isEmpty()) {
+            Node oldestNode = null;
+            long oldestTimestamp = Long.MAX_VALUE;
+            for (Node node : mesh) {
+                ByteBuffer ipAddress = ByteBuffer.wrap(node.getIpAddress());
+                long timestamp = voteMessageIpToTimestampMap.getOrDefault(ipAddress, Long.MAX_VALUE);
+                if (oldestNode == null || timestamp < oldestTimestamp) {
+                    oldestNode = node;
+                    oldestTimestamp = timestamp;
+                }
             }
+
+            voteMessageIpToTimestampMap.put(ByteBuffer.wrap(oldestNode.getIpAddress()), System.currentTimeMillis());
+            Message message = new Message(MessageType.VerifierRemovalVote39, vote);
+            LogUtil.println("sending verifier-removal vote to node at IP: " +
+                    IpUtil.addressAsString(oldestNode.getIpAddress()));
+            Message.fetch(oldestNode, message, null);
         }
     }
 }
