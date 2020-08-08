@@ -1,7 +1,6 @@
 package co.nyzo.verifier.util;
 
 import co.nyzo.verifier.ByteUtil;
-import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.KeyUtil;
 import net.i2p.crypto.eddsa.EdDSAEngine;
 import net.i2p.crypto.eddsa.EdDSASecurityProvider;
@@ -12,7 +11,6 @@ import java.nio.ByteBuffer;
 import java.security.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 public class SignatureUtil {
 
@@ -53,6 +51,11 @@ public class SignatureUtil {
     }
 
     public static boolean signatureIsValid(byte[] signatureBytes, byte[] signedBytes, byte[] publicIdentifier) {
+        return signatureIsValid(signatureBytes, signedBytes, publicIdentifier, 0, signedBytes.length);
+    }
+
+    public static boolean signatureIsValid(byte[] signatureBytes, byte[] signedBytes, byte[] publicIdentifier,
+                                           int signedBytesStart, int signedBytesEnd) {
 
         boolean signatureIsValid;
 
@@ -73,7 +76,9 @@ public class SignatureUtil {
             }
 
             synchronized (SignatureUtil.class) {
-                signatureIsValid = signature.verifyOneShot(signedBytes, signatureBytes);
+                int signedBytesLength = signedBytesEnd - signedBytesStart;
+                signatureIsValid = signature.verifyOneShot(signedBytes, signedBytesStart, signedBytesLength,
+                        signatureBytes, 0, signatureBytes.length);
             }
 
         } catch (Exception ignored) {
