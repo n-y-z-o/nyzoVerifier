@@ -417,8 +417,10 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NewBlock9) {
 
-                    NewBlockMessage blockMessage = (NewBlockMessage) message.getContent();
-                    UnfrozenBlockManager.registerBlock(blockMessage.getBlock());
+                    if (message.getContent() instanceof NewBlockMessage) {
+                        NewBlockMessage blockMessage = (NewBlockMessage) message.getContent();
+                        UnfrozenBlockManager.registerBlock(blockMessage.getBlock());
+                    }
                     response = new Message(MessageType.NewBlockResponse10, null);
 
                 } else if (messageType == MessageType.BlockRequest11) {

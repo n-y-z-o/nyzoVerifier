@@ -76,7 +76,7 @@ public class Message {
         this.valid = true;
     }
 
-    // This is the constructor for a message from another system.
+    // This is a constructor for a message from another system.
     public Message(long timestamp, MessageType type, MessageObject content, byte[] sourceNodeIdentifier,
                    byte[] sourceNodeSignature, byte[] sourceIpAddress) {
 
@@ -90,6 +90,19 @@ public class Message {
         // Verify the source signature.
         this.valid = SignatureUtil.signatureIsValid(sourceNodeSignature, getBytesForSigning(),
                 sourceNodeIdentifier);
+    }
+
+    // This is a constructor for a message from another system.
+    public Message(long timestamp, MessageType type, MessageObject content, byte[] sourceNodeIdentifier,
+                   byte[] sourceNodeSignature, byte[] sourceIpAddress, boolean valid) {
+
+        this.timestamp = timestamp;
+        this.type = type;
+        this.content = content;
+        this.sourceNodeIdentifier = sourceNodeIdentifier;
+        this.sourceNodeSignature = sourceNodeSignature;
+        this.sourceIpAddress = sourceIpAddress;
+        this.valid = valid;
     }
 
     public long getTimestamp() {
@@ -380,19 +393,17 @@ public class Message {
         try {
             ByteBuffer buffer = ByteBuffer.wrap(bytes);
 
-            // For UDP packets, the length is still in the buffer.
-            if (isUdp) {
-                buffer.getInt();
-            }
+            // For UDP, the length is still in the buffer. For TCP, the array is sized to the message.
+            int bufferLength = isUdp ? buffer.getInt() : bytes.length;
 
             long timestamp = buffer.getLong();
             typeValue = buffer.getShort() & 0xffff;
             type = MessageType.forValue(typeValue);
 
-            MessageObject content = processContent(type, buffer);
-
-            byte[] sourceNodeIdentifier = new byte[FieldByteSize.identifier];
-            buffer.get(sourceNodeIdentifier);
+            // Read the source-node identifier from the end of the buffer.
+            int contentStartPosition = buffer.position();
+            buffer.position(bufferLength - FieldByteSize.identifier - FieldByteSize.signature);
+            byte[] sourceNodeIdentifier = Message.getByteArray(buffer, FieldByteSize.identifier);
 
             // If this is a non-cycle verifier sending disallowed messages, add it to the blacklist. Otherwise, build
             // the message.
@@ -406,13 +417,28 @@ public class Message {
                 if (!isUdp && type != MessageType.NewBlock9) {
                     BlacklistManager.addToBlacklist(sourceIpAddress);
                 }
-
             } else {
-                byte[] sourceNodeSignature = new byte[FieldByteSize.signature];
-                buffer.get(sourceNodeSignature);
+                // If the signature is valid, continue to processing the content.
+                byte[] sourceNodeSignature = Message.getByteArray(buffer, FieldByteSize.signature);
+                int signedBytesStart = isUdp ? 4 : 0;
+                int signedBytesEnd = bufferLength - FieldByteSize.signature;
+                boolean signatureIsValid = SignatureUtil.signatureIsValid(sourceNodeSignature, bytes,
+                        sourceNodeIdentifier, signedBytesStart, signedBytesEnd);
 
-                message = new Message(timestamp, type, content, sourceNodeIdentifier, sourceNodeSignature,
-                        sourceIpAddress);
+                if (signatureIsValid) {
+                    // Process the message content.
+                    buffer.position(contentStartPosition);
+                    MessageObject content = processContent(type, buffer, sourceNodeIdentifier);
+
+                    // Build the message.
+                    message = new Message(timestamp, type, content, sourceNodeIdentifier, sourceNodeSignature,
+                            sourceIpAddress, signatureIsValid);
+                } else {
+                    // Build a message with the information that is available. The content will not be used for invalid
+                    // messages, so processing the content would be wasteful.
+                    message = new Message(timestamp, type, null, sourceNodeIdentifier, sourceNodeSignature,
+                            sourceIpAddress, signatureIsValid);
+                }
             }
         } catch (Exception reportOnly) {
             System.err.println("problem getting message from bytes, message type is " + typeValue + ", " +
@@ -422,7 +448,7 @@ public class Message {
         return message;
     }
 
-    private static MessageObject processContent(MessageType type, ByteBuffer buffer) {
+    private static MessageObject processContent(MessageType type, ByteBuffer buffer, byte[] sourceNodeIdentifier) {
 
         switch (type) {
             // Messages 1, 2, 3, and 4 are no longer used.
@@ -433,7 +459,7 @@ public class Message {
             case PreviousHashResponse8:
                 return PreviousHashResponse.fromByteBuffer(buffer);
             case NewBlock9:
-                return NewBlockMessage.fromByteBuffer(buffer);
+                return NewBlockMessage.fromByteBuffer(buffer, sourceNodeIdentifier);
             case BlockRequest11:
                 return BlockRequest.fromByteBuffer(buffer);
             case BlockResponse12:

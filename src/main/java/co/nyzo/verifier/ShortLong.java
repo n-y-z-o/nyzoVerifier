@@ -42,11 +42,15 @@ public class ShortLong {
         return longValue;
     }
 
-    public static ShortLong fromByteBuffer(ByteBuffer buffer) {
-        long combinedValue = buffer.getLong();
+    public static ShortLong fromCombinedValue(long combinedValue) {
         int shortValue = (int) ((combinedValue >> 48) & 0xffff);
         long longValue = combinedValue & 0xffffffffffffL;
         return new ShortLong(shortValue, longValue);
+    }
+
+    public static ShortLong fromByteBuffer(ByteBuffer buffer) {
+        long combinedValue = buffer.getLong();
+        return fromCombinedValue(combinedValue);
     }
 
     public static ShortLong fromFile(RandomAccessFile file) {
@@ -54,9 +58,8 @@ public class ShortLong {
         try {
             combinedValue = file.readLong();
         } catch (Exception ignored) { }
-        int shortValue = (int) ((combinedValue >> 48) & 0xffff);
-        long longValue = combinedValue & 0xffffffffffffL;
-        return new ShortLong(shortValue, longValue);
+
+        return fromCombinedValue(combinedValue);
     }
 
     public static long combinedValue(int shortValue, long longValue) {
