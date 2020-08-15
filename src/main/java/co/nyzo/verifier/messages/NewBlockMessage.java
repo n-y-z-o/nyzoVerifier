@@ -1,8 +1,6 @@
 package co.nyzo.verifier.messages;
 
 import co.nyzo.verifier.*;
-import co.nyzo.verifier.util.PrintUtil;
-import co.nyzo.verifier.util.UpdateUtil;
 
 import java.nio.ByteBuffer;
 

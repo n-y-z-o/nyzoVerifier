@@ -21,11 +21,39 @@ public class MeshListener {
     private static final AtomicLong numberOfMessagesRejected = new AtomicLong(0);
     private static final AtomicLong numberOfMessagesAccepted = new AtomicLong(0);
 
-    private static final int maximumConcurrentConnectionsForIp =
-            PreferencesUtil.getInt("maximum_conncurrent_connections_per_ip", 20);
+    // These values, all configurable through the preferences file, define a maximum number of connections per IP
+    // address and a taper to reduce that maximum when the number of connections is high. The default values activate
+    // the taper at 500 connections, reducing the number of connections per IP by 1 for every 50 additional connections
+    // past 500. This is done with floor rounding, so the number of connections per IP would be 4 when 501 connections
+    // are active, 3 when 551 connections are active, etc. A maximum is also defined to put an absolute cap on the
+    // number of active connections. Whitelisted IP addresses are not subject to any of these limits, though their
+    // connections do count toward active connections.
+    private static final int maximumConcurrentConnectionsPerIpAbsolute =
+            PreferencesUtil.getInt("maximum_concurrent_connections_per_ip", 5);
+    private static final int concurrentConnectionThrottleThreshold =
+            PreferencesUtil.getInt("concurrent_connection_throttle_threshold", 500);
+    private static final double concurrentConnectionReductionRate =
+            PreferencesUtil.getDouble("concurrent_connection_reduction_rate", 0.02);
+    private static final int maximumConcurrentConnections =
+            PreferencesUtil.getInt("maximum_concurrent_connections", 1000);
 
     private static final AtomicBoolean aliveTcp = new AtomicBoolean(false);
     private static final AtomicBoolean aliveUdp = new AtomicBoolean(false);
+
+    private static int maximumActiveReadThreads = 0;
+    public static int getMaximumActiveReadThreads() {
+        return maximumActiveReadThreads;
+    }
+
+    private static int minimumConnectionThreshold = maximumConcurrentConnectionsPerIpAbsolute;
+    public static int getMinimumConnectionThreshold() {
+        return minimumConnectionThreshold;
+    }
+
+    private static int ipMapSize = 0;
+    public static int getIpMapSize() {
+        return ipMapSize;
+    }
 
     // The only messages sent via UDP right now are BlockVote19, NewVerifierVote21, and MinimalBlock_51. Of these,
     // MinimalBlock_51 is the largest.
@@ -84,7 +112,8 @@ public class MeshListener {
                 public Integer apply(Integer integer0, Integer integer1) {
                     int value0 = integer0 == null ? 0 : integer0;
                     int value1 = integer1 == null ? 0 : integer1;
-                    return value0 + value1;
+                    int sum = value0 + value1;
+                    return sum == 0 ? null : sum;
                 }
             };
 
@@ -276,22 +305,31 @@ public class MeshListener {
         } else {
             ByteBuffer ipBuffer = ByteBuffer.wrap(ipAddress);
             int connectionsForIp = connectionsPerIp.merge(ipBuffer, 1, mergeFunction);
+            int connections = activeReadThreads.get();
+            int maximumConcurrentConnectionsPerIp = (int) Math.max(1.0, maximumConcurrentConnectionsPerIpAbsolute -
+                    Math.max(0, (connections - concurrentConnectionThrottleThreshold) *
+                            concurrentConnectionReductionRate));
+            minimumConnectionThreshold = Math.min(minimumConnectionThreshold, maximumConcurrentConnectionsPerIp);
 
-            if (connectionsForIp > maximumConcurrentConnectionsForIp && !Message.ipIsWhitelisted(ipAddress)) {
+            if ((connectionsForIp > maximumConcurrentConnectionsPerIp || connections > maximumConcurrentConnections) &&
+                    !Message.ipIsWhitelisted(ipAddress)) {
 
-                System.out.println("blacklisting IP " + IpUtil.addressAsString(ipAddress) +
-                        " due to too many concurrent connections");
+                // If the number of connections for this IP is greater than the absolute maximum, blacklist the IP.
+                if (connectionsForIp > maximumConcurrentConnectionsPerIpAbsolute) {
+                    LogUtil.println("blacklisting IP " + IpUtil.addressAsString(ipAddress) +
+                            " due to too many concurrent connections");
+                    BlacklistManager.addToBlacklist(ipAddress);
+                }
 
-                // Decrement the counter, add the IP to the blacklist, and close the socket without responding.
+                // Decrement the counter and close the socket without responding.
                 connectionsPerIp.merge(ipBuffer, -1, mergeFunction);
-                BlacklistManager.addToBlacklist(ipAddress);
                 ConnectionManager.fastCloseSocket(clientSocket);
 
             } else {
 
                 // Read the message and respond.
                 numberOfMessagesAccepted.incrementAndGet();
-                activeReadThreads.incrementAndGet();
+                maximumActiveReadThreads = Math.max(maximumActiveReadThreads, activeReadThreads.incrementAndGet());
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -301,20 +339,15 @@ public class MeshListener {
                             readMessageAndRespond(clientSocket);  // socket is closed in this method
                         } catch (Exception ignored) { }
 
-                        // Decrement the counter for this IP.
+                        // Decrement the counter for this IP and the counter of active read threads.
                         connectionsPerIp.merge(ipBuffer, -1, mergeFunction);
-
-                        if (activeReadThreads.decrementAndGet() == 0) {
-
-                            // When the number of active threads is zero, clear the map of
-                            // connections per IP to prevent accumulation of too many IP
-                            // addresses over time.
-                            connectionsPerIp.clear();
-                        }
+                        activeReadThreads.decrementAndGet();
                     }
                 }, "MeshListener-clientSocketTcp").start();
             }
         }
+
+        ipMapSize = connectionsPerIp.size();
     }
 
     private static void readMessageAndRespond(Socket clientSocket) {
