@@ -88,6 +88,11 @@ public class StatusResponse implements MessageObject {
             lines.add("UDP discard count: " + udpDiscardCount.get());
             lines.add("block vote count (TCP/UDP): " + MeshListener.getBlockVoteTcpUdpString());
 
+            // This shows MeshListener information.
+            lines.add("maximum active read threads: " + MeshListener.getMaximumActiveReadThreads());
+            lines.add("minimum connection threshold: " + MeshListener.getMinimumConnectionThreshold());
+            lines.add("IP map size: " + MeshListener.getIpMapSize());
+
             // This shows which in-cycle verifiers currently have no active mesh nodes.
             lines.add("missing in-cycle verifiers: " + NodeManager.getMissingInCycleVerifiers());
         }
