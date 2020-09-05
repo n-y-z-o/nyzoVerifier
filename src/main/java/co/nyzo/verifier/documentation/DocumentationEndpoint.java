@@ -27,8 +27,8 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
     public DocumentationEndpoint(String path, File file) {
         this.path = processPath(path);
         this.file = file.isDirectory() ? new File(file, "index.html") : file;
-        this.title = findTitle(this.file);
         this.type = determineType(this.file);
+        this.title = findTitle(this.file, this.type);
         this.children = new ArrayList<>();
     }
 
@@ -107,9 +107,9 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
         return reassembled.toString();
     }
 
-    private static String findTitle(File file) {
+    private static String findTitle(File file, DocumentationEndpointType type) {
         String title = null;
-        if (!file.isDirectory()) {
+        if (!file.isDirectory() && type == DocumentationEndpointType.Html) {
             try {
                 String fileContents = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath())),
                         StandardCharsets.UTF_8);
