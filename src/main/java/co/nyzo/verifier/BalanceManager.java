@@ -6,6 +6,7 @@ import co.nyzo.verifier.util.TestnetUtil;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BalanceManager {
 
@@ -161,7 +162,7 @@ public class BalanceManager {
 
     public static Map<ByteBuffer, Long> makeBalanceMap(BalanceList balanceList) {
 
-        Map<ByteBuffer, Long> balanceMap = new HashMap<>();
+        Map<ByteBuffer, Long> balanceMap = new ConcurrentHashMap<>();
         if (balanceList != null) {
             for (BalanceListItem item : balanceList.getItems()) {
                 balanceMap.put(ByteBuffer.wrap(item.getIdentifier()), item.getBalance());
