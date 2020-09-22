@@ -274,12 +274,13 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
                     // fulfilled.
                     // (1) The transaction was previously forwarded or is in the blockchain.
                     // (2) The sender balance is at least the sum of the minimum preferred balance and the
-                    //     required transaction amount.
+                    //     required transaction amount or the transaction is in the blockchain.
                     // (3) The supplemental transaction is valid.
                     // (4) The transaction amount is at least the required transaction amount.
                     // (5) The transaction receiver is correct.
                     // (6) The transaction sender data is correct.
 
+                    boolean inBlockchain = response.getBoolean("inBlockchain", false);
                     long senderBalance = (long) (response.getDouble("senderBalance", 0.0) *
                             Transaction.micronyzoMultiplierRatio);
                     long amount = (long) (response.getDouble("amount", 0.0) * Transaction.micronyzoMultiplierRatio);
@@ -289,9 +290,9 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
                     byte[] senderData = ByteUtil.byteArrayFromHexString(senderDataString,
                             senderDataString.length() / 2);
 
-                    authorized = (response.getBoolean("previouslyForwarded", false) ||
-                            response.getBoolean("inBlockchain", false)) &&  // (1)
-                            senderBalance >= (BalanceManager.minimumPreferredBalance + micropayPrice) &&  // (2)
+                    authorized = (response.getBoolean("previouslyForwarded", false) || inBlockchain) &&  // (1)
+                            (senderBalance >= (BalanceManager.minimumPreferredBalance + micropayPrice) ||
+                                    inBlockchain) &&  // (2)
                             response.getBoolean("supplementalTransactionValid", false) &&  // (3)
                             amount >= micropayPrice &&  // (4)
                             ByteUtil.arraysAreEqual(micropayReceiverIdentifier, receiverIdentifier) &&  // (5)
