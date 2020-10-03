@@ -1,15 +1,14 @@
 package co.nyzo.verifier;
 
 import co.nyzo.verifier.messages.NewVerifierVote;
-import co.nyzo.verifier.util.IpUtil;
-import co.nyzo.verifier.util.LogUtil;
-import co.nyzo.verifier.util.PreferencesUtil;
-import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.*;
 
 import java.nio.ByteBuffer;
 import java.util.*;
 
 public class NewVerifierQueueManager {
+
+    private static final long maximumIpValueInterval = 16L;
 
     // The wait time for the lottery is 30 days.
     public static final long lotteryWaitTime = 1000L * 60L * 60L * 24L * 30L;
@@ -119,29 +118,19 @@ public class NewVerifierQueueManager {
 
                 // Get the "cycle hash" of the reference block. If this cannot be calculated properly, the returned
                 // value will be all zeros.
-                byte[] hash = calculateCycleHash(referenceBlock);
-                if (!ByteUtil.isAllZeros(hash)) {
+                byte[] cycleHash = calculateCycleHash(referenceBlock);
+                if (!ByteUtil.isAllZeros(cycleHash)) {
 
-                    // Find the lowest-scored identifier that has been waiting sufficiently long.
-                    long thresholdTime = System.currentTimeMillis() - lotteryWaitTime;
-                    List<Node> mesh = NodeManager.getMesh();
-                    int winningScore = Integer.MAX_VALUE;
-                    for (Node node : mesh) {
-                        ByteBuffer identifier = ByteBuffer.wrap(node.getIdentifier());
-                        if (!currentCycle.contains(identifier) && node.getQueueTimestamp() < thresholdTime) {
-                            int score = score(hash, node.getIdentifier());
-                            if (score < winningScore) {
-                                winningScore = score;
-                                winningIdentifier = node.getIdentifier();
-                            }
-                        }
-                    }
+                    // Get the value for the hash. This is used to select the node.
+                    Node winningNode = winningNodeForCycleHash(currentCycle, cycleHash, referenceHashHeight);
+                    winningIdentifier = winningNode.getIdentifier();
 
                     // If no verifier has been waiting long enough, select the verifier that has been waiting longest.
                     // This is a naive FIFO process, and it is only intended to be a convenient fallback to the lottery,
                     // not a robust standalone solution.
                     if (winningIdentifier == null) {
                         long winningTimestamp = System.currentTimeMillis();
+                        List<Node> mesh = NodeManager.getMesh();
                         for (Node node : mesh) {
                             ByteBuffer identifier = ByteBuffer.wrap(node.getIdentifier());
                             if (!currentCycle.contains(identifier) && node.getQueueTimestamp() < winningTimestamp) {
@@ -211,33 +200,86 @@ public class NewVerifierQueueManager {
         return cycleHash;
     }
 
-    private static int score(byte[] hash, byte[] identifier) {
+    private static Node winningNodeForCycleHash(Set<ByteBuffer> currentCycle, byte[] cycleHash, long cycleHashHeight) {
 
-        // This method provides a simple, computationally cheap way to rank identifiers relative to a hash from the
-        // blockchain. This allows us to have a lottery that is highly synchronized among all verifiers.
-
-        // Some identifiers would be at a significant advantage in the naive distance calculation due to their digit
-        // distributions, so we hash the bytewise sum of the identifier and block hash to eliminate this advantage.
-
-        int score;
-        if (hash.length != 32 || identifier.length != 32) {
-            score = Integer.MAX_VALUE;
-        } else {
-            byte[] combinedArray = new byte[32];
-            for (int i = 0; i < 32; i++) {
-                combinedArray[i] = (byte) (hash[i] + identifier[i]);
-            }
-            byte[] hashedIdentifier = HashUtil.singleSHA256(combinedArray);
-
-            score = 0;
-            for (int i = 0; i < 32; i++) {
-                int hashValue = hash[i] & 0xff;
-                int identifierValue = hashedIdentifier[i] & 0xff;
-                score += Math.abs(hashValue - identifierValue);
+        // Build the value-to-node map with all nodes that are not in the cycle and have been waiting long enough.
+        Map<Long, Node> valueToNodeMap = new HashMap<>();
+        long thresholdTime = System.currentTimeMillis() - lotteryWaitTime;
+        List<Node> mesh = NodeManager.getMesh();
+        for (Node node : mesh) {
+            ByteBuffer identifier = ByteBuffer.wrap(node.getIdentifier());
+            if (!currentCycle.contains(identifier) && node.getQueueTimestamp() < thresholdTime) {
+                long nodeValue = ipToLong(node.getIpAddress());
+                valueToNodeMap.put(nodeValue, node);
             }
         }
 
-        return score;
+        Node winningNode = null;
+        if (valueToNodeMap.size() == 1) {
+            // This is an exceptional situation, but it is worth handling here to allow an assumption of a map size of
+            // at least 2 in the next condition.
+            winningNode = valueToNodeMap.values().iterator().next();
+        } else if (valueToNodeMap.size() > 1) {
+            // Iterate through the values. Each IP gets a number of chances based on its proximity to the previous and
+            // next addresses in the list. These chances are scattered via hashing, mapped to the same [0 - 1] range as
+            // the cycle hash, and the closest distance is the winner.
+            List<Long> values = new ArrayList<>(valueToNodeMap.keySet());
+            Collections.sort(values);
+            byte[] winningHash = null;
+            for (int i = 0; i < values.size(); i++) {
+                long value = values.get(i);
+                long previousInterval = Math.min(maximumIpValueInterval, i == 0 ? values.get(1) - value : value -
+                        values.get(i - 1));
+                long nextInterval = Math.min(maximumIpValueInterval, i == values.size() - 1 ? previousInterval :
+                        values.get(i + 1) - value);
+
+                long startIndex = value - (previousInterval - 1) / 2;
+                long endIndex = value + (nextInterval - 1) / 2;
+                for (long j = startIndex; j <= endIndex; j++) {
+                    long ipHashInput = j + cycleHashHeight;  // add the cycle hash height to introduce variability
+                    byte[] ipHash = HashUtil.singleSHA256(HashUtil.byteArray(ipHashInput));
+                    winningHash = closerHash(cycleHash, winningHash, ipHash);
+                    if (ByteUtil.arraysAreEqual(ipHash, winningHash)) {
+                        winningNode = valueToNodeMap.get(value);
+                    }
+                }
+            }
+
+        }
+
+        return winningNode;
+    }
+
+    private static long ipToLong(byte[] address) {
+        return (address[0] & 0xffL) << 24 |
+                (address[1] & 0xffL) << 16 |
+                (address[2] & 0xffL) << 8 |
+                (address[3] & 0xffL);
+    }
+
+    private static byte[] closerHash(byte[] referenceHash, byte[] hash0, byte[] hash1) {
+        byte[] closerHash = null;
+        if (hash0 == null || hash0.length != FieldByteSize.hash) {
+            closerHash = hash1;
+        } else if (hash1 == null || hash1.length != FieldByteSize.hash) {
+            closerHash = hash0;
+        } else {
+            for (int i = 0; i < FieldByteSize.hash && closerHash == null; i++) {
+                int distance0 = Math.abs((referenceHash[i] & 0xff) - (hash0[i] & 0xff));
+                int distance1 = Math.abs((referenceHash[i] & 0xff) - (hash1[i] & 0xff));
+                if (distance0 < distance1) {
+                    closerHash = hash0;
+                } else if (distance1 < distance0) {
+                    closerHash = hash1;
+                }
+            }
+
+            if (closerHash == null) {
+                closerHash = hash0;
+            }
+        }
+
+        return closerHash;
     }
 
     public static ByteBuffer getCurrentVote() {
