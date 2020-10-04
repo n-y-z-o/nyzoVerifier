@@ -57,7 +57,8 @@ public class DocumentationController {
                     if (file.isDirectory() || (filenameLowercase.endsWith(".html") ||
                             filenameLowercase.endsWith(".htm") || filenameLowercase.endsWith(".png") ||
                             filenameLowercase.endsWith(".jpg") || filenameLowercase.endsWith(".css") ||
-                            filenameLowercase.endsWith(".ico") || filenameLowercase.endsWith(".txt")) &&
+                            filenameLowercase.endsWith(".ico") || filenameLowercase.endsWith(".txt") ||
+                            filenameLowercase.endsWith(".js")) &&
                             !filenameLowercase.equals("index.html")) {
 
                         // Remove the root and replace backslashes with forward slashes.
