@@ -74,6 +74,14 @@ public class Node implements MessageObject {
         this.inactiveTimestamp = inactiveTimestamp;
     }
 
+    public long getCommunicationFailureCount() {
+        return communicationFailureCount;
+    }
+
+    public void setCommunicationFailureCount(long communicationFailureCount) {
+        this.communicationFailureCount = communicationFailureCount;
+    }
+
     public boolean isActive() {
         return inactiveTimestamp < 0;
     }
