@@ -740,9 +740,8 @@ public class Transaction implements MessageObject {
 
             // Produce a warning for transactions that appear to be balance-list spam.
             if (valid) {
-                BalanceList balanceList = BalanceListManager.getFrozenEdgeList();
-                if (balanceList != null) {
-                    Map<ByteBuffer, Long> balanceMap = BalanceManager.makeBalanceMap(balanceList);
+                Map<ByteBuffer, Long> balanceMap = BalanceListManager.getFrozenEdgeBalanceMap();
+                if (balanceMap != null) {
                     if (BalanceManager.transactionSpamsBalanceList(balanceMap, this,
                             Collections.singletonList(this))) {
 

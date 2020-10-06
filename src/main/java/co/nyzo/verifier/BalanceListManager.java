@@ -10,6 +10,7 @@ public class BalanceListManager {
     private static BalanceList genesisList = null;
     private static final int numberOfRecentLists = 4;
     private static BalanceList[] recentLists = new BalanceList[numberOfRecentLists];
+    private static Map<ByteBuffer, Long> frozenEdgeBalanceMap = new ConcurrentHashMap<>();
 
     private static Set<ByteBuffer> accountsInSystem = ConcurrentHashMap.newKeySet();
 
@@ -100,8 +101,11 @@ public class BalanceListManager {
     }
 
     public static BalanceList getFrozenEdgeList() {
-
         return recentLists[0];
+    }
+
+    public static Map<ByteBuffer, Long> getFrozenEdgeBalanceMap() {
+        return frozenEdgeBalanceMap;
     }
 
     public static boolean accountIsInSystem(byte[] identifier) {
@@ -116,6 +120,7 @@ public class BalanceListManager {
                 recentLists[i] = recentLists[i - 1];
             }
             recentLists[0] = frozenEdgeList;
+            frozenEdgeBalanceMap = BalanceManager.makeBalanceMap(frozenEdgeList);
 
             Set<ByteBuffer> accountsInSystem = ConcurrentHashMap.newKeySet();
             for (BalanceListItem item : frozenEdgeList.getItems()) {

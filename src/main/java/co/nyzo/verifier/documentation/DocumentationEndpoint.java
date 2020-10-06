@@ -1,10 +1,17 @@
 package co.nyzo.verifier.documentation;
 
-import co.nyzo.verifier.Version;
-import co.nyzo.verifier.web.EndpointRequest;
-import co.nyzo.verifier.web.EndpointResponseProvider;
-import co.nyzo.verifier.web.EndpointResponse;
-import co.nyzo.verifier.web.WebUtil;
+import co.nyzo.verifier.*;
+import co.nyzo.verifier.client.ClientTransactionUtil;
+import co.nyzo.verifier.json.Json;
+import co.nyzo.verifier.json.JsonArray;
+import co.nyzo.verifier.json.JsonObject;
+import co.nyzo.verifier.nyzoString.NyzoString;
+import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
+import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
+import co.nyzo.verifier.util.LogUtil;
+import co.nyzo.verifier.util.NetworkUtil;
+import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.web.*;
 import co.nyzo.verifier.web.elements.*;
 
 import java.io.File;
@@ -14,6 +21,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DocumentationEndpoint implements EndpointResponseProvider {
 
@@ -22,14 +31,19 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
     private String title;
     private DocumentationEndpointType type;
     private DocumentationEndpoint parent;
+    private long micropayPrice;
+    private byte[] micropayReceiverIdentifier;
+    private byte[] micropaySenderData;
     private List<DocumentationEndpoint> children;
 
     public DocumentationEndpoint(String path, File file) {
         this.path = processPath(path);
         this.file = file.isDirectory() ? new File(file, "index.html") : file;
-        this.title = findTitle(this.file);
         this.type = determineType(this.file);
+        this.title = findTitle(this.file, this.type);
         this.children = new ArrayList<>();
+
+        loadMicropayParameters(this.file);
     }
 
     public String getPath() {
@@ -107,9 +121,9 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
         return reassembled.toString();
     }
 
-    private static String findTitle(File file) {
+    private static String findTitle(File file, DocumentationEndpointType type) {
         String title = null;
-        if (!file.isDirectory()) {
+        if (!file.isDirectory() && type == DocumentationEndpointType.Html) {
             try {
                 String fileContents = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath())),
                         StandardCharsets.UTF_8);
@@ -138,18 +152,67 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
         return title;
     }
 
+    private void loadMicropayParameters(File file) {
+        long price = 0L;
+        byte[] receiverIdentifier = null;
+        byte[] senderData = null;
+
+        File micropayFile = new File(file.getAbsolutePath() + ".micropay");
+        if (micropayFile.exists()) {
+            try {
+                List<String> contentsOfFile = Files.readAllLines(Paths.get(micropayFile.getAbsolutePath()));
+                for (String line : contentsOfFile) {
+                    try {
+                        line = line.trim();
+                        int indexOfHash = line.indexOf("#");
+                        if (indexOfHash >= 0) {
+                            line = line.substring(0, indexOfHash).trim();
+                        }
+                        int splitIndex = line.indexOf("=");
+                        if (splitIndex > 0) {
+                            String key = line.substring(0, splitIndex).trim().toLowerCase();
+                            String value = line.substring(splitIndex + 1).trim();
+                            if (key.equals("price")) {
+                                price = (long) (Double.parseDouble(value) * Transaction.micronyzoMultiplierRatio);
+                            } else if (key.equals("receiver_identifier")) {
+                                NyzoString receiverString = NyzoStringEncoder.decode(value);
+                                if (receiverString instanceof NyzoStringPublicIdentifier) {
+                                    receiverIdentifier = ((NyzoStringPublicIdentifier) receiverString).getIdentifier();
+                                }
+                            } else if (key.equals("sender_data")) {
+                                if (ClientTransactionUtil.isNormalizedSenderDataString(value)) {
+                                    senderData = ClientTransactionUtil.bytesFromNormalizedSenderDataString(value);
+                                } else {
+                                    senderData = value.getBytes(StandardCharsets.UTF_8);
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) { }
+                }
+            } catch (Exception ignored) { }
+        }
+
+        this.micropayPrice = price;
+        this.micropayReceiverIdentifier = receiverIdentifier;
+        this.micropaySenderData = senderData;
+    }
+
     private static DocumentationEndpointType determineType(File file) {
 
         DocumentationEndpointType type;
         String filename = file.getName().toLowerCase();
         if (filename.endsWith(".css")) {
             type = DocumentationEndpointType.Css;
+        } else if (filename.endsWith(".htm")) {
+            type = DocumentationEndpointType.HtmlFragment;
         } else if (filename.endsWith(".ico")) {
             type = DocumentationEndpointType.Ico;
         } else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
             type = DocumentationEndpointType.Jpeg;
         } else if (filename.endsWith(".png")) {
             type = DocumentationEndpointType.Png;
+        } else if (filename.endsWith(".txt")) {
+            type = DocumentationEndpointType.Text;
         } else if (file.exists()) {
             type = DocumentationEndpointType.Html;
         } else {
@@ -163,13 +226,101 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
     public EndpointResponse getResponse(EndpointRequest request) {
 
         EndpointResponse result;
-        if (type == DocumentationEndpointType.Html) {
-            result = getResponseForHtml();
+        if (micropayAuthorized(request)) {
+            if (type == DocumentationEndpointType.Html) {
+                result = getResponseForHtml();
+            } else {
+                result = getResponseForRaw();
+            }
         } else {
-            result = getResponseForRaw();
+            result = getResponseForInvalidMicropay();
         }
 
         return result;
+    }
+
+    private boolean micropayAuthorized(EndpointRequest request) {
+
+        // Set the flag initially to false. It will be set to true before returning if properly authorized.
+        boolean authorized = false;
+        if (micropayPrice > 0 && micropayReceiverIdentifier != null) {
+            Map<String, String> queryParameters = request.getQueryParameters();
+            String transaction = queryParameters.getOrDefault("transaction", "").trim();
+            String supplementalTransaction = queryParameters.getOrDefault("supplementalTransaction", "").trim();
+            if (!transaction.isEmpty() && !supplementalTransaction.isEmpty()) {
+                // Forward the transaction to the client.
+                String clientFullUrl = "https://client.nyzo.co/api/forwardTransaction?transaction=" + transaction +
+                        "&supplementalTransaction=" + supplementalTransaction;
+                String clientResponse = NetworkUtil.stringForUrl(clientFullUrl, 1500);
+
+                Object responseJson = Json.parse(clientResponse);
+
+                // Drill into the response to get the appropriate object.
+                JsonObject response = null;
+                if (responseJson instanceof JsonObject) {
+                    Object resultArray = ((JsonObject) responseJson).get("result");
+                    if (resultArray instanceof JsonArray) {
+                        Object responseObject = ((JsonArray) resultArray).get(0);
+                        if (responseObject instanceof JsonObject) {
+                            response = (JsonObject) responseObject;
+                        }
+                    }
+                }
+
+                if (response != null) {
+
+                    // We want the purchaser of the Micropay content to be acting in good faith, making an attempt
+                    // to provide appropriate payment for this content. Therefore, we want to see the following
+                    // fulfilled.
+                    // (1) The transaction was previously forwarded or is in the blockchain.
+                    // (2) The sender balance is at least the sum of the minimum preferred balance and the
+                    //     required transaction amount or the transaction is in the blockchain.
+                    // (3) The supplemental transaction is valid.
+                    // (4) The transaction amount is at least the required transaction amount.
+                    // (5) The transaction receiver is correct.
+                    // (6) The transaction sender data is correct.
+
+                    boolean inBlockchain = response.getBoolean("inBlockchain", false);
+                    long senderBalance = (long) (response.getDouble("senderBalance", 0.0) *
+                            Transaction.micronyzoMultiplierRatio);
+                    long amount = (long) (response.getDouble("amount", 0.0) * Transaction.micronyzoMultiplierRatio);
+                    byte[] receiverIdentifier = ByteUtil.byteArrayFromHexString(response.getString("receiverIdBytes",
+                            ""), FieldByteSize.identifier);
+                    String senderDataString = response.getString("senderDataBytes", "").replace("-", "");
+                    byte[] senderData = ByteUtil.byteArrayFromHexString(senderDataString,
+                            senderDataString.length() / 2);
+
+                    authorized = (response.getBoolean("previouslyForwarded", false) || inBlockchain) &&  // (1)
+                            (senderBalance >= (BalanceManager.minimumPreferredBalance + micropayPrice) ||
+                                    inBlockchain) &&  // (2)
+                            response.getBoolean("supplementalTransactionValid", false) &&  // (3)
+                            amount >= micropayPrice &&  // (4)
+                            ByteUtil.arraysAreEqual(micropayReceiverIdentifier, receiverIdentifier) &&  // (5)
+                            (micropaySenderData == null || micropaySenderData.length == 0 ||
+                                    ByteUtil.arraysAreEqual(micropaySenderData, senderData));  // 6
+                }
+            }
+        } else {
+            // Authorization is not required by this endpoint, so authorization always succeeds.
+            authorized = true;
+        }
+
+        return authorized;
+    }
+
+    public EndpointResponse getResponseForInvalidMicropay() {
+
+        String receiverIdentifierString =
+                NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(micropayReceiverIdentifier));
+        String message = "This is a Micropay resource. Please provide a valid payment of " +
+                PrintUtil.printAmount(micropayPrice) + " to " + receiverIdentifierString;
+        if (micropaySenderData != null && micropaySenderData.length > 0) {
+            message += " with sender data \"" + WebUtil.sanitizedSenderDataForDisplay(micropaySenderData) + "\"";
+        }
+        message += " to access this content.";
+
+        return new EndpointResponse(message.getBytes(StandardCharsets.UTF_8), EndpointResponse.contentTypeText,
+                HttpStatusCode.PaymentRequired402);
     }
 
     public EndpointResponse getResponseForHtml() {

@@ -5,6 +5,7 @@ public enum HttpStatusCode {
     // This enumeration provides only a small subset of status codes that the WebListener currently uses.
 
     Ok200(200, "OK"),
+    PaymentRequired402(402, "Payment Required"),
     NotFound404(404, "Not Found");
 
     private int code;

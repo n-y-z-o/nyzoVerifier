@@ -27,8 +27,8 @@ public class WebUtil {
 
     public static final Style hoverButtonStyles = new Style(".hover-button { " +
             "color: black; text-decoration: none; margin: 0.1rem; " +
-            "padding: 0.5rem; border: 1px solid black; cursor: default; border-radius: 0.5rem; " +
-            "display: inline-block; } " +
+            "padding: 0.5rem; border: 1px solid #aaa; cursor: default; border-radius: 0.5rem; " +
+            "display: inline-block; background-color: rgba(0,0,0,0.03); } " +
             ".hover-button-selected { background-color: rgba(0,0,0,0.3); cursor: default; } " +
             ".hover-button:hover { background-color: rgba(0,0,0,0.3); }");
 
