@@ -9,6 +9,7 @@ public enum DocumentationEndpointType {
     Html(EndpointResponse.contentTypeHtml),
     HtmlFragment(EndpointResponse.contentTypeHtml),
     Ico(EndpointResponse.contentTypeIco),
+    JavaScript(EndpointResponse.contentTypeJavaScript),
     Jpeg(EndpointResponse.contentTypeJpeg),
     Png(EndpointResponse.contentTypePng),
     Text(EndpointResponse.contentTypeText);

@@ -207,6 +207,8 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
             type = DocumentationEndpointType.HtmlFragment;
         } else if (filename.endsWith(".ico")) {
             type = DocumentationEndpointType.Ico;
+        } else if (filename.endsWith(".js")) {
+            type = DocumentationEndpointType.JavaScript;
         } else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
             type = DocumentationEndpointType.Jpeg;
         } else if (filename.endsWith(".png")) {
