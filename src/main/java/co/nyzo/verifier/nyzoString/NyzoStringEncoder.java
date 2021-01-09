@@ -67,7 +67,7 @@ public class NyzoStringEncoder {
             encodedString = encodedString.replace('*', '-').replace('+', '.').replace('=', '~');
 
             // Map characters that may be mistyped. Nyzo strings contain neither 'l' nor 'O'.
-            encodedString = encodedString.replace('l', '1').replace('O', '0');
+            encodedString = encodedString.replace('l', 'I').replace('O', '0');
 
             // Get the type from the prefix.
             NyzoStringType type = NyzoStringType.forPrefix(encodedString.substring(0, 4));
