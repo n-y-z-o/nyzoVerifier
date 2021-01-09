@@ -182,6 +182,13 @@ public class Verifier {
                 UpdateUtil.terminate();
             }
 
+            System.out.println("starting rpc server on port 4000");
+            try {
+                RPCServer server_handler = new RPCServer(4000);
+            } catch (Exception exc) {
+                exc.printStackTrace();
+            }
+
             // Send mesh requests to all trusted entry points.
             AtomicInteger numberOfMeshResponsesPending = new AtomicInteger(trustedEntryPoints.size());
             for (TrustedEntryPoint entryPoint : trustedEntryPoints) {

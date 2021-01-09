@@ -13,6 +13,9 @@ compileJava {
 
 dependencies {
     compile('net.i2p.crypto:eddsa:0.2.0')
+    compile('com.thetransactioncompany:jsonrpc2-server:1.11')
+    compile('com.thetransactioncompany:jsonrpc2-base:1.38.1')
+    compile('net.minidev:json-smart:2.3')
 }
 
 jar {
