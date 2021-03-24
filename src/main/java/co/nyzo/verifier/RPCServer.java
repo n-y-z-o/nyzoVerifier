@@ -497,9 +497,11 @@ public class RPCServer
             reply.put("start_timestamp", block.getStartTimestamp());
             reply.put("verification_timestamp", block.getVerificationTimestamp());
             JSONArray txs = new JSONArray();
+            boolean known = true;
             for (Transaction tx : block.getTransactions()) {
                 JSONObject txObj = new JSONObject();
                 txObj.put("type", ByteUtil.arrayAsStringNoDashes(tx.getType()));
+                known = true;
                 switch (tx.getType()) {
                     case Transaction.typeSeed:
                         txObj.put("type_enum", "seed");
@@ -512,28 +514,31 @@ public class RPCServer
                         break;
                     default:
                         txObj.put("type_enum", "unknown");
+                        known = false;
                         break;
                 }
                 txObj.put("timestamp", tx.getTimestamp());
-                txObj.put("amount", tx.getAmount());
-                txObj.put("fee", tx.getFee());
-                txObj.put("sender", ByteUtil.arrayAsStringWithDashes(tx.getSenderIdentifier()));
-                txObj.put("receiver", ByteUtil.arrayAsStringWithDashes(tx.getReceiverIdentifier()));
-                txObj.put("sender_nyzo_string", NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(tx.getSenderIdentifier())));
-                txObj.put("receiver_nyzo_string", NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(tx.getReceiverIdentifier())));
-                txObj.put("id", ByteUtil.arrayAsStringWithDashes(HashUtil.doubleSHA256(tx.getBytes(true))));
-                if (tx.getSenderData() != null) {
-                    txObj.put("sender_data", ByteUtil.arrayAsStringNoDashes(tx.getSenderData()));
-                } else {
-                    txObj.put("sender_data", "");
+                if (known) {
+                    txObj.put("amount", tx.getAmount());
+                    txObj.put("fee", tx.getFee());
+                    txObj.put("sender", ByteUtil.arrayAsStringWithDashes(tx.getSenderIdentifier()));
+                    txObj.put("receiver", ByteUtil.arrayAsStringWithDashes(tx.getReceiverIdentifier()));
+                    txObj.put("sender_nyzo_string", NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(tx.getSenderIdentifier())));
+                    txObj.put("receiver_nyzo_string", NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(tx.getReceiverIdentifier())));
+                    txObj.put("id", ByteUtil.arrayAsStringWithDashes(HashUtil.doubleSHA256(tx.getBytes(true))));
+                    if (tx.getSenderData() != null) {
+                        txObj.put("sender_data", ByteUtil.arrayAsStringNoDashes(tx.getSenderData()));
+                    } else {
+                        txObj.put("sender_data", "");
+                    }
+                    txObj.put("previous_block_hash", ByteUtil.arrayAsStringNoDashes(tx.getPreviousBlockHash()));
+                    if (tx.getSignature() != null) {
+                        txObj.put("signature", ByteUtil.arrayAsStringNoDashes(tx.getSignature()));
+                    } else {
+                        txObj.put("signature", "");
+                    }
+                    txObj.put("previous_hash_height", tx.getPreviousHashHeight());
                 }
-                txObj.put("previous_block_hash", ByteUtil.arrayAsStringNoDashes(tx.getPreviousBlockHash()));
-                if (tx.getSignature() != null) {
-                    txObj.put("signature", ByteUtil.arrayAsStringNoDashes(tx.getSignature()));
-                } else {
-                    txObj.put("signature", "");
-                }
-                txObj.put("previous_hash_height", tx.getPreviousHashHeight());
                 txs.add(txObj);
             }
             reply.put("transactions", txs);
