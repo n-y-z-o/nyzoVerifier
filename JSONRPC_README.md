@@ -6,6 +6,11 @@ This Verifier supports JSON-RPC which makes much easier for Exchanges to list Ny
 Reminder: Most of the rpc commands are different from other cryptocurrency.  
 Exchanges may need to adjust bit to support it.
 
+## Important note:
+
+If you are running an exchange, block explorer, API, in order to get the blockchain to sync, please add `always_track_blockchain=1` to the `/var/lib/nyzo/production/preferences` config file.
+
+
 ## Guides for using RPC Server:
 
 * [How to use the Yandev RPC server for Nyzo](https://medium.com/@nyzoco/how-to-use-the-yandev-rpc-server-for-nyzo-56e616e0e6d0)
