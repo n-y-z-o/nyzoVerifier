@@ -292,7 +292,7 @@ public class Sentinel {
                     // If the vote count exceeds the threshold, freeze the block.
                     System.out.println("block with votes: count=" + voteCount + ", threshold=" + voteThreshold);
                     if (voteCount > voteThreshold) {
-                        System.out.println("Freezing random fetched block");
+                        System.out.println("X:Freezing random fetched block");
                         freezeBlock(response.getBlock(), null);
                     }
                 }
@@ -520,10 +520,11 @@ public class Sentinel {
 
         // If we obtained a block, freeze it.
         if (!blockList.isEmpty()) {
-            System.out.println("X:Got blocks from "+ NicknameManager.get(verifier.getIdentifier()));
+            System.out.println("X:Got "+blockList.size()+" blocks from "+ NicknameManager.get(verifier.getIdentifier()) );
             for (Block block : blockList) {
                 freezeBlock(block, verifier.getIdentifier());
             }
+            System.out.println("X:end blocks from "+ NicknameManager.get(verifier.getIdentifier()));
             lastBlockReceivedTimestamp.set(System.currentTimeMillis());
 
             // Perform maintenance on the unfrozen block manager. Blocks are automatically registered with the manager
@@ -760,6 +761,7 @@ public class Sentinel {
             frozenEdge = block;
 
             System.out.println("X:froze block " + block + " from " + NicknameManager.get(identifier) + String.format(", efficiency: %.1f%%", getEfficiency()));
+            System.out.println("X:Block manager height is now " + BlockManager.getFrozenEdgeHeight());
         }
     }
 

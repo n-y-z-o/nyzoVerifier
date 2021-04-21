@@ -231,6 +231,8 @@ public class BlockManager {
         if (previousBlock != null) {
             BalanceList balanceList = BalanceListManager.balanceListForBlock(block);
             freezeBlock(block, previousBlock.getHash(), balanceList, null);
+        } else {
+            System.out.println("X:Previous block is null "+ block.getBlockHeight());
         }
     }
 
@@ -256,6 +258,14 @@ public class BlockManager {
             } catch (Exception reportOnly) {
                 reportOnly.printStackTrace();
                 System.err.println("exception writing block to file " + reportOnly.getMessage());
+                System.out.println("X:exception writing block to file " + reportOnly.getMessage());
+            }
+        } else {
+            if (balanceList == null) {
+                 System.out.println("X:BalanceList is null");
+            }
+            if (!ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash())) {
+                System.out.println("X:Hashes mismatch "+ previousBlockHash + " vs block " + block.getPreviousBlockHash());
             }
         }
     }
