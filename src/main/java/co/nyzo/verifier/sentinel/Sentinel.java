@@ -184,6 +184,7 @@ public class Sentinel {
                                 frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 20000L) {
                             lastBlockRequestedTimestamp = System.currentTimeMillis();
                             updateBlocks(verifier);
+                            System.out.println("X:updateBlocks " + NicknameManager.get(verifier.getIdentifier()) + " interval " + blockUpdateInterval);
                             verifier.setQueriedLastInterval(true);
                         } else {
                             verifier.setQueriedLastInterval(false);
@@ -222,7 +223,7 @@ public class Sentinel {
                         if (lastBlockRequestedTimestamp < System.currentTimeMillis() - blockUpdateIntervalStandard &&
                                 (frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 35000L)) {
                             lastBlockRequestedTimestamp = System.currentTimeMillis();
-
+                            System.out.println("X:fallback2, requestBlockWithVotes");
                             requestBlockWithVotes();
                         }
                     } catch (Exception e) {
@@ -255,6 +256,18 @@ public class Sentinel {
                 BlockWithVotesResponse response = message == null ? null :
                         (BlockWithVotesResponse) message.getContent();
                 LogUtil.println("block-with-votes response is " + response);
+                if (response != null) {
+                    if (response.getBlock() != null) {
+                        LogUtil.println("X:getblock hash=" + response.getBlock().getHash() + " Height="+response.getBlock().getBlockHeight());
+                    } else {
+                        LogUtil.println("X:getBlock is null");
+                    }
+                    if (response.getVotes().isEmpty() ) {
+                        LogUtil.println("X:getblock votes is empty");
+                    } else {
+                        LogUtil.println("X:getBlock has votes");
+                    }
+                }
                 if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
 
                     int voteThreshold = BlockManager.currentCycleLength() * 3 / 4;
@@ -279,7 +292,8 @@ public class Sentinel {
                     // If the vote count exceeds the threshold, freeze the block.
                     System.out.println("block with votes: count=" + voteCount + ", threshold=" + voteThreshold);
                     if (voteCount > voteThreshold) {
-                        freezeBlock(response.getBlock());
+                        System.out.println("Freezing random fetched block");
+                        freezeBlock(response.getBlock(), null);
                     }
                 }
             }
@@ -301,7 +315,7 @@ public class Sentinel {
                 node = nodes.get(random.nextInt(nodes.size()));
             }
         }
-
+        LogUtil.println("X:randomNode "+NicknameManager.get(node.getIdentifier()));
         return node;
     }
 
@@ -471,6 +485,7 @@ public class Sentinel {
                 false), verifier.getSeed());
 
         AtomicBoolean processedResponse = new AtomicBoolean(false);
+        System.out.println("X:Requesting block from "+ NicknameManager.get(verifier.getIdentifier()) + " Start height " + startHeightToFetch + " End height " + endHeightToFetch);
         Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
             @Override
             public void responseReceived(Message message) {
@@ -505,8 +520,9 @@ public class Sentinel {
 
         // If we obtained a block, freeze it.
         if (!blockList.isEmpty()) {
+            System.out.println("X:Got blocks from "+ NicknameManager.get(verifier.getIdentifier()));
             for (Block block : blockList) {
-                freezeBlock(block);
+                freezeBlock(block, verifier.getIdentifier());
             }
             lastBlockReceivedTimestamp.set(System.currentTimeMillis());
 
@@ -521,15 +537,16 @@ public class Sentinel {
                     BlockManager.getFrozenEdgeHeight() < BlockManager.openEdgeHeight(false) - 10) {
                 if (!inFastFetchMode.get(identifier)) {
                     inFastFetchMode.put(identifier, true);
-                    System.out.println("***** fast-fetch mode activated *****");
+                    System.out.println("X:fast-fetch mode activated for "+ NicknameManager.get(verifier.getIdentifier()));
                 }
             }
         } else {
+            System.out.println("X:No blocks from "+ NicknameManager.get(verifier.getIdentifier()));
             // Two consecutive failures deactivate fast-fetch mode.
             if (consecutiveSuccessfulBlockFetches.get(identifier).get() == 0) {
                 if (inFastFetchMode.get(identifier)) {
                     inFastFetchMode.put(identifier, false);
-                    System.out.println("***** fast-fetch mode deactivated *****");
+                    System.out.println("X:fast-fetch mode deactivated for " + NicknameManager.get(verifier.getIdentifier()));
                 }
             } else {
                 consecutiveSuccessfulBlockFetches.get(identifier).set(0);
@@ -734,7 +751,7 @@ public class Sentinel {
         return block;
     }
 
-    private static synchronized void freezeBlock(Block block) {
+    private static synchronized void freezeBlock(Block block, byte[] identifier) {
 
         numberOfBlocksReceived++;
         if (block.getBlockHeight() == BlockManager.getFrozenEdgeHeight() + 1L) {
@@ -742,7 +759,7 @@ public class Sentinel {
             BlockManager.freezeBlock(block);
             frozenEdge = block;
 
-            System.out.println("froze block " + block + String.format(", efficiency: %.1f%%", getEfficiency()));
+            System.out.println("X:froze block " + block + " from " + NicknameManager.get(identifier) + String.format(", efficiency: %.1f%%", getEfficiency()));
         }
     }
 
