@@ -90,9 +90,11 @@ public class Sentinel {
             loadManagedVerifiers();
         }
 
-        // Send a whitelist request to each managed verifier.
+        // Send a whitelist request to each managed verifier for which a private key is available.
         for (ManagedVerifier verifier : verifierList) {
-            sendWhitelistRequest(verifier);
+            if (verifier.hasPrivateKey()) {
+                sendWhitelistRequest(verifier);
+            }
         }
 
         // Sleep for 1.5 seconds to give the whitelist requests time to process.
@@ -160,10 +162,12 @@ public class Sentinel {
                     // method, none will monopolize the queue.
                     MessageQueue.blockThisThreadUntilClear();
 
-                    // Send a whitelist request to the managed verifier.
+                    // If the private key for the verifier is available, send a whitelist request.
                     if (lastWhitelistTimestamp < System.currentTimeMillis() - whitelistUpdateInterval) {
                         lastWhitelistTimestamp = System.currentTimeMillis();
-                        sendWhitelistRequest(verifier);
+                        if (verifier.hasPrivateKey()) {
+                            sendWhitelistRequest(verifier);
+                        }
                     }
 
                     // Update the mesh. We need to know who the in-cycle nodes are in order to send out a block if one
@@ -255,7 +259,8 @@ public class Sentinel {
                 BlockWithVotesResponse response = message == null ? null :
                         (BlockWithVotesResponse) message.getContent();
                 LogUtil.println("block-with-votes response is " + response);
-                if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
+                if (response != null && response.getBlock() != null && response.getBlock().signatureIsValid() &&
+                        !response.getVotes().isEmpty()) {
 
                     int voteThreshold = BlockManager.currentCycleLength() * 3 / 4;
                     int voteCount = 0;
@@ -329,7 +334,8 @@ public class Sentinel {
                             lastTransmissionHeight = height;
 
                             for (ManagedVerifier verifier : verifierList) {
-                                if (!BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(verifier.getIdentifier()))) {
+                                if (!BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(verifier.getIdentifier())) &&
+                                        verifier.hasPrivateKey()) {
                                     LogUtil.println("sending UDP block for " + verifier + " at height " + height);
                                     broadcastUdpBlockForNewVerifier(verifier);
                                 }
@@ -506,7 +512,9 @@ public class Sentinel {
         // If we obtained a block, freeze it.
         if (!blockList.isEmpty()) {
             for (Block block : blockList) {
-                freezeBlock(block);
+                if (block.signatureIsValid()) {
+                    freezeBlock(block);
+                }
             }
             lastBlockReceivedTimestamp.set(System.currentTimeMillis());
 
@@ -560,9 +568,11 @@ public class Sentinel {
             // If the map of blocks is empty, make the blocks now.
             if (blocksCreatedForManagedVerifiers.isEmpty()) {
                 for (ManagedVerifier verifier : verifierList) {
-                    Block block = createNextBlock(frozenEdge, verifier);
-                    if (block != null) {
-                        blocksCreatedForManagedVerifiers.add(block);
+                    if (verifier.hasPrivateKey()) {
+                        Block block = createNextBlock(frozenEdge, verifier);
+                        if (block != null) {
+                            blocksCreatedForManagedVerifiers.add(block);
+                        }
                     }
                 }
             }

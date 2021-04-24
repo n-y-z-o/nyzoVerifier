@@ -3,6 +3,10 @@ package co.nyzo.verifier.sentinel;
 import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.FieldByteSize;
 import co.nyzo.verifier.KeyUtil;
+import co.nyzo.verifier.nyzoString.NyzoString;
+import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
+import co.nyzo.verifier.nyzoString.NyzoStringPrivateSeed;
+import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.util.Arrays;
@@ -25,12 +29,14 @@ public class ManagedVerifier {
     public static final int queryResultErrorValue = -1;
     public static final int queryHistoryLength = 10;
 
-    private ManagedVerifier(String host, int port, byte[] seed, boolean sentinelTransactionEnabled) {
+    private ManagedVerifier(String host, int port, byte[] seed, byte[] identifier, boolean sentinelTransactionEnabled) {
 
+        // Store the verifier properties. When the public identifier is directly specified, the seed for the private key
+        // is empty.
         this.host = host;
         this.port = port;
         this.seed = seed;
-        this.identifier = KeyUtil.identifierForSeed(seed);
+        this.identifier = identifier;
         this.sentinelTransactionEnabled = sentinelTransactionEnabled;
 
         this.queryResults = new int[queryHistoryLength];
@@ -59,6 +65,10 @@ public class ManagedVerifier {
         return sentinelTransactionEnabled;
     }
 
+    public boolean hasPrivateKey() {
+        return !ByteUtil.isAllZeros(seed);
+    }
+
     public byte[] getResponseIdentifier() {
         return responseIdentifier;
     }
@@ -81,7 +91,22 @@ public class ManagedVerifier {
                         port = Integer.parseInt(split[1]);
                     } catch (Exception ignored) { }
 
-                    byte[] privateSeed = ByteUtil.byteArrayFromHexString(split[2], FieldByteSize.seed);
+                    // Get the specified private key or public identifier. The final condition is the legacy situation
+                    // of a raw hex value for the private key seed.
+                    byte[] privateSeed;
+                    byte[] publicIdentifier;
+                    NyzoString seedOrIdentifierString = NyzoStringEncoder.decode(split[2]);
+                    if (seedOrIdentifierString instanceof NyzoStringPublicIdentifier) {
+                        privateSeed = new byte[FieldByteSize.seed];
+                        publicIdentifier = ((NyzoStringPublicIdentifier) seedOrIdentifierString).getIdentifier();
+                    } else if (seedOrIdentifierString instanceof NyzoStringPrivateSeed) {
+                        privateSeed = ((NyzoStringPrivateSeed) seedOrIdentifierString).getSeed();
+                        publicIdentifier = KeyUtil.identifierForSeed(privateSeed);
+                    } else {
+                        privateSeed = ByteUtil.byteArrayFromHexString(split[2], FieldByteSize.seed);
+                        publicIdentifier = ByteUtil.isAllZeros(privateSeed) ? new byte[FieldByteSize.identifier] :
+                                KeyUtil.identifierForSeed(privateSeed);
+                    }
 
                     boolean sentinelTransactionEnabled = false;
                     if (split.length > 3) {
@@ -92,8 +117,9 @@ public class ManagedVerifier {
                         } catch (Exception ignored) { }
                     }
 
-                    if (!host.isEmpty() && port > 0 && !ByteUtil.isAllZeros(privateSeed)) {
-                        result = new ManagedVerifier(host, port, privateSeed, sentinelTransactionEnabled);
+                    if (!host.isEmpty() && port > 0 && !ByteUtil.isAllZeros(publicIdentifier)) {
+                        result = new ManagedVerifier(host, port, privateSeed, publicIdentifier,
+                                sentinelTransactionEnabled);
                     }
                 }
             } catch (Exception ignored) { }
