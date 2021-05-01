@@ -88,8 +88,10 @@ public class SentinelController {
         header.append("<br>Protecting verifiers: ");
         if (!Sentinel.isCalculatingValidChainScores()) {
             header.append("<span style=\"color: #f00;\">no</span>");
-        } else if (frozenEdge == null || frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 80000L) {
-            header.append("<span style=\"color: #f80;\">uncertain</span>");
+        } else if (frozenEdge == null) {
+            header.append("<span style=\"color: #f80;\">uncertain</span> (frozen edge is null)");
+        } else if(frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 80000L) {
+            header.append("<span style=\"color: #f80;\">uncertain</span> (frozen edge is older than 80sec)");
         } else {
             header.append("<span style=\"color: #080;\">yes</span>");
         }

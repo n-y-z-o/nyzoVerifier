@@ -89,14 +89,13 @@ public class Sentinel {
         if (!loadedManagedVerifiers.getAndSet(true)) {
             loadManagedVerifiers();
         }
-
         // Send a whitelist request to each managed verifier.
         for (ManagedVerifier verifier : verifierList) {
             sendWhitelistRequest(verifier);
         }
 
-        // Sleep for 1.5 seconds to give the whitelist requests time to process.
-        ThreadUtil.sleep(1500L);
+        // Sleep for 2 seconds to give the whitelist requests time to process.
+        ThreadUtil.sleep(2000L);
 
         // Initialize the frozen edge. This process will repeat until it is successful.
         SentinelUtil.initializeFrozenEdge(verifierList);
@@ -114,11 +113,12 @@ public class Sentinel {
         int querySlot = 0;
         for (ManagedVerifier verifier : verifierList) {
             startThreadForVerifier(verifier, querySlot++);
+            ThreadUtil.sleep(20L);  // Will slow down init, but spread load when there are many managed verifiers
         }
 
         // Start a single thread as a fallback for fetching blocks from the full cycle if all managed verifiers become
         // unresponsive.
-        startFullCycleThread();
+        startFullCycleThread(); // Egg: TODO: preferences param
 
         // Start a single thread for transmitting blocks for new verifiers.
         startNewVerifierThread();
@@ -184,7 +184,7 @@ public class Sentinel {
                                 frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 20000L) {
                             lastBlockRequestedTimestamp = System.currentTimeMillis();
                             updateBlocks(verifier);
-                            System.out.println("X:updateBlocks " + NicknameManager.get(verifier.getIdentifier()) + " interval " + blockUpdateInterval);
+                            //System.out.println("X:updateBlocks " + NicknameManager.get(verifier.getIdentifier()) + " interval " + blockUpdateInterval);
                             verifier.setQueriedLastInterval(true);
                         } else {
                             verifier.setQueriedLastInterval(false);
@@ -485,7 +485,7 @@ public class Sentinel {
                 false), verifier.getSeed());
 
         AtomicBoolean processedResponse = new AtomicBoolean(false);
-        System.out.println("X:Requesting block from "+ NicknameManager.get(verifier.getIdentifier()) + " Start height " + startHeightToFetch + " End height " + endHeightToFetch);
+        //System.out.println("X:Requesting block from "+ NicknameManager.get(verifier.getIdentifier()) + " " + startHeightToFetch + " to " + endHeightToFetch);
         Message.fetchTcp(verifier.getHost(), verifier.getPort(), message, new MessageCallback() {
             @Override
             public void responseReceived(Message message) {
@@ -520,11 +520,10 @@ public class Sentinel {
 
         // If we obtained a block, freeze it.
         if (!blockList.isEmpty()) {
-            System.out.println("X:Got "+blockList.size()+" blocks from "+ NicknameManager.get(verifier.getIdentifier()) );
+            //System.out.println("X:Got "+blockList.size()+" blocks from "+ NicknameManager.get(verifier.getIdentifier()) );
             for (Block block : blockList) {
                 freezeBlock(block, verifier.getIdentifier());
             }
-            System.out.println("X:end blocks from "+ NicknameManager.get(verifier.getIdentifier()));
             lastBlockReceivedTimestamp.set(System.currentTimeMillis());
 
             // Perform maintenance on the unfrozen block manager. Blocks are automatically registered with the manager
@@ -538,16 +537,16 @@ public class Sentinel {
                     BlockManager.getFrozenEdgeHeight() < BlockManager.openEdgeHeight(false) - 10) {
                 if (!inFastFetchMode.get(identifier)) {
                     inFastFetchMode.put(identifier, true);
-                    System.out.println("X:fast-fetch mode activated for "+ NicknameManager.get(verifier.getIdentifier()));
+                    System.out.println("fast-fetch mode activated for "+ NicknameManager.get(verifier.getIdentifier()));
                 }
             }
         } else {
-            System.out.println("X:No blocks from "+ NicknameManager.get(verifier.getIdentifier()));
+            //System.out.println("X:No blocks from "+ NicknameManager.get(verifier.getIdentifier()));
             // Two consecutive failures deactivate fast-fetch mode.
             if (consecutiveSuccessfulBlockFetches.get(identifier).get() == 0) {
                 if (inFastFetchMode.get(identifier)) {
                     inFastFetchMode.put(identifier, false);
-                    System.out.println("X:fast-fetch mode deactivated for " + NicknameManager.get(verifier.getIdentifier()));
+                    System.out.println("fast-fetch mode deactivated for " + NicknameManager.get(verifier.getIdentifier()));
                 }
             } else {
                 consecutiveSuccessfulBlockFetches.get(identifier).set(0);
@@ -559,110 +558,113 @@ public class Sentinel {
 
         long frozenEdgeHeight = frozenEdge.getBlockHeight();
         long heightToProcess = frozenEdgeHeight + 1L;
-
-        // The block creation delay prevents unnecessary work and unnecessary transmissions to the mesh when the
-        // sentinel is initializing. We also allow the condition to be entered at least once to confirm that the
-        // sentinel is able to calculate valid chain scores.
-        if (!calculatingValidChainScores ||
-                lastBlockReceivedTimestamp.get() < System.currentTimeMillis() - blockCreationDelay) {
-
-            // This loop is fully serial, so there is no concern about threading issues. Check if the blocks
-            // created are for the height to process. If not, clear them out.
-            if (!blocksCreatedForManagedVerifiers.isEmpty()) {
-                Block block = blocksCreatedForManagedVerifiers.iterator().next();
-                if (block.getBlockHeight() != heightToProcess) {
-                    blocksCreatedForManagedVerifiers.clear();
-                }
-            }
-
-            // If the map of blocks is empty, make the blocks now.
-            if (blocksCreatedForManagedVerifiers.isEmpty()) {
-                for (ManagedVerifier verifier : verifierList) {
-                    Block block = createNextBlock(frozenEdge, verifier);
-                    if (block != null) {
-                        blocksCreatedForManagedVerifiers.add(block);
-                    }
-                }
-            }
-
-            // If we have not yet transmitted a block for a managed verifier, check the scores for all blocks at this
-            // height to see if one is suitable for transmission. There is no reasonable case where the sentinel should
-            // transmit more than one block per height, so we only consider transmitting the block with the lowest
-            // score.
-            if (lastBlockTransmissionHeight < heightToProcess) {
-
-                Block lowestScoredBlock = null;
-                long lowestChainScore = Long.MAX_VALUE;
-                for (Block block : blocksCreatedForManagedVerifiers) {
-                    long chainScore = block.chainScore(frozenEdgeHeight);
-                    if (BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(block.getVerifierIdentifier())) &&
-                            chainScore < lowestChainScore) {
-                        lowestChainScore = chainScore;
-                        lowestScoredBlock = block;
+        try {
+            // The block creation delay prevents unnecessary work and unnecessary transmissions to the mesh when the
+            // sentinel is initializing. We also allow the condition to be entered at least once to confirm that the
+            // sentinel is able to calculate valid chain scores.
+            if (!calculatingValidChainScores ||
+                    lastBlockReceivedTimestamp.get() < System.currentTimeMillis() - blockCreationDelay) {
+                // This loop is fully serial, so there is no concern about threading issues. Check if the blocks
+                // created are for the height to process. If not, clear them out.
+                if (!blocksCreatedForManagedVerifiers.isEmpty()) {
+                    Block block = blocksCreatedForManagedVerifiers.iterator().next();
+                    if (block.getBlockHeight() != heightToProcess) {
+                        blocksCreatedForManagedVerifiers.clear();
                     }
                 }
 
-                // If the block's minimum vote timestamp is in the past, transmit the block now. This is stricter
-                // than the verifier, which will transmit a block whose minimum vote timestamp is up to 10 seconds
-                // in the future.
-                if (lowestChainScore < Long.MAX_VALUE - 1L) {
-
-                    // Mark that we are able to create valid chain scores.
-                    calculatingValidChainScores = true;
-
-                    long minimumVoteTimestamp = frozenEdge.getVerificationTimestamp() +
-                            Block.minimumVerificationInterval + lowestChainScore * 20000L + blockTransmissionDelay;
-
-                    LogUtil.println(String.format("minimum vote timestamp is in %.1f seconds",
-                            (minimumVoteTimestamp - System.currentTimeMillis()) / 1000.0) + " for chain score " +
-                            lowestChainScore);
-
-                    if (minimumVoteTimestamp < System.currentTimeMillis() && lastBlockTransmissionTimestamp <
-                            System.currentTimeMillis() - minimumBlockTransmissionInterval) {
-
-                        lastBlockTransmissionTimestamp = System.currentTimeMillis();
-
-                        // Make the message and resign with the appropriate verifier seed. The message must be signed
-                        // by an in-cycle verifier to make it past the blacklist mechanism.
-                        ManagedVerifier verifier =
-                                verifierMap.get(ByteBuffer.wrap(lowestScoredBlock.getVerifierIdentifier()));
-                        Message message = new Message(MessageType.NewBlock9, new NewBlockMessage(lowestScoredBlock),
-                                verifier.getSeed());
-
-                        Set<Node> combinedCycle = combinedCycle();
-                        AtomicInteger responsesReceived = new AtomicInteger(0);
-                        for (Node node : combinedCycle) {
-                            Message.fetch(node, message, new MessageCallback() {
-                                @Override
-                                public void responseReceived(Message message) {
-                                    if (message != null && message.getType() == MessageType.NewBlockResponse10) {
-                                        responsesReceived.incrementAndGet();
-                                    }
-                                }
-                            });
+                // If the map of blocks is empty, make the blocks now.
+                if (blocksCreatedForManagedVerifiers.isEmpty()) {
+                    for (ManagedVerifier verifier : verifierList) {
+                        Block block = createNextBlock(frozenEdge, verifier);
+                        if (block != null) {
+                            blocksCreatedForManagedVerifiers.add(block);
                         }
-                        lastBlockTransmissionHeight = lowestScoredBlock.getBlockHeight();
-                        lastBlockTransmissionString = lowestScoredBlock.toString();
-                        PersistentData.put(lastBlockTransmissionHeightKey, lastBlockTransmissionHeight);
-                        PersistentData.put(lastBlockTransmissionStringKey, lastBlockTransmissionString);
-                        LogUtil.println(ConsoleColor.Yellow.background() + "sent block for " +
-                                PrintUtil.compactPrintByteArray(lowestScoredBlock.getVerifierIdentifier()) +
-                                " with hash " + PrintUtil.compactPrintByteArray(lowestScoredBlock.getHash()) +
-                                " at height " + lowestScoredBlock.getBlockHeight() + ConsoleColor.reset);
+                    }
+                }
 
-                        // Wait 3 seconds for the responses and store the results for display. This is done to ensure
-                        // that any problems that affect delivery of blocks, from network issues to bugs in the code,
-                        // are detected promptly.
-                        ThreadUtil.sleep(3000L);
-                        int successes = responsesReceived.get();
-                        int failures = combinedCycle.size() - successes;
-                        lastBlockTransmissionResults = successes + " success, " + failures + " fail";
-                        PersistentData.put(lastBlockTransmissionResultsKey, lastBlockTransmissionResults);
-                        LogUtil.println(ConsoleColor.Yellow.background() + "transmission results: " +
-                                lastBlockTransmissionResults + ConsoleColor.reset);
+                // If we have not yet transmitted a block for a managed verifier, check the scores for all blocks at this
+                // height to see if one is suitable for transmission. There is no reasonable case where the sentinel should
+                // transmit more than one block per height, so we only consider transmitting the block with the lowest
+                // score.
+                if (lastBlockTransmissionHeight < heightToProcess) {
+
+                    Block lowestScoredBlock = null;
+                    long lowestChainScore = Long.MAX_VALUE;
+                    for (Block block : blocksCreatedForManagedVerifiers) {
+                        long chainScore = block.chainScore(frozenEdgeHeight);
+                        if (BlockManager.verifierInCurrentCycle(ByteBuffer.wrap(block.getVerifierIdentifier())) &&
+                                chainScore < lowestChainScore) {
+                            lowestChainScore = chainScore;
+                            lowestScoredBlock = block;
+                        }
+                    }
+
+                    // If the block's minimum vote timestamp is in the past, transmit the block now. This is stricter
+                    // than the verifier, which will transmit a block whose minimum vote timestamp is up to 10 seconds
+                    // in the future.
+                    if (lowestChainScore < Long.MAX_VALUE - 1L) {
+
+                        // Mark that we are able to create valid chain scores.
+                        calculatingValidChainScores = true;
+
+                        long minimumVoteTimestamp = frozenEdge.getVerificationTimestamp() +
+                                Block.minimumVerificationInterval + lowestChainScore * 20000L + blockTransmissionDelay;
+
+                        LogUtil.println(String.format("minimum vote timestamp is in %.1f seconds",
+                                (minimumVoteTimestamp - System.currentTimeMillis()) / 1000.0) + " for chain score " +
+                                lowestChainScore);
+
+                        if (minimumVoteTimestamp < System.currentTimeMillis() && lastBlockTransmissionTimestamp <
+                                System.currentTimeMillis() - minimumBlockTransmissionInterval) {
+
+                            lastBlockTransmissionTimestamp = System.currentTimeMillis();
+
+                            // Make the message and resign with the appropriate verifier seed. The message must be signed
+                            // by an in-cycle verifier to make it past the blacklist mechanism.
+                            ManagedVerifier verifier =
+                                    verifierMap.get(ByteBuffer.wrap(lowestScoredBlock.getVerifierIdentifier()));
+                            Message message = new Message(MessageType.NewBlock9, new NewBlockMessage(lowestScoredBlock),
+                                    verifier.getSeed());
+
+                            Set<Node> combinedCycle = combinedCycle();
+                            AtomicInteger responsesReceived = new AtomicInteger(0);
+                            for (Node node : combinedCycle) {
+                                Message.fetch(node, message, new MessageCallback() {
+                                    @Override
+                                    public void responseReceived(Message message) {
+                                        if (message != null && message.getType() == MessageType.NewBlockResponse10) {
+                                            responsesReceived.incrementAndGet();
+                                        }
+                                    }
+                                });
+                            }
+                            lastBlockTransmissionHeight = lowestScoredBlock.getBlockHeight();
+                            lastBlockTransmissionString = lowestScoredBlock.toString();
+                            PersistentData.put(lastBlockTransmissionHeightKey, lastBlockTransmissionHeight);
+                            PersistentData.put(lastBlockTransmissionStringKey, lastBlockTransmissionString);
+                            LogUtil.println(ConsoleColor.Yellow.background() + "sent block for " +
+                                    PrintUtil.compactPrintByteArray(lowestScoredBlock.getVerifierIdentifier()) +
+                                    " with hash " + PrintUtil.compactPrintByteArray(lowestScoredBlock.getHash()) +
+                                    " at height " + lowestScoredBlock.getBlockHeight() + ConsoleColor.reset);
+
+                            // Wait 3 seconds for the responses and store the results for display. This is done to ensure
+                            // that any problems that affect delivery of blocks, from network issues to bugs in the code,
+                            // are detected promptly.
+                            ThreadUtil.sleep(3000L);
+                            int successes = responsesReceived.get();
+                            int failures = combinedCycle.size() - successes;
+                            lastBlockTransmissionResults = successes + " success, " + failures + " fail";
+                            PersistentData.put(lastBlockTransmissionResultsKey, lastBlockTransmissionResults);
+                            LogUtil.println(ConsoleColor.Yellow.background() + "transmission results: " +
+                                    lastBlockTransmissionResults + ConsoleColor.reset);
+                        }
                     }
                 }
             }
+
+        } catch (Exception e) {
+            LogUtil.println("Exception TBIN " + PrintUtil.printException(e));
         }
     }
 
@@ -757,11 +759,15 @@ public class Sentinel {
         numberOfBlocksReceived++;
         if (block.getBlockHeight() == BlockManager.getFrozenEdgeHeight() + 1L) {
             numberOfBlocksFrozen++;
-            BlockManager.freezeBlock(block);
-            frozenEdge = block;
-
-            System.out.println("X:froze block " + block + " from " + NicknameManager.get(identifier) + String.format(", efficiency: %.1f%%", getEfficiency()));
-            System.out.println("X:Block manager height is now " + BlockManager.getFrozenEdgeHeight());
+            BlockManager.freezeBlock(block);  // this fails silently
+            if (block.getBlockHeight() > BlockManager.getFrozenEdgeHeight()) {
+                frozenEdge = BlockManager.getFrozenEdge();
+                System.out.println("X:Block manager freeze fail, still at " + BlockManager.getFrozenEdgeHeight() +
+                " Wrong block "+ block + " from "+NicknameManager.get(identifier) );
+            } else {
+                frozenEdge = block; // Egg: Wrong if block was not frozen
+                System.out.println("X:froze block " + block + " from " + NicknameManager.get(identifier) + String.format(", efficiency: %.1f%%", getEfficiency()));
+            }
         }
     }
 

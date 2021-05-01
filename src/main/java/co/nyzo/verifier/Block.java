@@ -172,10 +172,19 @@ public class Block implements MessageObject {
                 Block frozenBlock = BlockManager.frozenBlockForHeight(height - 1);
                 if (frozenBlock != null && ByteUtil.arraysAreEqual(frozenBlock.getHash(), previousBlockHash)) {
                     previousBlock = frozenBlock;
+                } else {
+                    if (frozenBlock == null) {
+                        System.out.println("X:GPB:Frozenblock is null");
+                    }
+                    else if (!ByteUtil.arraysAreEqual(frozenBlock.getHash(), previousBlockHash)) {
+                        System.out.println("X:GPB:arrays Are not Equal, frozen "+frozenBlock.getHash()+" vs "+previousBlockHash );
+                    }
                 }
             } else {
                 previousBlock = UnfrozenBlockManager.unfrozenBlockAtHeight(height - 1, previousBlockHash);
             }
+        } else {
+            System.out.println("X:GPB:getBlockHeight<=0");
         }
 
         return previousBlock;
@@ -620,7 +629,7 @@ public class Block implements MessageObject {
                 long organicTransactionFees = 0L;
                 long transactionSumFromLockedAccounts = 0L;
                 for (Transaction transaction : transactions) {
-
+                    //System.out.println("X:AddTx "+transaction);
                     // In blockchain version 1, cycle transactions are processed here. In later versions, cycle
                     // transactions are incorporated in the blockchain before being approved for transfer, so they are
                     // handled separately.
@@ -1025,8 +1034,12 @@ public class Block implements MessageObject {
 
     @Override
     public String toString() {
-        return "[Block: v=" + getBlockchainVersion() + ", height=" + getBlockHeight() + ", hash=" +
+        return "[Block: v=" + getBlockchainVersion() + ", height=" + getBlockHeight() +
+                " txcount=" + transactions.size() +
+                ", hash=" +
                 PrintUtil.compactPrintByteArray(getHash()) + ", id=" +
-                PrintUtil.compactPrintByteArray(getVerifierIdentifier()) + "]";
+                PrintUtil.compactPrintByteArray(getVerifierIdentifier()) +  ", blh=" +
+                PrintUtil.compactPrintByteArray(getBalanceListHash())+
+                "]";
     }
 }

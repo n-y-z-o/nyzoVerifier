@@ -241,31 +241,34 @@ public class BlockManager {
 
         // Only continue if the block's previous hash is correct and the balance list is available.
         if (ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash()) && balanceList != null) {
+            if (!ByteUtil.arraysAreEqual(balanceList.getHash(), block.getBalanceListHash())) {
+                System.out.println("X:!!BLHash mismatch "+ PrintUtil.compactPrintByteArray(balanceList.getHash()) + " vs block " + block) ;
+            } else {
+                try {
+                    setFrozenEdge(block, cycleVerifiers);
+                    BalanceListManager.updateFrozenEdge(balanceList);
 
-            try {
-                setFrozenEdge(block, cycleVerifiers);
-                BalanceListManager.updateFrozenEdge(balanceList);
+                    writeBlocksToFile(Collections.singletonList(block), Collections.singletonList(balanceList),
+                            individualFileForBlockHeight(block.getBlockHeight()));
 
-                writeBlocksToFile(Collections.singletonList(block), Collections.singletonList(balanceList),
-                        individualFileForBlockHeight(block.getBlockHeight()));
+                    if (block.getBlockHeight() == 0L) {
 
-                if (block.getBlockHeight() == 0L) {
+                        genesisBlockStartTimestamp = block.getStartTimestamp();
+                        completedInitialization.set(true);
+                    }
 
-                    genesisBlockStartTimestamp = block.getStartTimestamp();
-                    completedInitialization.set(true);
+                } catch (Exception reportOnly) {
+                    reportOnly.printStackTrace();
+                    System.err.println("exception writing block to file " + reportOnly.getMessage());
+                    System.out.println("X:exception writing block to file " + reportOnly.getMessage());
                 }
-
-            } catch (Exception reportOnly) {
-                reportOnly.printStackTrace();
-                System.err.println("exception writing block to file " + reportOnly.getMessage());
-                System.out.println("X:exception writing block to file " + reportOnly.getMessage());
             }
         } else {
             if (balanceList == null) {
                  System.out.println("X:BalanceList is null");
             }
             if (!ByteUtil.arraysAreEqual(previousBlockHash, block.getPreviousBlockHash())) {
-                System.out.println("X:Hashes mismatch "+ previousBlockHash + " vs block " + block.getPreviousBlockHash());
+                System.out.println("X:Hashes mismatch "+ PrintUtil.compactPrintByteArray(previousBlockHash) + " vs block " + block.getPreviousBlock());
             }
         }
     }

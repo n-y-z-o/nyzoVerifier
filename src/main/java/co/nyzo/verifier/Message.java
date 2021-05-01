@@ -235,7 +235,8 @@ public class Message {
                             response = readFromStream(socket.getInputStream(), socket.getInetAddress().getAddress(),
                                     message.getType());
                         } catch (Exception reportOnly) {
-                            System.err.println("Exception sending message " + message.getType() + " to " +
+                            // Egg: was err
+                            System.out.println("Exception sending message " + message.getType() + " to " +
                                     hostNameOrIp + ":" + port + ": " + PrintUtil.printException(reportOnly));
                         }
 
