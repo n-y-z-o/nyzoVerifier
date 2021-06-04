@@ -31,7 +31,8 @@ public class PrefilledDataSendCommand implements Command {
 
     @Override
     public String[] getArgumentNames() {
-        return new String[] { "sender key", "prefilled-data string", "amount, Nyzos" };
+        return new String[] { "sender key", "prefilled-data string",
+                "amount, Nyzos (optional if in prefilled-data string)" };
     }
 
     @Override
@@ -78,6 +79,7 @@ public class PrefilledDataSendCommand implements Command {
 
             // Check the prefilled-data string.
             NyzoString string = NyzoStringEncoder.decode(argumentValues.get(1));
+            long amountFromPrefilledDataString = 0L;
             if (string instanceof NyzoStringPrefilledData) {
                 // Show the receiver and sender data. This is not necessary for validation, but it is helpful for
                 // confirmation, because the confirmation process does not show the separate parts of the string.
@@ -87,6 +89,9 @@ public class PrefilledDataSendCommand implements Command {
                         NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(prefilledData.getReceiverIdentifier())),
                         new String(prefilledData.getSenderData(), StandardCharsets.UTF_8));
                 ConsoleUtil.printTable(Arrays.asList(labels, values), output);
+
+                // Store the amount from the prefilled-data string to assist in validation of the amount argument.
+                amountFromPrefilledDataString = prefilledData.getAmount();
 
                 // Check that the sender and receiver are different. If so, this argument is valid.
                 if (senderKey != null && ByteUtil.arraysAreEqual(prefilledData.getReceiverIdentifier(),
@@ -110,6 +115,9 @@ public class PrefilledDataSendCommand implements Command {
             } catch (Exception ignored) { }
             if (amountMicronyzos > 0) {
                 double amountNyzos = amountMicronyzos / (double) Transaction.micronyzoMultiplierRatio;
+                argumentResults.add(new ArgumentResult(true, String.format("%.6f", amountNyzos), ""));
+            } else if (amountFromPrefilledDataString > 0L) {
+                double amountNyzos = amountFromPrefilledDataString / (double) Transaction.micronyzoMultiplierRatio;
                 argumentResults.add(new ArgumentResult(true, String.format("%.6f", amountNyzos), ""));
             } else {
                 argumentResults.add(new ArgumentResult(false, argumentValues.get(2), "invalid amount"));
@@ -137,7 +145,13 @@ public class PrefilledDataSendCommand implements Command {
             NyzoStringPrivateSeed signerSeed = (NyzoStringPrivateSeed) NyzoStringEncoder.decode(argumentValues.get(0));
             NyzoStringPrefilledData prefilledData  =
                     (NyzoStringPrefilledData) NyzoStringEncoder.decode(argumentValues.get(1));
-            long amount = (long) (Double.parseDouble(argumentValues.get(2)) * Transaction.micronyzoMultiplierRatio);
+            long amount = 0L;
+            try {
+                amount = (long) (Double.parseDouble(argumentValues.get(2)) * Transaction.micronyzoMultiplierRatio);
+            } catch (Exception ignored) { }
+            if (amount <= 0L) {
+                amount = prefilledData.getAmount();
+            }
 
             // Send the transaction to the cycle.
             ClientTransactionUtil.createAndSendTransaction(signerSeed,

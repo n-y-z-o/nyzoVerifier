@@ -3,6 +3,7 @@ package co.nyzo.verifier.client.commands;
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.*;
 import co.nyzo.verifier.nyzoString.*;
+import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -25,12 +26,12 @@ public class PrefilledDataCreateCommand implements Command {
 
     @Override
     public String[] getArgumentNames() {
-        return new String[] { "receiver ID", "sender data" };
+        return new String[] { "receiver ID", "sender data", "amount, Nyzos (optional)" };
     }
 
     @Override
     public String[] getArgumentIdentifiers() {
-        return new String[] { "receiverId", "senderData" };
+        return new String[] { "receiverId", "senderData", "amountNyzos" };
     }
 
     @Override
@@ -72,12 +73,32 @@ public class PrefilledDataCreateCommand implements Command {
 
             // Process the sender data.
             byte[] senderDataBytes = argumentValues.get(1).getBytes(StandardCharsets.UTF_8);
+            String senderDataValidationMessage = "";
             if (senderDataBytes.length > FieldByteSize.maximumSenderDataLength) {
-                output.println(ConsoleColor.Yellow + "sender data too long; truncating" + ConsoleColor.reset);
+                senderDataValidationMessage = "sender data too long; truncating";
                 senderDataBytes = Arrays.copyOf(senderDataBytes, FieldByteSize.maximumSenderDataLength);
             }
             String senderData = new String(senderDataBytes, StandardCharsets.UTF_8);
-            argumentResults.add(new ArgumentResult(true, senderData, ""));
+            argumentResults.add(new ArgumentResult(true, senderData, senderDataValidationMessage));
+
+            // Process the amount. This is optional, but if a unexpected value is specified, a warning can be presented.
+            if (argumentValues.size() > 2) {
+                String amountValidationMessage = "";
+                long amount = 0L;
+                try {
+                    amount = (long) (Double.parseDouble(argumentValues.get(2)) * Transaction.micronyzoMultiplierRatio);
+                    if (amount < 0L) {
+                        amount = 0L;
+                        amountValidationMessage = "negative values are not allowed; set to 0";
+                    } else if (amount > Transaction.micronyzosInSystem) {
+                        amount = 0L;
+                        amountValidationMessage = "value was more than coins in system; set to 0";
+                    }
+                } catch (Exception ignored) {
+                    amountValidationMessage = "unable to parse amount value";
+                }
+                argumentResults.add(new ArgumentResult(true, PrintUtil.printAmount(amount), amountValidationMessage));
+            }
 
             // Produce the result.
             result = new ValidationResult(argumentResults);
@@ -102,6 +123,12 @@ public class PrefilledDataCreateCommand implements Command {
         NyzoStringPublicIdentifier receiverIdentifier =
                 (NyzoStringPublicIdentifier) NyzoStringEncoder.decode(argumentValues.get(0));
         byte[] senderData = argumentValues.get(1).getBytes(StandardCharsets.UTF_8);
+        long amount = 0L;
+        if (argumentValues.size() > 2) {
+            try {
+                amount = (long) (Double.parseDouble(argumentValues.get(2)) * Transaction.micronyzoMultiplierRatio);
+            } catch (Exception ignored) { }
+        }
 
         // If this is not a known identifier in the latest balance list, add a notice.
         List<String> notices = new ArrayList<>();
@@ -123,16 +150,18 @@ public class PrefilledDataCreateCommand implements Command {
 
         // Make the prefilled-data string.
         NyzoStringPrefilledData prefilledDataString = new NyzoStringPrefilledData(receiverIdentifier.getBytes(),
-                senderData);
+                senderData, amount);
 
         // Build the output table. Note that the individual fields are retrieved from the prefilled-data string.
         CommandTable table = new CommandTable(new CommandTableHeader("receiver ID", "receiverId", true),
                 new CommandTableHeader("sender data", "senderData", true),
+                new CommandTableHeader("amount", "amount", false),
                 new CommandTableHeader("prefilled-data string", "prefilledDataString", true));
         table.setInvertedRowsColumns(true);
         table.addRow(
                 NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(prefilledDataString.getReceiverIdentifier())),
                 new String(prefilledDataString.getSenderData(), StandardCharsets.UTF_8),
+                PrintUtil.printAmountWithCommas(prefilledDataString.getAmount()),
                 NyzoStringEncoder.encode(prefilledDataString));
 
         // Produce the execution result.

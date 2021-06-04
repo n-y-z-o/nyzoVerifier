@@ -29,12 +29,17 @@ public class CommandEndpointApi implements EndpointResponseProvider {
             String message = "Long-running commands are not yet supported";
             response = new EndpointResponse(message.getBytes(StandardCharsets.UTF_8));
         } else {
-            // Run the command.
-            CommandOutput output = new CommandOutputWeb();
-            ExecutionResult result = command.run(argumentValues, output);
+            try {
+                // Run the command.
+                CommandOutput output = new CommandOutputWeb();
+                ExecutionResult result = command.run(argumentValues, output);
 
-            // Build the response.
-            response = result.toEndpointResponse();
+                // Build the response.
+                response = result.toEndpointResponse();
+            } catch (Exception ignored) {
+                String message = "An internal error occurred when running the command";
+                response = new EndpointResponse(message.getBytes(StandardCharsets.UTF_8));
+            }
         }
 
         // Set the header to allow cross-site access.
