@@ -570,12 +570,13 @@ public class Verifier {
                         // Update vote counts for verifier removal.
                         VerifierRemovalManager.updateVoteCounts();
 
-                        // Perform blacklist, unfrozen block, consensus-tracker, and message (dynamic whitelist)
-                        // maintenance.
+                        // Perform blacklist, unfrozen block, consensus-tracker, message (dynamic whitelist), and
+                        // banlist (node join spam) maintenance.
                         BlacklistManager.performMaintenance();
                         UnfrozenBlockManager.performMaintenance();
                         ConsensusTracker.performMaintenance();
                         Message.performMaintenance();
+                        NodeBanManager.performMaintenance();
 
                         // Clean old transactions from the transaction pool.
                         TransactionPool.updateFrozenEdge();

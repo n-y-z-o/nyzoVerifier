@@ -18,21 +18,6 @@ import java.util.function.BiFunction;
 
 public class MeshListener {
 
-    // Counter to keep track of received nodejoin messages.
-    // (IP as String) => (Number of nodejoin messages since last Cleanup)
-    private static HashMap<String, Integer> nodejoinCounters = new HashMap<String, Integer>(2000);
-
-    // Banned IPs
-    // (IP as String) => (Timestamp of ban)
-    private static HashMap<String, Integer> nodejoinBan = new HashMap<String, Integer>();
-
-    // Number of seconds after which the nodejoin counters are reset.
-    private static final int nodejoinClearInterval = 1200;
-
-    // If a nodejoin counter exceeds nodejoinBanThreshold it is banned.
-    // 20 messages per 1200 seconds (20 minutes) is far more than any verifier should send.
-    private static final int nodejoinBanThreshold = 20;
-
     private static final AtomicLong numberOfMessagesRejected = new AtomicLong(0);
     private static final AtomicLong numberOfMessagesAccepted = new AtomicLong(0);
 
@@ -141,8 +126,6 @@ public class MeshListener {
         if (!aliveUdp.getAndSet(true)) {
             startSocketThreadUdp();
         }
-
-	startBanCounterClearThread();
     }
 
     public static void startSocketThreadTcp() {
@@ -175,24 +158,6 @@ public class MeshListener {
                 aliveTcp.set(false);
             }
         }, "MeshListener-serverSocketTcp").start();
-    }
-
-    public static void startBanCounterClearThread() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-		for(;;) {
-                   try {
-			Thread.sleep(nodejoinClearInterval * 1000);
-			synchronized(MeshListener.class) {
-			   LogUtil.println("Clearing nodejoin counters. " + nodejoinCounters.size() + " removed");
-			   nodejoinCounters.clear();
-		        }
-                   } catch (Exception e) {
-                   }
-		}
-            }
-        }, "BanCounterClearThread").start();
     }
 
     private static void startSocketThreadUdp() {
@@ -573,28 +538,20 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NodeJoinV2_43) {
 
-		    String sourceIp = IpUtil.addressAsString(message.getSourceIpAddress());
+                    if (NodeBanManager.isActive()) {
 
-		    synchronized(MeshListener.class) {
-			// Is this IP already banned? Just ignore.
-			if(nodejoinBan.containsKey(sourceIp))
-			    return null;
+                        // Immediately ignore the node join message if the IP is banned.
+                        if (NodeBanManager.inBanlist(message.getSourceIpAddress())) {
+                            return null;
+                        }
 
-			if(nodejoinCounters.containsKey(sourceIp)) {
-			    // An entry already exists. Check if banThreshold is exceeded, then ban, otherwise increase counter by 1
-			    int counter = nodejoinCounters.get(sourceIp);
+                        NodeBanManager.trackJoin(message.getSourceIpAddress());
 
-			    if(counter > nodejoinBanThreshold) {
-				nodejoinBan.put(sourceIp, (int)(System.currentTimeMillis() / 1000));
-			        LogUtil.println("Banning IP " + sourceIp);
-			    } else {
-			        nodejoinCounters.put(sourceIp, counter + 1);
-			    }
-			} else {
-			    // First message. Create new entry.
-			    nodejoinCounters.put(sourceIp, 1);
-			}
-		    }
+                        // Run a final check and ignore the node join message if the IP is banned.
+                        if (NodeBanManager.inBanlist(message.getSourceIpAddress())) {
+                            return null;
+                        }
+                    }
 
                     NodeManager.updateNode(message);
 
