@@ -49,6 +49,11 @@ public class NodeBanManager {
         if (BlockManager.completedInitialization() && BlockManager.isCycleComplete() &&
                 !BlockManager.inGenesisCycle()) {
 
+            // No need to track connection counts if address is already banned.
+            if (inBanlist(ipAddress)) {
+                return;
+            }
+
             if (trackCounters.containsKey(ipAddress)) {
 
                 Map.Entry<Integer, Long> counter = trackCounters.get(ipAddress);
