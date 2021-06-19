@@ -19,7 +19,7 @@ public class NodeBanManager {
     private static final String trackMaxCountersKey = "node_track_max_counters";
     private static final int trackMaxCounters = PreferencesUtil.getInt(trackMaxCountersKey, 2000);
 
-    private static final String maintenanceMinutesKey = "node_maintenance_minutes";
+    private static final String maintenanceMinutesKey = "node_track_maintenance_minutes";
     private static final int maintenanceMinutes = PreferencesUtil.getInt(maintenanceMinutesKey, 5);
     private static final long maintenancePeriod = 1000L * 60L * maintenanceMinutes;
 
