@@ -540,14 +540,9 @@ public class MeshListener {
 
                     if (NodeBanManager.isActive()) {
 
-                        // Immediately ignore the node join message if the IP is banned.
-                        if (NodeBanManager.inBanlist(message.getSourceIpAddress())) {
-                            return null;
-                        }
-
                         NodeBanManager.trackJoin(message.getSourceIpAddress());
 
-                        // Run a final check and ignore the node join message if the IP is banned.
+                        // Ignore the node join message if the address is banned.
                         if (NodeBanManager.inBanlist(message.getSourceIpAddress())) {
                             return null;
                         }
