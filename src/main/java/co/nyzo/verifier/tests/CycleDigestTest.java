@@ -49,7 +49,7 @@ public class CycleDigestTest {
 
                     // Check the new-verifier and Genesis-cycle flags.
                     check("new verifier, block " + block.getBlockHeight(), cycleInformation.isNewVerifier(),
-                            cycleDigest.isNewVerifier());
+                            cycleDigest.getNewVerifierState() == NewVerifierState.NewVerifier);
                     check("Genesis cycle, block " + block.getBlockHeight(), cycleInformation.isInGenesisCycle(),
                             cycleDigest.isInGenesisCycle());
 
