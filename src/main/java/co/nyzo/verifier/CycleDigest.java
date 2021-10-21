@@ -3,7 +3,10 @@ package co.nyzo.verifier;
 import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
+import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class CycleDigest implements MessageObject {
@@ -12,6 +15,8 @@ public class CycleDigest implements MessageObject {
     // digest for the next block can be derived using only the cycle digest for this block and the verifier identifier
     // of the next block.
 
+    private static final int requiredCyclesForCompleteness = 4;
+
     private long blockHeight;
     private List<ByteBuffer> identifiers;
     private NewVerifierState[] newVerifierStates;
@@ -19,15 +24,16 @@ public class CycleDigest implements MessageObject {
     private int[] cycleLengths;
     private int numberOfUniqueIdentifiers;
     private ContinuityState continuityState;
+    private boolean complete;
 
-    private CycleDigest(long blockHeight, List<ByteBuffer> identifiers) {
+    public CycleDigest(long blockHeight, List<ByteBuffer> identifiers) {
         this.blockHeight = blockHeight;
         this.identifiers = identifiers;
-        this.cycleStartIndices = calculateCycleStartIndices();
-        this.cycleLengths = calculateCycleLengths();
+        calculateCycleStartIndicesAndCompleteness();
+        calculateCycleLengths();
 
         // If the last cycle-start index is above 1, remove the excess identifiers.
-        int indexOffset = cycleStartIndices[cycleStartIndices.length - 1];
+        int indexOffset = cycleStartIndices[requiredCyclesForCompleteness - 1];
         if (indexOffset > 1) {
             for (int i = 0; i < indexOffset - 1; i++) {
                 identifiers.remove(0);
@@ -62,24 +68,63 @@ public class CycleDigest implements MessageObject {
                         NewVerifierState.Undetermined;
             }
         }
-        print(newVerifierStates);
 
         // Store the number of unique identifiers in the trimmed list.
         this.numberOfUniqueIdentifiers = new HashSet<>(identifiers).size();
 
         // Calculate the continuity state.
-        this.continuityState = calculateContinuityState();
+        this.continuityState = complete ? calculateContinuityState() : ContinuityState.Undetermined;
     }
 
-    private void print(NewVerifierState[] states) {
+    public void print() {
+
         StringBuilder stringBuilder = new StringBuilder();
-        for (int i = 0; i < states.length; i++) {
-            if (i == cycleStartIndices[0] || i == cycleStartIndices[1] || i == cycleStartIndices[2] ||
-                    i == cycleStartIndices[3] || i == cycleStartIndices[4]) {
-                stringBuilder.append(' ');
+        if (newVerifierStates.length <= 20) {
+            // If the states array is no more than 20 elements, display simply.
+            for (int i = 0; i < newVerifierStates.length; i++) {
+                if (i == cycleStartIndices[0] || i == cycleStartIndices[1] || i == cycleStartIndices[2] ||
+                        i == cycleStartIndices[3] || i == cycleStartIndices[4]) {
+                    stringBuilder.append(' ');
+                }
+                stringBuilder.append(newVerifierStates[i] == NewVerifierState.Undetermined ? '_' :
+                        (newVerifierStates[i] == NewVerifierState.NewVerifier ? 'N' : '-'));
             }
-            stringBuilder.append(states[i] == NewVerifierState.Undetermined ? '_' :
-                    (states[i] == NewVerifierState.NewVerifier ? 'N' : '-'));
+        } else {
+            // Otherwise, display condensed.
+            Character state = null;
+            int count = 0;
+            for (int i = 0; i < newVerifierStates.length; i++) {
+                if (i == cycleStartIndices[0] || i == cycleStartIndices[1] || i == cycleStartIndices[2] ||
+                        i == cycleStartIndices[3] || i == cycleStartIndices[4]) {
+                    if (state != null) {
+                        stringBuilder.append(state);
+                        if (count > 1) {
+                            stringBuilder.append('(').append(count).append(')');
+                        }
+                        state = null;
+                    }
+                    stringBuilder.append(' ');
+                }
+
+                Character newState = newVerifierStates[i] == NewVerifierState.Undetermined ? '_' :
+                        (newVerifierStates[i] == NewVerifierState.NewVerifier ? 'N' : '-');
+                if (newState == state) {
+                    count++;
+                } else {
+                    if (state != null) {
+                        stringBuilder.append(state);
+                        if (count > 1) {
+                            stringBuilder.append('(').append(count).append(')');
+                        }
+                    }
+                    state = newState;
+                    count = 1;
+                }
+            }
+            stringBuilder.append(state);
+            if (count > 1) {
+                stringBuilder.append('(').append(count).append(')');
+            }
         }
         System.out.println(stringBuilder.toString());
     }
@@ -108,6 +153,10 @@ public class CycleDigest implements MessageObject {
         return newVerifierStates[newVerifierStates.length - 1];
     }
 
+    public boolean isNewVerifier() {
+        return newVerifierStates[newVerifierStates.length - 1] == NewVerifierState.NewVerifier;
+    }
+
     public boolean isInGenesisCycle() {
         return cycleStartIndices[0] < 0 && identifiers.size() == blockHeight + 1;
     }
@@ -122,13 +171,14 @@ public class CycleDigest implements MessageObject {
         return continuityState;
     }
 
-    public static CycleDigest digestForNextBlock(CycleDigest previousDigest, byte[] nextVerifierIdentifier) {
+    public static CycleDigest digestForNextBlock(CycleDigest previousDigest, byte[] nextVerifierIdentifier,
+                                                 long suggestedBlockHeight) {
 
         // Get the information from the previous digest.
         long blockHeight;
         List<ByteBuffer> identifiers;
         if (previousDigest == null) {
-            blockHeight = 0;
+            blockHeight = suggestedBlockHeight;
             identifiers = new ArrayList<>();
         } else {
             blockHeight = previousDigest.getBlockHeight() + 1L;
@@ -143,10 +193,13 @@ public class CycleDigest implements MessageObject {
         return new CycleDigest(blockHeight, identifiers);
     }
 
-    private int[] calculateCycleStartIndices() {
+    private void calculateCycleStartIndicesAndCompleteness() {
         int cycleCount = 0;
         Set<ByteBuffer> currentCycle = new HashSet<>();
-        int[] cycleStartIndices = { -1, -1, -1, -1, -1 };
+        int[] cycleStartIndices = new int[requiredCyclesForCompleteness];
+        for (int i = 0; i < requiredCyclesForCompleteness; i++) {
+            cycleStartIndices[i] = -1;
+        }
         for (int i = identifiers.size() - 1; i >= 0 && cycleCount < cycleStartIndices.length; i--) {
             ByteBuffer identifier = identifiers.get(i);
             if (currentCycle.contains(identifier)) {
@@ -158,11 +211,18 @@ public class CycleDigest implements MessageObject {
             currentCycle.add(identifier);
         }
 
-        return cycleStartIndices;
+        // Store the start indices in the instance's field.
+        this.cycleStartIndices = cycleStartIndices;
+
+        // There are two cases where this is a complete digest: either the digest goes all the way back to the Genesis
+        // block or 4 cycles were found.
+        this.complete = identifiers.size() == blockHeight + 1 |  // extends to Genesis block
+                cycleStartIndices[requiredCyclesForCompleteness - 1] > 0;
+        System.out.println("cycleCount=" + cycleCount + ", complete=" + complete + ", height=" + blockHeight);
     }
 
-    private int[] calculateCycleLengths() {
-        int[] cycleLengths = new int[cycleStartIndices.length - 1];
+    private void calculateCycleLengths() {
+        int[] cycleLengths = new int[cycleStartIndices.length];
         cycleLengths[0] = cycleStartIndices[0] > 0 ? identifiers.size() - cycleStartIndices[0] : identifiers.size();
         int remainingLength = identifiers.size() - cycleLengths[0];
         for (int i = 1; i < cycleLengths.length; i++) {
@@ -177,7 +237,7 @@ public class CycleDigest implements MessageObject {
             remainingLength -= cycleLengths[i];
         }
 
-        return cycleLengths;
+        this.cycleLengths = cycleLengths;
     }
 
     private ContinuityState calculateContinuityState() {
@@ -226,6 +286,10 @@ public class CycleDigest implements MessageObject {
         }
 
         return continuityState;
+    }
+
+    public boolean isComplete() {
+        return complete;
     }
 
     @Override
@@ -296,6 +360,21 @@ public class CycleDigest implements MessageObject {
         return result;
     }
 
+    public static CycleDigest fromFileForHeight(long height) {
+
+        CycleDigest digest = null;
+        try {
+            byte[] fileBytes = Files.readAllBytes(Paths.get(fileForHeight(height).getAbsolutePath()));
+            digest = CycleDigest.fromByteBuffer(ByteBuffer.wrap(fileBytes));
+        } catch (Exception ignored) { }
+
+        return digest;
+    }
+
+    public static File fileForHeight(long height) {
+        return new File(BlockManager.individualBlockDirectory, String.format("i_%09d.%s", height, "cycledigest"));
+    }
+
     @Override
     public int hashCode() {
         // All other fields are derived from blockHeight and identifiers.
@@ -320,7 +399,7 @@ public class CycleDigest implements MessageObject {
 
     @Override
     public String toString() {
-        return String.format("[CycleDigest: length=%d, new verifier=%b, Genesis cycle=%b]", getCycleLength(),
-                getNewVerifierState(), isInGenesisCycle());
+        return String.format("[CycleDigest: length=%d, new verifier=%s, Genesis cycle=%b, complete=%b, list length=%d]",
+                getCycleLength(), getNewVerifierState(), isInGenesisCycle(), isComplete(), identifiers.size());
     }
 }
