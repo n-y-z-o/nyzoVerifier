@@ -1,5 +1,7 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.client.ClientTransactionUtil;
+import co.nyzo.verifier.client.CommandOutputConsole;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.util.SignatureUtil;
@@ -47,10 +49,12 @@ public class RPCServer
 {
     private final HttpServer http_server;
     private final Dispatcher dispatcher;
+    private final CommandOutputConsole output;
 
     public RPCServer(int listen_port)
             throws Exception
         {
+            output = new CommandOutputConsole();
             String listen_host = "0.0.0.0";
 
             http_server = HttpServer.create(new InetSocketAddress(listen_host, listen_port), 0);
@@ -347,8 +351,6 @@ public class RPCServer
             }
 
             if (Boolean.TRUE.equals(req.getNamedParams().get("broadcast"))) {
-                Message msg = new Message(MessageType.Transaction5, tx);
-                
                 StringBuilder error = new StringBuilder();
                 StringBuilder warning = new StringBuilder();
                 TransactionPool.addTransaction(tx, error, warning);
@@ -361,18 +363,7 @@ public class RPCServer
                     System.out.println(" (error=\"" + error.toString().trim() + "\")");
                 }
 
-                List<Node> mesh = NodeManager.getMesh();
-                for (Node node : mesh) {
-                    if (node.isActive() && BlockManager.verifierInOrNearCurrentCycle(ByteBuffer.wrap(node.getIdentifier()))) {
-                        String ipAddress = IpUtil.addressAsString(node.getIpAddress());
-                        Message.fetchTcp(ipAddress, node.getPortTcp(), msg, new MessageCallback() {
-                            @Override
-                            public void responseReceived(Message message) {
-                                System.out.println("tx broadcast response from " + ipAddress + " is " + message);
-                            }
-                        });
-                    }
-                }
+                ClientTransactionUtil.sendTransactionToLikelyBlockVerifiers(tx, false, output);
             }
 
    
