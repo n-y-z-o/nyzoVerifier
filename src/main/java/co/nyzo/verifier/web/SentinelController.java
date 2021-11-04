@@ -103,9 +103,10 @@ public class SentinelController {
         // Create the div and add the styles that will be used.
         Div div = (Div) new Div().attr("style", "display: table; margin: auto;");
         String tileContainerWidth = String.format("%.1frem", 1.3 * ManagedVerifier.queryHistoryLength);
-        div.add(new Style(".verifier-row { display: table-row; background-color: #ddd; }" +
+        div.add(new Style(".verifier-row { display: table-row; }" +
+                ".verifier-flag { display: table-cell; }" +
                 ".verifier-label { display: table-cell; padding: 0.5rem 1.0rem 0 1.0rem; vertical-align: top; " +
-                "white-space: nowrap; height: 1.6rem; }" +
+                "white-space: nowrap; height: 1.6rem; background-color: #ddd; }" +
                 ".verifier-label-active { background-color: #999; }" +
                 ".verifier-label-incorrect-identifier { background-color: #f80; }" +
                 ".verifier-tile { display: table-cell; width: 1.3rem; height: 2.1rem; }" +
@@ -127,7 +128,13 @@ public class SentinelController {
             int queryIndex = verifier.getQueryIndex();
             int[] results = verifier.getQueryResults();
 
+            // Make the row.
             Div row = (Div) div.add(new Div().attr("class", "verifier-row"));
+
+            // Add the flag element. If this is an identifier-only entry, add the ID symbol.
+            row.add(new Div().attr("class", "verifier-flag").addRaw(verifier.hasPrivateKey() ? "" : "&#x1F194;"));
+
+            // Add the nickname.
             String nickname = WebUtil.sanitizedNickname(verifier.getIdentifier());
             String className = "verifier-label";
             if (!ByteUtil.isAllZeros(verifier.getResponseIdentifier()) &&
@@ -188,9 +195,8 @@ public class SentinelController {
             if (!ByteUtil.isAllZeros(verifier.getResponseIdentifier()) &&
                     !ByteUtil.arraysAreEqual(verifier.getIdentifier(), verifier.getResponseIdentifier())) {
                 String nickname = WebUtil.sanitizedNickname(verifier.getIdentifier());
-                notices.add(new P().attr("class", "incorrect-verifier-notice").addRaw(nickname + " identifier: " +
-                        ByteUtil.arrayAsStringWithDashes(verifier.getIdentifier()) + ", response identifier: " +
-                        ByteUtil.arrayAsStringWithDashes(verifier.getResponseIdentifier())));
+                notices.add(new P().attr("class", "incorrect-verifier-notice").addRaw(nickname +
+                        " response identifier: " + ByteUtil.arrayAsStringWithDashes(verifier.getResponseIdentifier())));
             }
         }
 

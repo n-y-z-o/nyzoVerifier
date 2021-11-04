@@ -403,7 +403,7 @@ public class Message {
             // Read the source-node identifier from the end of the buffer.
             int contentStartPosition = buffer.position();
             buffer.position(bufferLength - FieldByteSize.identifier - FieldByteSize.signature);
-            byte[] sourceNodeIdentifier = Message.getByteArray(buffer, FieldByteSize.identifier);
+            byte[] sourceNodeIdentifier = getByteArray(buffer, FieldByteSize.identifier);
 
             // If this is a non-cycle verifier sending disallowed messages, add it to the blacklist. Otherwise, build
             // the message.
@@ -419,7 +419,7 @@ public class Message {
                 }
             } else {
                 // If the signature is valid, continue to processing the content.
-                byte[] sourceNodeSignature = Message.getByteArray(buffer, FieldByteSize.signature);
+                byte[] sourceNodeSignature = getByteArray(buffer, FieldByteSize.signature);
                 int signedBytesStart = isUdp ? 4 : 0;
                 int signedBytesEnd = bufferLength - FieldByteSize.signature;
                 boolean signatureIsValid = SignatureUtil.signatureIsValid(sourceNodeSignature, bytes,

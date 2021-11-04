@@ -14,16 +14,17 @@ public class CycleDigest implements MessageObject {
 
     private long blockHeight;
     private List<ByteBuffer> identifiers;
+    private NewVerifierState[] newVerifierStates;
     private int[] cycleStartIndices;
     private int[] cycleLengths;
     private int numberOfUniqueIdentifiers;
+    private ContinuityState continuityState;
 
     private CycleDigest(long blockHeight, List<ByteBuffer> identifiers) {
         this.blockHeight = blockHeight;
         this.identifiers = identifiers;
         this.cycleStartIndices = calculateCycleStartIndices();
         this.cycleLengths = calculateCycleLengths();
-        this.numberOfUniqueIdentifiers = new HashSet<>(identifiers).size();
 
         // If the last cycle-start index is above 1, remove the excess identifiers.
         int indexOffset = cycleStartIndices[cycleStartIndices.length - 1];
@@ -35,6 +36,52 @@ public class CycleDigest implements MessageObject {
                 cycleStartIndices[i] -= indexOffset - 1;
             }
         }
+
+        // Mark whether each identifier is new to the cycle.
+        List<ByteBuffer> runningCycle = new ArrayList<>();
+        boolean determinedNewVerifier = identifiers.size() == blockHeight + 1;
+        newVerifierStates = new NewVerifierState[identifiers.size()];
+        for (int i = 0; i < identifiers.size(); i++) {
+            ByteBuffer identifier = identifiers.get(i);
+
+            if (runningCycle.contains(identifier)) {
+                // This is the case when this is an existing verifier. We have found a complete cycle, which means that
+                // we know with certainty whether later verifiers are new.
+                determinedNewVerifier = true;
+                runningCycle.add(identifier);
+                newVerifierStates[i] = NewVerifierState.ExistingVerifier;
+
+                // From the beginning of the cycle, remove all verifiers up to and including the current verifier.
+                while (!runningCycle.get(0).equals(identifier)) {
+                    runningCycle.remove(0);
+                }
+                runningCycle.remove(0);
+            } else {
+                runningCycle.add(identifier);
+                newVerifierStates[i] = determinedNewVerifier ? NewVerifierState.NewVerifier :
+                        NewVerifierState.Undetermined;
+            }
+        }
+        print(newVerifierStates);
+
+        // Store the number of unique identifiers in the trimmed list.
+        this.numberOfUniqueIdentifiers = new HashSet<>(identifiers).size();
+
+        // Calculate the continuity state.
+        this.continuityState = calculateContinuityState();
+    }
+
+    private void print(NewVerifierState[] states) {
+        StringBuilder stringBuilder = new StringBuilder();
+        for (int i = 0; i < states.length; i++) {
+            if (i == cycleStartIndices[0] || i == cycleStartIndices[1] || i == cycleStartIndices[2] ||
+                    i == cycleStartIndices[3] || i == cycleStartIndices[4]) {
+                stringBuilder.append(' ');
+            }
+            stringBuilder.append(states[i] == NewVerifierState.Undetermined ? '_' :
+                    (states[i] == NewVerifierState.NewVerifier ? 'N' : '-'));
+        }
+        System.out.println(stringBuilder.toString());
     }
 
     public long getBlockHeight() {
@@ -57,9 +104,8 @@ public class CycleDigest implements MessageObject {
         return cycleLengths[index];
     }
 
-    public boolean isNewVerifier() {
-        return cycleStartIndices[0] < 0 || !identifiers.get(cycleStartIndices[0] - 1)
-                .equals(identifiers.get(identifiers.size() - 1));
+    public NewVerifierState getNewVerifierState() {
+        return newVerifierStates[newVerifierStates.length - 1];
     }
 
     public boolean isInGenesisCycle() {
@@ -70,6 +116,10 @@ public class CycleDigest implements MessageObject {
         // This is the height of the lowest block that affects this cycle digest. This will give us the last four
         // cycles plus the first block from the fifth cycle.
         return Math.max(0, blockHeight - cycleLengths[0] - cycleLengths[1] - cycleLengths[2] - cycleLengths[3]);
+    }
+
+    public ContinuityState getContinuityState() {
+        return continuityState;
     }
 
     public static CycleDigest digestForNextBlock(CycleDigest previousDigest, byte[] nextVerifierIdentifier) {
@@ -128,6 +178,54 @@ public class CycleDigest implements MessageObject {
         }
 
         return cycleLengths;
+    }
+
+    private ContinuityState calculateContinuityState() {
+
+        // Proof-of-diversity rule 1: After the first existing verifier in the block chain, a new verifier is only
+        // allowed if none of the other blocks in the cycle, the previous cycle, or the two blocks before the previous
+        // cycle were verified by new verifiers.
+
+        // These two variables are set to true as conditions are found that determine them with certainty. If rule1Fail
+        // is set to true, this will cause the state to be discontinuous. If undetermined is set to true, this will
+        // cause the state to be undetermined.
+        boolean rule1Fail = false;
+        boolean undetermined = false;
+
+        // Rule 1 is only checked for a new verifier outside the Genesis cycle.
+        if (!isInGenesisCycle() && getNewVerifierState() == NewVerifierState.NewVerifier) {
+            // This rule can only be checked if the start index of the previous cycle is at least 2.
+            if (cycleStartIndices[1] >= 2) {
+                for (int i = cycleStartIndices[1] - 2; i < identifiers.size() - 1; i++) {
+                    if (newVerifierStates[i] == NewVerifierState.Undetermined) {
+                        undetermined = true;
+                    } else if (newVerifierStates[i] == NewVerifierState.NewVerifier) {
+                        rule1Fail = true;
+                    }
+                }
+            } else {
+                undetermined = true;
+            }
+        } else if (getNewVerifierState() == NewVerifierState.Undetermined) {
+            undetermined = true;
+        }
+
+        // Depending on the status of rule 1, we may be able to continue to rule 2.
+        ContinuityState continuityState;
+        if (rule1Fail) {
+            continuityState = ContinuityState.Discontinuous;
+        } else if (undetermined) {
+            continuityState = ContinuityState.Undetermined;
+        } else {
+            // Proof-of-diversity rule 2: Past the Genesis block, the cycle of a block must be longer than half
+            // of one more than the maximum of the all cycle lengths in this cycle and the previous two cycles.
+
+            long threshold = (getMaximumCycleLength() + 1L) / 2L;
+            boolean rule2Pass = getBlockHeight() == 0 || getCycleLength() > threshold;
+            continuityState = rule2Pass ? ContinuityState.Continuous : ContinuityState.Discontinuous;
+        }
+
+        return continuityState;
     }
 
     @Override
@@ -200,13 +298,13 @@ public class CycleDigest implements MessageObject {
 
     @Override
     public int hashCode() {
-        // The cycleStartIndices list and cycleLengths array are derived internally, so they do not need to be checked.
+        // All other fields are derived from blockHeight and identifiers.
         return Objects.hash(blockHeight, identifiers);
     }
 
     @Override
     public boolean equals(Object object) {
-        // The cycleStartIndices list and cycleLengths array are derived internally, so they do not need to be checked.
+        // All other fields are derived from blockHeight and identifiers.
         boolean result;
         if (this == object) {
             result = true;
@@ -223,6 +321,6 @@ public class CycleDigest implements MessageObject {
     @Override
     public String toString() {
         return String.format("[CycleDigest: length=%d, new verifier=%b, Genesis cycle=%b]", getCycleLength(),
-                isNewVerifier(), isInGenesisCycle());
+                getNewVerifierState(), isInGenesisCycle());
     }
 }

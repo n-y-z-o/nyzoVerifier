@@ -225,8 +225,9 @@ public class NyzoStringTest implements NyzoTest {
             byte[] receiverIdentifier = randomArray(random, FieldByteSize.identifier);
             int senderDataLength = random.nextInt(FieldByteSize.maximumSenderDataLength + 1);
             byte[] senderData = randomArray(random, senderDataLength);
+            long amount = i % 2 == 0 ? 0 : (Math.abs(random.nextLong()) % Transaction.micronyzosInSystem);
 
-            NyzoStringPrefilledData stringObject = new NyzoStringPrefilledData(receiverIdentifier, senderData);
+            NyzoStringPrefilledData stringObject = new NyzoStringPrefilledData(receiverIdentifier, senderData,  amount);
             String encoded = NyzoStringEncoder.encode(stringObject);
 
             // Reverse the process to get the object.
@@ -246,6 +247,13 @@ public class NyzoStringTest implements NyzoTest {
                         ") and decoded sender data (" +
                         ByteUtil.arrayAsStringWithDashes(decodedString.getSenderData()) + ") in iteration " + i +
                         " of NyzoStringTest.testPrefilledDataStrings()";
+            }
+
+            if (amount != decodedString.getAmount()) {
+                successful = false;
+                failureCause = "mismatch of generated amount (" + PrintUtil.printAmount(amount) +
+                        ") and decoded amount (" + PrintUtil.printAmount(decodedString.getAmount()) +
+                        ") in iteration " + i + " of NyzoStringTest.testPrefilledDataStrings()";
             }
         }
 

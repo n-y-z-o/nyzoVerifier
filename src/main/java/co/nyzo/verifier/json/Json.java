@@ -1,5 +1,6 @@
 package co.nyzo.verifier.json;
 
+import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.util.ArrayList;
@@ -10,8 +11,10 @@ import java.util.Map;
 public class Json {
 
     // Like everything Nyzo, this is class is purpose-built to do the job it is supposed to do, minimally and
-    // efficiently. We have no reason, at this time, to parse long JSON strings.
-    private static final int maximumJsonStringLength = 10000;
+    // efficiently. We have no reason, at this time, to parse long JSON strings. If you wish to use a higher value,
+    // though, it can be set in your preferences file.
+    private static final String maximumJsonStringLengthKey = "json_maximum_string_length";
+    public static int maximumJsonStringLength = PreferencesUtil.getInt(maximumJsonStringLengthKey, 10000);
 
     // Instances of this class are used to store state for parsing.
     private String jsonString;
@@ -210,5 +213,32 @@ public class Json {
         }
 
         return new JsonArray(list);
+    }
+
+    public static Object traverse(Object json, Object... keys) {
+        // This is a convenience method to quickly dig into a nested JSON structure.
+        Object current = json;
+        boolean valid = true;
+        for (Object key : keys) {
+            if (key instanceof String && current instanceof JsonObject) {
+                current = ((JsonObject) current).get((String) key);
+            } else if (key instanceof Integer && current instanceof JsonArray) {
+                current = ((JsonArray) current).get((Integer) key);
+            } else {
+                valid = false;
+            }
+        }
+
+        return valid ? current : null;
+    }
+
+    public static JsonArray traverseGetArray(Object json, Object... keys) {
+        Object result = traverse(json, keys);
+        return result instanceof JsonArray ? (JsonArray) result : null;
+    }
+
+    public static JsonObject traverseGetObject(Object json, Object... keys) {
+        Object result = traverse(json, keys);
+        return result instanceof JsonObject ? (JsonObject) result : null;
     }
 }
