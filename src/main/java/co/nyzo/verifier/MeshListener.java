@@ -538,6 +538,16 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NodeJoinV2_43) {
 
+                    if (NodeBanManager.isActive()) {
+
+                        NodeBanManager.trackJoin(message.getSourceIpAddress());
+
+                        // Ignore the node join message if the address is banned.
+                        if (NodeBanManager.inBanlist(message.getSourceIpAddress())) {
+                            return null;
+                        }
+                    }
+
                     NodeManager.updateNode(message);
 
                     NodeJoinMessageV2 nodeJoinMessage = (NodeJoinMessageV2) message.getContent();
