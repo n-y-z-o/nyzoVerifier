@@ -1,15 +1,16 @@
 package co.nyzo.verifier.sentinel;
 
-import co.nyzo.verifier.ByteUtil;
-import co.nyzo.verifier.FieldByteSize;
-import co.nyzo.verifier.KeyUtil;
+import co.nyzo.verifier.*;
+import co.nyzo.verifier.messages.StatusResponse;
 import co.nyzo.verifier.nyzoString.NyzoString;
 import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
 import co.nyzo.verifier.nyzoString.NyzoStringPrivateSeed;
 import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
 import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.ThreadUtil;
 
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ManagedVerifier {
 
@@ -24,6 +25,7 @@ public class ManagedVerifier {
     private int[] queryResults;
     private int queryIndex;
     private boolean queriedLastInterval;
+    private long frozenEdgeHeight;
 
     public static final int queryResultNotYetQueriedValue = -2;
     public static final int queryResultErrorValue = -1;
@@ -43,6 +45,7 @@ public class ManagedVerifier {
         Arrays.fill(this.queryResults, queryResultNotYetQueriedValue);
         this.queryIndex = 0;
         this.queriedLastInterval = false;
+        this.frozenEdgeHeight = -1L;
     }
 
     public String getHost() {
@@ -148,6 +151,31 @@ public class ManagedVerifier {
 
     public void setQueriedLastInterval(boolean queriedLastInterval) {
         this.queriedLastInterval = queriedLastInterval;
+    }
+
+    public long getFrozenEdgeHeight() {
+        return frozenEdgeHeight;
+    }
+
+    public void setFrozenEdgeHeight(long frozenEdgeHeight) {
+        this.frozenEdgeHeight = frozenEdgeHeight;
+    }
+
+    public boolean possiblyUnhealthy() {
+
+        // First, check if the verifier's frozen edge is close to the local frozen edge.
+        boolean healthy =  getFrozenEdgeHeight() >= BlockManager.getFrozenEdgeHeight() - 4L;
+
+        // If the health is in question, check the recent query results.
+        if (!healthy) {
+            for (int value : getQueryResults()) {
+                if (value != 0 && value != ManagedVerifier.queryResultErrorValue) {
+                    healthy = true;
+                }
+            }
+        }
+
+        return !healthy;
     }
 
     @Override

@@ -108,8 +108,13 @@ public class SentinelController {
                 ".verifier-label { display: table-cell; padding: 0.5rem 1.0rem 0 1.0rem; vertical-align: top; " +
                 "white-space: nowrap; height: 1.6rem; background-color: #ddd; }" +
                 ".verifier-label-active { background-color: #999; }" +
+                ".verifier-label-unhealthy { background-color: #ff0; }" +
                 ".verifier-label-incorrect-identifier { background-color: #f80; }" +
                 ".verifier-tile { display: table-cell; width: 1.3rem; height: 2.1rem; }" +
+                ".verifier-tile-not-queried { background-color: #ccc; }" +
+                ".verifier-tile-error { background-color: #f00; }" +
+                ".verifier-tile-zero { background-color: #4b4; }" +
+                ".verifier-tile-nonzero { background-color: #080; }" +
                 ".verifier-tile-line { position: relative; left: 0; width: 1.3rem; height: 0.2rem; " +
                 "background-color: rgba(0,0,0,0.3); }" +
                 ".verifier-tile-label { color: white; width: 1.3rem; position: relative; display: table-cell; " +
@@ -140,6 +145,8 @@ public class SentinelController {
             if (!ByteUtil.isAllZeros(verifier.getResponseIdentifier()) &&
                     !ByteUtil.arraysAreEqual(verifier.getIdentifier(), verifier.getResponseIdentifier())) {
                 className += " verifier-label-incorrect-identifier";
+            } else if (verifier.possiblyUnhealthy()) {
+                className += " verifier-label-unhealthy";
             } else if (verifier.isQueriedLastInterval()) {
                 className += " verifier-label-active";
             }
@@ -153,25 +160,24 @@ public class SentinelController {
             for (int i = 0; i < results.length; i++) {
                 int arrayIndex = (queryIndex + results.length - i - 1) % results.length;
                 int result = results[arrayIndex];
-                String color;
                 String label = "&nbsp;";
+                String tileClass;
                 if (result == ManagedVerifier.queryResultNotYetQueriedValue) {
                     countNotYetQueried++;
-                    color = "#ccc;";
+                    tileClass = "verifier-tile-not-queried";
                 } else if (result == ManagedVerifier.queryResultErrorValue) {
                     countError++;
-                    color = "#f00;";
+                    tileClass = "verifier-tile-error";
                 } else if (result == 0) {
                     countEmpty++;
-                    color = "#4b4;";
                     label = "0";
+                    tileClass = "verifier-tile-zero";
                 } else {
                     countReceivedBlock++;
-                    color = "#080;";
                     label = result + "";
+                    tileClass = "verifier-tile-nonzero";
                 }
-                Div tile = (Div) row.add(new Div().attr("class", "verifier-tile")
-                        .attr("style", "background-color: " + color));
+                Div tile = (Div) row.add(new Div().attr("class", "verifier-tile " + tileClass));
 
                 // This is a simple line over the cell to show motion.
                 double position = Math.abs(arrayIndex * 2.0 / results.length - 1.0) * 1.9;

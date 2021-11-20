@@ -194,6 +194,11 @@ public class Sentinel {
                         }
                     }
 
+                    // If the health of the verifier is in question, query the status to get the frozen edge.
+                    if (verifier.possiblyUnhealthy()) {
+                        updateFrozenEdge(verifier);
+                    }
+
                     // Ensure a minimum interval between iterations. This includes processing time, so the actual sleep
                     // time may be zero.
                     while (System.currentTimeMillis() < loopStartTimestamp + minimumLoopInterval) {
@@ -501,6 +506,9 @@ public class Sentinel {
 
                 // Log the result and mark the response as processed.
                 verifier.logResult(result);
+                if (result > 0) {
+                    verifier.setFrozenEdgeHeight(endHeightToFetch);
+                }
                 processedResponse.set(true);
             }
         });
@@ -542,6 +550,47 @@ public class Sentinel {
             } else {
                 consecutiveSuccessfulBlockFetches.get(identifier).set(0);
             }
+        }
+    }
+
+    private static void updateFrozenEdge(ManagedVerifier verifier) {
+
+        LogUtil.println("updating frozen edge for ManagedVerifier " + NicknameManager.get(verifier.getIdentifier()));
+
+        // Send a status request to check the verifier's frozen edge.
+        AtomicBoolean processedResponse = new AtomicBoolean(false);
+        Message statusRequest = new Message(MessageType.StatusRequest17, null, verifier.getSeed());
+        Message.fetchTcp(verifier.getHost(), verifier.getPort(), statusRequest, new MessageCallback() {
+            @Override
+            public void responseReceived(Message message) {
+                // If the response identifier is correct and the content type is correct, process the response.
+                if (checkResponseIdentifier(message, verifier) && (message.getContent() instanceof StatusResponse)) {
+
+                    // Get the frozen edge from the appropriate line.
+                    StatusResponse response = (StatusResponse) message.getContent();
+                    for (String line : response.getLines()) {
+                        if (line.contains("frozen edge: ")) {
+                            try {
+                                // Store the frozen edge with the verifier.
+                                int startIndex = line.indexOf(": ") + 1;
+                                int endIndex = line.indexOf("(", startIndex);
+                                long frozenEdge = Long.parseLong(line.substring(startIndex, endIndex).trim());
+                                verifier.setFrozenEdgeHeight(frozenEdge);
+                                LogUtil.println("updated frozen edge for ManagedVerifier " +
+                                        NicknameManager.get(verifier.getIdentifier()) + ": " + frozenEdge);
+                            } catch (Exception e) {
+                                LogUtil.println(PrintUtil.printException(e));
+                            }
+                        }
+                    }
+                }
+                processedResponse.set(true);
+            }
+        });
+
+        // Wait for the response to return.
+        while (!processedResponse.get()) {
+            ThreadUtil.sleep(300L);
         }
     }
 
