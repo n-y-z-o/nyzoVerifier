@@ -1,10 +1,12 @@
 package co.nyzo.verifier.tests;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.util.UpdateUtil;
 
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 public class CycleDigestTest {
@@ -13,6 +15,8 @@ public class CycleDigestTest {
     // deserialization of the CycleDigest class.
 
     public static void main(String[] args) {
+
+        testHardCoded();
 
         CycleDigest cycleDigest = null;
         boolean missingFile = false;
@@ -31,7 +35,8 @@ public class CycleDigestTest {
 
                     // Get the cycle information and cycle digest for the block.
                     CycleInformation cycleInformation = block.getCycleInformation();
-                    cycleDigest = CycleDigest.digestForNextBlock(cycleDigest, block.getVerifierIdentifier());
+                    cycleDigest = CycleDigest.digestForNextBlock(cycleDigest, block.getVerifierIdentifier(),
+                            block.getBlockHeight());
 
                     // Check the cycle length and all 4 parameterized cycle lengths.
                     check("cycle length, block " + block.getBlockHeight(), cycleInformation.getCycleLength(),
@@ -62,6 +67,12 @@ public class CycleDigestTest {
                         System.exit(1);
                     }
 
+                    // The digest should always be complete.
+                    if (!cycleDigest.isComplete()) {
+                        System.out.println("Cycle digest is not complete: " + cycleDigest);
+                        System.exit(1);
+                    }
+
                     System.out.println("PASSED: " + block);
                 }
             } else {
@@ -74,23 +85,86 @@ public class CycleDigestTest {
         UpdateUtil.terminate();
     }
 
+    private static void testHardCoded() {
+        // Dashes are only present to improve readability, and they are removed before processing. Expected values for
+        // each digest are provided and checked. Hard-coded test cases like this are wonderful for examining behavior
+        // granularly.
+
+        // Tests these digests independently, and also compare them to one another. They should be identical.
+        CycleDigest digest0 = testDigest("A-BA-BA-BA-BA", 15, new int[] { 2, 2, 2, 2 }, true,
+                NewVerifierState.ExistingVerifier);
+        CycleDigest digest1 = testDigest("BA-BA-BA-BA-BA", 15, new int[] { 2, 2, 2, 2 }, true,
+                NewVerifierState.ExistingVerifier);
+        check("digests 0 and 1", digest0, digest1);
+
+        testDigest("BA-BA-BA-BA", 15, new int[] { 2, 2, 2, 2 }, false, NewVerifierState.ExistingVerifier);
+        testDigest("A-BA-BA-BA", 6, new int[] { 2, 2, 2, 1 }, true, NewVerifierState.ExistingVerifier);
+        testDigest("A-BA", 6, new int[] { 2, 1, 0, 0 }, false, NewVerifierState.ExistingVerifier);
+        testDigest("A", 6, new int[] { 1, 0, 0, 0 }, false, NewVerifierState.Undetermined);
+        testDigest("A-BA-BA-BA-BAC", 15, new int[] { 3, 2, 2, 2 }, true, NewVerifierState.ExistingVerifier);
+    }
+
+    private static CycleDigest testDigest(String digestString, int blockHeight, int[] expectedCycleLengths,
+                                   boolean expectedComplete, NewVerifierState expectedNewVerifierState) {
+        System.out.println("\ntesting digest " + digestString);
+
+        // Remove the dashes. The dashes were only present to improve code readability, and they would interfere with
+        // proper processing.
+        String cleanDigestString = digestString.replace("-", "");
+
+        // Build the cycle digest.
+        char[] characters = cleanDigestString.toCharArray();
+        List<ByteBuffer> identifiers = new ArrayList<>();
+        for (char character : characters) {
+            ByteBuffer identifier = ByteBuffer.wrap(new byte[] { (byte) character });
+            identifiers.add(identifier);
+        }
+        CycleDigest cycleDigest = new CycleDigest(blockHeight, identifiers);
+
+        // Check the block height, expected cycle lengths, and expectation of completness.
+        check("block height, hardcoded " + digestString, blockHeight, cycleDigest.getBlockHeight());
+        for (int i = 0; i < expectedCycleLengths.length; i++) {
+            check("cycle length " + i + ", hardcoded " + digestString,
+                    expectedCycleLengths[i], cycleDigest.getCycleLength(i));
+        }
+        check("completeness, hardcoded " + digestString, expectedComplete, cycleDigest.isComplete());
+
+        System.out.println("built digest: " + cycleDigest);
+        System.out.println("determination height: " + cycleDigest.getDeterminationHeight());
+
+        return cycleDigest;
+    }
+
     private static void check(String label, boolean value1, boolean value2) {
         if (value1 != value2) {
-            System.out.println("mismatch (" + label + "): " + value1 + " != " + value2);
+            System.out.println(ConsoleColor.Red.backgroundBright() + "mismatch (" + label + "): " + value1 + " != " +
+                    value2 + ConsoleColor.reset);
             System.exit(1);
         }
     }
 
     private static void check(String label, int value1, int value2) {
         if (value1 != value2) {
-            System.out.println("mismatch (" + label + "): " + value1 + " != " + value2);
+            System.out.println(ConsoleColor.Red.backgroundBright() + "mismatch (" + label + "): " + value1 + " != " +
+                    value2 + ConsoleColor.reset);
             System.exit(1);
         }
     }
 
     private static void check(String label, long value1, long value2) {
         if (value1 != value2) {
-            System.out.println("mismatch (" + label + "): " + value1 + " != " + value2);
+            System.out.println(ConsoleColor.Red.backgroundBright() + "mismatch (" + label + "): " + value1 + " != " +
+                    value2 + ConsoleColor.reset);
+            System.exit(1);
+        }
+    }
+
+    private static void check(String label, Object object1, Object object2) {
+        // To pass this check, nullity must be the same and, if non-null, the objects must be equal to one another. The
+        // logic implements the negation of this, which is different nullity or unequal if non-null.
+        if (((object1 == null) != (object2 == null)) || (object1 != null && !object1.equals(object2))) {
+            System.out.println(ConsoleColor.Red.backgroundBright() + "mismatch (" + label + "): " + object1 + " != " +
+                    object2 + ConsoleColor.reset);
             System.exit(1);
         }
     }
