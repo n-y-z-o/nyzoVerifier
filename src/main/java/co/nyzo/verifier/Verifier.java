@@ -28,6 +28,10 @@ public class Verifier {
     private static final String alwaysTrackBlockchainKey = "always_track_blockchain";
     private static final boolean alwaysTrackBlockchain = PreferencesUtil.getBoolean(alwaysTrackBlockchainKey, false);
 
+    private static final long catchupTriggerMs = PreferencesUtil.getLong("catchup_trigger_ms", 30000L);
+    private static final long catchupRequestDelayMs = PreferencesUtil.getLong("catchup_request_delay_ms", 4000L);
+    private static final int catchupRequestCount = PreferencesUtil.getInt("catchup_request_count", 10);
+
     private static final AtomicBoolean alive = new AtomicBoolean(false);
     private static byte[] privateSeed = null;
     private static String nickname = null;
@@ -524,8 +528,8 @@ public class Verifier {
                     // are difficult to handle otherwise, and it is a low-enough intensity that it will not cause the
                     // cycle to become even more stressed.
                     if (inCycle() && !frozeBlock &&
-                            frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - 30000L &&
-                            lastVoteRequestTimestamp < System.currentTimeMillis() - 4000L) {
+                            frozenEdge.getVerificationTimestamp() < System.currentTimeMillis() - catchupTriggerMs &&
+                            lastVoteRequestTimestamp < System.currentTimeMillis() - catchupRequestDelayMs) {
                         lastVoteRequestTimestamp = System.currentTimeMillis();
                         requestMissingVotes(frozenEdge.getBlockHeight() + 1L);
                         requestBlockWithVotes();
@@ -570,12 +574,13 @@ public class Verifier {
                         // Update vote counts for verifier removal.
                         VerifierRemovalManager.updateVoteCounts();
 
-                        // Perform blacklist, unfrozen block, consensus-tracker, and message (dynamic whitelist)
-                        // maintenance.
+                        // Perform blacklist, unfrozen block, consensus-tracker, message (dynamic whitelist), and
+                        // banlist (node join spam) maintenance.
                         BlacklistManager.performMaintenance();
                         UnfrozenBlockManager.performMaintenance();
                         ConsensusTracker.performMaintenance();
                         Message.performMaintenance();
+                        NodeBanManager.performMaintenance();
 
                         // Clean old transactions from the transaction pool.
                         TransactionPool.updateFrozenEdge();
@@ -631,10 +636,10 @@ public class Verifier {
         // Get the votes for the current height.
         Map<ByteBuffer, BlockVote> currentVotes = BlockVoteManager.votesForHeight(height);
 
-        // Fetch from 10 random verifiers. This is not an efficient process, but it avoids a number of different
+        // Fetch from catchupRequestCount random verifiers. This is not an efficient process, but it avoids a number of different
         // problems that could arise from a more targeted process. Any targeted process would have to carefully avoid
         // requesting the same verifiers over and over.
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < catchupRequestCount; i++) {
             Message message = new Message(MessageType.MissingBlockVoteRequest23, new MissingBlockVoteRequest(height));
             Message.fetchFromRandomNode(message, new MessageCallback() {
                 @Override

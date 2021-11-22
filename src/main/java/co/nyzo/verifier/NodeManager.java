@@ -68,7 +68,12 @@ public class NodeManager {
             // typically made when a node comes back online after a temporary network issue.
             Node node = ipAddressToNodeMap.get(ByteBuffer.wrap(message.getSourceIpAddress()));
             if (node != null) {
-                node.markSuccessfulConnection();
+                ByteBuffer identifierBuffer = ByteBuffer.wrap(node.getIdentifier());
+                if (BlockManager.verifierInCurrentCycle(identifierBuffer)) {
+                    node.markSuccessfulConnection();
+                } else {
+                    LogUtil.println("Missing block request from out of cycle in updateNode(): " + NicknameManager.get(node.getIdentifier()));
+                }
             }
         } else {
             LogUtil.println("unrecognized message type in updateNode(): " + message.getType());
@@ -96,7 +101,9 @@ public class NodeManager {
                 if (portUdp > 0) {
                     existingNode.setPortUdp(portUdp);
                 }
-                existingNode.markSuccessfulConnection();
+                if (isNodeJoinResponse) {
+                    existingNode.markSuccessfulConnection();
+                }
             } else {
                 // If the existing node is not null, remove it.
                 if (existingNode != null) {
@@ -426,7 +433,8 @@ public class NodeManager {
                         node.getPortTcp() + ":" +
                         node.getPortUdp() + ":" +
                         node.getQueueTimestamp() + ":" +
-                        "0:" +  // identifier-change timestamp; no longer used
+                        //"0:" +  // identifier-change timestamp; no longer used
+                        node.getCommunicationFailureCount() + ":" + // slot is now used for communicationFailureCount instead.
                         node.getInactiveTimestamp());
                 separator = "\n";
             }
@@ -462,11 +470,19 @@ public class NodeManager {
                     int portUdp = Integer.parseInt(split[3]);
                     long queueTimestamp = Long.parseLong(split[4]);
                     // long identifierChangeTimestamp = Long.parseLong(split[5]);  no longer used
+                    long communicationFailureCount = Long.parseLong(split[5]);
+                    if (communicationFailureCount > 1000) {
+                        // Extra precaution only in case of someone using a very old nodes file.
+                        // old nodes files with a timestamp there will be considered as Zero failed attempt.
+                        // 1000 is low enough not to be a timestamp, and high enough not to be a real fail count.
+                        communicationFailureCount = 0;
+                    }
                     long inactiveTimestamp = Long.parseLong(split[6]);
 
                     Node node = new Node(identifier, ipAddress, portTcp, portUdp);
                     node.setQueueTimestamp(queueTimestamp);
                     node.setInactiveTimestamp(inactiveTimestamp);
+                    node.setCommunicationFailureCount(communicationFailureCount);
 
                     ipAddressToNodeMap.put(ByteBuffer.wrap(ipAddress), node);
                 } catch (Exception ignored) { }

@@ -538,10 +538,23 @@ public class MeshListener {
 
                 } else if (messageType == MessageType.NodeJoinV2_43) {
 
+                    if (NodeBanManager.isActive()) {
+
+                        NodeBanManager.trackJoin(message.getSourceIpAddress());
+
+                        // Ignore the node join message if the address is banned.
+                        if (NodeBanManager.inBanlist(message.getSourceIpAddress())) {
+                            return null;
+                        }
+                    }
+
                     NodeManager.updateNode(message);
 
                     NodeJoinMessageV2 nodeJoinMessage = (NodeJoinMessageV2) message.getContent();
                     NicknameManager.put(message.getSourceNodeIdentifier(), nodeJoinMessage.getNickname());
+
+                    // Log nodejoins so we can filter out obvious spam - Include log_timestamps=true in /var/lib/nyzo/production/preferences
+                    LogUtil.println("nodejoin_from " + IpUtil.addressAsString(message.getSourceIpAddress()) + " " + PrintUtil.compactPrintByteArray(message.getSourceNodeIdentifier()) + " " + nodeJoinMessage.getNickname());
 
                     // Send a UDP ping to help the node ensure that it is receiving UDP messages
                     // properly.
