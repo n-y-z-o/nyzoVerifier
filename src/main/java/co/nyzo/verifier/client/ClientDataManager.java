@@ -15,9 +15,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ClientDataManager {
 
     private static final long meshUpdateInterval = 1000L * 60L * 5L;  // 5 minutes
-    private static final long blockUpdateInterval = 1000L * 4L;       // 4 seconds
     private static final long minimumReinitializationInterval = 1000L * 60L * 10L;  // 10 minutes
     private static final long reinitializationThreshold = 1000L * 60L * 10L;        // 10 minutes; about 86 blocks
+
+    private static final AtomicInteger numberOfSuccessfulBlockFetches = new AtomicInteger(0);
+    private static final AtomicInteger numberOfUnsuccessfulBlockFetches = new AtomicInteger(0);
+    private static final AtomicInteger consecutiveSuccessfulBlockFetches = new AtomicInteger(0);
+    private static final AtomicInteger consecutiveUnsuccessfulBlockFetches = new AtomicInteger(0);
 
     public static boolean start() {
 
@@ -76,7 +80,13 @@ public class ClientDataManager {
                             updateMesh();
                         }
 
-                        // Try to fetch a new block.
+                        // Try to fetch a new block. The interval has an upper limit of 10 seconds if the frozen edge
+                        // was just verified, and it has a minimum of 1 second when the frozen edge has fallen behind.
+                        // The BlockVoteManager class retains votes for 40 blocks, which is approximately 280 seconds,
+                        // and this update interval will reach the minimum of 1 second after only 90 seconds.
+                        Block frozenEdge = BlockManager.getFrozenEdge();
+                        long blockUpdateInterval = frozenEdge == null ? 1000L : Math.max(1000L, 10000L -
+                                (System.currentTimeMillis() - frozenEdge.getVerificationTimestamp()) / 10L);
                         if (lastBlockUpdateTimestamp < System.currentTimeMillis() - blockUpdateInterval) {
                             lastBlockUpdateTimestamp = System.currentTimeMillis();
                             requestBlockWithVotes();
@@ -105,6 +115,22 @@ public class ClientDataManager {
         }
 
         return started;
+    }
+
+    public static int getNumberOfSuccessfulBlockFetches() {
+        return numberOfSuccessfulBlockFetches.get();
+    }
+
+    public static int getNumberOfUnsuccessfulBlockFetches() {
+        return numberOfUnsuccessfulBlockFetches.get();
+    }
+
+    public static int getConsecutiveSuccessfulBlockFetches() {
+        return consecutiveSuccessfulBlockFetches.get();
+    }
+
+    public static int getConsecutiveUnsuccessfulBlockFetches() {
+        return consecutiveUnsuccessfulBlockFetches.get();
     }
 
     private static long medianTimestampOffset(List<TrustedEntryPoint> trustedEntryPoints) {
@@ -286,6 +312,10 @@ public class ClientDataManager {
                     LogUtil.println("block-with-votes response is " + response);
                     if (response != null && response.getBlock() != null && !response.getVotes().isEmpty()) {
 
+                        numberOfSuccessfulBlockFetches.incrementAndGet();
+                        consecutiveSuccessfulBlockFetches.incrementAndGet();
+                        consecutiveUnsuccessfulBlockFetches.set(0);
+
                         int voteThreshold = BlockManager.currentCycleLength() * 3 / 4;
                         int voteCount = 0;
                         byte[] blockHash = response.getBlock().getHash();
@@ -310,6 +340,10 @@ public class ClientDataManager {
                         if (voteCount > voteThreshold) {
                             BlockManager.freezeBlock(response.getBlock());
                         }
+                    } else {
+                        numberOfUnsuccessfulBlockFetches.incrementAndGet();
+                        consecutiveUnsuccessfulBlockFetches.incrementAndGet();
+                        consecutiveSuccessfulBlockFetches.set(0);
                     }
                 }
             });

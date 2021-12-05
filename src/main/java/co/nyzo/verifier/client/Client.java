@@ -24,14 +24,15 @@ public class Client {
         CommandOutput output = new CommandOutputConsole();
         ConsoleUtil.printTable(output, "Nyzo client, version " + Version.getVersion());
 
-        // Check the command strings.
-        CommandManager.checkCommandStrings();
+        // Get any ambiguous command strings from the command manager.
+        Set<String> ambiguousCommandStrings = CommandManager.ambiguousCommandStrings();
 
         // Start the data manager. This collects the data necessary for the client to run properly.
-        boolean startedDataManager = ClientDataManager.start();
+        boolean startedDataManager = !ambiguousCommandStrings.isEmpty() || ClientDataManager.start();
 
-        // If the data manager started properly, continue. Otherwise, display an error message.
-        if (startedDataManager) {
+        // If the data manager started properly and no ambiguous command strings exist, continue. Otherwise, display
+        // error messages and terminate.
+        if (startedDataManager && ambiguousCommandStrings.isEmpty()) {
             // Start the block file consolidator, historical block manager, and web listener.
             BlockFileConsolidator.start();
             HistoricalBlockManager.start();
@@ -40,7 +41,17 @@ public class Client {
             // Run the client command loop. This is synchronous on this thread.
             runCommandLoop(output);
         } else {
-            System.out.println(ConsoleColor.Red + "data manager did not start; exiting" + ConsoleColor.reset);
+            if (!startedDataManager) {
+                System.out.println(ConsoleColor.Red.backgroundBright() + "data manager did not start" +
+                        ConsoleColor.reset);
+            }
+
+            for (String ambiguousCommandString : ambiguousCommandStrings) {
+                System.out.println(ConsoleColor.Red.backgroundBright() + "ambiguous command string: " +
+                        ambiguousCommandString + ConsoleColor.reset);
+            }
+
+            System.out.println(ConsoleColor.Red.backgroundBright() + "terminating client" + ConsoleColor.reset);
         }
 
         UpdateUtil.terminate();

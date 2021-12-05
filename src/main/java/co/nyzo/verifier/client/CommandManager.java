@@ -8,6 +8,7 @@ public class CommandManager {
 
     private static final Command[] commands = {
             new BalanceDisplayCommand(),
+            new ClientHealthCommand(),
             new TransactionSendCommand(),
             new PrivateNyzoStringCommand(),
             new PublicNyzoStringCommand(),
@@ -45,26 +46,27 @@ public class CommandManager {
         ConsoleUtil.printTable(columns, new HashSet<>(Collections.singleton(1)), output);
     }
 
-    public static void checkCommandStrings() {
+    public static Set<String> ambiguousCommandStrings() {
 
         // This is a simple check to ensure no ambiguity in the command strings.
         Set<String> commandStrings = new HashSet<>();
+        Set<String> ambiguousCommandStrings = new HashSet<>();
         for (Command command : commands) {
             // Check the short command.
             if (commandStrings.contains(command.getShortCommand())) {
-                System.out.println(ConsoleColor.Red.backgroundBright() + "duplicate command string: " +
-                        command.getShortCommand() + ConsoleColor.reset);
+                ambiguousCommandStrings.add(command.getShortCommand());
             } else {
                 commandStrings.add(command.getShortCommand());
             }
 
             // Check the long command.
             if (commandStrings.contains(command.getLongCommand())) {
-                System.out.println(ConsoleColor.Red.backgroundBright() + "duplicate command string: " +
-                        command.getLongCommand() + ConsoleColor.reset);
+                ambiguousCommandStrings.add(command.getLongCommand());
             } else {
                 commandStrings.add(command.getLongCommand());
             }
         }
+
+        return ambiguousCommandStrings;
     }
 }

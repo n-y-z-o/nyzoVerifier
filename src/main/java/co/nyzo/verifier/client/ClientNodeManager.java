@@ -43,4 +43,8 @@ public class ClientNodeManager {
     public static Collection<Node> getMesh() {
         return nodes.values();
     }
+
+    public static int getNumberOfNodesInMesh() {
+        return nodes.size();
+    }
 }
