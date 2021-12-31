@@ -60,6 +60,9 @@ public class ClientHealthCommand implements Command {
         List<String> notices = new ArrayList<>();
         List<String> errors = new ArrayList<>();
         CommandTable table = new CommandTable(new CommandTableHeader("# nodes in mesh", "numberNodesInMesh"),
+                new CommandTableHeader("# preferred nodes", "numberOfPreferredNodesInMesh"),
+                new CommandTableHeader("# non-preferred fetches", "numberOfNonPreferredFetches"),
+                new CommandTableHeader("# preferred fetches", "numberOfPreferredFetches"),
                 new CommandTableHeader("# successful block fetches", "numberOfSuccessfulBlockFetches"),
                 new CommandTableHeader("# consecutive successful block fetches",
                         "numberOfConsecutiveSuccessfulBlockFetches"),
@@ -72,6 +75,9 @@ public class ClientHealthCommand implements Command {
         // Add the results to the table.
         Block frozenEdge = BlockManager.getFrozenEdge();
         table.addRow(ClientNodeManager.getNumberOfNodesInMesh(),
+                ClientNodeManager.getNumberOfPreferredNodesInMesh(),
+                ClientDataManager.getNumberOfNonPreferredBlockFetches(),
+                ClientDataManager.getNumberOfPreferredBlockFetches(),
                 ClientDataManager.getNumberOfSuccessfulBlockFetches(),
                 ClientDataManager.getConsecutiveSuccessfulBlockFetches(),
                 ClientDataManager.getNumberOfUnsuccessfulBlockFetches(),

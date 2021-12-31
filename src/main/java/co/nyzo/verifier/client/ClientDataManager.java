@@ -18,6 +18,8 @@ public class ClientDataManager {
     private static final long minimumReinitializationInterval = 1000L * 60L * 10L;  // 10 minutes
     private static final long reinitializationThreshold = 1000L * 60L * 10L;        // 10 minutes; about 86 blocks
 
+    private static final AtomicInteger numberOfNonPreferredBlockFetches = new AtomicInteger(0);
+    private static final AtomicInteger numberOfPreferredBlockFetches = new AtomicInteger(0);
     private static final AtomicInteger numberOfSuccessfulBlockFetches = new AtomicInteger(0);
     private static final AtomicInteger numberOfUnsuccessfulBlockFetches = new AtomicInteger(0);
     private static final AtomicInteger consecutiveSuccessfulBlockFetches = new AtomicInteger(0);
@@ -115,6 +117,14 @@ public class ClientDataManager {
         }
 
         return started;
+    }
+
+    public static int getNumberOfNonPreferredBlockFetches() {
+        return numberOfNonPreferredBlockFetches.get();
+    }
+
+    public static int getNumberOfPreferredBlockFetches() {
+        return numberOfPreferredBlockFetches.get();
     }
 
     public static int getNumberOfSuccessfulBlockFetches() {
@@ -301,7 +311,17 @@ public class ClientDataManager {
         LogUtil.println("requesting block with votes for height " + heightToRequest);
         BlockWithVotesRequest request = new BlockWithVotesRequest(heightToRequest);
         Message message = new Message(MessageType.BlockWithVotesRequest37, request);
-        Node node = ClientNodeManager.randomNode();
+
+        // If the number of consecutive unsuccessful block fetches is odd, get a preferred node. Otherwise, get a node
+        // from the full pool. This takes advantage of the preferred pool without causing reliance on it.
+        Node node;
+        if (consecutiveUnsuccessfulBlockFetches.get() % 2 == 1) {
+            node = ClientNodeManager.randomPreferredNode();
+            numberOfPreferredBlockFetches.incrementAndGet();
+        } else {
+            node = ClientNodeManager.randomNode();
+            numberOfNonPreferredBlockFetches.incrementAndGet();
+        }
         if (node != null) {
             Message.fetch(node, message, new MessageCallback() {
                 @Override
@@ -315,6 +335,7 @@ public class ClientDataManager {
                         numberOfSuccessfulBlockFetches.incrementAndGet();
                         consecutiveSuccessfulBlockFetches.incrementAndGet();
                         consecutiveUnsuccessfulBlockFetches.set(0);
+                        ClientNodeManager.markSuccess(node);
 
                         int voteThreshold = BlockManager.currentCycleLength() * 3 / 4;
                         int voteCount = 0;
@@ -344,6 +365,7 @@ public class ClientDataManager {
                         numberOfUnsuccessfulBlockFetches.incrementAndGet();
                         consecutiveUnsuccessfulBlockFetches.incrementAndGet();
                         consecutiveSuccessfulBlockFetches.set(0);
+                        ClientNodeManager.markFailure(node);
                     }
                 }
             });

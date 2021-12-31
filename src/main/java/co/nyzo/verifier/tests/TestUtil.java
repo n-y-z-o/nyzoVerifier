@@ -13,6 +13,7 @@ public class TestUtil {
     public static void main(String[] args) {
 
         NyzoTest[] tests = {
+                new ClientNodeManagerTest(),
                 new NyzoStringTest(),
                 new ShortLongTest()
         };
