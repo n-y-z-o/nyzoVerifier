@@ -16,7 +16,10 @@ public class ClientNodeManager {
     // The scoring system is used to assign a ranking on suspected probability of responding to messages. Also, when a
     // node reaches the minimum score, it is removed from both maps.
     private static final int minimumScore = 0;
-    private static final int maximumScore = 10;
+    private static final int maximumScore = 40;
+    private static final int successIncrement = 4;
+    private static final int failureDecrement = -4;
+    private static final int leakDecrement = -1;
 
     // The maximum size of the map is 10,000 nodes. This is a reasonable value that is far higher than it needs to be
     // but still a small impact on memory. It is exposed publicly for testing.
@@ -39,16 +42,27 @@ public class ClientNodeManager {
 
     public static void processMeshResponse(MeshResponse meshResponse) {
 
-        if (meshResponse != null && meshResponse.getMesh() != null) {
+        if (meshResponse != null && meshResponse.getMesh() != null && !meshResponse.getMesh().isEmpty()) {
+            // Leak away the score for all nodes. This causes verifiers that are only returned in a single mesh response
+            // to eventually be removed, even if they are not queried.
+            for (ByteBuffer ipAddress : ipAddressToScoreMap.keySet()) {
+                ipAddressToScoreMap.merge(ipAddress, leakDecrement, mergeFunction);
+            }
+
+            // Process the nodes in the response.
             for (Node node : meshResponse.getMesh()) {
                 ByteBuffer ipAddress = ByteBuffer.wrap(node.getIpAddress());
                 ipAddressToNodeMap.put(ipAddress, node);
-                ipAddressToScoreMap.merge(ipAddress, 1, mergeFunction);  // Add 1 to the node score.
+                ipAddressToScoreMap.merge(ipAddress, successIncrement, mergeFunction);  // Add to the node score.
             }
         }
 
-        // After processing the mesh response, remove nodes until the map is under the maximum size. Also remove all
-        // nodes with a score of 0.
+        updateMapsAndLists();
+    }
+
+    public static void updateMapsAndLists() {
+
+        // Remove nodes until the map is under the maximum size. Also remove all nodes with a score of 0.
         int removalScore = 0;
         while (ipAddressToNodeMap.size() > maximumMapSize || removalScore == 0) {
             Set<ByteBuffer> ipAddresses = new HashSet<>(ipAddressToNodeMap.keySet());
@@ -61,6 +75,14 @@ public class ClientNodeManager {
                 }
             }
             removalScore++;
+        }
+
+        // Remove all scores that represent nodes not present in the node map. Presence of stray scores in this map is
+        // unlikely outside contrived testing scenarios, but this operation is still prudent to ensure consistency.
+        for (ByteBuffer ipAddress : new HashSet<>(ipAddressToScoreMap.keySet())) {
+            if (!ipAddressToNodeMap.containsKey(ipAddress)) {
+                ipAddressToScoreMap.remove(ipAddress);
+            }
         }
 
         // Calculate the sum of all scores.
@@ -100,12 +122,12 @@ public class ClientNodeManager {
 
     public static void markSuccess(Node node) {
         ByteBuffer ipAddress = ByteBuffer.wrap(node.getIpAddress());
-        ipAddressToScoreMap.merge(ipAddress, 1, mergeFunction);  // Add 1 to the node score.
+        ipAddressToScoreMap.merge(ipAddress, successIncrement, mergeFunction);  // Add to the node score.
     }
 
     public static void markFailure(Node node) {
         ByteBuffer ipAddress = ByteBuffer.wrap(node.getIpAddress());
-        ipAddressToScoreMap.merge(ipAddress, -1, mergeFunction);  // Subtract 1 from the node score.
+        ipAddressToScoreMap.merge(ipAddress, failureDecrement, mergeFunction);  // Subtract from the node score.
     }
 
     public static Node randomNode() {
