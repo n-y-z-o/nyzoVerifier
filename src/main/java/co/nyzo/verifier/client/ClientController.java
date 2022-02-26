@@ -105,12 +105,31 @@ public class ClientController {
 
         // Add the footer.
         body.add(new Hr().attr("style", "margin-top: 2rem;"));
-        body.add(new P("Nyzo client, version " + Version.getVersion()).attr("style", "font-style: italic;"));
+        body.add(new P("Nyzo client, version " + Version.getVersion()).attr("style", "font-style: italic;")
+                .attr("id", "client-version"));
 
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
         long distanceBehindOpen = BlockManager.openEdgeHeight(false) - frozenEdgeHeight;
         body.add(new P("frozen edge: " + frozenEdgeHeight + " (" + distanceBehindOpen + " behind open)")
-                .attr("style", "font-style: italic;"));
+                .attr("style", "font-style: italic;").attr("id", "frozen-edge"));
+
+        // Add script for updating the version and frozen edge in the footer. This uses the /api/frozenEdge endpoint.
+        body.add(new Script("" +
+                "setInterval(function() {" +
+                "    var request = new XMLHttpRequest();" +
+                "    request.onreadystatechange = function() {" +
+                "        if (this.readyState == XMLHttpRequest.DONE && this.status == 200) {" +
+                "            var data = JSON.parse(this.responseText);" +
+                "            document.getElementById('client-version').innerHTML = 'Nyzo client, version ' + " +
+                "                data['result'][0]['clientVersion'];" +
+                "            document.getElementById('frozen-edge').innerHTML = 'frozen edge: ' + " +
+                "                data['result'][0]['height'] + ' (' + data['result'][0]['distanceFromOpenEdge'] + " +
+                "                ' behind open)';" +
+                "        }" +
+                "    };" +
+                "    request.open('GET', '/api/frozenEdge', true);" +
+                "    request.send();" +
+                "}, 7000);"));
 
         return new EndpointResponse(html.renderByteArray());
     }

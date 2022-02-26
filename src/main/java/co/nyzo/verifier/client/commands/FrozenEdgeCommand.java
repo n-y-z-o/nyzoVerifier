@@ -62,7 +62,8 @@ public class FrozenEdgeCommand implements Command {
         CommandTable table = new CommandTable(new CommandTableHeader("height", "height"),
                 new CommandTableHeader("hash", "hash", true),
                 new CommandTableHeader("verification timestamp (ms)", "verificationTimestampMilliseconds", false),
-                new CommandTableHeader("distance from open edge", "distanceFromOpenEdge"));
+                new CommandTableHeader("distance from open edge", "distanceFromOpenEdge"),
+                new CommandTableHeader("clientVersion", "clientVersion"));
         table.setInvertedRowsColumns(true);
 
         // Get the block and the balance list.
@@ -74,7 +75,7 @@ public class FrozenEdgeCommand implements Command {
         } else {
             table.addRow(block.getBlockHeight(), ByteUtil.arrayAsStringWithDashes(block.getHash()),
                     block.getVerificationTimestamp(), (int) (BlockManager.openEdgeHeight(false) -
-                            block.getBlockHeight()));
+                            block.getBlockHeight()), Version.getVersion());
         }
 
         // Return the result.
