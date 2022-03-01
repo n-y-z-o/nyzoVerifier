@@ -22,6 +22,7 @@ public class CommandManager {
             new CoinsInCirculationCommand(),
             new FrozenEdgeCommand(),
             new TransactionForwardCommand(),
+            new VerifierStatusCommand(),
             new ExitCommand()
     };
 

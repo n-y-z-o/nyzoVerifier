@@ -14,6 +14,7 @@ public class TestUtil {
 
         NyzoTest[] tests = {
                 new ClientNodeManagerTest(),
+                new IpUtilTest(),
                 new NyzoStringTest(),
                 new ShortLongTest()
         };

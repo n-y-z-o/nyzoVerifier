@@ -83,7 +83,12 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
         container.add(new H1(title));
 
         // Add the form.
-        container.add(formElement(validationResult, isConfirmation));
+        try {
+            container.add(formElement(validationResult, isConfirmation));
+        } catch (Exception e) {
+            container.addRaw("An unexpected error occurred when producing this page. This is likely a bug in the " +
+                    "command.");
+        }
 
         return new EndpointResponse(html.renderByteArray());
     }
@@ -214,9 +219,14 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    ExecutionResult result = command.run(argumentValues, commandOutput);
-                    if (result != null) {
-                        result.toConsole(commandOutput);
+                    try {
+                        ExecutionResult result = command.run(argumentValues, commandOutput);
+                        if (result != null) {
+                            result.toConsole(commandOutput);
+                        }
+                    } catch (Exception e) {
+                        commandOutput.println("An unexpected error occurred when running the command. This is likely " +
+                                "a bug in the command.");
                     }
                     commandOutput.setComplete();
                 }
