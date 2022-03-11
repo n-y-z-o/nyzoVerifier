@@ -16,7 +16,8 @@ public class TestUtil {
                 new ClientNodeManagerTest(),
                 new IpUtilTest(),
                 new NyzoStringTest(),
-                new ShortLongTest()
+                new ShortLongTest(),
+                new TransactionIndexerTest()
         };
 
         boolean successful = true;
