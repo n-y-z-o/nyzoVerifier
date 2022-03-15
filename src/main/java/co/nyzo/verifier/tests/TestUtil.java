@@ -13,7 +13,9 @@ public class TestUtil {
     public static void main(String[] args) {
 
         NyzoTest[] tests = {
+                new ClientArgumentUtilTest(),
                 new ClientNodeManagerTest(),
+                new CommandManagerTest(),
                 new IpUtilTest(),
                 new NyzoStringTest(),
                 new ShortLongTest(),

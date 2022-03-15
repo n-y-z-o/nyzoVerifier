@@ -10,7 +10,6 @@ import co.nyzo.verifier.util.ThreadUtil;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ClientTransactionUtil {
@@ -247,7 +246,10 @@ public class ClientTransactionUtil {
         if (characters.length == 67 && characters[0] == 'x' && characters[1] == '(' && characters[66] == ')') {
             // Get the underscore index to determine the length of the data.
             int underscoreIndex = string.indexOf('_');
-            int dataLength = underscoreIndex < 0 ? FieldByteSize.maximumSenderDataLength : underscoreIndex / 2 - 1;
+            if (underscoreIndex < 0) {
+                underscoreIndex = FieldByteSize.maximumSenderDataLength * 2 + 2;
+            }
+            int dataLength = underscoreIndex / 2 - 1;
 
             // Ensure that all characters in the data field are correct. The left section must be all alphanumeric, and
             // the right section must be underscores. The string was converted to lowercase.
