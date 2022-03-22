@@ -1,6 +1,7 @@
 package co.nyzo.verifier.tests;
 
 import co.nyzo.verifier.FieldByteSize;
+import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.ShortLong;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -15,6 +16,7 @@ public class ShortLongTest implements NyzoTest {
 
     public static void main(String[] args) {
 
+        RunMode.setRunMode(RunMode.Test);
         ShortLongTest test = new ShortLongTest();
         boolean successful = test.run();
 

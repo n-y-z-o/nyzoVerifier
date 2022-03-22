@@ -1,5 +1,6 @@
 package co.nyzo.verifier.tests;
 
+import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.client.ConsoleColor;
 
 public class TestUtil {
@@ -12,6 +13,7 @@ public class TestUtil {
 
     public static void main(String[] args) {
 
+        RunMode.setRunMode(RunMode.Test);
         NyzoTest[] tests = {
                 new ClientArgumentUtilTest(),
                 new ClientNodeManagerTest(),

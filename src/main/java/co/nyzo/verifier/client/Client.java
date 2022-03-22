@@ -33,9 +33,10 @@ public class Client {
         // If the data manager started properly and no ambiguous command strings exist, continue. Otherwise, display
         // error messages and terminate.
         if (startedDataManager && ambiguousCommandStrings.isEmpty()) {
-            // Start the block file consolidator, historical block manager, and web listener.
+            // Start the block file consolidator, historical block manager, transaction indexer, and web listener.
             BlockFileConsolidator.start();
             HistoricalBlockManager.start();
+            TransactionIndexer.start();
             WebListener.start();
 
             // Run the client command loop. This is synchronous on this thread.

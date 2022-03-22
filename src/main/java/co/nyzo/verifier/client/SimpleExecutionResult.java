@@ -9,7 +9,6 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 public class SimpleExecutionResult implements ExecutionResult {
@@ -144,8 +143,7 @@ public class SimpleExecutionResult implements ExecutionResult {
             result = "null";
         } else if (object instanceof String) {
             result = "\"" + escapeStringForJson((String) object) + "\"";
-        } else if (object instanceof Integer || object instanceof Long || object instanceof Float ||
-                object instanceof Double || object instanceof Boolean) {
+        } else if (object instanceof Number || object instanceof Boolean) {
             result = object.toString();
         } else if (object instanceof Collection) {
             result = jsonForCollection((Collection) object);

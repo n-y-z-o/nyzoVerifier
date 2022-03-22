@@ -2,6 +2,7 @@ package co.nyzo.verifier.tests;
 
 import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.FieldByteSize;
+import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.Transaction;
 import co.nyzo.verifier.nyzoString.*;
 import co.nyzo.verifier.util.PrintUtil;
@@ -14,6 +15,7 @@ public class NyzoStringTest implements NyzoTest {
 
     public static void main(String[] args) {
 
+        RunMode.setRunMode(RunMode.Test);
         NyzoStringTest test = new NyzoStringTest();
         boolean successful = test.run();
 
@@ -269,7 +271,7 @@ public class NyzoStringTest implements NyzoTest {
 
         // Test 10000 strings.
         boolean successful = true;
-        for (int i = 0; i < 100000 && successful; i++) {
+        for (int i = 0; i < 10000 && successful; i++) {
 
             // Make and encode the transaction from random values.
             long timestamp = random.nextLong();

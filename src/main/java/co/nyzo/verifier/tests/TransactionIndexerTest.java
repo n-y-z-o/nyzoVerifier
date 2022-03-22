@@ -21,6 +21,7 @@ public class TransactionIndexerTest implements NyzoTest {
 
     public static void main(String[] args) {
 
+        RunMode.setRunMode(RunMode.Test);
         TransactionIndexerTest test = new TransactionIndexerTest();
         boolean successful = test.run();
 
@@ -50,17 +51,35 @@ public class TransactionIndexerTest implements NyzoTest {
             File listFileSender = (File) listFileMethod.invoke(transactionIndexerClass, (Object) senderIdentifier);
             File listFileReceiver = (File) listFileMethod.invoke(transactionIndexerClass, (Object) receiverIdentifier);
 
-            // Delete all files for a clean test.
+            // Get the path of the block coverage file. This file shows which blocks have been indexed.
+            Method coverageFileMethod = transactionIndexerClass.getDeclaredMethod("blockCoverageFile");
+            coverageFileMethod.setAccessible(true);
+            File blockCoverageFile = (File) coverageFileMethod.invoke(transactionIndexerClass);
+
+            // Delete all files for a clean test. These files use a special path for the Test run mode.
             indexFileSender.delete();
             indexFileReceiver.delete();
             listFileSender.delete();
             listFileReceiver.delete();
+            blockCoverageFile.delete();
 
-            // Create and register the test transactions.
+            // Ensure that the getLastHeightFromCoverageFile() method produces -1 before the first block is indexed.
+            Method lastHeightMethod = TransactionIndexer.class.getDeclaredMethod("getLastHeightFromCoverageFile");
+            lastHeightMethod.setAccessible(true);
+            long actualLastHeight = (Long) lastHeightMethod.invoke(null);
+            if (actualLastHeight != -1L) {
+                successful = false;
+                failureCause = "value returned from getLastHeightFromCoverageFile() should be -1 before the first " +
+                        "block is indexed, actual=" + actualLastHeight;
+            }
+
+            // Create and register the test transactions. These are registered in block 0.
             List<Transaction> transactions = createAndRegisterTransactions();
 
             // Check the index files.
-            successful = checkIndexFile(indexFileSender, transactions, "sender", (byte) 1);
+            if (successful) {
+                successful = checkIndexFile(indexFileSender, transactions, "sender", (byte) 1);
+            }
             if (successful) {
                 successful = checkIndexFile(indexFileReceiver, transactions, "receiver", (byte) 0);
             }
@@ -81,6 +100,18 @@ public class TransactionIndexerTest implements NyzoTest {
                 successful = checkTransactionLookup(transactions, receiverIdentifier, "receiver");
             }
 
+            // Check the block coverage file.
+            if (successful) {
+                successful = checkBlockCoverageFile(blockCoverageFile);
+            }
+
+            // Delete all files to avoid contaminating the environment. These files use a special path for the Test run
+            // mode.
+            indexFileSender.delete();
+            indexFileReceiver.delete();
+            listFileSender.delete();
+            listFileReceiver.delete();
+            blockCoverageFile.delete();
 
         } catch (Exception e) {
             failureCause = "exception in TransactionIndexManagerTest: " + PrintUtil.printException(e);
@@ -334,6 +365,100 @@ public class TransactionIndexerTest implements NyzoTest {
                         ByteUtil.arrayAsStringWithDashes(expectedTransaction.getSignature()) + ", actual=" +
                         ByteUtil.arrayAsStringWithDashes(retrievedTransaction.getSignature());
             }
+        }
+
+        return successful;
+    }
+
+    private boolean checkBlockCoverageFile(File file) {
+
+        // These are the heights that will be registered. Height 0 is already registered.
+        long[] heights = {
+                3,   // above previous with gap
+                9999999999L,  // bigger than 32-bit integer
+                5,   // gap
+                4,   // merge 3 and 5
+                13,  // gap
+                12,  // adjacent below previous
+                14,  // adjacent above previous
+                17,  // gap
+                3,   // duplicate on bottom of existing range
+                4,   // duplicate in middle of existing range
+                5,   // duplicate at top of existing range
+                17,  // duplicate of individual
+                16,  // adjacent below existing
+                15,  // merge [12-14] with [16-17].
+                10000000000L  // large value, appending to range at end of file
+        };
+
+        // Check the file before adding the first height.
+        boolean successful = checkBlockCoverageFile(file, "0", "initial");
+
+        // These are comma-delimited representations of expected file contents.
+        String[] expectedFileContents = {
+                "0,3",
+                "0,3,9999999999",
+                "0,3,5,9999999999",
+                "0,3-5,9999999999",
+                "0,3-5,13,9999999999",
+                "0,3-5,12-13,9999999999",
+                "0,3-5,12-14,9999999999",
+                "0,3-5,12-14,17,9999999999",
+                "0,3-5,12-14,17,9999999999",
+                "0,3-5,12-14,17,9999999999",
+                "0,3-5,12-14,17,9999999999",
+                "0,3-5,12-14,17,9999999999",
+                "0,3-5,12-14,16-17,9999999999",
+                "0,3-5,12-17,9999999999",
+                "0,3-5,12-17,9999999999-10000000000",
+        };
+
+        for (int i = 0; i < heights.length && successful; i++) {
+            // Create and index a block for the height.
+            long height = heights[i];
+            Block block = new Block(0, height, new byte[FieldByteSize.hash], 0, Collections.emptyList(),
+                    new byte[FieldByteSize.hash]);
+            TransactionIndexer.indexTransactionsForBlock(block);
+
+            successful = checkBlockCoverageFile(file, expectedFileContents[i], "iteration " + i);
+        }
+
+        return successful;
+    }
+
+    private boolean checkBlockCoverageFile(File file, String expectedFileContents, String failureLabel) {
+
+        String[] expectedLines = expectedFileContents.split(",");
+        boolean successful = true;
+        try {
+            // Get the lines from the file and check the number of lines.
+            List<String> fileLines = Files.readAllLines(Paths.get(file.getAbsolutePath()));
+            if (fileLines.size() != expectedLines.length) {
+                successful = false;
+                failureCause = "expected " + expectedLines.length + " lines in block coverage file, got " +
+                        fileLines.size() + ", " + failureLabel;
+            }
+
+            // Compare all lines.
+            for (int i = 0; i < expectedLines.length && successful; i++) {
+                if (!fileLines.get(i).equals(expectedLines[i])) {
+                    successful = false;
+                    failureCause = "line " + i + " of block coverage file, expected=" + expectedLines[i] + ", actual=" +
+                            fileLines.get(i) + ", " + failureLabel;
+                }
+            }
+
+            // Check the getLastHeightFromCoverageFile() method.
+            String expectedLastLine = expectedLines[expectedLines.length - 1];
+            long expectedLastHeight = Long.parseLong(expectedLastLine.contains("-") ? (expectedLastLine.split("-")[1]) :
+                    expectedLastLine);
+            Method lastHeightMethod = TransactionIndexer.class.getDeclaredMethod("getLastHeightFromCoverageFile");
+            lastHeightMethod.setAccessible(true);
+            long actualLastHeight = (Long) lastHeightMethod.invoke(null);
+        } catch (Exception e) {
+            successful = false;
+            failureCause = "exception in checkBlockCoverageFile(), " + failureLabel + ": " +
+                    PrintUtil.printException(e);
         }
 
         return successful;

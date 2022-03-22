@@ -24,7 +24,7 @@ public class TransactionSearchCommand implements Command {
 
     @Override
     public String getDescription() {
-        return "search for transactions in the blockchain";
+        return "search for transactions in a single block";
     }
 
     @Override
@@ -183,7 +183,7 @@ public class TransactionSearchCommand implements Command {
         return new SimpleExecutionResult(table, notices, errors);
     }
 
-    private static String typeString(byte type) {
+    public static String typeString(byte type) {
 
         String[] types = { "coin generation", "seed", "standard", "cycle" };
         String result;

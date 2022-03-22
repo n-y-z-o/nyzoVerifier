@@ -6,6 +6,7 @@ public enum RunMode {
     DocumentationServer("documentation_server"),
     RelayServer("relay_server"),
     Sentinel("sentinel"),
+    Test("test"),
     Verifier("verifier");
 
     private static RunMode runMode = null;

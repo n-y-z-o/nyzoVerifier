@@ -1,6 +1,10 @@
 package co.nyzo.verifier.client;
 
+import co.nyzo.verifier.ByteUtil;
 import co.nyzo.verifier.FieldByteSize;
+import co.nyzo.verifier.nyzoString.NyzoString;
+import co.nyzo.verifier.nyzoString.NyzoStringEncoder;
+import co.nyzo.verifier.nyzoString.NyzoStringPublicIdentifier;
 
 import java.nio.charset.StandardCharsets;
 
@@ -52,5 +56,19 @@ public class ClientArgumentUtil {
         }
 
         return senderData;
+    }
+
+    public static NyzoStringPublicIdentifier getPublicIdentifier(String argumentValue) {
+
+        NyzoString decoded = NyzoStringEncoder.decode(argumentValue);
+        NyzoStringPublicIdentifier result;
+        if (decoded instanceof NyzoStringPublicIdentifier) {
+            result = (NyzoStringPublicIdentifier) decoded;
+        } else {
+            result = new NyzoStringPublicIdentifier(ByteUtil.byteArrayFromHexString(argumentValue,
+                    FieldByteSize.identifier));
+        }
+
+        return result;
     }
 }

@@ -1,5 +1,6 @@
 package co.nyzo.verifier.tests;
 
+import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.util.IpUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -9,6 +10,7 @@ public class IpUtilTest implements NyzoTest {
 
     public static void main(String[] args) {
 
+        RunMode.setRunMode(RunMode.Test);
         IpUtilTest test = new IpUtilTest();
         boolean successful = test.run();
 

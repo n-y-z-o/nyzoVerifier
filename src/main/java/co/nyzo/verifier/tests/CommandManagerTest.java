@@ -1,5 +1,6 @@
 package co.nyzo.verifier.tests;
 
+import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.client.CommandManager;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -11,6 +12,7 @@ public class CommandManagerTest implements NyzoTest {
 
     public static void main(String[] args) {
 
+        RunMode.setRunMode(RunMode.Test);
         CommandManagerTest test = new CommandManagerTest();
         boolean successful = test.run();
 

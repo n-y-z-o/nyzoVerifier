@@ -2,6 +2,7 @@ package co.nyzo.verifier.tests;
 
 import co.nyzo.verifier.MeshListener;
 import co.nyzo.verifier.Node;
+import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.client.ClientNodeManager;
 import co.nyzo.verifier.messages.MeshResponse;
 
@@ -15,6 +16,7 @@ public class ClientNodeManagerTest implements NyzoTest {
 
     public static void main(String[] args) {
 
+        RunMode.setRunMode(RunMode.Test);
         ClientNodeManagerTest test = new ClientNodeManagerTest();
         boolean successful = test.run();
 

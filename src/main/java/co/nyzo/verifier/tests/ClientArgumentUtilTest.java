@@ -1,6 +1,7 @@
 package co.nyzo.verifier.tests;
 
 import co.nyzo.verifier.ByteUtil;
+import co.nyzo.verifier.RunMode;
 import co.nyzo.verifier.client.ClientArgumentUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
@@ -12,6 +13,7 @@ public class ClientArgumentUtilTest implements NyzoTest {
 
     public static void main(String[] args) {
 
+        RunMode.setRunMode(RunMode.Test);
         ClientArgumentUtilTest test = new ClientArgumentUtilTest();
         boolean successful = test.run();
 

@@ -18,6 +18,7 @@ public class CommandManager {
             new CycleTransactionListCommand(),
             new CycleTransactionSignCommand(),
             new NttpDataGenerateCommand(),
+            new TransactionIndexedSearchCommand(),
             new TransactionSearchCommand(),
             new CoinsInCirculationCommand(),
             new FrozenEdgeCommand(),
