@@ -130,7 +130,7 @@ public class TransactionIndexerTest implements NyzoTest {
         List<Transaction> transactions = new ArrayList<>();
         Random random = new Random(57);
         for (int i = 0; i < 10; i++) {
-            long timestamp = random.nextLong();
+            long timestamp = i * 10;
             long amount = random.nextLong();
             long previousHashHeight = random.nextLong();
             byte[] previousBlockHash = new byte[FieldByteSize.hash];
@@ -261,7 +261,8 @@ public class TransactionIndexerTest implements NyzoTest {
         });
 
         // Get the transactions for the account.
-        List<Transaction> retrievedTransactions = TransactionIndexer.transactionsForAccount(identifier);
+        List<Transaction> retrievedTransactions = TransactionIndexer.transactionsForAccount(identifier, new byte[0],
+                "", -1L, -1L, -1L, -1L);
 
         // This is a small set of transactions, so the size should match.
         boolean successful = true;

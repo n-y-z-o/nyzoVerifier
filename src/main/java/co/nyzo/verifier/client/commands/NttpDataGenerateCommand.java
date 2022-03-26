@@ -163,6 +163,6 @@ public class NttpDataGenerateCommand implements Command {
             errors.add("An unexpected error occurred while running this command.");
         }
 
-        return new SimpleExecutionResult(table, notices, errors);
+        return new SimpleExecutionResult(notices, errors, table);
     }
 }

@@ -119,7 +119,7 @@ public class CycleTransactionListCommand implements Command {
                     PrintUtil.printException(e) + ConsoleColor.reset);
         }
 
-        return new SimpleExecutionResult(table, notices, errors);
+        return new SimpleExecutionResult(notices, errors, table);
     }
 
     private static int numberOfYesVotes(Collection<Transaction> signatureTransactions) {

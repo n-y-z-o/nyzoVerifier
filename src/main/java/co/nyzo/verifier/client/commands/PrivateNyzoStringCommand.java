@@ -76,7 +76,7 @@ public class PrivateNyzoStringCommand implements Command {
                 ByteUtil.arrayAsStringWithDashes(publicIdentifier), NyzoStringEncoder.encode(publicIdentifierString));
 
         // Produce the execution result.
-        return new SimpleExecutionResult(table, null, null);
+        return new SimpleExecutionResult(null, null, table);
     }
 
     public static void printHexWarning(CommandOutput output) {

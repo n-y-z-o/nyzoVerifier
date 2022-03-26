@@ -79,6 +79,6 @@ public class FrozenEdgeCommand implements Command {
         }
 
         // Return the result.
-        return new SimpleExecutionResult(table, notices, errors);
+        return new SimpleExecutionResult(notices, errors, table);
     }
 }

@@ -111,18 +111,60 @@ public class TransactionIndexer {
         }
     }
 
-    public static List<Transaction> transactionsForAccount(byte[] accountIdentifier) {
+    public static List<Transaction> transactionsForAccount(byte[] accountIdentifier, byte[] searchPrefix,
+                                                           String senderReceiverFlag, long minimumTimestamp,
+                                                           long maximumTimestamp, long minimumBlockHeight,
+                                                           long maximumBlockHeight) {
+
+        // Replace a null prefix with an empty prefix for later simplicity.
+        if (searchPrefix == null) {
+            searchPrefix = new byte[0];
+        }
+
+        // Determine whether to look for transactions for which this account is sender, receiver, or both. If the value
+        // of this flag is "s" or "sender", only transactions for which the account is sender will be returned. If the
+        // value is "r" or "receiver", only transactions for which the account is receiver will be returned. Otherwise,
+        // both will be returned.
+        senderReceiverFlag = senderReceiverFlag.toLowerCase();
+        boolean acceptSender = !senderReceiverFlag.equals("r") && !senderReceiverFlag.equals("receiver");
+        boolean acceptReceiver = !senderReceiverFlag.equals("s") && !senderReceiverFlag.equals("sender");
+
+        // A maximum timestamp of less than zero means "no maximum", so set the maximum to Long.MAX_VALUE.
+        if (maximumTimestamp < 0) {
+            maximumTimestamp = Long.MAX_VALUE;
+        }
+
+        // If a minimum block height is specified, use it to modify the minimum timestamp. Using the greater of the
+        // minimum timestamp and the timestamp indicated by the minimum block height effectively apply both values with
+        // a logical AND.
+        if (minimumBlockHeight >= 0) {
+            minimumTimestamp = Math.max(minimumTimestamp, BlockManager.startTimestampForHeight(minimumBlockHeight));
+        }
+
+        // If a maximum block height is specified, use it to modify the maximum timestamp. This follows the same pattern
+        // as the minimum block height.
+        if (maximumBlockHeight >= 0) {
+            maximumTimestamp = Math.min(maximumTimestamp,
+                    BlockManager.startTimestampForHeight(maximumBlockHeight + 1L) - 1L);  // end of the block
+        }
+
+        // TODO: When a maximum timestamp is specified, do a binary search to find the appropriate starting position for
+        // TODO: reading the file. Also, return the minimum timestamp scanned in the file to allow for paging behavior
+        // TODO: more precise than allowed by only the transactions returned. Finally, impose a maximum work in addition
+        // TODO: to the maximum result size. When an account has millions of transactions, this will be necessary for
+        // TODO: limiting query burden when filtering on the sender-data prefix.
 
         List<Transaction> transactions = new ArrayList<>();
         RandomAccessFile indexFileReader = null;
         RandomAccessFile listFileReader = null;
         try {
-            // Get the list of timestamps from the index file, starting at the end of the file. This will return the
+            // Get the list of offsets from the index file, starting at the end of the file. This will return the
             // most recent transactions first.
             List<Integer> offsets = new ArrayList<>();
             indexFileReader = new RandomAccessFile(indexFileForAccount(accountIdentifier), "r");
             long filePosition = indexFileReader.length() - indexEntrySize;
             while (filePosition >= 0 && offsets.size() < maximumTransactionsPerQuery) {
+
                 // Seek and read the index information.
                 indexFileReader.seek(filePosition);
                 long timestamp = indexFileReader.readLong();
@@ -131,8 +173,24 @@ public class TransactionIndexer {
                 boolean isSender = indexFileReader.readBoolean();
                 int offset = indexFileReader.readInt();
 
-                // Store the offset.
-                offsets.add(offset);
+                // Check the sender/receiver value.
+                if ((acceptSender && isSender) || (acceptReceiver && !isSender)) {
+
+                    // Check the timestamp.
+                    if (timestamp >= minimumTimestamp && timestamp <= maximumTimestamp) {
+
+                        // Check the sender-data prefix.
+                        boolean isPrefixMatch = true;
+                        for (int i = 0; i < Math.min(searchPrefix.length, senderData.length) && isPrefixMatch; i++) {
+                            isPrefixMatch = searchPrefix[i] == senderData[i];
+                        }
+
+                        // If the prefix matches, store the offset.
+                        if (isPrefixMatch) {
+                            offsets.add(offset);
+                        }
+                    }
+                }
 
                 // Calculate the new file position, stepping back one record.
                 filePosition = indexFileReader.getFilePointer() - indexEntrySize * 2;

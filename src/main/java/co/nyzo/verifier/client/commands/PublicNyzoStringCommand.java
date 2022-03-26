@@ -86,7 +86,7 @@ public class PublicNyzoStringCommand implements Command {
                 NyzoStringEncoder.encode(publicIdentifierString));
 
         // Produce the execution result.
-        return new SimpleExecutionResult(table, notices, null);
+        return new SimpleExecutionResult(notices, null, table);
     }
 
     public static void printHexWarning(CommandOutput output) {

@@ -105,6 +105,6 @@ public class BalanceDisplayCommand implements Command {
             }
         }
 
-        return new SimpleExecutionResult(table, notices, errors);
+        return new SimpleExecutionResult(notices, errors, table);
     }
 }

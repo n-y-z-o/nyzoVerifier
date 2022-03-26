@@ -127,7 +127,7 @@ public class CoinsInCirculationCommand implements Command {
 
         // For the API result, return the value as a plain text string, in Nyzos, without the symbol. This improves ease
         // of parsing. For console and HTML, provide more context.
-        return new SimpleExecutionResult(table, notices, errors) {
+        return new SimpleExecutionResult(notices, errors, table) {
             @Override
             public EndpointResponse toEndpointResponse() {
                 double totalCirculationNyzos = totalCirculation.get() / (double) Transaction.micronyzoMultiplierRatio;

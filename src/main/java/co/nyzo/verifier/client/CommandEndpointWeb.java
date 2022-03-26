@@ -203,7 +203,9 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
         head.add(WebUtil.hoverButtonStyles);
 
         // Add a button to return to the menu.
-        body.add(new A().attr("href", "/").attr("class", "hover-button").addRaw("&larr;"));
+        // TODO: Encode the form parameters in the back button to repopulate the form with the current command state.
+        String backButtonEndpoint = command == null || argumentValues.isEmpty() ? "/" : "/" + command.getLongCommand();
+        body.add(new A().attr("href", backButtonEndpoint).attr("class", "hover-button").addRaw("&larr;"));
 
         // Add the title.
         body.add(new H1(title));
@@ -241,7 +243,7 @@ public class CommandEndpointWeb implements EndpointResponseProvider {
 
             // If the result is null, create an error result.
             if (result == null) {
-                result = new SimpleExecutionResult(null, null,
+                result = new SimpleExecutionResult(null,
                         Collections.singletonList("The command did not produce a result."));
             }
 

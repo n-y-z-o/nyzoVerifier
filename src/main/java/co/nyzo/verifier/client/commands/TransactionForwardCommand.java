@@ -224,7 +224,7 @@ public class TransactionForwardCommand implements Command {
             errors.add("Unexpected issue forwarding transaction: " + PrintUtil.printException(e));
         }
 
-        return new SimpleExecutionResult(table, notices, errors);
+        return new SimpleExecutionResult(notices, errors, table);
     }
 
     public static void performMaintenance() {

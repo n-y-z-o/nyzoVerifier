@@ -165,6 +165,6 @@ public class PrefilledDataCreateCommand implements Command {
                 NyzoStringEncoder.encode(prefilledDataString));
 
         // Produce the execution result.
-        return new SimpleExecutionResult(table, notices, null);
+        return new SimpleExecutionResult(notices, null, table);
     }
 }

@@ -180,7 +180,7 @@ public class TransactionSearchCommand implements Command {
             errors.add("Unable to process query");
         }
 
-        return new SimpleExecutionResult(table, notices, errors);
+        return new SimpleExecutionResult(notices, errors, table);
     }
 
     public static String typeString(byte type) {

@@ -13,18 +13,18 @@ import java.util.List;
 
 public class SimpleExecutionResult implements ExecutionResult {
 
-    private CommandTable result;
+    private CommandTable[] result;
     private List<String> notices;
     private List<String> errors;
 
-    public SimpleExecutionResult(CommandTable result, List<String> notices, List<String> errors) {
+    public SimpleExecutionResult(List<String> notices, List<String> errors, CommandTable... result) {
         // For consistency in the JSON response, ensure that none of the fields are null.
-        this.result = result == null ? new CommandTable() : result;
         this.notices = notices == null ? new ArrayList<>() : notices;
         this.errors = errors == null ? new ArrayList<>() : errors;
+        this.result = result == null ? new CommandTable[0] : result;
     }
 
-    public CommandTable getResult() {
+    public CommandTable[] getResult() {
         return result;
     }
 
@@ -86,41 +86,43 @@ public class SimpleExecutionResult implements ExecutionResult {
         }
 
         // Add the result.
-        if (result != null && result.getRows().size() > 0) {
-            // Create the table.
-            Div tableDiv = (Div) resultList.add(new Div().attr("class", "table"));
+        for (CommandTable table : result) {
+            if (table != null && table.getRows().size() > 0) {
+                // Create the table.
+                Div tableDiv = (Div) resultList.add(new Div().attr("class", "table"));
 
-            if (result.isInvertedRowsColumns()) {
-                // This is the inverted rows/columns case. Render the header to the left.
-                int numberOfColumns = 1 + result.getRows().size();
-                for (int i = 0; i < result.getHeaders().length; i++) {
-                    Div row = (Div) tableDiv.add(new Div().attr("class", "row-inverted"));
-                    row.add(new Div().addRaw(result.getHeaders()[i].getLabel()));
-                    for (Object[] dataRow : result.getRows()) {
-                        String value = WebUtil.sanitizeString(dataRow[i] + "");
-                        Div cell = (Div) row.add(new Div().addRaw(value));
-                        if (result.getHeaders()[i].isExtraWrapColumn()) {
-                            cell.attr("class", "extra-wrap");
+                if (table.isInvertedRowsColumns()) {
+                    // This is the inverted rows/columns case. Render the header to the left.
+                    int numberOfColumns = 1 + table.getRows().size();
+                    for (int i = 0; i < table.getHeaders().length; i++) {
+                        Div row = (Div) tableDiv.add(new Div().attr("class", "row-inverted"));
+                        row.add(new Div().addRaw(table.getHeaders()[i].getLabel()));
+                        for (Object[] dataRow : table.getRows()) {
+                            String value = WebUtil.sanitizeString(dataRow[i] + "");
+                            Div cell = (Div) row.add(new Div().addRaw(value));
+                            if (table.getHeaders()[i].isExtraWrapColumn()) {
+                                cell.attr("class", "extra-wrap");
+                            }
                         }
                     }
-                }
-            } else {
-                // This is the non-inverted case. Add the header row.
-                Div headerRowDiv = (Div) tableDiv.add(new Div().attr("class", "header-row"));
-                CommandTableHeader[] headers = result.getHeaders();
-                for (CommandTableHeader header : result.getHeaders()) {
-                    headerRowDiv.add(new Div().addRaw(WebUtil.sanitizeString(header.getLabel())));
-                }
+                } else {
+                    // This is the non-inverted case. Add the header row.
+                    Div headerRowDiv = (Div) tableDiv.add(new Div().attr("class", "header-row"));
+                    CommandTableHeader[] headers = table.getHeaders();
+                    for (CommandTableHeader header : table.getHeaders()) {
+                        headerRowDiv.add(new Div().addRaw(WebUtil.sanitizeString(header.getLabel())));
+                    }
 
-                // Add the data rows.
-                for (Object[] row : result.getRows()) {
-                    Div dataRowDiv = (Div) tableDiv.add(new Div().attr("class", "data-row"));
-                    int numberOfColumns = Math.min(headers.length, row.length);
-                    for (int i = 0; i < numberOfColumns; i++) {
-                        String value = WebUtil.sanitizeString(row[i] + "");
-                        Div cell = (Div) dataRowDiv.add(new Div().addRaw(value));
-                        if (headers[i].isExtraWrapColumn()) {
-                            cell.attr("class", "extra-wrap");
+                    // Add the data rows.
+                    for (Object[] row : table.getRows()) {
+                        Div dataRowDiv = (Div) tableDiv.add(new Div().attr("class", "data-row"));
+                        int numberOfColumns = Math.min(headers.length, row.length);
+                        for (int i = 0; i < numberOfColumns; i++) {
+                            String value = WebUtil.sanitizeString(row[i] + "");
+                            Div cell = (Div) dataRowDiv.add(new Div().addRaw(value));
+                            if (headers[i].isExtraWrapColumn()) {
+                                cell.attr("class", "extra-wrap");
+                            }
                         }
                     }
                 }
@@ -133,7 +135,9 @@ public class SimpleExecutionResult implements ExecutionResult {
     public void toConsole(CommandOutput output) {
         ConsoleUtil.printMessages(getNotices(), "NOTICE: ", ConsoleColor.Yellow, output);
         ConsoleUtil.printMessages(getErrors(), "ERROR: ", ConsoleColor.Red, output);
-        ConsoleUtil.printTable(getResult(), output);
+        for (CommandTable table : getResult()) {
+            ConsoleUtil.printTable(table, output);
+        }
     }
 
     private static String toJson(Object object) {
@@ -151,6 +155,21 @@ public class SimpleExecutionResult implements ExecutionResult {
             result = jsonForArray((Array) object);
         } else if (object instanceof CommandTable) {
             result = jsonForCommandTable((CommandTable) object);
+        } else if (object instanceof CommandTable[]) {
+            CommandTable[] tableArray = (CommandTable[]) object;
+            StringBuilder arrayResult = new StringBuilder("");
+            String separator = "";
+            if (tableArray.length > 1) {
+                arrayResult.append("[");
+            }
+            for (CommandTable commandTable : ((CommandTable[]) object)) {
+                arrayResult.append(separator).append(jsonForCommandTable(commandTable));
+                separator = ",";
+            }
+            if (tableArray.length > 1) {
+                arrayResult.append("]");
+            }
+            result = arrayResult.toString();
         } else {
             StringBuilder objectResult = new StringBuilder("{");
             String separator = "";
