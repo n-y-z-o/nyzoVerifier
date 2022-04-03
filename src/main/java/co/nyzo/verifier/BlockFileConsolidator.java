@@ -14,6 +14,7 @@ public class BlockFileConsolidator {
     // - delete: delete individual files only (do not create consolidated files)
     // - disable: do not run (do not create consolidated files, do not delete individual files)
     private static final String runOptionKey = "block_file_consolidator";
+    private static final String runOptionValueConsolidate = "consolidate";
     private static final String runOptionValueDeleteOnly = "delete";
     private static final String runOptionValueDisable = "disable";
     private static String runOption = PreferencesUtil.get(runOptionKey).toLowerCase();
@@ -30,9 +31,21 @@ public class BlockFileConsolidator {
 
     public static void start() {
 
-        if (runOption.equals(runOptionValueDisable)) {
-            System.out.println("BlockFileConsolidator disabled (" + runOptionKey + "=" + runOptionValueDisable + ")");
-        } else {
+        // Ensure the value is explicitly set to one of the enumerated values. The default is "delete" for the verifier
+        // and the sentinel. This conserves disk space, which reduces maintenance and improves robustness of these run
+        // modes. The default is "consolidate" for the client. The client never participates in blockchain creation,
+        // which weighs its emphasis more toward utility.
+        if (!runOption.equals(runOptionValueConsolidate) && !runOption.equals(runOptionValueDeleteOnly) &&
+                !runOption.equals(runOptionValueDisable)) {
+            if (RunMode.getRunMode() == RunMode.Client) {
+                runOption = runOptionValueConsolidate;
+            } else {
+                runOption = runOptionValueDeleteOnly;
+            }
+        }
+        LogUtil.println("BlockFileConsolidator setting: " + runOptionKey + "=" + runOption);
+
+        if (!runOption.equals(runOptionValueDisable)) {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -147,6 +160,7 @@ public class BlockFileConsolidator {
         HistoricalBlockManager.offsetFileForHeight(fileIndex * BlockManager.blocksPerFile).delete();
 
         // Write the combined file.
+        consolidatedFile.getParentFile().mkdirs();  // ensure the parent directory exists
         BlockManager.writeBlocksToFile(blocks, balanceLists, consolidatedFile);
 
         LogUtil.println("consolidated " + individualFiles.size() + " files to a single file for start height " +
