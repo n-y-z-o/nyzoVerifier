@@ -32,13 +32,13 @@ public class TransactionIndexedSearchCommand implements Command {
     public String[] getArgumentNames() {
         return new String[] { "account ID", "sender data prefix (optional)", "sender/receiver (s/r, optional)",
                 "minimum timestamp (optional)", "maximum timestamp (optional)", "minimum block height (optional)",
-                "maximum block height (optional)" };
+                "maximum block height (optional)", "include pending transactions (optional)" };
     }
 
     @Override
     public String[] getArgumentIdentifiers() {
         return new String[] { "accountIdentifier", "senderDataPrefix", "senderReceiverFlag", "minimumTimestamp",
-                "maximumTimestamp", "minimumBlockHeight", "maximumBlockHeight" };
+                "maximumTimestamp", "minimumBlockHeight", "maximumBlockHeight", "includePending" };
     }
 
     @Override
@@ -76,6 +76,7 @@ public class TransactionIndexedSearchCommand implements Command {
         long maximumTimestamp = ClientArgumentUtil.getLong(argumentValues.get(4), -1L);
         long minimumBlockHeight = ClientArgumentUtil.getLong(argumentValues.get(5), -1L);
         long maximumBlockHeight = ClientArgumentUtil.getLong(argumentValues.get(6), -1L);
+        boolean includePendingTransactions = ClientArgumentUtil.getBoolean(argumentValues.get(7), false);
 
         // Add a notice reminding the user that the list of transactions may be incomplete due to incomplete indexing.
         notices.add("Results may be incomplete due to incomplete indexing");
@@ -90,7 +91,8 @@ public class TransactionIndexedSearchCommand implements Command {
                 new CommandTableHeader("sender ID", "senderIdentifier", true),
                 new CommandTableHeader("previous hash height", "previousHashHeight"),
                 new CommandTableHeader("sender data", "senderData"),
-                new CommandTableHeader("sender data bytes", "senderDataBytes", true));
+                new CommandTableHeader("sender data bytes", "senderDataBytes", true),
+                new CommandTableHeader("is confirmed", "isConfirmed"));
 
         List<Transaction> transactions = TransactionIndexer.transactionsForAccount(accountIdentifier.getIdentifier(),
                 senderDataPrefix, senderReceiverFlag, minimumTimestamp, maximumTimestamp, minimumBlockHeight,
@@ -104,7 +106,25 @@ public class TransactionIndexedSearchCommand implements Command {
                     ByteUtil.arrayAsStringWithDashes(transaction.getSenderIdentifier()),
                     transaction.getPreviousHashHeight(),
                     ClientTransactionUtil.senderDataForDisplay(transaction.getSenderData()),
-                    ByteUtil.arrayAsStringNoDashes(transaction.getSenderData()));
+                    ByteUtil.arrayAsStringNoDashes(transaction.getSenderData()), true);
+        }
+
+        if (includePendingTransactions) {
+            List<Transaction> pendingTransactions =
+                    TransactionForwardCommand.transactionsForAccount(accountIdentifier.getIdentifier(),
+                            senderDataPrefix, senderReceiverFlag, minimumTimestamp, maximumTimestamp,
+                            minimumBlockHeight, maximumBlockHeight);
+            for (Transaction transaction : pendingTransactions) {
+                transactionTable.addRow(BlockManager.heightForTimestamp(transaction.getTimestamp()),
+                        transaction.getTimestamp(), transaction.getType(),
+                        TransactionSearchCommand.typeString(transaction.getType()),
+                        PrintUtil.printAmount(transaction.getAmount()),
+                        ByteUtil.arrayAsStringWithDashes(transaction.getReceiverIdentifier()),
+                        ByteUtil.arrayAsStringWithDashes(transaction.getSenderIdentifier()),
+                        transaction.getPreviousHashHeight(),
+                        ClientTransactionUtil.senderDataForDisplay(transaction.getSenderData()),
+                        ByteUtil.arrayAsStringNoDashes(transaction.getSenderData()), false);
+            }
         }
 
         // Build the supplemental table.

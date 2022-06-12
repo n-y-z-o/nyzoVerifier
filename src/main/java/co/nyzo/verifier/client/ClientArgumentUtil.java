@@ -10,6 +10,20 @@ import java.nio.charset.StandardCharsets;
 
 public class ClientArgumentUtil {
 
+    public static boolean getBoolean(String argumentValue, boolean defaultValue) {
+        boolean result = defaultValue;
+        String value = argumentValue == null ? "" : argumentValue.toLowerCase();
+        if (value.equals("true") || value.equals("t") || value.equals("yes") || value.equals("y") ||
+                value.equals("1")) {
+            result = true;
+        } else if (value.equals("false") || value.equals("f") || value.equals("no") || value.equals("n") ||
+                value.equals("0")) {
+            result = false;
+        }
+
+        return result;
+    }
+
     public static int getInteger(String argumentValue, int defaultValue) {
         return getInteger(argumentValue, defaultValue, Integer.MIN_VALUE, Integer.MAX_VALUE);
     }

@@ -3,6 +3,7 @@ package co.nyzo.verifier.client.commands;
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.*;
 import co.nyzo.verifier.nyzoString.*;
+import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.nio.ByteBuffer;
@@ -15,7 +16,8 @@ public class TransactionForwardCommand implements Command {
     private static final AtomicInteger requestsSinceMaintenance = new AtomicInteger(0);
     private static final int maintenanceInterval = 10;
     private static final Map<String, Transaction> recentlyForwardedTransactions = new ConcurrentHashMap<>();
-    private static final int maximumMapSize = 1000;
+    private static final int maximumMapSize = PreferencesUtil.getInt("transaction_forward_command_maximum_map_size",
+            1000);
 
     @Override
     public String getShortCommand() {
@@ -246,5 +248,73 @@ public class TransactionForwardCommand implements Command {
                 recentlyForwardedTransactions.remove(iterator.next());
             }
         }
+    }
+
+    public static List<Transaction> transactionsForAccount(byte[] accountIdentifier, byte[] searchPrefix,
+                                                           String senderReceiverFlag, long minimumTimestamp,
+                                                           long maximumTimestamp, long minimumBlockHeight,
+                                                           long maximumBlockHeight) {
+
+        // Replace a null prefix with an empty prefix for later simplicity.
+        if (searchPrefix == null) {
+            searchPrefix = new byte[0];
+        }
+
+        // Determine whether to look for transactions for which this account is sender, receiver, or both. If the value
+        // of this flag is "s" or "sender", only transactions for which the account is sender will be returned. If the
+        // value is "r" or "receiver", only transactions for which the account is receiver will be returned. Otherwise,
+        // both will be returned.
+        senderReceiverFlag = senderReceiverFlag.toLowerCase();
+        boolean acceptSender = !senderReceiverFlag.equals("r") && !senderReceiverFlag.equals("receiver");
+        boolean acceptReceiver = !senderReceiverFlag.equals("s") && !senderReceiverFlag.equals("sender");
+
+        // A maximum timestamp of less than zero means "no maximum", so set the maximum to Long.MAX_VALUE.
+        if (maximumTimestamp < 0) {
+            maximumTimestamp = Long.MAX_VALUE;
+        }
+
+        // If a minimum block height is specified, use it to modify the minimum timestamp. Using the greater of the
+        // minimum timestamp and the timestamp indicated by the minimum block height effectively apply both values with
+        // a logical AND.
+        if (minimumBlockHeight >= 0) {
+            minimumTimestamp = Math.max(minimumTimestamp, BlockManager.startTimestampForHeight(minimumBlockHeight));
+        }
+
+        // If a maximum block height is specified, use it to modify the maximum timestamp. This follows the same pattern
+        // as the minimum block height.
+        if (maximumBlockHeight >= 0) {
+            maximumTimestamp = Math.min(maximumTimestamp,
+                    BlockManager.startTimestampForHeight(maximumBlockHeight + 1L) - 1L);  // end of the block
+        }
+
+        // Find all transactions in the recently-forwarded set that match the given parameters.
+        List<Transaction> transactions = new ArrayList<>();
+        for (Transaction transaction : recentlyForwardedTransactions.values()) {
+
+            boolean isSender = ByteUtil.arraysAreEqual(transaction.getSenderIdentifier(), accountIdentifier);
+            boolean isReceiver = ByteUtil.arraysAreEqual(transaction.getReceiverIdentifier(), accountIdentifier);
+
+            // Check the sender/receiver value.
+            if ((acceptSender && isSender) || (acceptReceiver && isReceiver)) {
+
+                // Check the timestamp.
+                if (transaction.getTimestamp() >= minimumTimestamp && transaction.getTimestamp() <= maximumTimestamp) {
+
+                    // Check the sender-data prefix.
+                    boolean isPrefixMatch = true;
+                    byte[] senderData = transaction.getSenderData();
+                    for (int i = 0; i < Math.min(searchPrefix.length, senderData.length) && isPrefixMatch; i++) {
+                        isPrefixMatch = searchPrefix[i] == senderData[i];
+                    }
+
+                    // If the prefix matches, add the transaction to the list.
+                    if (isPrefixMatch) {
+                        transactions.add(transaction);
+                    }
+                }
+            }
+        }
+
+        return transactions;
     }
 }
