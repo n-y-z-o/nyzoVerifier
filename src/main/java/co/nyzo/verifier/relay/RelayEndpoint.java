@@ -1,10 +1,9 @@
 package co.nyzo.verifier.relay;
 
 import co.nyzo.verifier.util.LogUtil;
-import co.nyzo.verifier.util.PrintUtil;
+import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.web.*;
 
-import java.io.File;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.ByteBuffer;
@@ -14,10 +13,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class RelayEndpoint implements EndpointResponseProvider {
 
-    private static final long maximumSize = 1024L * 1024L * 10L;
+    private static final long maximumCachedWebResponseBytes = 1024L * 1024L * 10L;  // 10 MB
+
+    private static final Map<String, FileContentCache> filePathToFileContentMap = new ConcurrentHashMap<>();
+    private static final int maximumFileContentMapItems = PreferencesUtil.getInt("relay_endpoint_maximum_cache_items",
+            10);
 
     private boolean isFileEndpoint;
     private String sourceEndpoint;
@@ -42,7 +47,8 @@ public class RelayEndpoint implements EndpointResponseProvider {
     public EndpointResponse getResponse(EndpointRequest request) {
         EndpointResponse response;
         if (isFileEndpoint) {
-            // Get the path. If the path is a directory, get the filename from the request endpoint.
+            // Get the path. If the path is a directory, get the filename from the request endpoint and change the path
+            // to point to the file.
             Path filePath = Paths.get(sourceEndpoint.replace("file:", "").replaceAll("/+", "/"));
             if (filePath.toFile().isDirectory()) {
                 String requestPath = request.getEndpoint().getPath();
@@ -53,16 +59,59 @@ public class RelayEndpoint implements EndpointResponseProvider {
                 }
             }
 
-            byte[] result;
-            String contentType;
-            try {
-                result = Files.readAllBytes(filePath);
-                contentType = EndpointResponse.contentTypeForFile(filePath.toString());
-            } catch (Exception e) {
-                result = ("error reading file: " + PrintUtil.printException(e)).getBytes(StandardCharsets.UTF_8);
-                contentType = EndpointResponse.contentTypeText;
+            // First, try to get the content from the file path.
+            byte[] result = null;
+            String filePathString = filePath.toAbsolutePath().toString();
+            FileContentCache contentCache = filePathToFileContentMap.get(filePathString);
+            if (contentCache != null) {
+                // Get the result from the cache and set the timestamp to indicate that the cache was used.
+                result = contentCache.getContents();
+                contentCache.setLastUsedTimestamp();
             }
-            response = new EndpointResponse(result, contentType);
+
+            // If the result is null, try to read it from the file.
+            if (result == null) {
+                try {
+                    result = Files.readAllBytes(filePath);
+
+                    // Store the content in the cache.
+                    filePathToFileContentMap.put(filePathString, new FileContentCache(result));
+
+                    // If the cache is too large, remove the oldest object. The while loop (vs. if) is to provide clear
+                    // assurance that an overlooked race condition would not result in size creep over time.
+                    while (filePathToFileContentMap.size() > maximumFileContentMapItems) {
+                        // Find the oldest item.
+                        long oldestTimestamp = Long.MAX_VALUE;
+                        String oldestPath = filePathString;
+                        for (String path : filePathToFileContentMap.keySet()) {
+                            FileContentCache cacheItem = filePathToFileContentMap.get(path);
+                            if (cacheItem.getLastUsedTimestamp() < oldestTimestamp) {
+                                oldestPath = path;
+                                oldestTimestamp = cacheItem.getLastUsedTimestamp();
+                            }
+                        }
+
+                        // Remove the oldest item.
+                        filePathToFileContentMap.remove(oldestPath);
+                    }
+                } catch (Exception ignored) { }
+            }
+
+            // If the result is still null, return a 404 with a content type of text. Otherwise, set the appropriate
+            // content type for the file.
+            String contentType;
+            HttpStatusCode statusCode;
+            if (result == null) {
+                result = "not found (404)".getBytes(StandardCharsets.UTF_8);
+                contentType = EndpointResponse.contentTypeText;
+                statusCode = HttpStatusCode.NotFound404;
+            } else {
+                contentType = EndpointResponse.contentTypeForFile(filePath.toString());
+                statusCode = HttpStatusCode.Ok200;
+            }
+
+            // Build the result.
+            response = new EndpointResponse(result, contentType, statusCode);
             response.setHeader("Last-Modified", WebUtil.imfFixdateString(System.currentTimeMillis()));
             response.setHeader("Access-Control-Allow-Origin", "*");
         } else {
@@ -80,7 +129,7 @@ public class RelayEndpoint implements EndpointResponseProvider {
                 URLConnection connection = new URL(sourceEndpoint).openConnection();
                 connection.setConnectTimeout(2000);  // 2 seconds
                 connection.setReadTimeout(10000);    // 10 seconds
-                if (connection.getContentLength() <= maximumSize) {
+                if (connection.getContentLength() <= maximumCachedWebResponseBytes) {
                     byte[] result = new byte[connection.getContentLength()];
                     ByteBuffer buffer = ByteBuffer.wrap(result);
                     ReadableByteChannel channel = Channels.newChannel(connection.getInputStream());
