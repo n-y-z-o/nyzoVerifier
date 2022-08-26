@@ -59,11 +59,12 @@ public class RelayEndpoint implements EndpointResponseProvider {
                 }
             }
 
-            // First, try to get the content from the file path.
+            // First, try to get the content from the cache.
             byte[] result = null;
             String filePathString = filePath.toAbsolutePath().toString();
+            long fileTimestamp = filePath.toFile().lastModified();
             FileContentCache contentCache = filePathToFileContentMap.get(filePathString);
-            if (contentCache != null) {
+            if (contentCache != null && contentCache.getFileTimestamp() == fileTimestamp) {
                 // Get the result from the cache and set the timestamp to indicate that the cache was used.
                 result = contentCache.getContents();
                 contentCache.setLastUsedTimestamp();
@@ -75,7 +76,7 @@ public class RelayEndpoint implements EndpointResponseProvider {
                     result = Files.readAllBytes(filePath);
 
                     // Store the content in the cache.
-                    filePathToFileContentMap.put(filePathString, new FileContentCache(result));
+                    filePathToFileContentMap.put(filePathString, new FileContentCache(result, fileTimestamp));
 
                     // If the cache is too large, remove the oldest object. The while loop (vs. if) is to provide clear
                     // assurance that an overlooked race condition would not result in size creep over time.
