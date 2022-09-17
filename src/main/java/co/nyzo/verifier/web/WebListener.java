@@ -222,19 +222,27 @@ public class WebListener {
                 // Remove all double dots from the path to avoid attempts at escaping from the web directory.
                 path = path.replace("..", "");
 
+                // Read the headers.
+                Map<String, String> headers = new HashMap<>();
+                String line;
+                while ((line = reader.readLine()) != null && !line.isEmpty()) {
+                    try {
+                        int splitIndex = line.indexOf(':');
+                        headers.put(line.substring(0, splitIndex).trim().toLowerCase(),
+                                line.substring(splitIndex + 1).trim());
+                    } catch (Exception e) {
+                        LogUtil.println("unable to process header: " + line);
+                    }
+                }
+
                 // If POST, get the body.
                 String postBody = "";
                 if (method == HttpMethod.Post) {
                     // Get the content length from the headers.
-                    String line;
                     int contentLength = 0;
-                    while ((line = reader.readLine()) != null && !line.isEmpty()) {
-                        if (line.toLowerCase().startsWith("content-length: ")) {
-                            try {
-                                contentLength = Integer.parseInt(line.substring("content-length: ".length()));
-                            } catch (Exception ignored) { }
-                        }
-                    }
+                    try {
+                        contentLength = Integer.parseInt(headers.get("content-length"));
+                    } catch (Exception ignored) { }
 
                     // Read the body into a string.
                     char[] buffer = new char[contentLength];
@@ -243,7 +251,8 @@ public class WebListener {
                 }
 
                 // Build the request object.
-                Endpoint endpoint = new Endpoint(path, method);
+                String host = headers.getOrDefault("host", "").split(":")[0];
+                Endpoint endpoint = new Endpoint(path, method, host);
                 Map<String, String> queryParameters = mapForString(queryString);
                 Map<String, String> postParameters = mapForString(postBody);
                 byte[] sourceIpAddress = clientSocket.getInetAddress().getAddress();
@@ -291,10 +300,19 @@ public class WebListener {
         // Get the response provider from the map.
         EndpointResponseProvider responseProvider = endpointMap.get(request.getEndpoint());
 
-        // If the response provider is null, try to get a response provider for the parent endpoint.
+        // If the response provider is null, try to get a provider with the empty-host endpoint.
         if (responseProvider == null) {
-            Endpoint parentEndpoint = request.getEndpoint().getParentEndpoint();
-            responseProvider = endpointMap.get(parentEndpoint);
+            responseProvider = endpointMap.get(request.getEndpoint().getEmptyHostEndpoint());
+        }
+
+        // If the response provider is still null, try to get a response provider for the parent endpoint.
+        if (responseProvider == null) {
+            responseProvider = endpointMap.get(request.getEndpoint().getParentEndpoint());
+        }
+
+        // If the response provider continues to be null, try the empty-host parent endpoint.
+        if (responseProvider == null) {
+            responseProvider = endpointMap.get(request.getEndpoint().getParentEndpoint().getEmptyHostEndpoint());
         }
 
         // Render the response.

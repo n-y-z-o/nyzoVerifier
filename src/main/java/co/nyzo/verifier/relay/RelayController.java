@@ -5,6 +5,7 @@ import co.nyzo.verifier.client.ConsoleColor;
 import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.web.Endpoint;
 import co.nyzo.verifier.web.EndpointResponseProvider;
+import co.nyzo.verifier.web.HttpMethod;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -32,13 +33,14 @@ public class RelayController {
                 if (split.length >= 2) {
                     String sourceEndpoint = split[0].trim();
                     String destinationEndpoint = split[1].trim();
+                    String host = split.length > 2 ? split[2].trim() : "";
 
                     if (sourceEndpoint.startsWith("file:")) {
                         // File sources do not contain an update interval. They read directly from the file for
                         // delivery.
                         File file = new File(sourceEndpoint.replace("file:", "").replaceAll("/+", "/"));
                         RelayEndpoint endpoint = new RelayEndpoint(sourceEndpoint);
-                        map.put(new Endpoint(destinationEndpoint), endpoint);
+                        map.put(new Endpoint(destinationEndpoint, HttpMethod.Get, host), endpoint);
                     } else {
                         long updateInterval = 0;
                         try {
