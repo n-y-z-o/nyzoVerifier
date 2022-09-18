@@ -14,6 +14,8 @@ import java.util.*;
 
 public class BalanceDisplayCommand implements Command {
 
+    private static final int maximumAccountsInResponse = 100;
+
     @Override
     public String getShortCommand() {
         return "BL";
@@ -64,7 +66,12 @@ public class BalanceDisplayCommand implements Command {
 
         String walletIdOrPrefix = argumentValues.size() < 1 ? "" : argumentValues.get(0);
         walletIdOrPrefix = walletIdOrPrefix == null ? "" : walletIdOrPrefix.trim().toLowerCase();
-        walletIdOrPrefix = walletIdOrPrefix.replaceAll("[^a-f0-9]", "");
+
+        // Normalize for a raw ID.
+        String rawIdOrPrefix = walletIdOrPrefix.replaceAll("[^a-f0-9]", "");
+
+        // Normalize for a Nyzo string.
+        String nyzoStringIdOrPrefix = walletIdOrPrefix.toLowerCase();
 
         // Make the lists for the notices and errors. Make the result table.
         List<String> notices = new ArrayList<>();
@@ -74,8 +81,15 @@ public class BalanceDisplayCommand implements Command {
                 new CommandTableHeader("ID string", "walletIdNyzoString", true),
                 new CommandTableHeader("balance", "balance"));
 
+        // Determine whether the search is a Nyzo string.
+        boolean searchIsNyzoString = nyzoStringIdOrPrefix.startsWith("id__");
+
         // Add a notice showing the prefix after normalization.
-        notices.add("Wallet ID or prefix after normalization: " + walletIdOrPrefix);
+        notices.add("wallet ID or prefix after normalization: " + (searchIsNyzoString ? nyzoStringIdOrPrefix :
+                rawIdOrPrefix));
+
+        // Add a notice about what type of search is being performed.
+        notices.add("search type: " + (searchIsNyzoString ? "Nyzo string" : "raw ID"));
 
         // Produce the results.
         if (walletIdOrPrefix.isEmpty()) {
@@ -87,20 +101,28 @@ public class BalanceDisplayCommand implements Command {
                 errors.add("Unable to get balance list");
             } else {
                 int numberFound = 0;
-                for (BalanceListItem item : balanceList.getItems()) {
+                List<BalanceListItem> items = balanceList.getItems();
+                for (int i = 0; i < items.size() && numberFound < maximumAccountsInResponse; i++) {
+                    BalanceListItem item = items.get(i);
                     String identifier = ByteUtil.arrayAsStringNoDashes(item.getIdentifier());
-                    if (identifier.startsWith(walletIdOrPrefix)) {
+                    String identifierString =
+                            NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(item.getIdentifier()));
+                    if ((searchIsNyzoString && identifierString.startsWith(nyzoStringIdOrPrefix)) ||
+                            (!searchIsNyzoString && identifier.startsWith(rawIdOrPrefix))) {
                         numberFound++;
-                        NyzoString identifierString = new NyzoStringPublicIdentifier(item.getIdentifier());
                         table.addRow(balanceList.getBlockHeight(),
                                 ByteUtil.arrayAsStringWithDashes(item.getIdentifier()),
-                                NyzoStringEncoder.encode(identifierString),
+                                identifierString,
                                 PrintUtil.printAmount(item.getBalance()));
                     }
                 }
 
                 if (numberFound == 0) {
-                    notices.add("Unable to find any accounts matching ID/prefix " + walletIdOrPrefix);
+                    notices.add("unable to find any accounts matching ID/prefix " + (searchIsNyzoString ?
+                            nyzoStringIdOrPrefix : rawIdOrPrefix));
+                } else if (numberFound == maximumAccountsInResponse) {
+                    notices.add("search is returning maximum number of results (" + maximumAccountsInResponse +
+                            "); more results may be available");
                 }
             }
         }
