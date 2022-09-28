@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class JsonObject {
+public class JsonObject implements JsonRenderable {
 
     private Map<String, Object> objects;
 
@@ -85,5 +85,20 @@ public class JsonObject {
         }
 
         return stringList;
+    }
+
+    @Override
+    public String renderJson() {
+
+        StringBuilder result = new StringBuilder("{");
+        String separator = "";
+        for (String key : objects.keySet()) {
+            result.append(separator).append("\"").append(key).append("\":")
+                    .append(JsonRenderer.toJson(objects.get(key)));
+            separator = ",";
+        }
+        result.append("}");
+
+        return result.toString();
     }
 }

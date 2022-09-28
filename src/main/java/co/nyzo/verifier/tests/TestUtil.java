@@ -19,6 +19,7 @@ public class TestUtil {
                 new ClientNodeManagerTest(),
                 new CommandManagerTest(),
                 new IpUtilTest(),
+                new JsonTest(),
                 new NyzoStringTest(),
                 new ShortLongTest(),
                 new TransactionIndexerTest()

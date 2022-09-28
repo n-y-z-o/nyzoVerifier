@@ -76,8 +76,8 @@ public abstract class HtmlTag implements HtmlElement {
             attributes.put("id", id);
         }
 
-        // Wrap the script in a function for local variable scoping.
-        script.append("(function() {");
+        // Wrap the script in a function for local variable scoping and a try/catch.
+        script.append("(function() { try {");
 
         // Store the current timestamp and the arguments. The timestamp is used to ensure the div does not contain
         // out-of-date content.
@@ -154,7 +154,7 @@ public abstract class HtmlTag implements HtmlElement {
         script.append("}, staleInterval / 4);");
 
         // Close the function that wraps the script.
-        script.append("})();");
+        script.append("} catch (error) { console.log(error); } })();");
 
         return new Script(script.toString());
     }

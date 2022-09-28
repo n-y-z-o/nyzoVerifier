@@ -1,9 +1,12 @@
 package co.nyzo.verifier.client;
 
+import co.nyzo.verifier.json.JsonRenderable;
+import co.nyzo.verifier.json.JsonRenderer;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class CommandTable {
+public class CommandTable implements JsonRenderable {
 
     private CommandTableHeader[] headers;
     private List<Object[]> rows;
@@ -33,5 +36,25 @@ public class CommandTable {
 
     public void setInvertedRowsColumns(boolean invertedRowsColumns) {
         this.invertedRowsColumns = invertedRowsColumns;
+    }
+
+    public String renderJson() {
+
+        StringBuilder result = new StringBuilder("[");
+        String rowSeparator = "";
+        CommandTableHeader[] headers = getHeaders();
+        for (Object[] row : getRows()) {
+            result.append(rowSeparator).append("{");
+            rowSeparator = ",";
+            int length = Math.min(row.length, headers.length);
+            for (int i = 0; i < length; i++) {
+                result.append(i == 0 ? "" : ",").append("\"").append(headers[i].getIdentifier()).append("\":")
+                        .append(JsonRenderer.toJson(row[i]));
+            }
+            result.append("}");
+        }
+        result.append("]");
+
+        return result.toString();
     }
 }

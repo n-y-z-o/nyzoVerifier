@@ -2,11 +2,8 @@ package co.nyzo.verifier.json;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
-public class JsonArray {
+public class JsonArray implements JsonRenderable {
 
     private List<Object> objects;
 
@@ -34,5 +31,19 @@ public class JsonArray {
         } catch(Exception ignored){ }
 
         return result;
+    }
+
+    @Override
+    public String renderJson() {
+
+        StringBuilder result = new StringBuilder("[");
+        String separator = "";
+        for (int i = 0; i < objects.size(); i++) {
+            result.append(separator).append(JsonRenderer.toJson(objects.get(i)));
+            separator = ",";
+        }
+        result.append("]");
+
+        return result.toString();
     }
 }

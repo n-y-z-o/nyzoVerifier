@@ -1,14 +1,12 @@
 package co.nyzo.verifier.client;
 
+import co.nyzo.verifier.json.JsonRenderer;
 import co.nyzo.verifier.web.EndpointResponse;
 import co.nyzo.verifier.web.WebUtil;
 import co.nyzo.verifier.web.elements.*;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 public class SimpleExecutionResult implements ExecutionResult {
@@ -38,7 +36,8 @@ public class SimpleExecutionResult implements ExecutionResult {
 
     @Override
     public EndpointResponse toEndpointResponse() {
-        return new EndpointResponse(toJson(this).getBytes(StandardCharsets.UTF_8), EndpointResponse.contentTypeJson);
+        return new EndpointResponse(JsonRenderer.toJson(this).getBytes(StandardCharsets.UTF_8),
+                EndpointResponse.contentTypeJson);
     }
 
     @Override
@@ -138,142 +137,5 @@ public class SimpleExecutionResult implements ExecutionResult {
         for (CommandTable table : getResult()) {
             ConsoleUtil.printTable(table, output);
         }
-    }
-
-    private static String toJson(Object object) {
-
-        String result;
-        if (object == null) {
-            result = "null";
-        } else if (object instanceof String) {
-            result = "\"" + escapeStringForJson((String) object) + "\"";
-        } else if (object instanceof Number || object instanceof Boolean) {
-            result = object.toString();
-        } else if (object instanceof Collection) {
-            result = jsonForCollection((Collection) object);
-        } else if (object instanceof Array) {
-            result = jsonForArray((Array) object);
-        } else if (object instanceof CommandTable) {
-            result = jsonForCommandTable((CommandTable) object);
-        } else if (object instanceof CommandTable[]) {
-            CommandTable[] tableArray = (CommandTable[]) object;
-            StringBuilder arrayResult = new StringBuilder("");
-            String separator = "";
-            if (tableArray.length > 1) {
-                arrayResult.append("[");
-            }
-            for (CommandTable commandTable : ((CommandTable[]) object)) {
-                arrayResult.append(separator).append(jsonForCommandTable(commandTable));
-                separator = ",";
-            }
-            if (tableArray.length > 1) {
-                arrayResult.append("]");
-            }
-            result = arrayResult.toString();
-        } else {
-            StringBuilder objectResult = new StringBuilder("{");
-            String separator = "";
-            for (Method method : object.getClass().getMethods()) {
-                String methodName = method.getName();
-                if (method.getParameterCount() == 0 && methodName.startsWith("get") && !methodName.equals("getClass") &&
-                        methodName.length() >= 4) {
-                    try {
-                        Object value = method.invoke(object);
-                        if (value != null) {
-                            String fieldName = (methodName.charAt(3) + "").toLowerCase() + methodName.substring(4);
-                            objectResult.append(separator).append("\"").append(fieldName).append("\":")
-                                    .append(toJson(value));
-                            separator = ",";
-                        }
-                    } catch (Exception ignored) { }
-                }
-            }
-            objectResult.append("}");
-            result = objectResult.toString();
-        }
-
-        return result;
-    }
-
-    private static String jsonForCollection(Collection collection) {
-
-        StringBuilder result = new StringBuilder("[");
-        String separator = "";
-        for (Object item : collection) {
-            result.append(separator).append(toJson(item));
-            separator = ",";
-        }
-        result.append("]");
-
-        return result.toString();
-    }
-
-    private static String jsonForArray(Array array) {
-
-        StringBuilder result = new StringBuilder("[");
-        String separator = "";
-        int length = Array.getLength(array);
-        for (int i = 0; i < length; i++) {
-            result.append(separator).append(toJson(Array.get(array, i)));
-            separator = ",";
-        }
-        result.append("]");
-
-        return result.toString();
-    }
-
-    private static String jsonForCommandTable(CommandTable table) {
-
-        StringBuilder result = new StringBuilder("[");
-        String rowSeparator = "";
-        CommandTableHeader[] headers = table.getHeaders();
-        for (Object[] row : table.getRows()) {
-            result.append(rowSeparator).append("{");
-            rowSeparator = ",";
-            int length = Math.min(row.length, headers.length);
-            for (int i = 0; i < length; i++) {
-                result.append(i == 0 ? "" : ",").append("\"").append(headers[i].getIdentifier()).append("\":")
-                        .append(toJson(row[i]));
-            }
-            result.append("}");
-        }
-        result.append("]");
-
-        return result.toString();
-    }
-
-    private static String escapeStringForJson(String value) {
-
-        // According the the JSON spec (https://www.json.org/json-en.html), few characters need to be escaped in JSON
-        // strings. They are handled below.
-        StringBuilder result = new StringBuilder();
-        for (char character : value.toCharArray()) {
-            switch (character) {
-                case '"':
-                case '\\':
-                case '/':
-                    result.append('\\').append(character);
-                    break;
-                case '\b':
-                    result.append("\\b");
-                    break;
-                case '\f':
-                    result.append("\\f");
-                    break;
-                case '\n':
-                    result.append("\\n");
-                    break;
-                case '\r':
-                    result.append("\\r");
-                    break;
-                case '\t':
-                    result.append("\\t");
-                    break;
-                default:
-                    result.append(character);
-            }
-        }
-
-        return result.toString();
     }
 }

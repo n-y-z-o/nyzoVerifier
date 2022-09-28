@@ -201,9 +201,20 @@ public class Json {
                         state.processValue(list);
                     }
                 } else if (character == ']') {
+                    if (state.atArrayRoot() && state.valueStart > 0 && jsonString.charAt(state.valueStart) != '[') {
+                        state.processValue(list);
+                    }
                     state.bracketLevel--;
+                    if (state.atArrayRoot() && state.valueStart > 0 && jsonString.charAt(state.valueStart) == '[') {
+                        state.processValue(list);
+                    }
+                } else if (character == ',') {
                     if (state.atArrayRoot() && state.valueStart > 0) {
                         state.processValue(list);
+                    }
+                } else if (character >= '0' && character <= '9') {
+                    if (state.atArrayRoot() && state.valueStart < 0) {
+                        state.markValueStart();
                     }
                 }
             }
