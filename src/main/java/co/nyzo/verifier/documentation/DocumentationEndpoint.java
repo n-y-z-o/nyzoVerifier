@@ -228,20 +228,21 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
     public EndpointResponse getResponse(EndpointRequest request) {
 
         EndpointResponse result;
-        if (micropayAuthorized(request)) {
+        StringBuilder micropayFailure = new StringBuilder();
+        if (micropayAuthorized(request, micropayFailure)) {
             if (type == DocumentationEndpointType.Html) {
                 result = getResponseForHtml();
             } else {
                 result = getResponseForRaw();
             }
         } else {
-            result = getResponseForInvalidMicropay();
+            result = getResponseForInvalidMicropay(micropayFailure.toString());
         }
 
         return result;
     }
 
-    private boolean micropayAuthorized(EndpointRequest request) {
+    private boolean micropayAuthorized(EndpointRequest request, StringBuilder failureCause) {
 
         // Set the flag initially to false. It will be set to true before returning if properly authorized.
         boolean authorized = false;
@@ -249,6 +250,13 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
             Map<String, String> queryParameters = request.getQueryParameters();
             String transaction = queryParameters.getOrDefault("transaction", "").trim();
             String supplementalTransaction = queryParameters.getOrDefault("supplementalTransaction", "").trim();
+            if (transaction.isEmpty()) {
+                failureCause.append("No transaction provided. ");
+            }
+            if (supplementalTransaction.isEmpty()) {
+                failureCause.append("No supplemental transaction provided. ");
+            }
+
             if (!transaction.isEmpty() && !supplementalTransaction.isEmpty()) {
                 // Forward the transaction to the client.
                 String clientFullUrl = "https://client.nyzo.co/api/forwardTransaction?transaction=" + transaction +
@@ -269,7 +277,9 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
                     }
                 }
 
-                if (response != null) {
+                if (response == null) {
+                    failureCause.append("Response from client is null. ");
+                } else {
 
                     // We want the purchaser of the Micropay content to be acting in good faith, making an attempt
                     // to provide appropriate payment for this content. Therefore, we want to see the following
@@ -299,7 +309,58 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
                             amount >= micropayPrice &&  // (4)
                             ByteUtil.arraysAreEqual(micropayReceiverIdentifier, receiverIdentifier) &&  // (5)
                             (micropaySenderData == null || micropaySenderData.length == 0 ||
-                                    ByteUtil.arraysAreEqual(micropaySenderData, senderData));  // 6
+                                    ByteUtil.arraysAreEqual(micropaySenderData, senderData));  // (6)
+
+                    // If authorization failed, add information about why it failed to help users and developers fix the
+                    // problem.
+                    if (!authorized) {
+                        // Condition 1.
+                        if (!response.getBoolean("previouslyForwarded", false) && !inBlockchain) {
+                            failureCause.append("Transaction was not previously forwarded and not in the blockchain. ");
+                        }
+
+                        // Condition 2.
+                        if (senderBalance < (BalanceManager.minimumPreferredBalance + micropayPrice) && !inBlockchain) {
+                            failureCause.append("Sender balance of ").append(PrintUtil.printAmount(senderBalance))
+                                    .append(" is less than the sum of the minimum preferred balance (")
+                                    .append(PrintUtil.printAmount(BalanceManager.minimumPreferredBalance))
+                                    .append(") and the Micropay price (").append(PrintUtil.printAmount(micropayPrice))
+                                    .append("), and the transaction is not in the blockchain. ");
+                        }
+
+                        // Condition 3.
+                        if (!response.getBoolean("supplementalTransactionValid", false)) {
+                            failureCause.append("The supplemental transaction is invalid. ");
+                        }
+
+                        // Condition 4.
+                        if (amount < micropayPrice) {
+                            failureCause.append("The transaction amount of ").append(PrintUtil.printAmount(amount))
+                                    .append(" is less than the Micropay price of ")
+                                    .append(PrintUtil.printAmount(micropayPrice)).append(". ");
+                        }
+
+                        // Condition 5.
+                        if (!ByteUtil.arraysAreEqual(micropayReceiverIdentifier, receiverIdentifier)) {
+                            failureCause.append("The transaction receiver identifier of ")
+                                    .append(NyzoStringEncoder
+                                            .encode(new NyzoStringPublicIdentifier(receiverIdentifier)))
+                                    .append(" does not match the required Micropay receiver identifier of ")
+                                    .append(NyzoStringEncoder
+                                            .encode(new NyzoStringPublicIdentifier(micropayReceiverIdentifier)))
+                                    .append(". ");
+                        }
+
+                        // Condition 6.
+                        if (micropaySenderData != null && micropaySenderData.length != 0 &&
+                                !ByteUtil.arraysAreEqual(micropaySenderData, senderData)) {
+                            failureCause.append("The transaction sender data of ")
+                                    .append(ClientTransactionUtil.senderDataForDisplay(senderData))
+                                    .append(" does not match the required Micropay sender data of ")
+                                    .append(ClientTransactionUtil.senderDataForDisplay(micropaySenderData))
+                                    .append(". ");
+                        }
+                    }
                 }
             }
         } else {
@@ -310,19 +371,24 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
         return authorized;
     }
 
-    public EndpointResponse getResponseForInvalidMicropay() {
+    public EndpointResponse getResponseForInvalidMicropay(String failureCause) {
 
         String receiverIdentifierString =
                 NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(micropayReceiverIdentifier));
-        String message = "This is a Micropay resource. Please provide a valid payment of " +
-                PrintUtil.printAmount(micropayPrice) + " to " + receiverIdentifierString;
+        StringBuilder message = new StringBuilder("This is a Micropay resource. Please provide a valid payment of ")
+                .append(PrintUtil.printAmount(micropayPrice)).append(" to ").append(receiverIdentifierString);
         if (micropaySenderData != null && micropaySenderData.length > 0) {
-            message += " with sender data \"" + WebUtil.sanitizedSenderDataForDisplay(micropaySenderData) + "\"";
+            message.append(" with sender data \"").append(WebUtil.sanitizedSenderDataForDisplay(micropaySenderData))
+                    .append("\"");
         }
-        message += " to access this content.";
+        message.append(" to access this content.");
 
-        return new EndpointResponse(message.getBytes(StandardCharsets.UTF_8), EndpointResponse.contentTypeText,
-                HttpStatusCode.PaymentRequired402);
+        if (failureCause != null && !failureCause.trim().isEmpty()) {
+            message.append(" Failure cause: ").append(failureCause);
+        }
+
+        return new EndpointResponse(message.toString().getBytes(StandardCharsets.UTF_8),
+                EndpointResponse.contentTypeText, HttpStatusCode.PaymentRequired402);
     }
 
     public EndpointResponse getResponseForHtml() {
