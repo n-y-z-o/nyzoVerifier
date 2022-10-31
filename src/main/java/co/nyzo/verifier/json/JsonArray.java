@@ -5,7 +5,7 @@ import java.util.List;
 
 public class JsonArray implements JsonRenderable {
 
-    private List<Object> objects;
+    private final List<Object> objects;
 
     public JsonArray(List<Object> objects) {
         this.objects = new ArrayList<>(objects);
@@ -29,6 +29,42 @@ public class JsonArray implements JsonRenderable {
         try {
             result = Double.parseDouble(getString(index, ""));
         } catch(Exception ignored){ }
+
+        return result;
+    }
+
+    public int getInteger(int index, int defaultValue) {
+        int result = defaultValue;
+        try {
+            result = Integer.parseInt(getString(index, ""));
+        } catch(Exception ignored){ }
+
+        return result;
+    }
+
+    public long getLong(int index, long defaultValue) {
+        long result = defaultValue;
+        try {
+            result = Long.parseLong(getString(index, ""));
+        } catch(Exception ignored){ }
+
+        return result;
+    }
+
+    public int[] toIntegerArray() {
+        int[] result = new int[length()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = getInteger(i, 0);
+        }
+
+        return result;
+    }
+
+    public long[] toLongArray() {
+        long[] result = new long[length()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = getLong(i, 0);
+        }
 
         return result;
     }

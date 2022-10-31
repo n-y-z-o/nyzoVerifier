@@ -4,10 +4,7 @@ import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.CommandTable;
 import co.nyzo.verifier.client.ExecutionResult;
 import co.nyzo.verifier.client.commands.FrozenEdgeCommand;
-import co.nyzo.verifier.json.Json;
-import co.nyzo.verifier.json.JsonArray;
-import co.nyzo.verifier.json.JsonObject;
-import co.nyzo.verifier.json.JsonRenderer;
+import co.nyzo.verifier.json.*;
 import co.nyzo.verifier.util.PrintUtil;
 
 import java.lang.reflect.Field;
@@ -37,6 +34,9 @@ public class JsonTest implements NyzoTest {
 
             if (successful) {
                 successful = testFrozenEdgeCommand();
+            }
+            if (successful) {
+                successful = testNumericalArrays();
             }
         } catch (Exception e) {
             failureCause = "exception in " + getClass().getSimpleName() + ": " + PrintUtil.printException(e);
@@ -68,17 +68,29 @@ public class JsonTest implements NyzoTest {
         // for the Json class.
         if (successful) {
             String inputString2 = "{\"month_to_date_balance\":\"179.72\",\"account_balance\":\"0.00\"," +
-                    "\"month_to_date_usage\":\"179.72\",\"generated_at\":\"2020-07-19T06:41:57Z\"," +
+                    "\"month_to_date_usage\":\"-179.72\",\"generated_at\":\"2020-07-19T06:41:57Z\"," +
                     "\"supplementalTransactionValid\":true}";
             JsonObject parsed2 = (JsonObject) Json.parse(inputString2);
             String[] keys = { "month_to_date_balance", "account_balance", "month_to_date_usage", "generated_at",
                     "supplementalTransactionValid" };
-            String[] expectedValues = { "179.72", "0.00", "179.72", "2020-07-19T06:41:57Z", "true" };
-            for (int i = 0; i < keys.length; i++) {
-                String actualValue = parsed2.getString(keys[i], "");
-                if (!actualValue.equals(expectedValues[i])) {
-                    failureCause = "testDeserialization(): for input string 2, index " + i + ", expected value of " +
-                            expectedValues[i] + ", actual value of " + actualValue;
+            String[] expectedStringValues = { "179.72", "0.00", "-179.72", "2020-07-19T06:41:57Z", "true" };
+            double defaultDoubleValue = -1.0;
+            double[] expectedDoubleValues = { 179.72, 0.0, -179.72, defaultDoubleValue, defaultDoubleValue };
+            for (int i = 0; i < keys.length && successful; i++) {
+                String actualStringValue = parsed2.getString(keys[i], "");
+                if (!actualStringValue.equals(expectedStringValues[i])) {
+                    successful = false;
+                    failureCause = "testDeserialization(): for input string 2, index " + i +
+                            ", expected string value of " + expectedStringValues[i] + ", actual string value of " +
+                            actualStringValue;
+                }
+
+                double actualDoubleValue = parsed2.getDouble(keys[i], defaultDoubleValue);
+                if (successful && actualDoubleValue != expectedDoubleValues[i]) {
+                    successful = false;
+                    failureCause = "testDeserialization(): for input string 2, index " + i +
+                            ", expected double value of " + expectedDoubleValues[i] + ", actual double value of " +
+                            actualDoubleValue;
                 }
             }
         }
@@ -261,6 +273,104 @@ public class JsonTest implements NyzoTest {
                         successful = false;
                         failureCause = "testFrozenEdgeCommand(): index " + i + ", expected value of " +
                                 expectedValues[i] + ", actual value of " + actualValue;
+                    }
+                }
+            }
+        }
+
+        return successful;
+    }
+
+    private boolean testNumericalArrays() {
+
+        boolean successful = testIntegerArray();
+        if (successful) {
+            successful = testLongArray();
+        }
+
+        return successful;
+    }
+
+    private boolean testIntegerArray() {
+
+        int[] array = { Integer.MIN_VALUE, -1, 0, 1, 2, 3, Integer.MAX_VALUE };
+        boolean successful = true;
+
+        // Serialize the array.
+        String jsonString = JsonRenderer.toJson(array);
+        String expectedJsonString = "[" + Integer.MIN_VALUE + ",-1,0,1,2,3," + Integer.MAX_VALUE + "]";
+        if (!jsonString.equals(expectedJsonString)) {
+            successful = false;
+            failureCause = "integer array JSON string, " + jsonString + ", does not match expected value, " +
+                    expectedJsonString;
+        }
+
+        // Deserialize the array.
+        if (successful) {
+            Object deserializedObject = Json.parse(jsonString);
+            if (!(deserializedObject instanceof JsonArray)) {
+                successful = false;
+                failureCause = "integer array should deserialize to JsonArray, actual type: " +
+                        (deserializedObject == null ? "null" : deserializedObject.getClass());
+            }
+
+            if (successful) {
+                int[] deserializedArray = ((JsonArray) deserializedObject).toIntegerArray();
+                if (deserializedArray.length != array.length) {
+                    successful = false;
+                    failureCause = "deserialized integer array length: " + deserializedArray.length +
+                            ", input array length: " + array.length;
+                }
+
+                for (int i = 0; i < array.length && successful; i++) {
+                    if (deserializedArray[i] != array[i]) {
+                        successful = false;
+                        failureCause = "at index " + i + " of integer array, value: " + deserializedArray[i] +
+                                ", expected value: " + array[i];
+                    }
+                }
+            }
+        }
+
+        return successful;
+    }
+
+    private boolean testLongArray() {
+
+        long[] array = { Long.MIN_VALUE, -1, 0, 0xFFFF, Long.MAX_VALUE };
+        boolean successful = true;
+
+        // Serialize the array.
+        String jsonString = JsonRenderer.toJson(array);
+        String expectedJsonString = "[" + Long.MIN_VALUE + ",-1,0,65535," + Long.MAX_VALUE + "]";
+        if (!jsonString.equals(expectedJsonString)) {
+            successful = false;
+            failureCause = "long array JSON string, " + jsonString + ", does not match expected value, " +
+                    expectedJsonString;
+        }
+
+        // Deserialize the array.
+        if (successful) {
+            Object deserializedObject = Json.parse(jsonString);
+            if (!(deserializedObject instanceof JsonArray)) {
+                successful = false;
+                failureCause = "long array should deserialize to JsonArray, actual type: " +
+                        (deserializedObject == null ? "null" : deserializedObject.getClass());
+            }
+
+            if (successful) {
+                long[] deserializedArray = ((JsonArray) deserializedObject).toLongArray();
+                if (deserializedArray.length != array.length) {
+                    successful = false;
+                    failureCause = "deserialized long array length: " + deserializedArray.length +
+                            ", input array length: " + array.length;
+                }
+
+                for (int i = 0; i < array.length && successful; i++) {
+                    if (deserializedArray[i] != array[i]) {
+                        successful = false;
+                        failureCause = "at index " + i + " of long array, value: " + deserializedArray[i] +
+                                ", expected value: " + array[i];
                     }
                 }
             }

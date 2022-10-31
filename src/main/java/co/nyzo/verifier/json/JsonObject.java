@@ -45,7 +45,7 @@ public class JsonObject implements JsonRenderable {
         double result = defaultValue;
         if (objects.containsKey(key)) {
             try {
-                result = Double.parseDouble(getString(key, "").replace("∩", ""));
+                result = Double.parseDouble(getString(key, "").replaceAll("[^\\d.-]", ""));
             } catch (Exception ignored) { }
         }
 
@@ -72,19 +72,6 @@ public class JsonObject implements JsonRenderable {
         }
 
         return result;
-    }
-
-    public List<String> getStringList(String key) {
-        List<String> stringList = new ArrayList<>();
-        Object arrayObject = get(key);
-        if (arrayObject instanceof JsonArray) {
-            JsonArray array = (JsonArray) arrayObject;
-            for (int i = 0; i < array.length(); i++) {
-                stringList.add(array.get(i) + "");
-            }
-        }
-
-        return stringList;
     }
 
     @Override

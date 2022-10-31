@@ -212,7 +212,7 @@ public class Json {
                     if (state.atArrayRoot() && state.valueStart > 0) {
                         state.processValue(list);
                     }
-                } else if (character >= '0' && character <= '9') {
+                } else if ((character >= '0' && character <= '9') || character == '-') {
                     if (state.atArrayRoot() && state.valueStart < 0) {
                         state.markValueStart();
                     }

@@ -12,13 +12,17 @@ public class JsonRenderer {
         if (object == null) {
             result = "null";
         } else if (object instanceof String) {
-            result = "\"" + escapeStringForJson((String) object) + "\"";
+            if (isNumeric(object)) {
+                result = object + "";
+            } else {
+                result = "\"" + escapeStringForJson((String) object) + "\"";
+            }
         } else if (object instanceof Number || object instanceof Boolean) {
             result = object.toString();
         } else if (object instanceof Collection) {
             result = jsonForCollection((Collection) object);
-        } else if (object instanceof Array) {
-            result = jsonForArray((Array) object);
+        } else if (object instanceof Array || object instanceof int[] || object instanceof long[]) {
+            result = jsonForArray(object);
         } else if (object instanceof JsonRenderable) {
             result = ((JsonRenderable) object).renderJson();
         } else if (object instanceof JsonRenderable[]) {
@@ -74,7 +78,7 @@ public class JsonRenderer {
         return result.toString();
     }
 
-    private static String jsonForArray(Array array) {
+    private static String jsonForArray(Object array) {
 
         StringBuilder result = new StringBuilder("[");
         String separator = "";
@@ -121,5 +125,19 @@ public class JsonRenderer {
         }
 
         return result.toString();
+    }
+
+    private static boolean isNumeric(Object value) {
+        boolean isNumeric = false;
+        if (value instanceof Number) {
+            isNumeric = true;
+        } else if (value instanceof String) {
+            try {
+                Double.parseDouble((String) value);
+                isNumeric = true;
+            } catch (Exception ignored) { }
+        }
+
+        return isNumeric;
     }
 }
