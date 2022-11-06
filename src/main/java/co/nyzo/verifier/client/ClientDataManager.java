@@ -2,6 +2,7 @@ package co.nyzo.verifier.client;
 
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.messages.*;
+import co.nyzo.verifier.nyzoScript.NyzoScriptManager;
 import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.ThreadUtil;
 import co.nyzo.verifier.util.UpdateUtil;
@@ -43,10 +44,14 @@ public class ClientDataManager {
         // Check this system's clock against the trusted entry points.
         long timeOffset = medianTimestampOffset(trustedEntryPoints);
         boolean started;
-        if (Math.abs(timeOffset) > Message.replayProtectionInterval) {
+        if (trustedEntryPoints.isEmpty()) {
             started = false;
-            System.out.println(String.format("%scalculated time offset is %.1f; not starting data manager%s",
-                    ConsoleColor.Red.background(), timeOffset / 1000.0, ConsoleColor.reset));
+            System.out.println(ConsoleColor.Red.backgroundBright() + "List of trusted entry points is missing. Not " +
+                    "starting data manager." + ConsoleColor.reset);
+        } else if (Math.abs(timeOffset) > Message.replayProtectionInterval) {
+            started = false;
+            System.out.printf("%sCalculated time offset is %.1f. Not starting data manager.%s\n",
+                    ConsoleColor.Red.backgroundBright(), timeOffset / 1000.0, ConsoleColor.reset);
             System.out.println(ConsoleColor.Red.background() + "please check your system's clock" + ConsoleColor.reset);
         } else {
             started = true;
@@ -93,6 +98,9 @@ public class ClientDataManager {
                             lastBlockUpdateTimestamp = System.currentTimeMillis();
                             requestBlockWithVotes();
                         }
+
+                        // Pass the frozen edge to the script manager.
+                        NyzoScriptManager.processBlock(frozenEdge);
 
                         // Reinitialize the frozen edge, if necessary. Both checks must be performed to avoid continuously
                         // reinitializing if the blockchain is stalled.

@@ -20,6 +20,7 @@ public class TestUtil {
                 new CommandManagerTest(),
                 new IpUtilTest(),
                 new JsonTest(),
+                new NyzoScriptStateTest(),
                 new NyzoStringTest(),
                 new ShortLongTest(),
                 new TransactionIndexerTest()

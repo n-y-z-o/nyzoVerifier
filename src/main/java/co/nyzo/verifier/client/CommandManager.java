@@ -24,6 +24,7 @@ public class CommandManager {
             new FrozenEdgeCommand(),
             new TransactionForwardCommand(),
             new VerifierStatusCommand(),
+            new NyzoScriptCommand(),
             new ExitCommand()
     };
 
