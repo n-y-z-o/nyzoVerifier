@@ -5,6 +5,7 @@ import co.nyzo.verifier.json.*;
 import co.nyzo.verifier.nyzoScript.*;
 import co.nyzo.verifier.util.PrintUtil;
 
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 
 public class NyzoScriptStateTest implements NyzoTest {
@@ -117,11 +118,24 @@ public class NyzoScriptStateTest implements NyzoTest {
                         ByteUtil.byteArrayFromHexString("0001020304FEFF", 7)),  // 1
         };
 
+        // Use reflection to cleanly set the private frozenEdgeHeight field so the value is predictable.
+        long frozenEdgeHeight = 10L;
+        try {
+            Field frozenEdgeHeightField = BlockManager.class.getDeclaredField("frozenEdgeHeight");
+            frozenEdgeHeightField.setAccessible(true);
+            frozenEdgeHeightField.set(BlockManager.class, frozenEdgeHeight);
+        } catch (Exception e) {
+            successful = false;
+            failureCause = "NyzoScriptStateTest.testSerialization(): unable to set BlockManager.frozenEdgeHeight " +
+                    "field, exception: " + e.getMessage();
+        }
+
         String[] expectedStateStrings = {
-                "{\"creationHeight\":1,\"lastUpdateHeight\":1,\"contentType\":1,\"containsUnconfirmedData\":false," +
+                "{\"creationHeight\":1,\"lastUpdateHeight\":1,\"frozenEdgeHeight\":" + frozenEdgeHeight +
+                        ",\"contentType\":1,\"containsUnconfirmedData\":false," +
                         "\"data\":{\"customField\":\"customValue\"}}",  // 0
-                "{\"creationHeight\":1,\"lastUpdateHeight\":1,\"contentType\":0,\"containsUnconfirmedData\":false," +
-                        "\"data\":\"AAECAwT+/w==\"}",  // 2
+                "{\"creationHeight\":1,\"lastUpdateHeight\":1,\"frozenEdgeHeight\":" + frozenEdgeHeight +
+                        ",\"contentType\":0,\"containsUnconfirmedData\":false,\"data\":\"AAECAwT+/w==\"}",  // 2
         };
 
         for (int i = 0; i < states.length && successful; i++) {

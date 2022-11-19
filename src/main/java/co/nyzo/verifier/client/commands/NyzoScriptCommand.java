@@ -82,15 +82,16 @@ public class NyzoScriptCommand implements Command {
 
         CommandTable table = new CommandTable(new CommandTableHeader("creation height", "creationHeight"),
                 new CommandTableHeader("last update height", "lastUpdateHeight"),
+                new CommandTableHeader("frozen edge height", "frozenEdgeHeight"),
                 new CommandTableHeader("content type", "contentType"),
                 new CommandTableHeader("contains unconfirmed data", "containsUnconfirmedData"));
         table.setInvertedRowsColumns(true);
 
         if (state == null) {
-            table.addRow("-", "-", "-", "-");
+            table.addRow("-", "-", "-", "-", "-");
         } else {
-            table.addRow(state.getCreationHeight(), state.getLastUpdateHeight(), state.getContentType(),
-                    state.containsUnconfirmedData());
+            table.addRow(state.getCreationHeight(), state.getLastUpdateHeight(), BlockManager.getFrozenEdgeHeight(),
+                    state.getContentType(), state.containsUnconfirmedData());
         }
 
         return new SimpleExecutionResult(notices, errors, table) {

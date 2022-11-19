@@ -10,6 +10,7 @@ public class NyzoScriptState implements JsonRenderable {
 
     private static final String creationHeightKey = "creationHeight";
     private static final String lastUpdateHeightKey = "lastUpdateHeight";
+    private static final String frozenEdgeHeightKey = "frozenEdgeHeight";
     private static final String contentTypeKey = "contentType";
     private static final String containsUnconfirmedDataKey = "containsUnconfirmedData";
     private static final String dataKey = "data";
@@ -61,6 +62,7 @@ public class NyzoScriptState implements JsonRenderable {
     public String renderJson() {
         StringBuilder result = new StringBuilder("{\"").append(creationHeightKey).append("\":").append(creationHeight);
         result.append(",\"").append(lastUpdateHeightKey).append("\":").append(lastUpdateHeight);
+        result.append(",\"").append(frozenEdgeHeightKey).append("\":").append(BlockManager.getFrozenEdgeHeight());
         result.append(",\"").append(contentTypeKey).append("\":").append(contentType.getValue());
         result.append(",\"").append(containsUnconfirmedDataKey).append("\":").append(containsUnconfirmedData);
         result.append(",\"").append(dataKey).append("\":");
