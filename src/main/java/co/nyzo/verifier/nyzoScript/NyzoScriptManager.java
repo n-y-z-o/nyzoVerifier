@@ -1,6 +1,7 @@
 package co.nyzo.verifier.nyzoScript;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.client.commands.TransactionForwardCommand;
 import co.nyzo.verifier.nyzoString.*;
 import co.nyzo.verifier.util.*;
 
@@ -11,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NyzoScriptManager {
 
@@ -20,6 +22,23 @@ public class NyzoScriptManager {
     public static final File directory = new File(Verifier.dataRootDirectory, "script_states");
     private static final String highestBlockProcessedKey = "nyzo_script_manager_highest_block_processed";
     private static final Map<ByteBuffer, NyzoScript> scriptMap = new ConcurrentHashMap<>();
+    private static Map<ByteBuffer, NyzoScriptState> unconfirmedStateMap = new ConcurrentHashMap<>();
+    private static final AtomicBoolean alive = new AtomicBoolean(false);
+
+    public static void start() {
+        if (!alive.getAndSet(true)) {
+            new Thread(() -> {
+                while (!UpdateUtil.shouldTerminate()) {
+                    // Sleep for 3 seconds to keep the loop from running too tightly.
+                    ThreadUtil.sleep(3000L);
+
+                    processUnconfirmedTransactions();
+                }
+
+                alive.set(false);
+            }).start();
+        }
+    }
 
     public static void registerScript(NyzoStringPublicIdentifier identifier, NyzoScript script) {
         registerScript(identifier.getIdentifier(), script);
@@ -33,7 +52,7 @@ public class NyzoScriptManager {
         // the client's JVM for untrusted scripts.
 
         // If the account's state is null, run the script with no transactions to create an initial state.
-        NyzoScriptState inputState = stateForAccount(ByteBuffer.wrap(account));
+        NyzoScriptState inputState = stateForAccount(ByteBuffer.wrap(account), false);
         if (inputState == null) {
             // Process the transactions.
             NyzoScriptState outputState = script.update(inputState, Collections.emptyList());
@@ -84,8 +103,93 @@ public class NyzoScriptManager {
         return new String(fileContents, StandardCharsets.UTF_8);
     }
 
-    public static NyzoScriptState stateForAccount(ByteBuffer account) {
-        return NyzoScriptState.fromJsonString(stateJsonStringForAccount(account));
+    public static NyzoScriptState stateForAccount(ByteBuffer account, boolean includeUnconfirmedTransactions) {
+
+        // First, look for a state that includes unconfirmed transactions if requested.
+        NyzoScriptState state = null;
+        if (includeUnconfirmedTransactions) {
+            state = unconfirmedStateMap.get(account);
+        }
+
+        // If the state is not yet set, build it from the file.
+        if (state == null) {
+            state = NyzoScriptState.fromJsonString(stateJsonStringForAccount(account));
+        }
+
+        return state;
+    }
+
+    private static void processUnconfirmedTransactions() {
+
+        // Get all unconfirmed transactions up to one block beyond the open edge.
+        Collection<Transaction> allTransactions = TransactionForwardCommand.allTransactions();
+        List<Transaction> transactionsInRange = new ArrayList<>();
+        long thresholdHeight = BlockManager.openEdgeHeight(true) + 1L;
+        for (Transaction transaction : allTransactions) {
+            if (BlockManager.heightForTimestamp(transaction.getTimestamp()) <= thresholdHeight) {
+                transactionsInRange.add(transaction);
+            }
+        }
+
+        // Build a list for each recipient account. A script for an account is provided with all transactions received
+        // by that account.
+        Map<ByteBuffer, List<Transaction>> receiverToTransactionListMap = new HashMap<>();
+        for (Transaction transaction : transactionsInRange) {
+            ByteBuffer receiver = ByteBuffer.wrap(transaction.getReceiverIdentifier());
+            List<Transaction> transactionsForAccount = receiverToTransactionListMap.computeIfAbsent(receiver,
+                    key -> new ArrayList<>());
+            transactionsForAccount.add(transaction);
+        }
+
+        // Create states with the unconfirmed transactions.
+        Map<ByteBuffer, NyzoScriptState> newUnconfirmedStateMap = new ConcurrentHashMap<>();
+        for (ByteBuffer receiver : receiverToTransactionListMap.keySet()) {
+            NyzoStringPublicIdentifier publicIdentifier = new NyzoStringPublicIdentifier(receiver.array());
+            try {
+                NyzoScript script = scriptForAccount(receiver);
+                if (script != null) {
+                    // Get the current state for the account.
+                    NyzoScriptState inputState = stateForAccount(receiver, false);
+
+                    // Get the transactions for the account and sort in block order.
+                    List<Transaction> transactions = receiverToTransactionListMap.get(receiver);
+                    BalanceManager.sortTransactions(transactions);
+
+                    // Remove transactions that have already been incorporated into the state.
+                    if (inputState != null) {
+                        while (!transactions.isEmpty() &&
+                                BlockManager.heightForTimestamp(transactions.get(0).getTimestamp()) <=
+                                        inputState.getLastUpdateHeight()) {
+                            transactions.remove(0);
+                        }
+                    }
+
+                    // Process the transactions and store the state in the map.
+                    if (!transactions.isEmpty()) {
+                        // Process the transactions.
+                        NyzoScriptState outputState = script.update(inputState, transactions);
+
+                        // Create a new output state to ensure the managed fields are properly set.
+                        long creationHeight = inputState == null ?
+                                BlockManager.heightForTimestamp(transactions.get(0).getTimestamp()) :
+                                inputState.getCreationHeight();
+                        long lastUpdateHeight = BlockManager.heightForTimestamp(transactions.get(transactions.size() -
+                                1).getTimestamp());
+                        NyzoScriptState managedState = new NyzoScriptState(creationHeight, lastUpdateHeight,
+                                outputState.getContentType(), true, outputState.getData());
+
+                        // Store the managed state in the map.
+                        newUnconfirmedStateMap.put(receiver, managedState);
+                    }
+                }
+            } catch (Exception e) {
+                LogUtil.println("exception processing script for receiver " +
+                        ByteUtil.arrayAsStringWithDashes(receiver.array()) + " for pending transactions");
+            }
+        }
+
+        // Set the map for an atomic update of states.
+        unconfirmedStateMap = newUnconfirmedStateMap;
     }
 
     public static void processBlock(Block block) {
@@ -112,7 +216,7 @@ public class NyzoScriptManager {
                 NyzoScript script = scriptForAccount(receiver);
                 if (script != null) {
                     // Get the current state for the account.
-                    NyzoScriptState inputState = stateForAccount(receiver);
+                    NyzoScriptState inputState = stateForAccount(receiver, false);
 
                     // Do not process a block that has already been processed for this script.
                     if (inputState == null || inputState.getLastUpdateHeight() < block.getBlockHeight()) {

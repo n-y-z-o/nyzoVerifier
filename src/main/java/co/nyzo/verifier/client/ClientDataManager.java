@@ -71,6 +71,9 @@ public class ClientDataManager {
             // Load the consensus frozen edge. This is the same process used by the verifier.
             ChainInitializationManager.initializeFrozenEdge(trustedEntryPoints);
 
+            // Start the script manager.
+            NyzoScriptManager.start();
+
             new Thread(new Runnable() {
                 @Override
                 public void run() {

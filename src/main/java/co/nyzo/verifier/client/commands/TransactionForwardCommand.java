@@ -317,4 +317,8 @@ public class TransactionForwardCommand implements Command {
 
         return transactions;
     }
+
+    public static Collection<Transaction> allTransactions() {
+        return recentlyForwardedTransactions.values();
+    }
 }

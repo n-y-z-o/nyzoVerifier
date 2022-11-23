@@ -31,12 +31,12 @@ public class NyzoScriptCommand implements Command {
 
     @Override
     public String[] getArgumentNames() {
-        return new String[] { "account ID" };
+        return new String[] { "account ID", "include unconfirmed transactions" };
     }
 
     @Override
     public String[] getArgumentIdentifiers() {
-        return new String[] { "accountIdentifier" };
+        return new String[] { "accountIdentifier", "includeUnconfirmedTransactions" };
     }
 
     @Override
@@ -68,13 +68,15 @@ public class NyzoScriptCommand implements Command {
 
         // Get the account identifier.
         NyzoStringPublicIdentifier accountIdentifier = ClientArgumentUtil.getPublicIdentifier(argumentValues.get(0));
+        boolean includeUnconfirmedTransactions = ClientArgumentUtil.getBoolean(argumentValues.get(1), false);
 
         // Add the account raw identifier and Nyzo string to the notices.
         notices.add("Account identifier (raw): " + ByteUtil.arrayAsStringWithDashes(accountIdentifier.getBytes()));
         notices.add("Account identifier (Nyzo string): " + NyzoStringEncoder.encode(accountIdentifier));
 
         // Get the state and produce the result.
-        NyzoScriptState state = NyzoScriptManager.stateForAccount(ByteBuffer.wrap(accountIdentifier.getBytes()));
+        NyzoScriptState state = NyzoScriptManager.stateForAccount(ByteBuffer.wrap(accountIdentifier.getBytes()),
+                includeUnconfirmedTransactions);
         if (state == null) {
             errors.add("Unable to get state for account " + argumentValues.get(0) + " (" +
                     ByteUtil.arrayAsStringWithDashes(accountIdentifier.getBytes()) + ")");
