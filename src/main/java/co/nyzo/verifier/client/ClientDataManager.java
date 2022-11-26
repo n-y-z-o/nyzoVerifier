@@ -1,6 +1,7 @@
 package co.nyzo.verifier.client;
 
 import co.nyzo.verifier.*;
+import co.nyzo.verifier.client.commands.TransactionForwardCommand;
 import co.nyzo.verifier.messages.*;
 import co.nyzo.verifier.nyzoScript.NyzoScriptManager;
 import co.nyzo.verifier.util.LogUtil;
@@ -82,6 +83,7 @@ public class ClientDataManager {
                     long lastBlockUpdateTimestamp = 0L;
                     long lastReinitializationTimestamp = System.currentTimeMillis();
 
+                    long previousFrozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
                     while (!UpdateUtil.shouldTerminate()) {
 
                         // Update the mesh.
@@ -102,8 +104,19 @@ public class ClientDataManager {
                             requestBlockWithVotes();
                         }
 
-                        // Pass the frozen edge to the script manager.
-                        NyzoScriptManager.processBlock(frozenEdge);
+                        // The following only need to occur when the frozen edge changes.
+                        if (frozenEdge != null && frozenEdge.getBlockHeight() != previousFrozenEdgeHeight) {
+                            // Store the new height.
+                            previousFrozenEdgeHeight = frozenEdge.getBlockHeight();
+
+                            // Pass the frozen edge to the script manager.
+                            NyzoScriptManager.processBlock(frozenEdge);
+
+                            // Perform maintenance on the TransactionForwardCommand. The next time the Command interface
+                            // is reworked, the performMaintenance() method will be added to that interface and all
+                            // commands will have the opportunity to perform per-block maintenance.
+                            TransactionForwardCommand.performMaintenance();
+                        }
 
                         // Reinitialize the frozen edge, if necessary. Both checks must be performed to avoid continuously
                         // reinitializing if the blockchain is stalled.

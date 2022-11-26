@@ -144,8 +144,9 @@ public class NyzoScriptManager {
         // Create states with the unconfirmed transactions.
         Map<ByteBuffer, NyzoScriptState> newUnconfirmedStateMap = new ConcurrentHashMap<>();
         for (ByteBuffer receiver : receiverToTransactionListMap.keySet()) {
-            NyzoStringPublicIdentifier publicIdentifier = new NyzoStringPublicIdentifier(receiver.array());
             try {
+                long highestBlockProcessed = PersistentData.getLong(highestBlockProcessedKey,
+                        BlockManager.getFrozenEdgeHeight() - 1L);
                 NyzoScript script = scriptForAccount(receiver);
                 if (script != null) {
                     // Get the current state for the account.
@@ -155,11 +156,12 @@ public class NyzoScriptManager {
                     List<Transaction> transactions = receiverToTransactionListMap.get(receiver);
                     BalanceManager.sortTransactions(transactions);
 
-                    // Remove transactions that have already been incorporated into the state.
+                    // Remove transactions that are at or behind the highest block processed or have already been
+                    // incorporated into the state.
                     if (inputState != null) {
                         while (!transactions.isEmpty() &&
                                 BlockManager.heightForTimestamp(transactions.get(0).getTimestamp()) <=
-                                        inputState.getLastUpdateHeight()) {
+                                        Math.max(highestBlockProcessed, inputState.getLastUpdateHeight())) {
                             transactions.remove(0);
                         }
                     }

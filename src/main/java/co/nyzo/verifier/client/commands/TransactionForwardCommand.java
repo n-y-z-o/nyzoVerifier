@@ -96,7 +96,6 @@ public class TransactionForwardCommand implements Command {
 
         // Periodically perform maintenance on the recent-transactions map.
         if (requestsSinceMaintenance.incrementAndGet() >= maintenanceInterval) {
-            requestsSinceMaintenance.set(0);
             performMaintenance();
         }
 
@@ -230,6 +229,9 @@ public class TransactionForwardCommand implements Command {
     }
 
     public static void performMaintenance() {
+
+        // Mark that maintenance has been performed.
+        requestsSinceMaintenance.set(0);
 
         // Remove any transactions behind the frozen edge.
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
