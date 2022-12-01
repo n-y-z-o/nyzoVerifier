@@ -70,7 +70,9 @@ public class BalanceDisplayCommand implements Command {
         // Normalize for a raw ID.
         String rawIdOrPrefix = walletIdOrPrefix.replaceAll("[^a-f0-9]", "");
 
-        // Normalize for a Nyzo string.
+        // Normalize for a Nyzo string. This is correct behavior. While Nyzo strings are case-sensitive, the search is
+        // designed to be case-insensitive. In the loop through balance-list items below, the generated Nyzo strings are
+        // also converted to lower case.
         String nyzoStringIdOrPrefix = walletIdOrPrefix.toLowerCase();
 
         // Make the lists for the notices and errors. Make the result table.
@@ -105,14 +107,14 @@ public class BalanceDisplayCommand implements Command {
                 for (int i = 0; i < items.size() && numberFound < maximumAccountsInResponse; i++) {
                     BalanceListItem item = items.get(i);
                     String identifier = ByteUtil.arrayAsStringNoDashes(item.getIdentifier());
-                    String identifierString =
-                            NyzoStringEncoder.encode(new NyzoStringPublicIdentifier(item.getIdentifier()));
+                    NyzoStringPublicIdentifier publicIdentifier = new NyzoStringPublicIdentifier(item.getIdentifier());
+                    String identifierString = NyzoStringEncoder.encode(publicIdentifier).toLowerCase();
                     if ((searchIsNyzoString && identifierString.startsWith(nyzoStringIdOrPrefix)) ||
                             (!searchIsNyzoString && identifier.startsWith(rawIdOrPrefix))) {
                         numberFound++;
                         table.addRow(balanceList.getBlockHeight(),
                                 ByteUtil.arrayAsStringWithDashes(item.getIdentifier()),
-                                identifierString,
+                                NyzoStringEncoder.encode(publicIdentifier),  // correct, mixed-case string
                                 PrintUtil.printAmount(item.getBalance()));
                     }
                 }
