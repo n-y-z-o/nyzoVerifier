@@ -102,13 +102,19 @@ public class TransactionSendCommand implements Command {
             }
 
             // Process the sender data.
-            byte[] senderDataBytes = argumentValues.get(2).getBytes(StandardCharsets.UTF_8);
-            if (senderDataBytes.length > FieldByteSize.maximumSenderDataLength) {
-                output.println(ConsoleColor.Yellow + "sender data too long; truncating" + ConsoleColor.reset);
-                senderDataBytes = Arrays.copyOf(senderDataBytes, FieldByteSize.maximumSenderDataLength);
+            String senderData = argumentValues.get(2).trim();
+            String senderDataMessage = "";
+            if (ClientTransactionUtil.isNormalizedSenderDataString(senderData)) {
+                senderData = "X" + senderData.toLowerCase().substring(1);
+            } else {
+                byte[] senderDataBytes = argumentValues.get(2).getBytes(StandardCharsets.UTF_8);
+                if (senderDataBytes.length > FieldByteSize.maximumSenderDataLength) {
+                    senderDataMessage = "sender data too long; truncating";
+                    senderDataBytes = Arrays.copyOf(senderDataBytes, FieldByteSize.maximumSenderDataLength);
+                    senderData = new String(senderDataBytes, StandardCharsets.UTF_8);
+                }
             }
-            String senderData = new String(senderDataBytes, StandardCharsets.UTF_8);
-            argumentResults.add(new ArgumentResult(true, senderData, ""));
+            argumentResults.add(new ArgumentResult(true, senderData, senderDataMessage));
 
             // Check the amount.
             long amountMicronyzos = -1L;
@@ -145,7 +151,7 @@ public class TransactionSendCommand implements Command {
             NyzoStringPrivateSeed signerSeed = (NyzoStringPrivateSeed) NyzoStringEncoder.decode(argumentValues.get(0));
             NyzoStringPublicIdentifier receiverIdentifier =
                     (NyzoStringPublicIdentifier) NyzoStringEncoder.decode(argumentValues.get(1));
-            byte[] senderData = argumentValues.get(2).getBytes(StandardCharsets.UTF_8);
+            byte[] senderData = ClientArgumentUtil.getSenderData(argumentValues.get(2));
             long amount = (long) (Double.parseDouble(argumentValues.get(3)) * Transaction.micronyzoMultiplierRatio);
 
             // Send the transaction to the cycle.
