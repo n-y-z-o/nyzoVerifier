@@ -1,7 +1,8 @@
-package co.nyzo.verifier.nyzoScript;
+package co.nyzo.verifier.nyzoScript.scripts;
 
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.json.*;
+import co.nyzo.verifier.nyzoScript.*;
 import co.nyzo.verifier.util.*;
 
 import java.io.File;

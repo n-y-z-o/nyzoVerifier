@@ -156,4 +156,23 @@ public class ByteUtil {
 
         return isAllZeros;
     }
+
+    public static byte[] ensureLength(byte[] array, int length) {
+
+        // This method is very similar to Arrays.copyOf(). It behaves differently in two notable ways:
+        // - it passes through the original array, avoiding a copy, if the length is already correct
+        // - it performs a null check on the input array, which avoids an exception when the input array is null
+
+        byte[] result;
+        if (array != null && array.length == length) {
+            result = array;
+        } else {
+            result = new byte[length];
+            if (array != null) {
+                System.arraycopy(array, 0, result, 0, Math.min(array.length, length));
+            }
+        }
+
+        return result;
+    }
 }

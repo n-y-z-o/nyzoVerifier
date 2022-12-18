@@ -2,6 +2,7 @@ package co.nyzo.verifier.nyzoScript;
 
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.client.commands.TransactionForwardCommand;
+import co.nyzo.verifier.nyzoScript.scripts.*;
 import co.nyzo.verifier.nyzoString.*;
 import co.nyzo.verifier.util.*;
 
@@ -72,8 +73,12 @@ public class NyzoScriptManager {
         // Ensure the state directory exists.
         directory.mkdirs();
 
-        String identifierString = "id__8d63gfXfh3p9e._56sgEu_QPsWe54syae0PkELUw~VJDqvn-WALL";
-        registerScript((NyzoStringPublicIdentifier) NyzoStringEncoder.decode(identifierString), new GraffitiScript());
+        String[] identifierStrings = { "id__8d63gfXfh3p9e._56sgEu_QPsWe54syae0PkELUw~VJDqvn-WALL",
+                "id__8ezA79npaBzn430Y1fset6L5bZHcXhuVsYc0_1mEd8uatj3-NAMe" };
+        NyzoScript[] scripts = { new GraffitiScript(), new NicknameScript() };
+        for (int i = 0; i < identifierStrings.length; i++) {
+            registerScript((NyzoStringPublicIdentifier) NyzoStringEncoder.decode(identifierStrings[i]), scripts[i]);
+        }
     }
 
     public static NyzoScript scriptForAccount(ByteBuffer account) {
