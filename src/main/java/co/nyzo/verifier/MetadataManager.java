@@ -1,5 +1,6 @@
 package co.nyzo.verifier;
 
+import co.nyzo.verifier.nyzoString.*;
 import co.nyzo.verifier.util.LogUtil;
 import co.nyzo.verifier.util.PreferencesUtil;
 import co.nyzo.verifier.util.PrintUtil;
@@ -9,8 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class MetadataManager {
 
@@ -18,8 +17,9 @@ public class MetadataManager {
     private static final String addMetadataTransactionsKey = "verifier_add_metadata_transactions";
     private static final boolean addMetadataTransactions = PreferencesUtil.getBoolean(addMetadataTransactionsKey, true);
 
-    private static final String nicknameMetadataKey = "nickname";
     private static final String topNewVerifierMetadataKey = "top-new-verifier";
+    private static final NyzoStringPublicIdentifier nicknameScriptAccount = (NyzoStringPublicIdentifier)
+            NyzoStringEncoder.decode("id__8ezA79npaBzn430Y1fset6L5bZHcXhuVsYc0_1mEd8uatj3-NAMe");
 
     public static List<Transaction> metadataTransactions(Block previousBlock) {
 
@@ -54,17 +54,18 @@ public class MetadataManager {
         // This entire method is in a try/catch to ensure that unexpected issues processing metadata transactions do
         // not become vulnerabilities.
         try {
-            // Get all metadata transactions placed in the block by the block verifier.
+            // Get all transactions containing recognizable metadata.
             for (Transaction transaction : block.getTransactions()) {
                 if (ByteUtil.arraysAreEqual(block.getVerifierIdentifier(), transaction.getSenderIdentifier())) {
                     MetadataItem metadataItem = MetadataItem.fromTransaction(transaction);
                     if (metadataItem != null) {
-                        if (metadataItem.getKey().equals(nicknameMetadataKey)) {
-                            processNicknameTransaction(transaction);
-                        } else if (metadataItem.getKey().equals(topNewVerifierMetadataKey)) {
+                        if (metadataItem.getKey().equals(topNewVerifierMetadataKey)) {
                             processTopNewVerifierTransaction(transaction);
                         }
                     }
+                } else if (ByteUtil.arraysAreEqual(nicknameScriptAccount.getIdentifier(),
+                        transaction.getReceiverIdentifier())) {
+                    processNicknameTransaction(transaction);
                 }
             }
         } catch (Exception e) {
@@ -76,23 +77,24 @@ public class MetadataManager {
 
         Transaction transaction = null;
 
-        // Check the local nickname and the nickname stored on the blockchain. If the local nickname is valid and
-        // the local nickname differs from the on-chain nickname, create a metadata transaction for the nickname.
-        String localNickname = NicknameManager.getLocalNickname();
+        // Check the local nickname and the nickname stored on the blockchain. If the local nickname is not the default
+        // and the local nickname differs from the on-chain nickname, create a transaction for the nickname. The null
+        // check and empty check are not necessary due to checks in the Verifier class, but this is a reasonable
+        // redundancy to avoid sending nonsense nickname transactions.
+        String localNickname = Verifier.getNickname();
         String onChainNickname = NicknameManager.getOnChainNickname();
-        if (localNickname != null && !localNickname.isEmpty() && !localNickname.equals(onChainNickname)) {
-            // Timestamp the metadata for the beginning of this block. The length check relative to identifier field
-            // size is semantically correct due to the use of the receiver identifier field for storage.
+        if (localNickname != null && !localNickname.isEmpty() && !localNickname.equals(onChainNickname) &&
+                !localNickname.equals(Verifier.getDefaultNickname())) {
+            // Timestamp the transaction for the beginning of the block.
             long timestamp = previousBlock.getStartTimestamp() + Block.blockDuration;
             byte[] nicknameBytes = localNickname.getBytes(StandardCharsets.UTF_8);
             if (nicknameBytes.length > FieldByteSize.identifier) {
                 nicknameBytes = Arrays.copyOf(nicknameBytes, FieldByteSize.identifier);
             }
 
-            // Make the metadata item and use it to generate the transaction.
-            MetadataItem item = new MetadataItem(timestamp, nicknameMetadataKey, Verifier.getIdentifier(), null,
-                    nicknameBytes);
-            transaction = item.generateTransaction(previousBlock);
+            // Generate the nickname transaction.
+            transaction = Transaction.standardTransaction(timestamp, 1L, nicknameScriptAccount.getBytes(),
+                    previousBlock.getBlockHeight(), previousBlock.getHash(), nicknameBytes, Verifier.getPrivateSeed());
         }
 
         return transaction;
@@ -100,9 +102,8 @@ public class MetadataManager {
 
     private static void processNicknameTransaction(Transaction transaction) {
 
-        // Build the nickname from the receiver identifier. Trimming the string removes trailing null characters due to
-        // zero padding.
-        String nickname = new String(transaction.getReceiverIdentifier()).trim();
+        // Build the nickname from the sender data.
+        String nickname = new String(transaction.getSenderData()).trim();
         if (!nickname.isEmpty()) {
             // Store the nickname in the manager map.
             NicknameManager.put(transaction.getSenderIdentifier(), nickname);

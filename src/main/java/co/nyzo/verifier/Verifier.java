@@ -142,7 +142,7 @@ public class Verifier {
 
             // Load the private seed. This seed is used to sign all messages, so this is done first.
             loadPrivateSeed();
-            LogUtil.println("setting temporary local verifier entry on " + Verifier.getNickname());
+            LogUtil.println("setting temporary local verifier entry on " + getNickname());
             NodeManager.addTemporaryLocalVerifierEntry();
 
             // Start the mesh listener and wait for it to start and for the port to settle.
@@ -298,8 +298,7 @@ public class Verifier {
                             NodeJoinResponse response = (NodeJoinResponse) message.getContent();
                             if (response != null) {
 
-                                NicknameManager.put(message.getSourceNodeIdentifier(),
-                                        response.getNickname());
+                                NicknameManager.put(message.getSourceNodeIdentifier(), response.getNickname());
 
                                 if (!ByteUtil.isAllZeros(response.getNewVerifierVote().getIdentifier())) {
                                     NewVerifierVoteManager.registerVote(message.getSourceNodeIdentifier(),
@@ -769,22 +768,21 @@ public class Verifier {
         nickname = nickname.trim();
 
         if (nickname.isEmpty()) {
-            nickname = PrintUtil.compactPrintByteArray(getIdentifier());
+            nickname = getDefaultNickname();
         }
         NicknameManager.put(getIdentifier(), nickname);
-
-        // Also set the local nickname with the nickname manager. This is a special value, separate from the lookup
-        // table, that represents the nickname stored in the local nickname file.
-        NicknameManager.setLocalNickname(nickname);
     }
 
     public static String getNickname() {
-
         if (nickname == null) {
             loadNickname();
         }
 
         return nickname;
+    }
+
+    public static String getDefaultNickname() {
+        return PrintUtil.compactPrintByteArray(getIdentifier());
     }
 
     public static String getBlockCreationInformation() {

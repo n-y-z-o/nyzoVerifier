@@ -16,9 +16,8 @@ public class NicknameManager {
         System.out.println("NicknameManager.mapLimitingThreshold=" + mapLimitingThreshold);
     }
 
-    // The local nickname and the on-chain metadata nickname are stored separately to allow for efficient determination
-    // of whether a metadata transaction needs to be added to update the on-chain nickname.
-    private static String localNickname = null;
+    // The on-chain nickname of this verifier is stored separately to allow for efficient determination of whether a
+    // transaction needs to be added to update the on-chain nickname.
     private static String onChainNickname = null;
 
     private static final int maximumNicknameLength = 32;
@@ -53,14 +52,6 @@ public class NicknameManager {
         }
 
         return nickname;
-    }
-
-    public static String getLocalNickname() {
-        return localNickname;
-    }
-
-    public static void setLocalNickname(String localNickname) {
-        NicknameManager.localNickname = localNickname;
     }
 
     public static String getOnChainNickname() {
