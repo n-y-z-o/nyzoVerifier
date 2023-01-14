@@ -130,7 +130,7 @@ public class NyzoStringEncoder {
 
     public static byte[] byteArrayForEncodedString(String encodedString) {
 
-        int arrayLength = (encodedString.length() * 6 + 7) / 8;
+        int arrayLength = encodedString.length() * 6 / 8;
         byte[] array = new byte[arrayLength];
         for (int i = 0; i < arrayLength; i++) {
 
