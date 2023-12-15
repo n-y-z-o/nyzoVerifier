@@ -65,11 +65,14 @@ public class PreferencesUtil {
 
         boolean result = defaultValue;
         try {
-            String preference = preferences.get(key.toLowerCase());
-            if (preference != null && preference.equals("1")) {
-                result = true;
-            } else if (preference != null && preference.equals("0")) {
-                result = false;
+            String preference = preferences.get(key.toLowerCase().trim());
+
+            if(preference != null){
+                if (preference.equals("1") || preference.equals("true")) {
+                    result = true;
+                } else if (preference.equals("0") || preference.equals("false")) {
+                    result = false;
+                }
             }
         } catch (Exception ignored) { }
 
