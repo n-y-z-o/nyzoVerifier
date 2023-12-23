@@ -68,6 +68,8 @@ public class PreferencesUtil {
             String preference = preferences.get(key.toLowerCase().trim());
 
             if(preference != null){
+                preference = preference.trim();
+
                 if (preference.equals("1") || preference.equals("true")) {
                     result = true;
                 } else if (preference.equals("0") || preference.equals("false")) {
