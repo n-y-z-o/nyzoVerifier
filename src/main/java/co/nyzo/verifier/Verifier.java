@@ -211,7 +211,7 @@ public class Verifier {
             NodeManager.sendNodeJoinRequests(-1);
             NodeManager.updateActiveVerifiersAndRemoveOldNodes();
             int meshRequestIndex = 0;
-            while (NodeManager.getNumberOfActiveCycleIdentifiers() < BlockManager.currentCycleLength() * 3 / 4) {
+            while (NodeManager.getNumberOfActiveCycleIdentifiers() < BlockManager.currentCycleLength() * 0.51) {
                 System.out.println(String.format("entering supplemental connection process because only %d in-cycle " +
                         "connections have been made for a cycle size of %d (%.1f%%)",
                         NodeManager.getNumberOfActiveCycleIdentifiers(), BlockManager.currentCycleLength(),
