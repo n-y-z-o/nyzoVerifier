@@ -1,10 +1,21 @@
+plugins {
+    id 'java'
+}
+
 group 'co.nyzo'
 version '1.0'
 
-apply plugin: 'java'
-
 repositories {
     mavenCentral()
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }
 
 compileJava {
@@ -12,17 +23,19 @@ compileJava {
 }
 
 dependencies {
-    compile('net.i2p.crypto:eddsa:0.2.0')
+    implementation 'net.i2p.crypto:eddsa:0.2.0'
 }
 
 jar {
-    baseName = 'nyzoVerifier'
-    version = '1.0'
+    archiveBaseName = 'nyzoVerifier'
+    archiveVersion = '1.0'
     manifest {
-        attributes 'Main-Class': 'co.nyzo.verifier.Verifier'
+        attributes(
+            'Main-Class': 'co.nyzo.verifier.Verifier'
+        )
     }
 
     from {
-        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+        configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
 }
