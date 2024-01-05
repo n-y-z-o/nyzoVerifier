@@ -266,7 +266,7 @@ public class JsonTest implements NyzoTest {
                         "clientVersion" };
                 String[] expectedValues = { block.getBlockHeight() + "",
                         ByteUtil.arrayAsStringWithDashes(block.getHash()), block.getVerificationTimestamp() + "",
-                        (block.getBlockHeight() * -1L - 1L) + "", Version.getVersion() + "" };
+                        (block.getBlockHeight() * -1L - 1L) + "", Version.getVersion()  + "." + Version.getSubVersion() + "" };
                 for (int i = 0; i < keys.length && successful; i++) {
                     Object actualValue = ((JsonObject) resultObject).get(keys[i]);
                     if (!expectedValues[i].equals(actualValue)) {

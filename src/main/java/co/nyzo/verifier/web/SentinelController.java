@@ -44,7 +44,7 @@ public class SentinelController {
         content.add(header());
         content.add(verifierTable());
         content.add(incorrectVerifierNotices());
-        content.add(new P("Nyzo sentinel, version " + Version.getVersion()).attr("style", "font-style: italic;"));
+        content.add(new P("Nyzo sentinel, version " + Version.getVersion() + "." + Version.getSubVersion()).attr("style", "font-style: italic;"));
         return content;
     }
 

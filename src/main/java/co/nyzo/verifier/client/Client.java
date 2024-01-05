@@ -12,7 +12,6 @@ import co.nyzo.verifier.web.WebListener;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.*;
-import java.util.List;
 
 public class Client {
 
@@ -22,7 +21,7 @@ public class Client {
         BlockManager.initialize();
 
         CommandOutput output = new CommandOutputConsole();
-        ConsoleUtil.printTable(output, "Nyzo client, version " + Version.getVersion());
+        ConsoleUtil.printTable(output, "Nyzo client, version " + Version.getVersion() + "." + Version.getSubVersion());
 
         // Get any ambiguous command strings from the command manager.
         Set<String> ambiguousCommandStrings = CommandManager.ambiguousCommandStrings();

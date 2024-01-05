@@ -205,12 +205,15 @@ public class Verifier {
 
             ChainInitializationManager.initializeFrozenEdge(trustedEntryPoints);
 
-            // In order to process efficiently, we need to be well-connected to the cycle. If there are slow-downs that
-            // have prevented connection to this point, they should be addressed before entering the main verifier loop.
-            // We set 75% of the current cycle as a threshold, as it is the minimum required for automatic consensus.
+            // v In order to process efficiently, we need to be well-connected to the cycle. If there are slow-downs that have prevented connection to this point, they should be addressed before entering the main verifier loop.
             NodeManager.sendNodeJoinRequests(-1);
             NodeManager.updateActiveVerifiersAndRemoveOldNodes();
             int meshRequestIndex = 0;
+
+            // ^ cont.
+            // v We set 75% of the current cycle as a threshold, as it is the minimum required for automatic consensus.
+            // ^ The threshold is set temporarily to 51% of the current cycle, + 1 (to ensure a majority in the event of a small cycle size) due to current connectivity issues due to "malignant" node operators.
+            // This does not imply proper automatic consensus but allows for existing cycle nodes to sync and produce and/or vote for blocks to be produced.
             while (NodeManager.getNumberOfActiveCycleIdentifiers() < ((BlockManager.currentCycleLength() * 0.51) + 1)) {
                 System.out.println(String.format("entering supplemental connection process because only %d in-cycle " +
                         "connections have been made for a cycle size of %d (%.1f%%)",
@@ -228,9 +231,7 @@ public class Verifier {
                     ThreadUtil.sleep(200L);
                 }
 
-                // Clear the node-join request queue. Then, sleep one second to allow more requests to return, and wait
-                // until the message queue has cleared. Finally, before the loop condition is checked again, update the
-                // active verifiers to reflect any that have been added since the last iteration.
+                // Clear the node-join request queue. Then, sleep one second to allow more requests to return, and wait until the message queue has cleared. Finally, before the loop condition is checked again, update the active verifiers to reflect any that have been added since the last iteration.
                 NodeManager.sendNodeJoinRequests(-1);
                 ThreadUtil.sleep(1000L);
                 MessageQueue.blockThisThreadUntilClear();

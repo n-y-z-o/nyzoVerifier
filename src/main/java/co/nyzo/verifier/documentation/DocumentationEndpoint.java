@@ -462,7 +462,7 @@ public class DocumentationEndpoint implements EndpointResponseProvider {
         // If this it the root, add the version number.
         if (path.equals("/")) {
             body.add(new Hr().attr("style", "margin-top: 2rem;"));
-            body.add(new P("Nyzo documentation server, version " + Version.getVersion()).attr("style",
+            body.add(new P("Nyzo documentation server, version " + Version.getVersion()  + "." + Version.getSubVersion()).attr("style",
                     "font-style: italic;"));
         }
 

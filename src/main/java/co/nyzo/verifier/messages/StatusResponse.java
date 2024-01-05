@@ -3,7 +3,6 @@ package co.nyzo.verifier.messages;
 import co.nyzo.verifier.*;
 import co.nyzo.verifier.util.PrintUtil;
 import co.nyzo.verifier.util.TestnetUtil;
-import co.nyzo.verifier.MemoryMonitor;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -27,7 +26,7 @@ public class StatusResponse implements MessageObject {
         if (TestnetUtil.testnet) {
             lines.add("*** IN TESTNET MODE ***");
         }
-        lines.add("version: " + Version.getVersion());
+        lines.add("version: " + Version.getVersion() + "." + Version.getSubVersion());
         lines.add("ID: " + PrintUtil.compactPrintByteArray(Verifier.getIdentifier()));
         lines.add("mesh: " + NodeManager.getNumberOfNodesInMap() + " total, " +
                 NodeManager.getNumberOfActiveCycleIdentifiers() + " in cycle");

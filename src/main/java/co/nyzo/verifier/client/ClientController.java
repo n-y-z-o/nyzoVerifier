@@ -105,7 +105,7 @@ public class ClientController {
 
         // Add the footer.
         body.add(new Hr().attr("style", "margin-top: 2rem;"));
-        body.add(new P("Nyzo client, version " + Version.getVersion()).attr("style", "font-style: italic;")
+        body.add(new P("Nyzo client, version " + Version.getVersion() + "." + Version.getSubVersion()).attr("style", "font-style: italic;")
                 .attr("id", "client-version"));
 
         long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();

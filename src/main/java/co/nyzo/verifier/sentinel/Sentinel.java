@@ -766,7 +766,7 @@ public class Sentinel {
                         byte[] receiverIdentifier = new byte[FieldByteSize.identifier];
                         long previousHashHeight = previousBlock.getBlockHeight();
                         byte[] previousBlockHash = previousBlock.getHash();
-                        String dataString = "block from sentinel v" + Version.getVersion();
+                        String dataString = "block from sentinel v" + Version.getVersion() + "." + Version.getSubVersion();
                         byte[] senderData = dataString.getBytes(StandardCharsets.UTF_8);
                         Transaction sentinelTransaction = Transaction.standardTransaction(timestamp, amount,
                                 receiverIdentifier, previousHashHeight, previousBlockHash, senderData,
