@@ -364,14 +364,32 @@ public class UnfrozenBlockManager {
         byte[] leadingHash = BlockVoteManager.leadingHashForHeight(heightToFreeze, voteCountWrapper);
         int voteCount = voteCountWrapper.get();
 
-        // If the vote count is greater than 75% of the voting pool, freeze the block. Previously, there was a delay
-        // and a second check here, but it will no longer have any effect due to the new flip-vote mechanism.
-        int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSizeForGenesisCycleVoting() :
-                BlockManager.currentCycleLength();
+        // Calculate the default vote-count threshold. When voting is taking a long time, a threshold as low as 50% is acceptable. Each 60 seconds that pass since the leading block was verified reduces the number of needed votes by 1.
+        int votingPoolSize = BlockManager.inGenesisCycle() ? NodeManager.getMeshSizeForGenesisCycleVoting() : BlockManager.currentCycleLength();
+        int defaultVoteCountThreshold = votingPoolSize * (3 / 4);
+
+        if(!BlockManager.inGenesisCycle()){
+            Block block = unfrozenBlockAtHeight(heightToFreeze, leadingHash);
+
+            if(block == null){
+                LogUtil.println("Could not determine unfrozen block at height " + heightToFreeze);
+            } else {
+                long timeSinceVerification = System.currentTimeMillis() - block.getVerificationTimestamp();
+                int timeBasedVoteReduction = (int)(Math.min(timeSinceVerification / 60000L, BlockManager.currentCycleLength() / 4));
+                defaultVoteCountThreshold -= timeBasedVoteReduction;
+
+                // This is an extra check to ensure, and clearly show in code, that the voting threshold past the Genesis cycle is never less than half the cycle.
+                defaultVoteCountThreshold = Math.max((BlockManager.currentCycleLength() + 1) / 2, defaultVoteCountThreshold);
+            }
+        }
+
+        // If the vote count is greater than the threshold, freeze the block. Previously there was a delay ad a second check here, but it will no longer have any effect due to the new vote-flip mechanism.
         int voteCountThreshold = thresholdOverrides.containsKey(heightToFreeze) ?
                 votingPoolSize * thresholdOverrides.get(heightToFreeze) / 100 :
-                votingPoolSize * 3 / 4;
+                defaultVoteCountThreshold;
+
         boolean frozeBlock = false;
+
         if (voteCount > voteCountThreshold) {
 
             Block block = unfrozenBlockAtHeight(heightToFreeze, leadingHash);

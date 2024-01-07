@@ -16,7 +16,7 @@ public class VerifierRemovalVote implements MessageObject {
 
     // This message needs to allow more than one vote to avoid situations where multiple verifiers need to be removed
     // but neither is removed due to inconsistencies in which is perceived as worse.
-    public static final int maximumNumberOfVotes = 20;
+    public static final int maximumNumberOfVotes = 1000;
 
     private List<byte[]> identifiers;
 

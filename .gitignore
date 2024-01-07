@@ -18,3 +18,4 @@
 classes/
 libs/
 tmp/
+.vscode/settings.json

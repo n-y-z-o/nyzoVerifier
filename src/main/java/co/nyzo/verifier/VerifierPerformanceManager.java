@@ -63,7 +63,14 @@ public class VerifierPerformanceManager {
             // blockchain reach consensus.
             for (ByteBuffer verifierIdentifier : votes.keySet()) {
                 BlockVote vote = votes.get(verifierIdentifier);
+
                 if (ByteUtil.arraysAreEqual(vote.getHash(), block.getHash())) {
+
+                    // Due to the current network state (frozen edge 23530693 - 500,000 blocks edge gap), a verifier is now only considered eligible for a score decrement when an in-cycle verifier is active.
+                    if(!NodeManager.inCycleVerifierIsActive(verifierIdentifier)){
+                        continue;
+                    }
+
                     verifierScoreMap.merge(verifierIdentifier, perVoteDecrement, mergeFunction);
                 }
             }

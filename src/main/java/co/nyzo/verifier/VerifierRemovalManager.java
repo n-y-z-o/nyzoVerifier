@@ -65,10 +65,24 @@ public class VerifierRemovalManager {
         return voteCounts;
     }
 
-    public static boolean shouldPenalizeVerifier(byte[] identifier) {
-
+    public static boolean shouldPenalizeVerifier(byte[] identifier) 
+    {
         int cycleLength = BlockManager.currentCycleLength();
-        return BlockManager.getLastVerifierRemovalHeight() < BlockManager.getFrozenEdgeHeight() - cycleLength &&
-                voteCounts.getOrDefault(ByteBuffer.wrap(identifier), 0) > cycleLength / 2;
+        long lastVerifierRemovalHeight = BlockManager.getLastVerifierRemovalHeight();
+        long openEdgeHeight = BlockManager.openEdgeHeight(false);
+        long frozenEdgeHeight = BlockManager.getFrozenEdgeHeight();
+        int minMaxBlocksPerDay = 12342;
+
+        return (
+            (
+            // The last verifier removal height indicates all in-cycle nodes have produced a block once since the last verifier removal
+            (lastVerifierRemovalHeight < frozenEdgeHeight - cycleLength) 
+            // Or, the open edge height is higher than the frozen edge height + the minimum maximum amount of possible block productions per day (when each block is produced at a 7s interval).
+            || (openEdgeHeight > frozenEdgeHeight + minMaxBlocksPerDay)
+            ) 
+            // And the vote count is higher than the Math.max() of the cycleLength / 2. Math.max() is omitted since any amount of the resulting double (when the cycleLength is uneven) renders it a maximum higher than the int produced by the voteCounts get.
+            && voteCounts.getOrDefault(ByteBuffer.wrap(identifier), 0) > cycleLength / 2
+        )
+        ;
     }
 }
